@@ -245,13 +245,7 @@ if (EXISTS "${KERNEL_DIR}/Module.symvers")
   )
 endif ()
 
-# A custom target rather than a custom command with OUTPUT: custom targets are
-# always out of date, so this runs on every build and lets kbuild decide what is
-# stale. This is needed because headers are not in the dependency list: CMake
-# would otherwise skip the whole command when only a header changed, leaving a
-# stale .ko. Delegating to kbuild is exact and cheap: kbuild's own dependency
-# tracking (fixdep/.cmd files) covers all transitively included headers, kernel
-# and DR alike, and recompiles only the objects whose headers actually changed.
+# Always invoke kbuild so its dependency tracking catches header changes.
 add_custom_target(dynamorio_module ALL
   # TODO i#8021: Turn off KBUILD_MODPOST_WARN and remove stubs.c generation once all
   # kernel symbols are fully implemented.
@@ -266,11 +260,7 @@ add_custom_target(dynamorio_module ALL
   # the build stops here, producing a module with unresolved symbols that cannot be
   # loaded. See comments for extra_module_build_commands above.
   ${extra_module_build_commands}
-  # Ordering-only dependencies: this target always runs, so staleness is decided
-  # by kbuild (see comment above), not by this list. These entries ensure the
-  # generated inputs of Phase 1 (x86.S, Kbuild, event_strings.h) are fresh before
-  # kbuild reads them, including under --parallel. Adding/removing module sources
-  # flows through the generated Kbuild file, not this list.
+  # Ensure generated inputs are ready before kbuild runs.
   DEPENDS
     ${x86_gen_s}
     ${dynamorio_module_kbuildfile}
