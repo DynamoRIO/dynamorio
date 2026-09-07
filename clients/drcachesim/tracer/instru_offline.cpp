@@ -1017,6 +1017,24 @@ offline_instru_t::opnd_check_elidable(void *drcontext, instrlist_t *ilist, instr
 }
 
 bool
+offline_instru_t::does_reg_write_thwart_elision(instr_t *instr, reg_id_t reg)
+{
+#ifdef X86
+    // We track push and pop updates so they do not stop elision.
+    // XXX i#4913: Generalize to any immediate add/sub, incl aarchxx
+    // pre-and-post indexing.
+    if (reg == DR_REG_XSP &&
+        (instr_get_opcode(instr) == OP_push || instr_get_opcode(instr) == OP_push_imm ||
+         (instr_get_opcode(instr) == OP_pop &&
+          // The pop-into location *does* thwart: so "pop rsp".
+          opnd_get_reg(instr_get_dst(instr, 0)) != DR_REG_XSP))) {
+        return false;
+    }
+#endif
+    return true;
+}
+
+bool
 offline_instru_t::label_marks_elidable(instr_t *instr, DR_PARAM_OUT int *opnd_index,
                                        DR_PARAM_OUT int *memopnd_index,
                                        DR_PARAM_OUT bool *is_write,
@@ -1098,7 +1116,8 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
             // does not specify the ordering of multiple dests.
             auto reg_it = saw_base.begin();
             while (reg_it != saw_base.end()) {
-                if (instr_writes_to_reg(instr, *reg_it, DR_QUERY_INCLUDE_COND_DSTS))
+                if (instr_writes_to_reg(instr, *reg_it, DR_QUERY_INCLUDE_COND_DSTS) &&
+                    does_reg_write_thwart_elision(instr, *reg_it))
                     reg_it = saw_base.erase(reg_it);
                 else
                     ++reg_it;
@@ -1122,7 +1141,8 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
         // instructions.
         auto reg_it = saw_base.begin();
         while (reg_it != saw_base.end()) {
-            if (instr_writes_to_reg(instr, *reg_it, DR_QUERY_INCLUDE_COND_DSTS))
+            if (instr_writes_to_reg(instr, *reg_it, DR_QUERY_INCLUDE_COND_DSTS) &&
+                does_reg_write_thwart_elision(instr, *reg_it))
                 reg_it = saw_base.erase(reg_it);
             else
                 ++reg_it;

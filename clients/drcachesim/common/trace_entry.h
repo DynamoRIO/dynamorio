@@ -1145,7 +1145,9 @@ typedef enum {
 #define OFFLINE_FILE_VERSION_XFER_ABS_PC \
     7 /**< Use the absolute PC for kernel interruption PC for 64-bit mode.*/
 #define OFFLINE_FILE_VERSION_NO_OP 8 /**< There are no changes in this version.*/
-#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_NO_OP
+/** x86 push and pop bases are elided. */
+#define OFFLINE_FILE_VERSION_ELIDE_X86_PUSH 9
+#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_ELIDE_X86_PUSH
 
 /**
  * Bitfields used to describe the high-level characteristics of both an

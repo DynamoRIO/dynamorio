@@ -1477,13 +1477,39 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
         return true;
     }
 
+    int stack_disp = 0;
     for (instr_t *inst = instrlist_first(ilist); inst != nullptr;
          inst = instr_get_next(inst)) {
+        if (version >= OFFLINE_FILE_VERSION_ELIDE_X86_PUSH) {
+#ifdef X86
+            // We track only push and pop for now; we won't elide on other stack
+            // pointer changes.
+            // Since the instr summary updates occur on the elision label *before*
+            // the actual instr, our stack_disp updates here will *not* include the
+            // current instr.
+            // XXX i#4913: Generalize to any immediate add/sub, incl aarchxx
+            // pre-and-post indexing.
+            if (instr_get_opcode(inst) == OP_push ||
+                instr_get_opcode(inst) == OP_push_imm) {
+                stack_disp -= opnd_size_in_bytes(opnd_get_size(instr_get_dst(inst, 1)));
+            }
+            if (instr_get_opcode(inst) == OP_pop) {
+                stack_disp += opnd_size_in_bytes(opnd_get_size(instr_get_src(inst, 1)));
+            }
+            if (instr_writes_to_reg(inst, DR_REG_XSP, DR_QUERY_INCLUDE_COND_DSTS) &&
+                tdata->instru_offline.does_reg_write_thwart_elision(inst, DR_REG_XSP)) {
+                // Clear if we were eliding and hit a break in the elision chain.
+                stack_disp = 0;
+                log(5, "Clearing stack_disp @ " PFX "\n", instr_get_app_pc(inst));
+            }
+#endif
+        }
         int index, memop_index;
         bool write, needs_base;
         if (!tdata->instru_offline.label_marks_elidable(inst, &index, &memop_index,
-                                                        &write, &needs_base))
+                                                        &write, &needs_base)) {
             continue;
+        }
         // There could be multiple labels for one instr (e.g., "push (%rsp)".
         instr_t *meminst = instr_get_next(inst);
         while (meminst != nullptr && instr_is_label(meminst))
@@ -1493,12 +1519,13 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
         int index_in_bb =
             static_cast<int>(reinterpret_cast<ptr_int_t>(instr_get_note(meminst)));
         app_pc orig_pc = modmap_().get_orig_pc_from_map_pc(pc, modidx, modoffs);
-        log(5, "Marking < " PFX ", " PFX "> %s #%d to use remembered base\n", start_pc,
-            pc, write ? "write" : "read", memop_index);
+        log(5,
+            "Marking < " PFX ", " PFX "> %s #%d to use remembered base stack_disp=%d\n",
+            start_pc, pc, write ? "write" : "read", memop_index, stack_disp);
         if (!set_instr_summary_flags(tdata, modidx, modoffs, start_pc, instr_count,
                                      index_in_bb, pc, orig_pc, write, memop_index,
                                      true /*use_remembered*/,
-                                     false /*don't change "remember"*/)) {
+                                     false /*don't change "remember"*/, stack_disp)) {
             tdata->error = "Failed to set flags for elided base address";
             return false;
         }
@@ -1563,7 +1590,8 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
             if (!set_instr_summary_flags(
                     tdata, modidx, modoffs, start_pc, instr_count, index_prev, pc_prev,
                     orig_pc_prev, remember_write, remember_index,
-                    false /*don't change "use_remembered"*/, true /*remember*/)) {
+                    false /*don't change "use_remembered" or "stack_disp"*/,
+                    true /*remember*/)) {
                 tdata->error = "Failed to set flags for elided base address";
                 return false;
             }
@@ -2549,6 +2577,11 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
         tdata->instru_offline.opnd_disp_is_elidable(memref.opnd)) {
         // We stored only the base reg, as an optimization.
         buf->addr += opnd_get_disp(memref.opnd);
+        log(5, "Added disp %d\n", opnd_get_disp(memref.opnd));
+        if (opnd_get_base(memref.opnd) == DR_REG_XSP) {
+            buf->addr += memref.stack_disp;
+            log(5, "Added stack_disp %d\n", memref.stack_disp);
+        }
     }
     log(4, "Appended memref type %s (%d) size %d to " PFX "\n",
         trace_type_names[buf->type], buf->type, buf->size, (ptr_uint_t)buf->addr);
@@ -2990,7 +3023,7 @@ raw2trace_t::set_instr_summary_flags(raw2trace_thread_data_t *tdata, uint64 modi
                                      uint64 modoffs, app_pc block_start, int instr_count,
                                      int index, app_pc pc, app_pc orig, bool write,
                                      int memop_index, bool use_remembered_base,
-                                     bool remember_base)
+                                     bool remember_base, int stack_disp)
 {
     block_summary_t *block;
     instr_summary_t *desc =
@@ -3002,10 +3035,13 @@ raw2trace_t::set_instr_summary_flags(raw2trace_thread_data_t *tdata, uint64 modi
     }
     if (desc == nullptr)
         return false;
-    if (write)
-        desc->set_mem_dest_flags(memop_index, use_remembered_base, remember_base);
-    else
-        desc->set_mem_src_flags(memop_index, use_remembered_base, remember_base);
+    if (write) {
+        desc->set_mem_dest_flags(memop_index, use_remembered_base, remember_base,
+                                 stack_disp);
+    } else {
+        desc->set_mem_src_flags(memop_index, use_remembered_base, remember_base,
+                                stack_disp);
+    }
     return true;
 }
 
