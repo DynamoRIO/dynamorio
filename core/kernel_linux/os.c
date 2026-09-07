@@ -141,6 +141,12 @@ os_write(file_t f, const void *buf, size_t count)
     return count;
 }
 
+void
+os_flush(file_t f)
+{
+    /* This is a no-op as there is no DR-side buffering for printk output. */
+}
+
 uint
 query_time_seconds(void)
 {
