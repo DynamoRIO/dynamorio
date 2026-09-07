@@ -200,12 +200,6 @@ clear_icache(void *beg, void *end)
     /* Data Synchronization Barrier */
     __asm__ __volatile__("dsb ish" : : : "memory");
 
-    /*TODO i#7585: The selfmod tests currently rely on seeing ic ivau instructions to
-     *            detect modified pages. Remove this line when we have fixed the
-     *            hw_cache_consistency bugs and enabled by default.
-     */
-    d_to_i_coherent = false;
-
     if (!d_to_i_coherent) {
         /* Invalidate instruction cache to point of unification, one line at a time. */
         addr = ALIGN_BACKWARD(beg_uint, icache_line_size);

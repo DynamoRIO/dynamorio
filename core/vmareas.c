@@ -10974,8 +10974,12 @@ handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc, app_pc instr
      * flushing outside the requested region (entire vm_area_t). If we could tell
      * we could return NULL instead (which is a special flag that says redo the
      * write instead of going to d_r_dispatch) if f wasn't flushed.
-     * XXX - Redoing the write would be more efficient then going back to
-     * d_r_dispatch and should be the common case. */
+     * XXX - Redoing the write would be more efficient than going back to
+     * d_r_dispatch and should be the common case.
+     * Note that check_for_modified_code() in unix/signal.c assumes that this function
+     * returns instr_app_pc even if f wasn't flushed. If we implement this optimisation
+     * check_for_modified_code() will need to be reworked.
+     */
     flush_fragments_in_region_finish(dcontext, false /*don't keep initexit_lock*/);
     if (DYNAMO_OPTION(opt_jit) && !TESTANY(MEMPROT_WRITE, prot) &&
         is_jit_managed_area(flush_start))
