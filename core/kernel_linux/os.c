@@ -39,6 +39,13 @@
 #include "globals.h"
 #include "kernel_interface.h"
 
+/* Kernel code has no standard streams of its own. These synthetic handles use
+ * conventional descriptor numbers for compatibility with shared DR code.
+ */
+DR_API file_t our_stdin = 0;
+DR_API file_t our_stdout = 1;
+DR_API file_t our_stderr = 2;
+
 app_pc vsyscall_syscall_end_pc = NULL;
 app_pc vsyscall_sysenter_return_pc = NULL;
 
@@ -101,6 +108,37 @@ void
 os_wait_thread_terminated(dcontext_t *dcontext)
 {
     ASSERT_NOT_PORTED(false);
+}
+
+/* Only supports text as it's backed by printk.
+ * Long messages are chunked and each chunk becomes a separate printk record,
+ * so they may gain line breaks when displayed and interleave with other output.
+ */
+ssize_t
+os_write(file_t f, const void *buf, size_t count)
+{
+    if (f != STDOUT && f != STDERR) {
+        return -1;
+    }
+    if (buf == NULL && count != 0) {
+        return -1;
+    }
+
+    /* Each printk record reservation is capped at 1024 bytes (PRINTKRB_RECORD_MAX).
+     * Leave headroom for a possible text prefix and the terminating NUL.
+     */
+    const size_t chunk_size = 900;
+    const char *cursor = (const char *)buf;
+    size_t remaining = count;
+
+    while (remaining > 0) {
+        int chunk = MIN(remaining, chunk_size);
+        kernel_printk("%.*s", chunk, cursor);
+        cursor += chunk;
+        remaining -= chunk;
+    }
+
+    return count;
 }
 
 uint
