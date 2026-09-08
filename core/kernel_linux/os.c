@@ -110,6 +110,18 @@ os_wait_thread_terminated(dcontext_t *dcontext)
     ASSERT_NOT_PORTED(false);
 }
 
+char *
+get_application_name(void)
+{
+    return "Linux kernel";
+}
+
+DYNAMORIO_EXPORT const char *
+get_application_short_name(void)
+{
+    return get_application_name();
+}
+
 /* Only supports text as it's backed by printk.
  * Long messages are chunked and each chunk becomes a separate printk record,
  * so they may gain line breaks when displayed and interleave with other output.
