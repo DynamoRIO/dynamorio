@@ -51,6 +51,9 @@ kernel_find_symbol(const char *name, size_t *size);
 int
 kernel_get_cpu_id(void);
 
+size_t
+kernel_get_page_size(void);
+
 unsigned int
 kernel_query_time_seconds(void);
 

@@ -39,6 +39,7 @@
 
 #include "kernel_interface.h"
 
+#include <asm/page.h>
 #include <linux/kprobes.h>
 #include <linux/ktime.h>
 #include <linux/printk.h>
@@ -205,6 +206,12 @@ int
 kernel_get_cpu_id(void)
 {
     return smp_processor_id();
+}
+
+size_t
+kernel_get_page_size(void)
+{
+    return PAGE_SIZE;
 }
 
 unsigned int

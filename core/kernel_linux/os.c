@@ -181,3 +181,9 @@ query_time_seconds(void)
      */
     return kernel_query_time_seconds() + UTC_TO_EPOCH_SECONDS;
 }
+
+size_t
+os_page_size(void)
+{
+    return kernel_get_page_size();
+}
