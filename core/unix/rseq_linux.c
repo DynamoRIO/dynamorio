@@ -660,10 +660,10 @@ try_struct_rseq(void *try_addr)
     /* Originally the rseq_len parameter was supposed to be 32, but on more recent
      * kernels, it may be extended up to getauxval(AT_RSEQ_FEATURE_SIZE).
      * Since we do not want to depend on glibc's getauxval, we hardcode a max
-     * value based on what was observed.
+     * value based on what was observed and some extra for future-proofing.
      * See https://lwn.net/Articles/1033957/ for more details.
      */
-    for (size = 32; size <= 33 && res == -EINVAL; size++) {
+    for (size = 32; size <= 40 && res == -EINVAL; size++) {
         res = dynamorio_syscall(SYS_rseq, 4, try_addr, size, RSEQ_FLAG_UNREGISTER,
                                 RSEQ_RARE_SIGNATURE);
         LOG(GLOBAL, LOG_LOADER, 3, "Tried rseq @ " PFX " => %d\n", try_addr, res);
