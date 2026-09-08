@@ -122,6 +122,18 @@ get_application_short_name(void)
     return get_application_name();
 }
 
+file_t
+os_open(const char *fname, int os_open_flags)
+{
+    return INVALID_FILE;
+}
+
+void
+os_close(file_t f)
+{
+    /* No-op in kernel mode. */
+}
+
 /* Only supports text as it's backed by printk.
  * Long messages are chunked and each chunk becomes a separate printk record,
  * so they may gain line breaks when displayed and interleave with other output.
