@@ -664,8 +664,8 @@ try_struct_rseq(void *try_addr)
      * See https://lwn.net/Articles/1033957/ for more details.
      */
     for (size = 32; size <= 33 && res == -EINVAL; size++) {
-        res = dynamorio_syscall(SYS_rseq, 4, try_addr, size,
-                                RSEQ_FLAG_UNREGISTER, RSEQ_RARE_SIGNATURE);
+        res = dynamorio_syscall(SYS_rseq, 4, try_addr, size, RSEQ_FLAG_UNREGISTER,
+                                RSEQ_RARE_SIGNATURE);
         LOG(GLOBAL, LOG_LOADER, 3, "Tried rseq @ " PFX " => %d\n", try_addr, res);
     }
     if (res == -EINVAL) /* Our struct != registered struct. */
@@ -674,8 +674,7 @@ try_struct_rseq(void *try_addr)
      * actually used 42 for its signature we'll have to re-register it.
      */
     if (res == 0) {
-        res = dynamorio_syscall(SYS_rseq, 4, try_addr, size, 0,
-                                RSEQ_RARE_SIGNATURE);
+        res = dynamorio_syscall(SYS_rseq, 4, try_addr, size, 0, RSEQ_RARE_SIGNATURE);
         ASSERT(res == 0);
         res = -EPERM;
     }
