@@ -77,7 +77,7 @@ os_get_app_tls_reg_offset(reg_id_t reg)
 }
 
 thread_id_t
-get_thread_id(void)
+d_r_get_thread_id(void)
 {
     /* kernel_get_cpu_id is reentrant and fast
      * (it just reads gs:[&per_cpu_var(cpu_number)])
@@ -88,7 +88,7 @@ get_thread_id(void)
 thread_id_t
 get_tls_thread_id(void)
 {
-    return get_thread_id();
+    return d_r_get_thread_id();
 }
 
 thread_id_t
