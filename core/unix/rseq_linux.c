@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2019-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2026 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -655,17 +655,27 @@ static bool
 try_struct_rseq(void *try_addr)
 {
     static const int RSEQ_RARE_SIGNATURE = 42;
-    int res = dynamorio_syscall(SYS_rseq, 4, try_addr, sizeof(struct rseq),
+    int res = -EINVAL;
+    int size;
+    /* Originally the rseq_len parameter was supposed to be 32, but on more recent
+     * kernels, it may be extended up to getauxval(AT_RSEQ_FEATURE_SIZE).
+     * Since we do not want to depend on glibc's getauxval, we hardcode a max
+     * value based on what was observed.
+     * See https://lwn.net/Articles/1033957/ for more details.
+     */
+    for (size = 32; size <= 33 && res == -EINVAL; size++) {
+        res = dynamorio_syscall(SYS_rseq, 4, try_addr, size,
                                 RSEQ_FLAG_UNREGISTER, RSEQ_RARE_SIGNATURE);
-    LOG(GLOBAL, LOG_LOADER, 3, "Tried rseq @ " PFX " => %d\n", try_addr, res);
+        LOG(GLOBAL, LOG_LOADER, 3, "Tried rseq @ " PFX " => %d\n", try_addr, res);
+    }
     if (res == -EINVAL) /* Our struct != registered struct. */
         return false;
     /* We expect -EPERM on a signature mismatch.  On the small chance the app
      * actually used 42 for its signature we'll have to re-register it.
      */
     if (res == 0) {
-        int res = dynamorio_syscall(SYS_rseq, 4, try_addr, sizeof(struct rseq), 0,
-                                    RSEQ_RARE_SIGNATURE);
+        res = dynamorio_syscall(SYS_rseq, 4, try_addr, size, 0,
+                                RSEQ_RARE_SIGNATURE);
         ASSERT(res == 0);
         res = -EPERM;
     }
