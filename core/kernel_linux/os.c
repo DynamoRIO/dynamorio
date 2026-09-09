@@ -49,8 +49,6 @@ DR_API file_t our_stderr = 2;
 app_pc vsyscall_syscall_end_pc = NULL;
 app_pc vsyscall_sysenter_return_pc = NULL;
 
-static bool os_initialized = false;
-
 #define ASSERT_NOT_PORTED(x) assert_not_ported(__FILE__, __LINE__, __func__)
 
 static void
@@ -103,7 +101,6 @@ dcontext_t *
 get_thread_private_dcontext(void)
 {
     /* TODO i#8021: Return per-CPU dcontext after CPU takeover. */
-    ASSERT(!os_initialized);
     return NULL;
 }
 
