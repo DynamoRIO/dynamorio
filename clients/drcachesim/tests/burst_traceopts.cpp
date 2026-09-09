@@ -437,7 +437,7 @@ GLOBAL_LABEL(FUNCNAME:)
         // Test eliding with multiple pushes and pops in one block.
         push     REG_XCX
         mov      REG_XCX, REG_XAX
-        push     QWORD [REG_XSP]
+        push     PTRSZ [REG_XSP]
         push     REG_XSP
         add      REG_XAX, REG_XCX
         pop      REG_XBP
