@@ -99,6 +99,14 @@ get_sys_thread_id(void)
     return kernel_get_cpu_id();
 }
 
+dcontext_t *
+get_thread_private_dcontext(void)
+{
+    /* TODO i#8021: Return per-CPU dcontext after CPU takeover. */
+    ASSERT(!os_initialized);
+    return NULL;
+}
+
 bool
 is_thread_terminated(dcontext_t *dcontext)
 {
@@ -308,14 +316,6 @@ os_check_option_compatibility(void)
 #undef FORCE_OPTION_VALUE
 
     return changed_options;
-}
-
-dcontext_t *
-get_thread_private_dcontext(void)
-{
-    /* TODO i#8021: Return per-CPU dcontext after CPU takeover. */
-    ASSERT(!os_initialized);
-    return NULL;
 }
 
 char *
