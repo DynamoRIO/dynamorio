@@ -30,65 +30,14 @@
  * DAMAGE.
  */
 
-/* The kernel's print helpers (pr_info(), pr_err(), etc.) expand pr_fmt(): this must be
- * defined at the top before the #include block to have the module name prepended to
- * every message. Since this is a kernel macro, not a DR one, it has to be lower-case.
+#ifndef _DR_INTERFACE_H_
+#define _DR_INTERFACE_H_
+
+/* Interface exposed by DynamoRIO core to the kernel module entry and lifecycle
+ * management code (dynamorio_module_main.c).
  */
-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
-#include <linux/module.h>
-#include <linux/preempt.h>
+void
+dynamorio_app_init_part_one_options(void);
 
-#include "configure.h"
-#include "dr_interface.h"
-#include "globals_shared.h"
-#include "kernel_interface.h"
-
-MODULE_LICENSE("Dual BSD/GPL");
-MODULE_DESCRIPTION("DynamoRIO dynamic instrumentation engine");
-MODULE_AUTHOR("DynamoRIO developers");
-
-static ulong dr_heap_size = 257 * 1024 * 1024;
-module_param(dr_heap_size, ulong, 0444);
-MODULE_PARM_DESC(dr_heap_size, "DynamoRIO module heap size in bytes (read-only)");
-
-static char options[KERNEL_ENV_VALUE_MAX];
-module_param_string(options, options, sizeof(options), 0444);
-MODULE_PARM_DESC(
-    options,
-    "DynamoRIO runtime options string (read-only), e.g., \"-loglevel 2 -log_to_stderr\"");
-
-static int __init
-dynamorio_module_init(void)
-{
-    int ret = kernel_module_init(dr_heap_size);
-    if (ret != 0) {
-        return ret;
-    }
-
-    ret = kernel_setenv(DYNAMORIO_VAR_OPTIONS, options);
-    if (ret != 0) {
-        goto fail;
-    }
-
-    preempt_disable();
-    dynamorio_app_init_part_one_options();
-    preempt_enable();
-
-    pr_info("Module started\n");
-    return 0;
-
-fail:
-    kernel_module_exit();
-    return ret;
-}
-
-static void __exit
-dynamorio_module_exit(void)
-{
-    kernel_module_exit();
-    pr_info("Module exited\n");
-}
-
-module_init(dynamorio_module_init);
-module_exit(dynamorio_module_exit);
+#endif /* _DR_INTERFACE_H_ */
