@@ -312,3 +312,9 @@ get_thread_private_dcontext(void)
     ASSERT(!os_initialized);
     return NULL;
 }
+
+char *
+our_getenv(const char *name)
+{
+    return (char *)kernel_getenv(name);
+}
