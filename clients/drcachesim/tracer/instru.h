@@ -504,7 +504,7 @@ public:
     opnd_is_elidable(opnd_t memop, DR_PARAM_OUT reg_id_t &base, int version);
 
     bool
-    does_reg_write_thwart_elision(instr_t *instr, reg_id_t reg);
+    does_reg_write_thwart_elision(int version, instr_t *instr, reg_id_t reg);
 
     // Inserts labels marking elidable addresses. label_marks_elidable() identifies them.
     // "version" is an OFFLINE_FILE_VERSION* constant.

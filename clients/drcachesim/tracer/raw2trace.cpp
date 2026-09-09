@@ -1497,7 +1497,8 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
                 stack_disp += opnd_size_in_bytes(opnd_get_size(instr_get_src(inst, 1)));
             }
             if (instr_writes_to_reg(inst, DR_REG_XSP, DR_QUERY_INCLUDE_COND_DSTS) &&
-                tdata->instru_offline.does_reg_write_thwart_elision(inst, DR_REG_XSP)) {
+                tdata->instru_offline.does_reg_write_thwart_elision(version, inst,
+                                                                    DR_REG_XSP)) {
                 // Clear if we were eliding and hit a break in the elision chain.
                 stack_disp = 0;
                 log(5, "Clearing stack_disp @ " PFX "\n", instr_get_app_pc(inst));
