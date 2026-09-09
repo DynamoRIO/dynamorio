@@ -1255,6 +1255,12 @@ private:
     could_entry_be_address(offline_entry_t entry);
 
     bool
+    append_scatter_gather(raw2trace_thread_data_t *tdata, const instr_summary_t *instr,
+                          DR_PARAM_INOUT trace_entry_t **buf_in,
+                          std::unordered_map<reg_id_t, addr_t> &reg_vals,
+                          bool expect_all_memrefs, DR_PARAM_OUT int &consumed_memrefs);
+
+    bool
     append_memref(raw2trace_thread_data_t *tdata, DR_PARAM_INOUT trace_entry_t **buf_in,
                   const instr_summary_t *instr, instr_summary_t::memref_summary_t memref,
                   bool write, std::unordered_map<reg_id_t, addr_t> &reg_vals,
