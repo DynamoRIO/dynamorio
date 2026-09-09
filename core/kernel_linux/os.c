@@ -274,3 +274,11 @@ get_num_processors(void)
     }
     return num_online_processors;
 }
+
+uint
+os_random_seed(void)
+{
+    uint64 cycles;
+    RDTSC_LL(cycles);
+    return (uint)cycles;
+}
