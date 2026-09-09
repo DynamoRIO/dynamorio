@@ -110,10 +110,10 @@ sys_icache_invalidate(void *, size_t);
 #    endif
 
 #    ifndef DR_HOST_NOT_TARGET
-void static inline get_cache_info(DR_PARAM_OUT size_t *dcache_line_size,
-                                  DR_PARAM_OUT size_t *icache_line_size,
-                                  DR_PARAM_OUT bool *d_to_i_coherent,
-                                  DR_PARAM_OUT bool *i_to_d_coherent)
+static inline void
+get_cache_info(DR_PARAM_OUT size_t *dcache_line_size,
+               DR_PARAM_OUT size_t *icache_line_size, DR_PARAM_OUT bool *d_to_i_coherent,
+               DR_PARAM_OUT bool *i_to_d_coherent)
 {
     static uint64 cache_info = 0;
 
