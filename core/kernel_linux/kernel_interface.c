@@ -44,6 +44,7 @@
 #include <linux/kprobes.h>
 #include <linux/ktime.h>
 #include <linux/printk.h>
+#include <linux/preempt.h>
 #include <linux/smp.h>
 #include <linux/stdarg.h>
 #include <linux/string.h>
@@ -206,6 +207,7 @@ kernel_allocate_heap(size_t size)
 int
 kernel_get_cpu_id(void)
 {
+    KERNEL_ASSERT(!preemptible());
     return smp_processor_id();
 }
 

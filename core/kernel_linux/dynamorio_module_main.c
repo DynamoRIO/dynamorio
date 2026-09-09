@@ -37,6 +37,7 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/module.h>
+#include <linux/preempt.h>
 
 #include "configure.h"
 #include "globals_shared.h"
@@ -72,7 +73,9 @@ dynamorio_module_init(void)
         goto fail;
     }
 
+    preempt_disable();
     dynamorio_app_init_part_one_options();
+    preempt_enable();
 
     pr_info("Module started\n");
     return 0;
