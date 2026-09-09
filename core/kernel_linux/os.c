@@ -110,6 +110,20 @@ os_wait_thread_terminated(dcontext_t *dcontext)
     ASSERT_NOT_PORTED(false);
 }
 
+#define KERNEL_PROCESS_ID 0
+
+process_id_t
+get_process_id(void)
+{
+    return KERNEL_PROCESS_ID;
+}
+
+char *
+get_application_pid(void)
+{
+    return STRINGIFY(KERNEL_PROCESS_ID);
+}
+
 char *
 get_application_name(void)
 {
@@ -120,6 +134,12 @@ DYNAMORIO_EXPORT const char *
 get_application_short_name(void)
 {
     return get_application_name();
+}
+
+void
+os_file_init(void)
+{
+    /* No-op in kernel mode: there are no process fds to steal or limits to adjust. */
 }
 
 file_t
@@ -171,6 +191,24 @@ os_flush(file_t f)
     /* This is a no-op as there is no DR-side buffering for printk output. */
 }
 
+size_t
+os_page_size(void)
+{
+    return kernel_get_page_size();
+}
+
+static int num_online_processors = 0;
+
+int
+get_num_processors(void)
+{
+    /* Assume that this is called at init time, so synchronization isn't necessary. */
+    if (num_online_processors == 0) {
+        num_online_processors = kernel_get_online_processor_count();
+    }
+    return num_online_processors;
+}
+
 uint
 query_time_seconds(void)
 {
@@ -182,10 +220,12 @@ query_time_seconds(void)
     return kernel_query_time_seconds() + UTC_TO_EPOCH_SECONDS;
 }
 
-size_t
-os_page_size(void)
+uint
+os_random_seed(void)
 {
-    return kernel_get_page_size();
+    uint64 cycles;
+    RDTSC_LL(cycles);
+    return (uint)cycles;
 }
 
 bool
@@ -261,38 +301,4 @@ os_check_option_compatibility(void)
 #undef FORCE_OPTION_VALUE
 
     return changed_options;
-}
-
-static int num_online_processors = 0;
-
-int
-get_num_processors(void)
-{
-    /* Assume that this is called at init time, so synchronization isn't necessary. */
-    if (num_online_processors == 0) {
-        num_online_processors = kernel_get_online_processor_count();
-    }
-    return num_online_processors;
-}
-
-uint
-os_random_seed(void)
-{
-    uint64 cycles;
-    RDTSC_LL(cycles);
-    return (uint)cycles;
-}
-
-void
-os_file_init(void)
-{
-    /* No-op in kernel mode: there are no process fds to steal or limits to adjust. */
-}
-
-#define KERNEL_PROCESS_ID 0
-
-process_id_t
-get_process_id(void)
-{
-    return KERNEL_PROCESS_ID;
 }
