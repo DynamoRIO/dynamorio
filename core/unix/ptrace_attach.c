@@ -688,6 +688,7 @@ os_unmask_suspend_signal_via_ptrace(thread_id_t skip_tid)
     /* Initialise data structures to store original (pre-unmask) signal masks
      * for each thread.
      */
+    ASSERT(pre_unmask_sigmask_records == NULL);
     pre_unmask_sigmask_records = state->sigmask_records;
     num_pre_unmask_sigmask_records = state->num_sigmask_records;
     pre_unmask_sigmask_records_size = state->sigmask_records_size;
