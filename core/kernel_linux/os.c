@@ -288,3 +288,11 @@ os_file_init(void)
 {
     /* No-op in kernel mode: there are no process fds to steal or limits to adjust. */
 }
+
+#define KERNEL_PROCESS_ID 0
+
+process_id_t
+get_process_id(void)
+{
+    return KERNEL_PROCESS_ID;
+}
