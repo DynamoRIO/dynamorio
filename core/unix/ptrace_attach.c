@@ -73,6 +73,12 @@ typedef struct _ptrace_thread_events_t {
     event_t done;
 } ptrace_thread_events_t;
 
+/* Stores the original per-thread signal mask before SUSPEND_SIGNAL cleared. */
+typedef struct _ptrace_sigmask_record_t {
+    thread_id_t tid;
+    kernel_sigset_t sigmask;
+} ptrace_sigmask_record_t;
+
 typedef struct _ptrace_unmask_state_t {
     ptrace_thread_events_t events;
     process_id_t target_pid;
@@ -80,6 +86,9 @@ typedef struct _ptrace_unmask_state_t {
     thread_id_t tracer_tid;
     int suspend_sig;
     bool success;
+    ptrace_sigmask_record_t *sigmask_records;
+    uint num_sigmask_records;
+    size_t sigmask_records_size;
 } ptrace_unmask_state_t;
 
 typedef struct _ptrace_takeover_param_t {
@@ -98,12 +107,47 @@ typedef struct _ptrace_takeover_state_t {
     bool success;
 } ptrace_takeover_state_t;
 
+/* The ptrace helper makes this table accessible to threads being taken over.
+ * It must only be read, enabling multiple threads to concurrently search it
+ * without a lock.
+ */
+static ptrace_sigmask_record_t *pre_unmask_sigmask_records;
+static uint num_pre_unmask_sigmask_records;
+static size_t pre_unmask_sigmask_records_size;
+
 static void
 destroy_events(ptrace_thread_events_t *events)
 {
     destroy_event(events->ready);
     destroy_event(events->go);
     destroy_event(events->done);
+}
+
+bool
+ptrace_get_pre_unmask_sigmask(thread_id_t tid, kernel_sigset_t *sigmask)
+{
+    ASSERT(sigmask != NULL);
+    ASSERT(pre_unmask_sigmask_records != NULL || num_pre_unmask_sigmask_records == 0);
+    for (uint i = 0; i < num_pre_unmask_sigmask_records; i++) {
+        if (pre_unmask_sigmask_records[i].tid == tid) {
+            *sigmask = pre_unmask_sigmask_records[i].sigmask;
+            return true;
+        }
+    }
+    return false;
+}
+
+void
+os_clear_pre_unmask_sigmasks(void)
+{
+    if (pre_unmask_sigmask_records != NULL) {
+        ASSERT(pre_unmask_sigmask_records_size > 0);
+        global_heap_free(pre_unmask_sigmask_records,
+                         pre_unmask_sigmask_records_size HEAPACCT(ACCT_THREAD_MGT));
+    }
+    pre_unmask_sigmask_records = NULL;
+    num_pre_unmask_sigmask_records = 0;
+    pre_unmask_sigmask_records_size = 0;
 }
 
 /* Determine whether a given thread is blocked inside one of the signal waiting
@@ -195,16 +239,37 @@ ptrace_unmask_all_threads(void *param)
 
     tids = os_list_threads_by_pid(dcontext, state->target_pid, &num_threads);
     if (tids != NULL) {
+        if (num_threads > 0) {
+            state->sigmask_records_size = num_threads * sizeof(*state->sigmask_records);
+            state->sigmask_records = (ptrace_sigmask_record_t *)global_heap_alloc(
+                state->sigmask_records_size HEAPACCT(ACCT_THREAD_MGT));
+            if (state->sigmask_records == NULL) {
+                state->sigmask_records_size = 0;
+                state->success = false;
+                HEAP_ARRAY_FREE(dcontext, tids, thread_id_t, num_threads, ACCT_THREAD_MGT,
+                                PROTECTED);
+                signal_event(state->events.done);
+                return;
+            }
+        }
         for (uint i = 0; i < num_threads; i++) {
             thread_id_t tid = tids[i];
+            kernel_sigset_t original_mask;
             if (tid == state->skip_tid)
                 continue;
             if (!ptrace_attach_and_stop(tid, NULL))
                 continue;
 
             any_tids_attempted = true;
-            if (!ptrace_unmask_signal(tid, state->suspend_sig))
+            if (!ptrace_unmask_signal(tid, state->suspend_sig, &original_mask)) {
                 any_tids_failed = true;
+            } else if (kernel_sigismember(&original_mask, state->suspend_sig)) {
+                ASSERT(state->num_sigmask_records < num_threads);
+                ptrace_sigmask_record_t *record =
+                    &state->sigmask_records[state->num_sigmask_records++];
+                record->tid = tid;
+                record->sigmask = original_mask;
+            }
 
             ptrace_detach(tid);
         }
@@ -572,13 +637,17 @@ os_ptrace_takeover_threads(dcontext_t *dcontext, thread_id_t *tids, uint count)
 /* This function creates a thread, ptrace_unmask_all_threads, which uses
  * /proc/<pid>/task to list threads by PID, attaching and stopping each thread
  * with ptrace. PTRACE_{GETSIGMASK,SETSIGMASK} are used to clear SUSPEND_SIGNAL
- * from each thread's blocked mask before detaching with ptrace.
+ * from each thread's blocked mask before detaching with ptrace. Each thread's
+ * original mask will be saved for restoration after attach.
  */
 bool
 os_unmask_suspend_signal_via_ptrace(thread_id_t skip_tid)
 {
     ptrace_unmask_state_t *state;
     bool ok = false;
+
+    /* Discard saved sigmask records left by any earlier attach. */
+    os_clear_pre_unmask_sigmasks();
 
     state = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, ptrace_unmask_state_t, ACCT_THREAD_MGT,
                             PROTECTED);
@@ -615,6 +684,16 @@ os_unmask_suspend_signal_via_ptrace(thread_id_t skip_tid)
     signal_event(state->events.go);
     wait_for_event(state->events.done, 0);
     ok = state->success;
+
+    /* Initialise data structures to store original (pre-unmask) signal masks
+     * for each thread.
+     */
+    pre_unmask_sigmask_records = state->sigmask_records;
+    num_pre_unmask_sigmask_records = state->num_sigmask_records;
+    pre_unmask_sigmask_records_size = state->sigmask_records_size;
+    state->sigmask_records = NULL;
+    state->num_sigmask_records = 0;
+    state->sigmask_records_size = 0;
 
     destroy_events(&state->events);
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, state, ptrace_unmask_state_t, ACCT_THREAD_MGT,
