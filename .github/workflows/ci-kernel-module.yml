@@ -61,7 +61,7 @@ jobs:
 
       - name: Build DynamoRIO Kernel Module against running kernel
         run: |
-          cmake -B build -DBUILD_KERNEL_MODULE=ON
+          cmake -B build -DBUILD_KERNEL_MODULE=ON -DDEBUG=ON
           cmake --build build --parallel $(nproc) --target dynamorio_module
 
       - name: Load module and check dmesg for init/exit success
@@ -73,8 +73,9 @@ jobs:
           sudo dmesg -C
 
           echo "Loading $MODULE"
-          sudo insmod "$MODULE"
+          sudo insmod "$MODULE" options="-loglevel 2"
           sudo dmesg | grep -F "dynamorio_module: Module started"
+          sudo dmesg | grep -F "DYNAMORIO_OPTIONS: -loglevel 2"
 
           echo "Removing dynamorio_module"
           sudo rmmod dynamorio_module
