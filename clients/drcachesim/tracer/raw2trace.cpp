@@ -2027,7 +2027,6 @@ raw2trace_t::append_scatter_gather(raw2trace_thread_data_t *tdata,
                                    bool expect_all_memrefs,
                                    DR_PARAM_OUT int &consumed_memrefs)
 {
-    trace_entry_t *buf = *buf_in;
     // The instr should either load or store, but not both. Also,
     // it should have a single src or dest operand.
     DR_ASSERT(instr->num_mem_srcs() + instr->num_mem_dests() == 1);
@@ -2105,6 +2104,7 @@ raw2trace_t::append_scatter_gather(raw2trace_thread_data_t *tdata,
     --memref_count; // The final append_memref did not find one.
     DR_ASSERT(!add_skipped_markers || memref_count <= element_count);
     sg_buf_cur = sg_buf.get();
+    trace_entry_t *buf = *buf_in;
     int element_index = 0;
     for (int memref_index = 0; memref_index < memref_count ||
          (add_skipped_markers && element_index < element_count);
