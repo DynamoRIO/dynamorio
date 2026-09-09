@@ -187,3 +187,78 @@ os_page_size(void)
 {
     return kernel_get_page_size();
 }
+
+bool
+os_check_option_compatibility(void)
+{
+#define FORCE_OPTION_VALUE(opt, value)       \
+    do {                                     \
+        if (DYNAMO_OPTION(opt) != (value)) { \
+            dynamo_options.opt = (value);    \
+            changed_options = true;          \
+        }                                    \
+    } while (0)
+    bool changed_options = false;
+
+#ifdef X64
+    /* Kernel and module virtual addresses are above 4 GB, so the user-space
+     * heap_in_lower_4GB placement constraint cannot be satisfied.
+     */
+    FORCE_OPTION_VALUE(heap_in_lower_4GB, false);
+#endif
+
+    /* Reserve all DR-managed virtual memory before takeover. Falling back to
+     * the kernel allocator afterward could re-enter instrumented allocation paths.
+     */
+    FORCE_OPTION_VALUE(switch_to_os_at_vmm_reset_limit, false);
+    FORCE_OPTION_VALUE(vm_reserve, true);
+
+    /* SMP takeover requires CPUs to initialize and enter DR concurrently; the
+     * global single-thread-in-DR mode would serialize them.
+     */
+    FORCE_OPTION_VALUE(single_thread_in_DR, false);
+
+    /* The kernel interrupt path only supports CPU-private fragments. Shared-fragment
+     * unlinking and state-reconstruction races have not been addressed.
+     */
+    FORCE_OPTION_VALUE(shared_bbs, false);
+
+    /* Coarse units require shared BBs and would otherwise re-enable them during
+     * recursive compatibility checking.
+     */
+    FORCE_OPTION_VALUE(coarse_units, false);
+
+    /* Shared traces have the same unsupported interrupt-handling races. */
+    FORCE_OPTION_VALUE(shared_traces, false);
+
+    /* Do not request a shared trace IBL routine. On x86-64, the unconditional
+     * shared-gencode path currently overrides this option and must be addressed as
+     * part of takeover support.
+     */
+    FORCE_OPTION_VALUE(shared_trace_ibl_routine, false);
+
+    /* Full state reconstruction from a PC in a separate direct-exit stub remains
+     * unsupported, so keep exit stubs with their owning fragments.
+     */
+    FORCE_OPTION_VALUE(separate_private_stubs, false);
+    FORCE_OPTION_VALUE(separate_shared_stubs, false);
+
+    /* Independent stub freeing requires separate stubs; shared-stub freeing also
+     * lacks the required linking atomicity.
+     */
+    FORCE_OPTION_VALUE(free_private_stubs, false);
+    FORCE_OPTION_VALUE(unsafe_free_shared_stubs, false);
+
+    /* Asynchronous interrupts require exact reconstruction of application EFLAGS.
+     * The unsafe flag-preservation elisions are unsupported in the kernel.
+     */
+    FORCE_OPTION_VALUE(unsafe_ignore_overflow, false);
+    FORCE_OPTION_VALUE(unsafe_ignore_eflags, false);
+    FORCE_OPTION_VALUE(unsafe_ignore_eflags_trace, false);
+    FORCE_OPTION_VALUE(unsafe_ignore_eflags_prefix, false);
+    FORCE_OPTION_VALUE(unsafe_ignore_eflags_ibl, false);
+
+#undef FORCE_OPTION_VALUE
+
+    return changed_options;
+}
