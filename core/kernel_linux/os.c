@@ -245,6 +245,7 @@ os_check_option_compatibility(void)
             changed_options = true;          \
         }                                    \
     } while (0)
+
     bool changed_options = false;
 
 #ifdef X64
