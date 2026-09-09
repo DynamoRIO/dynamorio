@@ -282,3 +282,9 @@ os_random_seed(void)
     RDTSC_LL(cycles);
     return (uint)cycles;
 }
+
+void
+os_file_init(void)
+{
+    /* No-op in kernel mode: there are no process fds to steal or limits to adjust. */
+}
