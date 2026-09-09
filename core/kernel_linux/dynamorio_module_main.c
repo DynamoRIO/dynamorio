@@ -56,7 +56,8 @@ MODULE_PARM_DESC(
     options,
     "DynamoRIO runtime options string (read-only), e.g., \"-loglevel 2 -log_to_stderr\"");
 
-void dynamorio_app_init_part_one_options(void);
+void
+dynamorio_app_init_part_one_options(void);
 
 static int __init
 dynamorio_module_init(void)
