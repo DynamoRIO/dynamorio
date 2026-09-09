@@ -63,8 +63,8 @@ kernel_query_time_seconds(void);
 __attribute__((format(gnu_printf, 1, 2))) void
 kernel_printk(const char *fmt, ...);
 
-#define KERNEL_ENV_NAME_MAX 50
-#define KERNEL_ENV_VALUE_MAX 512
+#define KERNEL_ENV_NAME_MAX 64
+#define KERNEL_ENV_VALUE_MAX 2048
 
 /* Sets the environment variable |name| to |value|, overwriting the value of any existing
  * entry with the same name. Returns 0 on success, -EINVAL for a NULL/empty name, a name
