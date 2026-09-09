@@ -249,6 +249,11 @@ os_check_option_compatibility(void)
     FORCE_OPTION_VALUE(heap_in_lower_4GB, false);
 #endif
 
+    /* Currently the kernel module has no filesystem logging support.
+     * Only logging to printk is supported.
+     */
+    FORCE_OPTION_VALUE(log_to_stderr, true);
+
     /* Reserve all DR-managed virtual memory before takeover. Falling back to
      * the kernel allocator afterward could re-enter instrumented allocation paths.
      */
