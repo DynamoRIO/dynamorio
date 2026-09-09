@@ -40,6 +40,7 @@
 #include "kernel_interface.h"
 
 #include <asm/page.h>
+#include <linux/cpumask.h>
 #include <linux/kprobes.h>
 #include <linux/ktime.h>
 #include <linux/printk.h>
@@ -206,6 +207,12 @@ int
 kernel_get_cpu_id(void)
 {
     return smp_processor_id();
+}
+
+int
+kernel_get_online_processor_count(void)
+{
+    return num_online_cpus();
 }
 
 size_t

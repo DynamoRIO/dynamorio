@@ -51,6 +51,9 @@ kernel_find_symbol(const char *name, size_t *size);
 int
 kernel_get_cpu_id(void);
 
+int
+kernel_get_online_processor_count(void);
+
 size_t
 kernel_get_page_size(void);
 

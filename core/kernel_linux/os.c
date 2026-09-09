@@ -262,3 +262,15 @@ os_check_option_compatibility(void)
 
     return changed_options;
 }
+
+static int num_online_processors = 0;
+
+int
+get_num_processors(void)
+{
+    /* Assume that this is called at init time, so synchronization isn't necessary. */
+    if (num_online_processors == 0) {
+        num_online_processors = kernel_get_online_processor_count();
+    }
+    return num_online_processors;
+}
