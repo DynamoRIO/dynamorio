@@ -267,6 +267,17 @@ make_memref(uint64_t addr)
 }
 
 offline_entry_t
+make_meminfo(int type, int size)
+{
+    offline_entry_t entry;
+    entry.extended.type = OFFLINE_TYPE_EXTENDED;
+    entry.extended.ext = OFFLINE_EXT_TYPE_MEMINFO;
+    entry.extended.valueB = type;
+    entry.extended.valueA = size;
+    return entry;
+}
+
+offline_entry_t
 make_timestamp(uint64_t value = 0)
 {
     static int timecount;
@@ -4876,21 +4887,37 @@ test_stack_elision(void *drcontext)
         size_t offs_pop3 = offs_pop2 + instr_length(drcontext, pop2);
 
         std::vector<offline_entry_t> raw;
-        raw.push_back(make_header(OFFLINE_FILE_VERSION, OFFLINE_FILE_TYPE_DFILTERED));
+        raw.push_back(
+            make_header(OFFLINE_FILE_VERSION,
+                        OFFLINE_FILE_TYPE_IFILTERED | OFFLINE_FILE_TYPE_DFILTERED));
         raw.push_back(make_tid());
         raw.push_back(make_pid());
         raw.push_back(make_line_size());
         constexpr uint64_t TIME_VALUE = 0x0013000000000000;
         raw.push_back(make_timestamp(TIME_VALUE));
         raw.push_back(make_core());
-        raw.push_back(make_block(offs_push1, 6));
         constexpr uint64_t BASE_ADDR = 0x1200;
         // This is a filtered trace: make sure raw2trace doesn't expect elision.
+        raw.push_back(make_block(offs_push1, 1));
+        raw.push_back(make_block(offs_push1, 0));
+        raw.push_back(make_meminfo(TRACE_TYPE_WRITE, sizeof(void *)));
         raw.push_back(make_memref(BASE_ADDR));
+        raw.push_back(make_block(offs_push2, 1));
+        raw.push_back(make_block(offs_push2, 0));
+        raw.push_back(make_meminfo(TRACE_TYPE_WRITE, sizeof(void *)));
         raw.push_back(make_memref(BASE_ADDR - 8));
+        // Fetch for push3 is filtered out.
+        raw.push_back(make_block(offs_push3, 0));
+        raw.push_back(make_meminfo(TRACE_TYPE_WRITE, sizeof(void *)));
         raw.push_back(make_memref(BASE_ADDR - 16));
+        raw.push_back(make_block(offs_pop1, 1));
+        raw.push_back(make_block(offs_pop1, 0));
+        raw.push_back(make_meminfo(TRACE_TYPE_READ, sizeof(void *)));
         raw.push_back(make_memref(BASE_ADDR - 24));
-        // This one is filtered out.
+        // pop2 is filtered out completely.
+        raw.push_back(make_block(offs_pop3, 1));
+        raw.push_back(make_block(offs_pop3, 0));
+        raw.push_back(make_meminfo(TRACE_TYPE_READ, sizeof(void *)));
         raw.push_back(make_memref(BASE_ADDR - 8));
         raw.push_back(make_timestamp(TIME_VALUE));
         raw.push_back(make_core());
@@ -4916,22 +4943,24 @@ test_stack_elision(void *drcontext)
             check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
             check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
             check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_push1) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR, 0, offs_push1) &&
             // A push subtracts from rsp first, so -8.
             check_entry(entries, idx, TRACE_TYPE_WRITE, -1, BASE_ADDR - 8) &&
             check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
             check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_push2) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR, 0, offs_push2) &&
             check_entry(entries, idx, TRACE_TYPE_WRITE, -1, BASE_ADDR - 16) &&
-            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-            check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_push3) &&
+            // Fetch for push3 is filtered out.
+            check_entry(entries, idx, TRACE_TYPE_INSTR, 0, offs_push3) &&
             check_entry(entries, idx, TRACE_TYPE_WRITE, -1, BASE_ADDR - 24) &&
             check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
             check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_pop1) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR, 0, offs_pop1) &&
             check_entry(entries, idx, TRACE_TYPE_READ, -1, BASE_ADDR - 24) &&
-            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-            check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_pop2) &&
             // Filtered out.
             check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
             check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_pop3) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR, 0, offs_pop3) &&
             check_entry(entries, idx, TRACE_TYPE_READ, -1, BASE_ADDR - 8) &&
             // Tail of trace.
             check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
