@@ -63,6 +63,9 @@ kernel_query_time_seconds(void);
 __attribute__((format(gnu_printf, 1, 2))) void
 kernel_printk(const char *fmt, ...);
 
+__attribute__((noreturn)) void
+kernel_panic(const char *message);
+
 #define KERNEL_ENV_NAME_MAX 64
 #define KERNEL_ENV_VALUE_MAX 2048
 

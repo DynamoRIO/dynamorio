@@ -43,6 +43,7 @@
 #include <linux/cpumask.h>
 #include <linux/kprobes.h>
 #include <linux/ktime.h>
+#include <linux/panic.h>
 #include <linux/printk.h>
 #include <linux/preempt.h>
 #include <linux/smp.h>
@@ -237,6 +238,12 @@ kernel_printk(const char *fmt, ...)
     va_start(args, fmt);
     vprintk(fmt, args);
     va_end(args);
+}
+
+void
+kernel_panic(const char *message)
+{
+    panic("%s", message);
 }
 
 #define KERNEL_ENV_MAX 20

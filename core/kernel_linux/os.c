@@ -117,6 +117,16 @@ os_wait_thread_terminated(dcontext_t *dcontext)
     ASSERT_NOT_PORTED(false);
 }
 
+void
+os_terminate(dcontext_t *dcontext, terminate_flags_t flags)
+{
+    /* All termination requests are system-fatal in kernel mode. Returning, killing
+     * the current task, or resuming native execution could leave locks held and
+     * shared state inconsistent. Expected failures must use explicit error returns.
+     */
+    kernel_panic("DynamoRIO kernel termination requested");
+}
+
 #define KERNEL_PROCESS_ID 0
 
 process_id_t
