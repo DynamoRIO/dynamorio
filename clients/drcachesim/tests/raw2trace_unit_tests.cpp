@@ -267,6 +267,17 @@ make_memref(uint64_t addr)
 }
 
 offline_entry_t
+make_meminfo(int type, int size)
+{
+    offline_entry_t entry;
+    entry.extended.type = OFFLINE_TYPE_EXTENDED;
+    entry.extended.ext = OFFLINE_EXT_TYPE_MEMINFO;
+    entry.extended.valueB = type;
+    entry.extended.valueA = size;
+    return entry;
+}
+
+offline_entry_t
 make_timestamp(uint64_t value = 0)
 {
     static int timecount;
