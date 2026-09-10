@@ -440,7 +440,7 @@ GLOBAL_LABEL(FUNCNAME:)
         push     PTRSZ [REG_XSP]
         push     REG_XSP
         add      REG_XAX, REG_XCX
-        pop      REG_XBP
+        pop      REG_XDX
         pop      REG_XAX
         pop      REG_XCX
         jmp      stack_newblock
