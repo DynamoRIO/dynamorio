@@ -4693,7 +4693,7 @@ test_filter_endpoint(void *drcontext)
     raw.push_back(make_tid());
     raw.push_back(make_pid());
     raw.push_back(make_line_size());
-    constexpr uint64_t TIME_VALUE = 0x0013000000000000;
+    constexpr uint64_t TIME_VALUE = IF_X64_ELSE(0x0013000000000000, 0x13000000);
     raw.push_back(make_timestamp(TIME_VALUE));
     raw.push_back(make_core());
     constexpr uint64_t LOAD_ADDR = 0x1200;
