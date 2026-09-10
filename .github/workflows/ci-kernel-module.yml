@@ -73,7 +73,7 @@ jobs:
           sudo dmesg -C
 
           echo "Loading $MODULE"
-          sudo insmod "$MODULE" options="-loglevel 2"
+          sudo insmod "$MODULE" options='"-loglevel 2"'
           sudo dmesg | grep -F "dynamorio_module: Module started"
           sudo dmesg | grep -F "DYNAMORIO_OPTIONS: -loglevel 2"
 
