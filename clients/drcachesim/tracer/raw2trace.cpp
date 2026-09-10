@@ -1039,6 +1039,7 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
         // another source.
         tdata->saw_header = trace_metadata_reader_t::is_thread_start(
             in_entry, &tdata->error, &tdata->version, &tdata->file_type);
+        tdata->start_file_type = tdata->file_type;
         tdata->instru_offline.set_disable_optimizations(
             TESTANY(OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS, tdata->file_type));
         VPRINT(2, "Trace file version is %d; type is %d\n", tdata->version,
@@ -1765,6 +1766,14 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
     int consumed_memrefs = 0;
     bool interrupted = false;
     bool rseq_aborted = false;
+    bool repstr_first_last_supported =
+        get_version(tdata) >= OFFLINE_FILE_VERSION_REPSTR_LOOP &&
+        // Rule out filtering of any kind, including -L0_filter_until_instrs
+        // (since app2app is not part of bbdup).
+        // TODO i#4914: Add filtering support so all offline uses first-last.
+        !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_DFILTERED,
+                 tdata->start_file_type);
+
     for (uint i = 0; i < instr_count; ++i) {
         trace_entry_t *buf_start = get_write_buffer(tdata);
         trace_entry_t *buf = buf_start;
@@ -1887,7 +1896,12 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         // removed.
         DR_ASSERT(!interrupted);
         interrupted = interrupted_by_kernel_event(tdata, cur_pc, cur_offs);
-        if (interrupted) {
+        // Interrupting a rep string instruction is different: it can
+        // partially complete its loop.
+        bool partial_interrupt =
+            interrupted && instr->is_rep_string() && repstr_first_last_supported;
+        bool added_encoding = false;
+        if (interrupted && !partial_interrupt) {
             // Insert the TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION marker to
             // indicate an instruction is removed from the trace because it was
             // interrupted by an asynchronous signal or caused a fault.
@@ -1895,6 +1909,8 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             // synchronous flush) as well: it helps on the DR transfer, and doesn't hurt
             // on the exit as normally the exit PC is the post-syscall PC and we never
             // match it.
+            log(4, "Found interruption: inserting UNCOMPLETED_INSTRUCTION marker pc=%p\n",
+                decode_pc);
             trace_entry_t trace_entry;
             trace_entry.addr = 0;
             trace_entry_t *trace_entry_ptr = &trace_entry;
@@ -1911,6 +1927,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             if (!skip_icache && record_encoding_emitted(tdata, decode_pc)) {
                 if (!append_encoding(tdata, decode_pc, instr->length(), buf, buf_start))
                     return false;
+                added_encoding = true;
             }
 
             // XXX i#1729: make bundles via lazy accum until hit memref/end, if
@@ -1921,7 +1938,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 // fetch for the whole loop, instead of the drutil-expanded loop.
                 // We fix up the maybe-fetch here so our offline file doesn't have to
                 // rely on our own reader.
-                if (!was_prev_instr_rep_string(tdata)) {
+                if (!was_prev_instr_rep_string(tdata) || repstr_first_last_supported) {
                     set_prev_instr_rep_string(tdata, true);
                     buf->type = TRACE_TYPE_INSTR;
                 } else {
@@ -1952,7 +1969,8 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         }
         // We need to interleave instrs with memrefs.
         // There is no following memref for (instrs_are_separate && !skip_icache).
-        if (!interrupted && (!instrs_are_separate || skip_icache) &&
+        if ((!interrupted || partial_interrupt) &&
+            (!instrs_are_separate || skip_icache) &&
             // Rule out OP_lea.
             (instr->reads_memory() || instr->writes_memory()) &&
             // No following memref for instruction-only trace type.
@@ -1971,6 +1989,11 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                                        consumed_memrefs))
                         return false;
                 }
+            } else if (instr->is_rep_string() && repstr_first_last_supported) {
+                if (!append_repstring(tdata, instr, orig_pc, &buf, reg_vals,
+                                      expect_all_memrefs, consumed_memrefs,
+                                      &saved_decode_pc, interrupted, added_encoding))
+                    return false;
             } else {
                 for (uint j = 0; j < instr->num_mem_srcs(); j++) {
                     if (!append_memref(tdata, &buf, instr, instr->mem_src_at(j), false,
@@ -2166,6 +2189,149 @@ raw2trace_t::append_scatter_gather(raw2trace_thread_data_t *tdata,
     }
     DR_ASSERT(!add_skipped_markers || element_index == element_count);
     *buf_in = buf;
+    return true;
+}
+
+// For non-filtered traces, we do not expand repeated string operations and
+// instead store the first and last addresses. We unroll the loop here.
+// The caller is responsible for not calling if filtering is enabled.
+bool
+raw2trace_t::append_repstring(raw2trace_thread_data_t *tdata,
+                              const instr_summary_t *instr, app_pc orig_pc,
+                              DR_PARAM_INOUT trace_entry_t **buf_in,
+                              std::unordered_map<reg_id_t, addr_t> &reg_vals,
+                              bool expect_all_memrefs, DR_PARAM_OUT int &consumed_memrefs,
+                              app_pc *saved_decode_pc, bool interrupted,
+                              bool added_encoding)
+{
+    trace_entry_t *buf = *buf_in;
+    // To support elision (though we don't expect any with these instructions
+    // modifying the pointers, just to be safe), it's easier to append the 2 or
+    // 4 memrefs and then modify the buffer afterward, instead of peeking ahead
+    // in the raw stream and handling elision ourselves.
+    int num_memrefs = instr->num_mem_srcs() + instr->num_mem_dests();
+    bool has_load = instr->num_mem_srcs() > 0;
+    bool has_store = instr->num_mem_dests() > 0;
+    DR_ASSERT(num_memrefs == 1 || num_memrefs == 2);
+    log(5, "Rep string with %d memrefs (load=%d store=%d) pc=%p\n", num_memrefs, has_load,
+        has_store, orig_pc);
+    bool reached_end_of_memrefs = false;
+    for (int i = 0; i < 2 * num_memrefs; ++i) {
+        const instr_summary_t::memref_summary_t *memref;
+        bool is_store;
+        if (has_load && !has_store) {
+            memref = &instr->mem_src_at(0);
+            is_store = false;
+        } else if (!has_load && has_store) {
+            memref = &instr->mem_dest_at(0);
+            is_store = true;
+        } else {
+            if (i == 0 || i == 2) {
+                memref = &instr->mem_src_at(0);
+                is_store = false;
+            } else {
+                memref = &instr->mem_dest_at(0);
+                is_store = true;
+            }
+        }
+        if (!append_memref(tdata, &buf, instr, *memref, is_store, reg_vals,
+                           &reached_end_of_memrefs, expect_all_memrefs, consumed_memrefs))
+            return false;
+        if (reached_end_of_memrefs) {
+            // We don't fully support an unhandled fault: we're ok with post-processing
+            // failing in that case.
+            // XXX i#5790: We would like to support DR thread relocation mid-loop but we
+            // need an event from DR for that.
+            tdata->error = "Missing repstr first-last memref";
+            return false;
+        }
+    }
+    addr_t start = num_memrefs == 1 ? (buf - 2)->addr : (buf - 4)->addr;
+    addr_t start_2 = num_memrefs == 1 ? 0 : (buf - 3)->addr;
+    addr_t end = num_memrefs == 1 ? (buf - 1)->addr : (buf - 2)->addr;
+    addr_t end_2 = num_memrefs == 1 ? 0 : (buf - 1)->addr;
+    int size = (buf - 1)->size;
+    bool backward = end < start;
+    DR_ASSERT(!backward || end_2 == 0 || end_2 < start_2);
+    // Detect a zero-iter loop or never-started loop.
+    // XXX i#4914: We could try to optimize and avoid writing out any records
+    // for zero-iter and try to detect that here; for now we keep it simple.
+    if (start == end) {
+        DR_ASSERT(num_memrefs == 1 || start_2 == end_2);
+        log(4, "Empty rep string: removing memref records\n");
+        if (interrupted) {
+            // Also remove the instruction, as this is not a zero-iter loop but
+            // instead a loop that was about to start but was interrupted by
+            // a signal or exception. Replace it with a marker.
+            buf = *buf_in - 1;
+            DR_ASSERT(buf->type == TRACE_TYPE_INSTR);
+            if (added_encoding) {
+                rollback_last_encoding(tdata);
+                --buf;
+                DR_ASSERT(buf->type == TRACE_TYPE_ENCODING);
+                // Rep strings never need more than one encoding record.
+                DR_ASSERT((buf - 1)->type != TRACE_TYPE_ENCODING);
+            }
+            trace_entry_t trace_entry;
+            trace_entry.addr = 0;
+            trace_entry_t *trace_entry_ptr = &trace_entry;
+            if (!append_encoding(tdata, *saved_decode_pc,
+                                 std::min(static_cast<size_t>(instr->length()),
+                                          sizeof(trace_entry.addr)),
+                                 trace_entry_ptr, &trace_entry))
+                return false;
+            trace_metadata_writer_t::write_marker(
+                reinterpret_cast<byte *>(buf), TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION,
+                trace_entry.addr);
+            *buf_in = buf + 1;
+        }
+        return true; // We just don't update buf_in.
+    }
+    log(4, "Expanding rep string loop from %p to %p (and %p to %p)\n", start, end,
+        start_2, end_2);
+    // Roll back the end.
+    buf -= num_memrefs;
+    // Unroll the loop.
+    start = backward ? (start - size) : (start + size);
+    start_2 = backward ? (start_2 - size) : (start_2 + size);
+    trace_entry_t *buf_start = get_write_buffer(tdata);
+    while ((backward && start > end) || (!backward && start < end)) {
+        // If we're nearing the size limit, write out the buffer.
+        if ((size_t)(buf - buf_start) + 3 * sizeof(*buf) >= WRITE_BUFFER_SIZE) {
+            if (!write(tdata, buf_start, buf, saved_decode_pc, 1))
+                return false;
+            buf = buf_start;
+        }
+        log(4, "  Adding rep string memref %p\n", start);
+        // We assume we never need an encoding record as no-fetch won't count
+        // toward chunk limits.
+        // XXX i#4915: Remove these non-fetched entries.
+        // We'd have to also remove from the expanded path for online and filtered:
+        // for filtered via a post-unexpanded-repstr clean call applying filtering;
+        // for online via the reader removing the expanded-repstr nofetch records.
+        buf->type = TRACE_TYPE_INSTR_NO_FETCH;
+        buf->size = instr->length();
+        buf->addr = reinterpret_cast<addr_t>(orig_pc);
+        ++buf;
+        buf->type = has_load ? TRACE_TYPE_READ : TRACE_TYPE_WRITE;
+        buf->size = size;
+        buf->addr = start;
+        ++buf;
+        if (num_memrefs > 1) {
+            log(4, "  Adding rep string memref %p\n", start_2);
+            buf->type = TRACE_TYPE_WRITE;
+            buf->size = size;
+            buf->addr = start_2;
+            ++buf;
+        }
+        start = backward ? (start - size) : (start + size);
+        start_2 = backward ? (start_2 - size) : (start_2 + size);
+    }
+    DR_ASSERT(end_2 == 0 || start_2 == end_2);
+    // Don't leave the buffer full as the rest of the block assumes it has space.
+    if (!write(tdata, buf_start, buf, saved_decode_pc, 1))
+        return false;
+    *buf_in = buf_start;
     return true;
 }
 
@@ -3132,6 +3298,10 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, DR_PARAM_INOUT ap
                                     : instr_num_dsts(instr));
 #    endif
     }
+#endif
+#ifdef X86
+    if (instr_is_rep_string_op(instr))
+        desc->packed_ |= kIsRepStringMask;
 #endif
     desc->type_ = ir_utils_t::instr_to_instr_type(instr);
     desc->prefetch_type_ = is_prefetch ? instru_t::instr_to_prefetch_type(instr) : 0;

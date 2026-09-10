@@ -148,6 +148,9 @@ typedef struct {
     bool recorded_instr;       /* For offline single-PC-per-block. */
     int bb_instr_count;        /* For filtered traces. */
     bool recorded_instr_count; /* For filtered traces. */
+    // For offline, we need to instrument repstrings before the next instr.
+    // We insert a nop if necessary to ensure there is a next instr.
+    instr_t *repstr_for_post;
 } user_data_t;
 
 /* For online simulation, we write to a single global pipe */
@@ -207,7 +210,7 @@ void
 get_L0_filters_enabled(uintptr_t mode, DR_PARAM_OUT bool *l0i_enabled,
                        DR_PARAM_OUT bool *l0d_enabled)
 {
-    if (op_L0_filter_until_instrs.get_value()) {
+    if (op_L0_filter_until_instrs.get_value() > 0) {
         if (mode != BBDUP_MODE_L0_FILTER) {
             *l0i_enabled = false;
             *l0d_enabled = false;
@@ -218,6 +221,19 @@ get_L0_filters_enabled(uintptr_t mode, DR_PARAM_OUT bool *l0i_enabled,
     *l0i_enabled = op_L0I_filter.get_value();
     *l0d_enabled = op_L0D_filter.get_value();
     return;
+}
+
+static bool
+was_L0_filtering_ever_enabled()
+{
+    return op_L0_filter_until_instrs.get_value() > 0 || op_L0I_filter.get_value() ||
+        op_L0D_filter.get_value();
+}
+
+static bool
+is_repstr_expanded()
+{
+    return !op_offline.get_value() || was_L0_filtering_ever_enabled();
 }
 
 std::atomic<ptr_int_t> tracing_window;
@@ -1226,6 +1242,42 @@ is_last_instr(void *drcontext, instr_t *instr)
         is_last;
 }
 
+static int
+instrument_memref_operands(void *drcontext, instrlist_t *bb, instr_t *where,
+                           instr_t *instr_operands, reg_id_t reg_ptr, int adjust,
+                           uintptr_t mode, user_data_t *ud)
+{
+    dr_pred_type_t pred = instr_get_predicate(instr_operands);
+    if (pred != DR_PRED_NONE && adjust != 0) {
+        // Update buffer ptr and reset adjust to 0, because
+        // we may not execute the inserted code below.
+        insert_update_buf_ptr(drcontext, bb, where, reg_ptr, DR_PRED_NONE, adjust, mode);
+        adjust = 0;
+    }
+
+    /* insert code to add an entry for each memory reference opnd */
+    for (int i = 0; i < instr_num_srcs(instr_operands); i++) {
+        const opnd_t src = instr_get_src(instr_operands, i);
+        if (opnd_is_memory_reference(src)) {
+            adjust = instrument_memref(drcontext, ud, bb, where, reg_ptr, adjust,
+                                       instr_operands, src, i, false, pred, mode);
+        }
+    }
+
+    for (int i = 0; i < instr_num_dsts(instr_operands); i++) {
+        const opnd_t dst = instr_get_dst(instr_operands, i);
+        if (opnd_is_memory_reference(dst)) {
+            adjust = instrument_memref(drcontext, ud, bb, where, reg_ptr, adjust,
+                                       instr_operands, dst, i, true, pred, mode);
+        }
+    }
+    if (adjust != 0) {
+        insert_update_buf_ptr(drcontext, bb, where, reg_ptr, pred, adjust, mode);
+        adjust = 0;
+    }
+    return adjust;
+}
+
 /* For each memory reference app instr, we insert inline code to fill the buffer
  * with an instruction entry and memory reference entries.
  */
@@ -1234,7 +1286,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                       instr_t *where, bool for_trace, bool translating, uintptr_t mode,
                       void *orig_analysis_data, void *user_data)
 {
-    int i, adjust = 0;
+    int adjust = 0;
     user_data_t *ud = (user_data_t *)user_data;
     reg_id_t reg_ptr;
     drvector_t rvec;
@@ -1282,6 +1334,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
          !(instr_reads_memory(instr_operands) || instr_writes_memory(instr_operands))) &&
         // Ensure we reach the code below for post-strex instru.
         ud->strex == NULL &&
+        // Ensure we add post-repstr instru.
+        ud->repstr_for_post == nullptr &&
         // Do not skip misc cases that need instrumentation.
         !need_rseq_instru &&
         // Avoid dropping trailing bundled instrs or missing the block-final clean call.
@@ -1334,7 +1388,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
          // instr types.  We could use different types for
          // bundle-ends-in-this-branch-type to avoid this but for now it's not worth it.
          (!op_offline.get_value() && !op_online_instr_types.get_value())) &&
-        ud->strex == NULL &&
+        ud->strex == NULL && ud->repstr_for_post == nullptr &&
         // Don't bundle emulated instructions, as they sometimes have internal control
         // flow and other complications that could cause us to skip an instruction.
         !drmgr_in_emulation_region(drcontext, NULL) &&
@@ -1383,6 +1437,14 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             insert_conditional_skip(drcontext, bb, where, reg_ptr, &reg_skip, skip_instru,
                                     short_reaches, app_regs_at_skip);
         }
+    }
+
+    if (ud->repstr_for_post != nullptr) {
+        // Insert the after-repstr instrumentation for the prior instruction, before
+        // instrumenting the current instruction.
+        adjust = instrument_memref_operands(drcontext, bb, where, ud->repstr_for_post,
+                                            reg_ptr, adjust, mode, ud);
+        ud->repstr_for_post = nullptr;
     }
 
     if (ud->num_delay_instrs != 0) {
@@ -1443,33 +1505,14 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     /* Data entries. */
     if (instr_operands != NULL &&
         (instr_reads_memory(instr_operands) || instr_writes_memory(instr_operands))) {
-        dr_pred_type_t pred = instr_get_predicate(instr_operands);
-        if (pred != DR_PRED_NONE && adjust != 0) {
-            // Update buffer ptr and reset adjust to 0, because
-            // we may not execute the inserted code below.
-            insert_update_buf_ptr(drcontext, bb, where, reg_ptr, DR_PRED_NONE, adjust,
-                                  mode);
-            adjust = 0;
+        adjust = instrument_memref_operands(drcontext, bb, where, instr_operands, reg_ptr,
+                                            adjust, mode, ud);
+        if (instr_is_rep_string_op(instr_operands) && !is_repstr_expanded()) {
+            // We need the post-loop addresses so we insert *after* the app instr.
+            // We added a nop if necessary to ensure our end-of-block code is afterward.
+            DR_ASSERT(!is_last_instr(drcontext, instr));
+            ud->repstr_for_post = instr_operands;
         }
-
-        /* insert code to add an entry for each memory reference opnd */
-        for (i = 0; i < instr_num_srcs(instr_operands); i++) {
-            const opnd_t src = instr_get_src(instr_operands, i);
-            if (opnd_is_memory_reference(src)) {
-                adjust = instrument_memref(drcontext, ud, bb, where, reg_ptr, adjust,
-                                           instr_operands, src, i, false, pred, mode);
-            }
-        }
-
-        for (i = 0; i < instr_num_dsts(instr_operands); i++) {
-            const opnd_t dst = instr_get_dst(instr_operands, i);
-            if (opnd_is_memory_reference(dst)) {
-                adjust = instrument_memref(drcontext, ud, bb, where, reg_ptr, adjust,
-                                           instr_operands, dst, i, true, pred, mode);
-            }
-        }
-        if (adjust != 0)
-            insert_update_buf_ptr(drcontext, bb, where, reg_ptr, pred, adjust, mode);
     } else if (adjust != 0)
         insert_update_buf_ptr(drcontext, bb, where, reg_ptr, DR_PRED_NONE, adjust, mode);
 
@@ -1492,9 +1535,6 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     return flags;
 }
 
-/* We transform string loops into regular loops so we can more easily
- * monitor every memory reference they make.
- */
 static dr_emit_flags_t
 event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                  bool translating)
@@ -1503,10 +1543,32 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
      * XXX i#5400: Integrating drbbdup into drmgr would provide user_data here.
      */
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    if (!drutil_expand_rep_string_ex(drcontext, bb, &pt->repstr, NULL)) {
-        DR_ASSERT(false);
-        /* in release build, carry on: we'll just miss per-iter refs */
+    /* For online mode, we transform string loops into regular loops so we can more
+     * easily monitor every memory reference they make. For offline non-filtered, we
+     * can reconstruct the loop from the first and last iterations, so we avoid the
+     * performance cost of this expansion and of recording every iteration during
+     * tracing.
+     */
+    // Since app2app is outside bbdup, we cannot support a split strategy for
+    // -L0_filter_until_instrs: we have to always expand.
+    // (i#4915's proposal to perform L0 filtering in a post-repstr-loop clean call
+    // is one way to solve this.)
+    if (is_repstr_expanded()) {
+        if (!drutil_expand_rep_string_ex(drcontext, bb, &pt->repstr, NULL)) {
+            DR_ASSERT(false);
+            /* in release build, carry on: we'll just miss per-iter refs */
+        }
+    } else {
+        // We need to insert code after a rep string so make sure that doesn't
+        // end up *after* end-of-block code by inserting a meta nop.
+        if (instr_is_rep_string_op(instrlist_last(bb))) {
+            instrlist_meta_postinsert(bb, instrlist_last(bb),
+                                      XINST_CREATE_nop(drcontext));
+        }
     }
+    /* For both modes, we need to unroll scatter-gather as the addresses
+     * written cannot be figured out in post-processing.
+     */
     if (!drx_expand_scatter_gather(drcontext, bb, &pt->scatter_gather)) {
         DR_ASSERT(false);
     }
@@ -1837,6 +1899,45 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
         return;
     if (BUF_PTR(data->seg_base) == NULL)
         return; /* This thread was filtered out. */
+#ifdef X86
+    if (!is_repstr_expanded() && info->source_mcontext != nullptr) {
+        // When we don't expand and a rep string loop is interrupted, we need to
+        // insert the final iteration addresses here.
+        // We don't fully support an unhandled fault: we're ok with post-processing
+        // failing in that case, so we don't also do this on the xl8 or other event.
+        // XXX i#5790: We would like to support DR thread relocation mid-loop but we
+        // need an event from DR for that.
+        switch (info->type) {
+        case DR_XFER_SIGNAL_DELIVERY:
+        case DR_XFER_EXCEPTION_DISPATCHER:
+        case DR_XFER_RSEQ_ABORT: {
+            instr_t *instr = instr_create(drcontext);
+            app_pc next = decode(drcontext, info->source_mcontext->pc, instr);
+            if (next != nullptr && instr_valid(instr) && instr_is_rep_string_op(instr)) {
+                if (instr_reads_memory(instr)) {
+                    NOTIFY(2, "interrupted repstr: inserting end xsi=%p\n",
+                           info->source_mcontext->xsi);
+                    offline_entry_t *entry =
+                        reinterpret_cast<offline_entry_t *>(BUF_PTR(data->seg_base));
+                    entry->combined_value = info->source_mcontext->xsi;
+                    BUF_PTR(data->seg_base) += sizeof(offline_entry_t);
+                }
+                if (instr_writes_memory(instr)) {
+                    NOTIFY(2, "interrupted repstr: inserting end xdi=%p\n",
+                           info->source_mcontext->xdi);
+                    offline_entry_t *entry =
+                        reinterpret_cast<offline_entry_t *>(BUF_PTR(data->seg_base));
+                    entry->combined_value = info->source_mcontext->xdi;
+                    BUF_PTR(data->seg_base) += sizeof(offline_entry_t);
+                }
+            }
+            instr_destroy(drcontext, instr);
+            break;
+        }
+        default: break;
+        }
+    }
+#endif
     switch (info->type) {
     case DR_XFER_APC_DISPATCHER:
         /* Do not bother with a marker for the thread init routine. */

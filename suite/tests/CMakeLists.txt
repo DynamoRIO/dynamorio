@@ -5041,6 +5041,10 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.burst_traceopts_nopost ON)
       torunonly_drcacheoff(burst_traceopts tool.drcacheoff.burst_traceopts "" "" "")
 
+      set(tool.drcacheoff.burst_repstr_nodr ON)
+      set(tool.drcacheoff.burst_repstr_nopost ON)
+      torunonly_drcacheoff(burst_repstr tool.drcacheoff.burst_repstr "" "" "")
+
       set(tool.drcacheoff.windows-timestamps_nodr ON)
       set(tool.drcacheoff.windows-timestamps_nopost ON)
       torunonly_drcacheoff(windows-timestamps tool.drcacheoff.windows-timestamps

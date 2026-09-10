@@ -300,6 +300,11 @@ private:
     {
         return TESTANY(kIsSyscallMask, packed_);
     }
+    bool
+    is_rep_string() const
+    {
+        return TESTANY(kIsRepStringMask, packed_);
+    }
 
     const memref_summary_t &
     mem_src_at(size_t pos) const
@@ -358,6 +363,8 @@ private:
 
     static const int kIsSyscallMask = 0x0080;
 
+    static const int kIsRepStringMask = 0x0100;
+
     instr_summary_t(const instr_summary_t &other) = delete;
     instr_summary_t &
     operator=(const instr_summary_t &) = delete;
@@ -370,6 +377,8 @@ private:
     uint16_t prefetch_type_ = 0;
     uint16_t flush_type_ = 0;
     byte length_ = 0;
+    uint8_t num_mem_srcs_ = 0;
+
     app_pc branch_target_pc_ = 0;
 
     // Squash srcs and dests to save memory usage. We may want to
@@ -377,8 +386,7 @@ private:
     // of piece-meal allocating them on the heap one at a time.
     // One vector and a byte is smaller than 2 vectors.
     std::vector<memref_summary_t> mem_srcs_and_dests_;
-    uint8_t num_mem_srcs_ = 0;
-    byte packed_ = 0;
+    uint16_t packed_ = 0;
 
     byte scatter_gather_element_size_ = 0; // Size in bytes.
     // Some scatter/gather read from or write to 2, 3, or 4 vector registers at once.
@@ -719,6 +727,7 @@ protected:
         std::string error;
         int version;
         offline_file_type_t file_type;
+        offline_file_type_t start_file_type; // Type at the start.
         size_t cache_line_size = 0;
         std::deque<offline_entry_t> pre_read;
         std::vector<offline_entry_t> kernel_event_lookahead;
@@ -1274,6 +1283,13 @@ private:
                           DR_PARAM_INOUT trace_entry_t **buf_in,
                           std::unordered_map<reg_id_t, addr_t> &reg_vals,
                           bool expect_all_memrefs, DR_PARAM_OUT int &consumed_memrefs);
+
+    bool
+    append_repstring(raw2trace_thread_data_t *tdata, const instr_summary_t *instr,
+                     app_pc orig_pc, DR_PARAM_INOUT trace_entry_t **buf_in,
+                     std::unordered_map<reg_id_t, addr_t> &reg_vals,
+                     bool expect_all_memrefs, DR_PARAM_OUT int &consumed_memrefs,
+                     app_pc *saved_decode_pc, bool interrupted, bool added_encoding);
 
     bool
     append_memref(raw2trace_thread_data_t *tdata, DR_PARAM_INOUT trace_entry_t **buf_in,

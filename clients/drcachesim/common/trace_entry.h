@@ -1147,7 +1147,9 @@ typedef enum {
 #define OFFLINE_FILE_VERSION_NO_OP 8 /**< There are no changes in this version.*/
 /** x86 push and pop bases are elided. */
 #define OFFLINE_FILE_VERSION_ELIDE_X86_PUSH 9
-#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_ELIDE_X86_PUSH
+/** Rep string loops are not unrolled for unfiltered traces. */
+#define OFFLINE_FILE_VERSION_REPSTR_LOOP 10
+#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_REPSTR_LOOP
 
 /**
  * Bitfields used to describe the high-level characteristics of both an
