@@ -4703,7 +4703,6 @@ test_stack_elision(void *drcontext)
         constexpr uint64_t TIME_VALUE = 0x0013000000000000;
         raw.push_back(make_timestamp(TIME_VALUE));
         raw.push_back(make_core());
-        // The ld1b's non-masked-out addresses are every other one.
         raw.push_back(make_block(offs_push1, 6));
         constexpr uint64_t BASE_ADDR = 0x1200;
         // One single address covers all 6 push/pop instructions.
@@ -4810,44 +4809,44 @@ test_stack_elision(void *drcontext)
         if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
             return false;
         int idx = 0;
-        return (
-            check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
-            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
-            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
-            check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
-            check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
-            check_entry(entries, idx, TRACE_TYPE_MARKER,
-                        TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
-            check_entry(entries, idx, TRACE_TYPE_MARKER,
-                        TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
-            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
-                        TIME_VALUE) &&
-            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
-            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-            check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_push1) &&
-            // A push subtracts from rsp first, so -8.
-            check_entry(entries, idx, TRACE_TYPE_WRITE, -1, BASE_ADDR - 8) &&
-            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-            check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_push2) &&
-            check_entry(entries, idx, TRACE_TYPE_WRITE, -1, BASE_ADDR - 16) &&
-            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-            check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_push3) &&
-            check_entry(entries, idx, TRACE_TYPE_WRITE, -1, BASE_ADDR - 24) &&
-            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-            check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_pop1) &&
-            check_entry(entries, idx, TRACE_TYPE_READ, -1, BASE_ADDR - 24) &&
-            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-            check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_pop2) &&
-            check_entry(entries, idx, TRACE_TYPE_READ, -1, BASE_ADDR - 16) &&
-            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-            check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_pop3) &&
-            check_entry(entries, idx, TRACE_TYPE_READ, -1, BASE_ADDR - 8) &&
-            // Tail of trace.
-            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
-                        TIME_VALUE) &&
-            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
-            check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
-            check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+        if (!(check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+              check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER,
+                          TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER,
+                          TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                          TIME_VALUE) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_push1) &&
+              // A push subtracts from rsp first, so -8.
+              check_entry(entries, idx, TRACE_TYPE_WRITE, -1, BASE_ADDR - 8) &&
+              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_push2) &&
+              check_entry(entries, idx, TRACE_TYPE_WRITE, -1, BASE_ADDR - 16) &&
+              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_push3) &&
+              check_entry(entries, idx, TRACE_TYPE_WRITE, -1, BASE_ADDR - 24) &&
+              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_pop1) &&
+              check_entry(entries, idx, TRACE_TYPE_READ, -1, BASE_ADDR - 24) &&
+              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_pop2) &&
+              check_entry(entries, idx, TRACE_TYPE_READ, -1, BASE_ADDR - 16) &&
+              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_pop3) &&
+              check_entry(entries, idx, TRACE_TYPE_READ, -1, BASE_ADDR - 8) &&
+              // Tail of trace.
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                          TIME_VALUE) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+              check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_FOOTER, -1)))
+            return false;
     }
     {
         std::cerr << "\n===============\nTesting filtered push/pop\n";
@@ -4884,7 +4883,6 @@ test_stack_elision(void *drcontext)
         constexpr uint64_t TIME_VALUE = 0x0013000000000000;
         raw.push_back(make_timestamp(TIME_VALUE));
         raw.push_back(make_core());
-        // The ld1b's non-masked-out addresses are every other one.
         raw.push_back(make_block(offs_push1, 6));
         constexpr uint64_t BASE_ADDR = 0x1200;
         // This is a filtered trace: make sure raw2trace doesn't expect elision.
