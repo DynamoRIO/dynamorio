@@ -1019,6 +1019,8 @@ offline_instru_t::opnd_check_elidable(void *drcontext, instrlist_t *ilist, instr
 bool
 offline_instru_t::does_reg_write_thwart_elision(int version, instr_t *instr, reg_id_t reg)
 {
+    if (!instr_writes_to_reg(instr, reg, DR_QUERY_INCLUDE_COND_DSTS))
+        return false;
 #ifdef X86
     // We track push and pop updates so they do not stop elision.
     // XXX i#4913: Generalize to any immediate add/sub, incl aarchxx
@@ -1116,8 +1118,7 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
             // does not specify the ordering of multiple dests.
             auto reg_it = saw_base.begin();
             while (reg_it != saw_base.end()) {
-                if (instr_writes_to_reg(instr, *reg_it, DR_QUERY_INCLUDE_COND_DSTS) &&
-                    does_reg_write_thwart_elision(version, instr, *reg_it))
+                if (does_reg_write_thwart_elision(version, instr, *reg_it))
                     reg_it = saw_base.erase(reg_it);
                 else
                     ++reg_it;
@@ -1137,12 +1138,9 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
             }
         }
         // Rule out sharing with subsequent instrs if the base is written to.
-        // TODO(i#2001): Add special support for eliding the xsp base of push+pop
-        // instructions.
         auto reg_it = saw_base.begin();
         while (reg_it != saw_base.end()) {
-            if (instr_writes_to_reg(instr, *reg_it, DR_QUERY_INCLUDE_COND_DSTS) &&
-                does_reg_write_thwart_elision(version, instr, *reg_it))
+            if (does_reg_write_thwart_elision(version, instr, *reg_it))
                 reg_it = saw_base.erase(reg_it);
             else
                 ++reg_it;

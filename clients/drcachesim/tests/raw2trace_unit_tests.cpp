@@ -4849,6 +4849,99 @@ test_stack_elision(void *drcontext)
             check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
             check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
     }
+    {
+        std::cerr << "\n===============\nTesting filtered push/pop\n";
+        instrlist_t *ilist = instrlist_create(drcontext);
+        instr_t *nop = XINST_CREATE_nop(drcontext);
+        instr_t *push1 = INSTR_CREATE_push(drcontext, opnd_create_reg(REG2));
+        instr_t *push2 = INSTR_CREATE_push(drcontext, opnd_create_reg(REG1));
+        instr_t *push3 = INSTR_CREATE_push(drcontext, opnd_create_reg(REG2));
+        instr_t *pop1 = INSTR_CREATE_pop(drcontext, opnd_create_reg(REG2));
+        instr_t *pop2 = INSTR_CREATE_pop(drcontext, opnd_create_reg(REG1));
+        instr_t *pop3 = INSTR_CREATE_pop(drcontext, opnd_create_reg(REG2));
+
+        instrlist_append(ilist, nop);
+        instrlist_append(ilist, push1);
+        instrlist_append(ilist, push2);
+        instrlist_append(ilist, push3);
+        instrlist_append(ilist, pop1);
+        instrlist_append(ilist, pop2);
+        instrlist_append(ilist, pop3);
+
+        size_t offs_nop = 0;
+        size_t offs_push1 = offs_nop + instr_length(drcontext, nop);
+        size_t offs_push2 = offs_push1 + instr_length(drcontext, push1);
+        size_t offs_push3 = offs_push2 + instr_length(drcontext, push2);
+        size_t offs_pop1 = offs_push3 + instr_length(drcontext, push3);
+        size_t offs_pop2 = offs_pop1 + instr_length(drcontext, pop1);
+        size_t offs_pop3 = offs_pop2 + instr_length(drcontext, pop2);
+
+        std::vector<offline_entry_t> raw;
+        raw.push_back(make_header(OFFLINE_FILE_VERSION, OFFLINE_FILE_TYPE_DFILTERED));
+        raw.push_back(make_tid());
+        raw.push_back(make_pid());
+        raw.push_back(make_line_size());
+        constexpr uint64_t TIME_VALUE = 0x0013000000000000;
+        raw.push_back(make_timestamp(TIME_VALUE));
+        raw.push_back(make_core());
+        // The ld1b's non-masked-out addresses are every other one.
+        raw.push_back(make_block(offs_push1, 6));
+        constexpr uint64_t BASE_ADDR = 0x1200;
+        // This is a filtered trace: make sure raw2trace doesn't expect elision.
+        raw.push_back(make_memref(BASE_ADDR));
+        raw.push_back(make_memref(BASE_ADDR - 8));
+        raw.push_back(make_memref(BASE_ADDR - 16));
+        raw.push_back(make_memref(BASE_ADDR - 24));
+        // This one is filtered out.
+        raw.push_back(make_memref(BASE_ADDR - 8));
+        raw.push_back(make_timestamp(TIME_VALUE));
+        raw.push_back(make_core());
+        raw.push_back(make_exit());
+
+        std::vector<uint64_t> stats;
+        std::vector<trace_entry_t> entries;
+        if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
+            return false;
+        int idx = 0;
+        return (
+            check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+            check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER,
+                        TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER,
+                        TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                        TIME_VALUE) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_push1) &&
+            // A push subtracts from rsp first, so -8.
+            check_entry(entries, idx, TRACE_TYPE_WRITE, -1, BASE_ADDR - 8) &&
+            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_push2) &&
+            check_entry(entries, idx, TRACE_TYPE_WRITE, -1, BASE_ADDR - 16) &&
+            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_push3) &&
+            check_entry(entries, idx, TRACE_TYPE_WRITE, -1, BASE_ADDR - 24) &&
+            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_pop1) &&
+            check_entry(entries, idx, TRACE_TYPE_READ, -1, BASE_ADDR - 24) &&
+            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_pop2) &&
+            // Filtered out.
+            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_pop3) &&
+            check_entry(entries, idx, TRACE_TYPE_READ, -1, BASE_ADDR - 8) &&
+            // Tail of trace.
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                        TIME_VALUE) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+            check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+    }
 #else
     return true;
 #endif

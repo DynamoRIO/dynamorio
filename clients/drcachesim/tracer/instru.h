@@ -503,6 +503,8 @@ public:
     bool
     opnd_is_elidable(opnd_t memop, DR_PARAM_OUT reg_id_t &base, int version);
 
+    // Checks whether instr writes to reg in a way that we don't support,
+    // preventing elision of reg as an addressing register.
     bool
     does_reg_write_thwart_elision(int version, instr_t *instr, reg_id_t reg);
 

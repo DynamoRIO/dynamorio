@@ -195,6 +195,11 @@ post_process(const std::string &out_subdir)
                               0
 #    endif
         );
+        // We rely on raw2trace unit tests checking that actual elision in raw
+        // inputs is handled, as it is difficult to confirm here that elision
+        // is actually happening: though a bug that fails to elide will generally
+        // cause failure in raw2trace, so it would take 2 corresponding bugs to
+        // get this test to pass without real elision.
         std::string error = raw2trace.do_conversion();
         if (!error.empty()) {
             std::cerr << "raw2trace failed: " << error << "\n";
@@ -437,6 +442,7 @@ GLOBAL_LABEL(FUNCNAME:)
         // Test eliding with multiple pushes and pops in one block.
         push     REG_XCX
         mov      REG_XCX, REG_XAX
+        mov      REG_XAX, [REG_XSP + 16]
         push     PTRSZ [REG_XSP]
         push     REG_XSP
         add      REG_XAX, REG_XCX
