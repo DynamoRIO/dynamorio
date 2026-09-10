@@ -1072,8 +1072,10 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
                                 &flush_decode_cache)) {
                 return false;
             }
-            if (flush_decode_cache)
+            if (flush_decode_cache) {
                 decode_cache_[tdata->worker].clear();
+                clear_last_block_info(tdata);
+            }
             if ((uint)(buf - buf_base) >= WRITE_BUFFER_SIZE) {
                 tdata->error = "Too many entries";
                 return false;
@@ -1125,8 +1127,10 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
         bool flush_decode_cache = false;
         bool success = process_offline_entry(tdata, &entry, tdata->tid, end_of_record,
                                              &last_bb_handled, &flush_decode_cache);
-        if (flush_decode_cache)
+        if (flush_decode_cache) {
             decode_cache_[tdata->worker].clear();
+            clear_last_block_info(tdata);
+        }
         if (!success)
             return false;
     }
@@ -1153,8 +1157,10 @@ raw2trace_t::process_thread_file(raw2trace_thread_data_t *tdata)
                 bool success =
                     process_offline_entry(tdata, &entry, tdata->tid, &end_of_file,
                                           &last_bb_handled, &flush_decode_cache);
-                if (flush_decode_cache)
+                if (flush_decode_cache) {
                     decode_cache_[tdata->worker].clear();
+                    clear_last_block_info(tdata);
+                }
                 if (!end_of_file) {
                     tdata->error = "Synthetic footer failed";
                     return false;
@@ -3813,6 +3819,15 @@ raw2trace_t::set_file_type(raw2trace_thread_data_t *tdata, offline_file_type_t f
     tdata->file_type = file_type;
     tdata->instru_offline.set_disable_optimizations(
         TESTANY(OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS, file_type));
+}
+
+void
+raw2trace_t::clear_last_block_info(raw2trace_thread_data_t *tdata)
+{
+    tdata->last_decode_block_start = 0;
+    tdata->last_decode_modidx = 0;
+    tdata->last_decode_modoffs = 0;
+    tdata->last_block_summary = nullptr;
 }
 
 raw2trace_t::raw2trace_t(
