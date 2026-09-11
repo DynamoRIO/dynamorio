@@ -1,5 +1,6 @@
 # **********************************************************
 # Copyright (c) 2019-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -71,6 +72,18 @@ execute_process(COMMAND
   OUTPUT_VARIABLE output
   )
 
+# Get relocations separately so --wide does not change the symbol output parsed below.
+execute_process(COMMAND
+  ${READELF_EXECUTABLE} -r --wide ${${lib_file}}
+  RESULT_VARIABLE readelf_reloc_result
+  ERROR_VARIABLE readelf_reloc_error
+  OUTPUT_VARIABLE relocations
+  )
+if (readelf_reloc_result)
+  set(readelf_result ${readelf_reloc_result})
+endif ()
+string(APPEND readelf_error "${readelf_reloc_error}")
+
 # Check for binutils/readelf version 2.30 and "unsupported reloc type 9"
 # warning and if yes, then ignore error for 32-bit release build. Binutils bug
 # https://sourceware.org/bugzilla/show_bug.cgi?id=24382 has been filed
@@ -86,6 +99,19 @@ endif ()
 if (readelf_result OR readelf_error)
   message(FATAL_ERROR "*** ${READELF_EXECUTABLE} failed: ***\n${readelf_error}")
 endif (readelf_result OR readelf_error)
+
+# i#8087: Ensure that the safe-read asm labels do not use GOT entries. GOTOFF relocations
+# compute direct addresses relative to the GOT base without using entries. Other symbols
+# might have the visibility mismatch
+string(REGEX MATCHALL "[^\n]*safe_read_asm_(pre|mid|post|recover)[^\n]*"
+  safe_read_relocations "${relocations}")
+foreach(line ${safe_read_relocations})
+  if (line MATCHES "R_[A-Z0-9_]*GOT[A-Z0-9_]*" AND
+      NOT line MATCHES "GOTOFF")
+    message(FATAL_ERROR
+      "*** Error: ${${lib_file}} contains a GOT relocation for a safe-read label: ${line}")
+  endif ()
+endforeach()
 
 # Limit to global defined symbols: no "UND".
 string(REGEX MATCHALL "([^\n]+ GLOBAL [A-Z]+ +[^U ]+ [^\n]+)\n" globals "${output}")
