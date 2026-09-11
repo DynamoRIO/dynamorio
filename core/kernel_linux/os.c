@@ -283,6 +283,9 @@ os_check_option_compatibility(void)
 
     /* The kernel interrupt path only supports CPU-private fragments. Shared-fragment
      * unlinking and state-reconstruction races have not been addressed.
+     * XXX: This is a temporary restriction. We want CPU-shared fragments in the future,
+     * which requires revisiting interrupt patching, unlink/relink coordination across
+     * CPUs, and TLS bootstrapping at kernel entry points.
      */
     FORCE_OPTION_VALUE(shared_bbs, false);
 
