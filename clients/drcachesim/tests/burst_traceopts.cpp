@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -58,6 +58,8 @@ void
 test_disp_elision();
 void
 test_base_elision();
+void
+test_stack_elision();
 };
 
 namespace dynamorio {
@@ -156,6 +158,7 @@ do_some_work()
     test_disp_elision();
     test_base_elision();
     test_arrays();
+    test_stack_elision();
 }
 
 static std::string
@@ -192,6 +195,11 @@ post_process(const std::string &out_subdir)
                               0
 #    endif
         );
+        // We rely on raw2trace unit tests checking that actual elision in raw
+        // inputs is handled, as it is difficult to confirm here that elision
+        // is actually happening: though a bug that fails to elide will generally
+        // cause failure in raw2trace, so it would take 2 corresponding bugs to
+        // get this test to pass without real elision.
         std::string error = raw2trace.do_conversion();
         if (!error.empty()) {
             std::cerr << "raw2trace failed: " << error << "\n";
@@ -423,6 +431,50 @@ mysym:
         ret
 # else
 #  error NYI
+# endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+#define FUNCNAME test_stack_elision
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+# if defined(X86)
+        // Test eliding with multiple pushes and pops in one block.
+        push     REG_XCX
+        mov      REG_XCX, REG_XAX
+        mov      REG_XAX, [REG_XSP + 16]
+        push     PTRSZ [REG_XSP]
+        push     REG_XSP
+        add      REG_XAX, REG_XCX
+        pop      REG_XDX
+        pop      REG_XAX
+        pop      REG_XCX
+        jmp      stack_newblock
+
+stack_newblock:
+        push     REG_XAX
+        push     REG_XCX
+        push     REG_XSP
+        // Test pop into xsp: it should stop elision.
+        pop      REG_XSP
+        pop      REG_XCX
+        // Elision should happen again here.
+        pop      REG_XAX
+        jmp      stack_newblock2
+
+stack_newblock2:
+        push     REG_XAX
+        push     32 // Test OP_push_imm.
+        mov      REG_XAX, REG_XSP
+        // Write to xsp should stop elision.
+        mov      REG_XSP, REG_XAX
+        pop      REG_XAX
+        // Elision should happen again here.
+        pop      REG_XAX
+        ret
+# else
+        // XXX i#4913: Generalize to any immediate add/sub, incl aarchxx
+        // pre-and-post indexing.
 # endif
         END_FUNC(FUNCNAME)
 #undef FUNCNAME

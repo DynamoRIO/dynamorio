@@ -150,6 +150,7 @@ struct instr_summary_t final {
             : opnd(opnd)
             , remember_base(0)
             , use_remembered_base(0)
+            , stack_disp(0)
         {
         }
         /** The addressing mode of this reference. */
@@ -167,6 +168,10 @@ struct instr_summary_t final {
          * a rip-relative reference.
          */
         bool use_remembered_base : 1;
+        /**
+         * Additional displacement value from stack operations.
+         */
+        int16_t stack_disp;
     };
 
     instr_summary_t()
@@ -199,28 +204,34 @@ struct instr_summary_t final {
 
     /**
      * Sets properties of the "pos"-th source memory operand by OR-ing in the
-     * two boolean values.
+     * two boolean values. "stack_disp" is only set if "use_remembered_base" is true.
      */
     void
-    set_mem_src_flags(size_t pos, bool use_remembered_base, bool remember_base)
+    set_mem_src_flags(size_t pos, bool use_remembered_base, bool remember_base,
+                      int stack_disp)
     {
         DEBUG_ASSERT(pos < mem_srcs_and_dests_.size());
         auto target = &mem_srcs_and_dests_[pos];
         target->use_remembered_base = target->use_remembered_base || use_remembered_base;
         target->remember_base = target->remember_base || remember_base;
+        if (use_remembered_base)
+            target->stack_disp = static_cast<int16_t>(stack_disp);
     }
 
     /**
      * Sets properties of the "pos"-th destination memory operand by OR-ing in the
-     * two boolean values.
+     * two boolean values. "stack_disp" is only set if "use_remembered_base" is true.
      */
     void
-    set_mem_dest_flags(size_t pos, bool use_remembered_base, bool remember_base)
+    set_mem_dest_flags(size_t pos, bool use_remembered_base, bool remember_base,
+                       int stack_disp)
     {
         DEBUG_ASSERT(num_mem_srcs_ + pos < mem_srcs_and_dests_.size());
         auto target = &mem_srcs_and_dests_[num_mem_srcs_ + pos];
         target->use_remembered_base = target->use_remembered_base || use_remembered_base;
         target->remember_base = target->remember_base || remember_base;
+        if (use_remembered_base)
+            target->stack_disp = static_cast<int16_t>(stack_disp);
     }
 
 private:
@@ -1166,7 +1177,8 @@ private:
     set_instr_summary_flags(raw2trace_thread_data_t *tdata, uint64 modidx, uint64 modoffs,
                             app_pc block_start, int instr_count, int index, app_pc pc,
                             app_pc orig, bool write, int memop_index,
-                            bool use_remembered_base, bool remember_base);
+                            bool use_remembered_base, bool remember_base,
+                            int stack_disp = 0);
     void
     set_last_pc_fallthrough_if_syscall(raw2trace_thread_data_t *tdata, app_pc value);
     app_pc
