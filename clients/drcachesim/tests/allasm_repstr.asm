@@ -52,8 +52,9 @@ _start:
         add      esi, 4
         lea      edi, hello_str
         add      edi, 4
-        std
+        std // Setting DF makes rep go backward.
         rep      movsb
+        // Print the backward-copied string to ensure we did it right.
         mov      rdi, 2           // stderr
         lea      rsi, hello_str
         mov      rdx, 13          // sizeof(hello_str)
