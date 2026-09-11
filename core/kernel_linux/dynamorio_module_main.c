@@ -52,6 +52,10 @@ static ulong dr_heap_size = 257 * 1024 * 1024;
 module_param(dr_heap_size, ulong, 0444);
 MODULE_PARM_DESC(dr_heap_size, "DynamoRIO module heap size in bytes (read-only)");
 
+/* Initial support accepts global options at module load time only.
+ * XXX: Define support for dynamic updates and per-process options, including how to
+ * reuse the existing configuration infrastructure.
+ */
 static char options[KERNEL_ENV_VALUE_MAX];
 module_param_string(options, options, sizeof(options), 0444);
 MODULE_PARM_DESC(
