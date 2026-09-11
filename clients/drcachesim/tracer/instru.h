@@ -502,6 +502,12 @@ public:
     // "version" is an OFFLINE_FILE_VERSION* constant.
     bool
     opnd_is_elidable(opnd_t memop, DR_PARAM_OUT reg_id_t &base, int version);
+
+    // Checks whether instr writes to reg in a way that we don't support,
+    // preventing elision of reg as an addressing register.
+    bool
+    does_reg_write_thwart_elision(int version, instr_t *instr, reg_id_t reg);
+
     // Inserts labels marking elidable addresses. label_marks_elidable() identifies them.
     // "version" is an OFFLINE_FILE_VERSION* constant.
     // Returns the count of addresses that will be recorded in the trace, or -1 if
@@ -565,6 +571,7 @@ private:
     opnd_check_elidable(void *drcontext, instrlist_t *ilist, instr_t *instr, opnd_t memop,
                         int op_index, int memop_index, bool write, int version,
                         reg_id_set_t &saw_base);
+
     void
     record_instr_encodings(void *drcontext, app_pc tag_pc, per_block_t *per_block,
                            instrlist_t *ilist);
