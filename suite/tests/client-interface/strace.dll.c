@@ -48,6 +48,7 @@
 #ifdef UNIX
 #    ifdef LINUX
 #        include <syscall.h>
+#        include <sys/mman.h>
 #        define SYSNUM_SIGPROCMASK SYS_rt_sigprocmask
 #    else
 #        include <sys/syscall.h>
@@ -167,6 +168,21 @@ dr_init(client_id_t id)
         dr_fprintf(STDERR, "dr_invoke_syscall_as_app failed with %d\n", res);
     if (rlim_raw.rlim_cur == rlim_dr.rlim_cur)
         dr_fprintf(STDERR, "dr_invoke_syscall_as_app failed to go through DR\n");
+
+    /* Exercise post-syscall memory bookkeeping with the actual kernel result. */
+    reg_t map = dr_invoke_syscall_as_app(
+        dr_get_current_drcontext(), SYS_mmap, 6, (reg_t)NULL, (reg_t)4096,
+        (reg_t)(PROT_READ | PROT_WRITE), (reg_t)(MAP_PRIVATE | MAP_ANONYMOUS), (reg_t)-1,
+        (reg_t)0);
+    if ((ptr_int_t)map < 0)
+        dr_fprintf(STDERR, "dr_invoke_syscall_as_app mmap failed with " PFX "\n", map);
+    else {
+        *(volatile byte *)map = 1;
+        res = dr_invoke_syscall_as_app(dr_get_current_drcontext(), SYS_munmap, 2,
+                                       (reg_t)map, (reg_t)4096);
+        if (res < 0)
+            dr_fprintf(STDERR, "dr_invoke_syscall_as_app munmap failed with %d\n", res);
+    }
 #endif
 }
 
