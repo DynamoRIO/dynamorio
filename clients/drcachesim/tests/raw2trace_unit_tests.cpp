@@ -4974,6 +4974,77 @@ test_stack_elision(void *drcontext)
 #endif
 }
 
+bool
+test_filter_endpoint(void *drcontext)
+{
+    std::cerr << "\n===============\nTesting a filter endpoint\n";
+    instrlist_t *ilist = instrlist_create(drcontext);
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *load =
+        XINST_CREATE_load(drcontext, opnd_create_reg(REG1), OPND_CREATE_MEMPTR(REG1, 0));
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, load);
+    size_t offs_nop = 0;
+    size_t offs_load = offs_nop + instr_length(drcontext, nop);
+
+    std::vector<offline_entry_t> raw;
+    // This is a filtered trace that transitions to unfiltered.
+    raw.push_back(make_header(OFFLINE_FILE_VERSION,
+                              OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP |
+                                  OFFLINE_FILE_TYPE_IFILTERED |
+                                  OFFLINE_FILE_TYPE_DFILTERED));
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+    constexpr uint64_t TIME_VALUE = IF_X64_ELSE(0x0013000000000000, 0x13000000);
+    raw.push_back(make_timestamp(TIME_VALUE));
+    raw.push_back(make_core());
+    constexpr uint64_t LOAD_ADDR = 0x1200;
+    raw.push_back(make_block(offs_load, 1));
+    raw.push_back(make_block(offs_load, 0));
+    raw.push_back(make_meminfo(TRACE_TYPE_READ, sizeof(void *)));
+    raw.push_back(make_memref(LOAD_ADDR));
+    // Filtering ends.
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_FILTER_ENDPOINT, 0));
+    // Now repeat the same PC to test i#8110.
+    raw.push_back(make_block(offs_load, 1));
+    raw.push_back(make_memref(LOAD_ADDR));
+    raw.push_back(make_timestamp(TIME_VALUE));
+    raw.push_back(make_core());
+    raw.push_back(make_exit());
+
+    std::vector<uint64_t> stats;
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
+        return false;
+    int idx = 0;
+    return (
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                    TIME_VALUE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_load) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, 0, offs_load) &&
+        check_entry(entries, idx, TRACE_TYPE_READ, sizeof(void *), LOAD_ADDR) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILTER_ENDPOINT) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_load) &&
+        check_entry(entries, idx, TRACE_TYPE_READ, sizeof(void *), LOAD_ADDR) &&
+        // Tail of trace.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                    TIME_VALUE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -5001,7 +5072,7 @@ test_main(int argc, const char *argv[])
         !test_asynchronous_signal(drcontext) || !test_syscall_injection(drcontext) ||
         !test_negative_timestamps(drcontext) || !test_top_byte_ignore(drcontext) ||
         !test_missing_memref(drcontext) || !test_skipped_memrefs(drcontext) ||
-        !test_stack_elision(drcontext))
+        !test_stack_elision(drcontext) || !test_filter_endpoint(drcontext))
         return 1;
     return 0;
 }
