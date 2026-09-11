@@ -221,6 +221,7 @@ kernel_get_online_processor_count(void)
 size_t
 kernel_get_page_size(void)
 {
+    /* PAGE_SIZE is the target kernel's base page size, defined by <asm/page.h>. */
     return PAGE_SIZE;
 }
 
