@@ -1,10 +1,9 @@
 Hit delay threshold: enabling tracing.
 Hit tracing window #0 limit: disabling tracing.
+Wally world!
 Hit retrace threshold: enabling tracing for window #1.
 Hit tracing window #1 limit: disabling tracing.
-Adios world!
 Hit retrace threshold: enabling tracing for window #2.
-Adios world!
 Hit tracing window #2 limit: disabling tracing.
 Adios world!
 Hit retrace threshold: enabling tracing for window #3.
@@ -22,18 +21,22 @@ Adios world!
 Hit retrace threshold: enabling tracing for window #6.
 Adios world!
 Hit tracing window #6 limit: disabling tracing.
+Adios world!
+Hit retrace threshold: enabling tracing for window #7.
+Adios world!
+Hit tracing window #7 limit: disabling tracing.
 Basic counts tool results:
 Total counts:
-          57 total \(fetched\) instructions
-          25 total unique \(fetched\) instructions
-           4 total non-fetched instructions
+          65 total \(fetched\) instructions
+          33 total unique \(fetched\) instructions
+           8 total non-fetched instructions
            0 total prefetches
-           7 total data loads
-           5 total data stores
+          12 total data loads
+          10 total data stores
            0 total icache flushes
            0 total dcache flushes
            1 total threads
-          42 total timestamp \+ cpuid markers
+          46 total timestamp \+ cpuid markers
            0 total idle markers
            0 total wait markers
            0 total kernel transfer markers
@@ -43,15 +46,15 @@ Total counts:
            0 total function return value markers
            0 total physical address \+ virtual address marker pairs
            0 total physical address unavailable markers
-           7 total system call number markers
-           6 total blocking system call markers
+           8 total system call number markers
+           7 total blocking system call markers
            0 total skipped memref markers
-          13 total other markers
-          25 total encodings
-Total windows: 8
+          14 total other markers
+          33 total encodings
+Total windows: 9
 Window #0:
-           8 window \(fetched\) instructions
-           8 window unique \(fetched\) instructions
+          13 window \(fetched\) instructions
+          13 window unique \(fetched\) instructions
            4 window non-fetched instructions
            0 window prefetches
            5 window data loads
@@ -69,11 +72,35 @@ Window #0:
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
            1 window system call number markers
-           0 window blocking system call markers
+           1 window blocking system call markers
            0 window skipped memref markers
            6 window other markers
-           8 window encodings
+          13 window encodings
 Window #1:
+           3 window \(fetched\) instructions
+           3 window unique \(fetched\) instructions
+           4 window non-fetched instructions
+           0 window prefetches
+           5 window data loads
+           5 window data stores
+           0 window icache flushes
+           0 window dcache flushes
+           4 window timestamp \+ cpuid markers
+           0 window idle markers
+           0 window wait markers
+           0 window kernel transfer markers
+           0 window function id markers
+           0 window function return address markers
+           0 window function argument markers
+           0 window function return value markers
+           0 window physical address \+ virtual address marker pairs
+           0 window physical address unavailable markers
+           1 window system call number markers
+           0 window blocking system call markers
+           0 window skipped memref markers
+           1 window other markers
+           3 window encodings
+Window #2:
            9 window \(fetched\) instructions
            9 window unique \(fetched\) instructions
            0 window non-fetched instructions
@@ -97,30 +124,6 @@ Window #1:
            0 window skipped memref markers
            1 window other markers
            9 window encodings
-Window #2:
-           8 window \(fetched\) instructions
-           8 window unique \(fetched\) instructions
-           0 window non-fetched instructions
-           0 window prefetches
-           0 window data loads
-           0 window data stores
-           0 window icache flushes
-           0 window dcache flushes
-           6 window timestamp \+ cpuid markers
-           0 window idle markers
-           0 window wait markers
-           0 window kernel transfer markers
-           0 window function id markers
-           0 window function return address markers
-           0 window function argument markers
-           0 window function return value markers
-           0 window physical address \+ virtual address marker pairs
-           0 window physical address unavailable markers
-           1 window system call number markers
-           1 window blocking system call markers
-           0 window skipped memref markers
-           1 window other markers
-           3 window encodings
 Window #3:
            8 window \(fetched\) instructions
            8 window unique \(fetched\) instructions
@@ -144,7 +147,7 @@ Window #3:
            1 window blocking system call markers
            0 window skipped memref markers
            1 window other markers
-           0 window encodings
+           3 window encodings
 Window #4:
            8 window \(fetched\) instructions
            8 window unique \(fetched\) instructions
@@ -216,8 +219,32 @@ Window #6:
            1 window blocking system call markers
            0 window skipped memref markers
            1 window other markers
-           5 window encodings
+           0 window encodings
 Window #7:
+           8 window \(fetched\) instructions
+           8 window unique \(fetched\) instructions
+           0 window non-fetched instructions
+           0 window prefetches
+           0 window data loads
+           0 window data stores
+           0 window icache flushes
+           0 window dcache flushes
+           6 window timestamp \+ cpuid markers
+           0 window idle markers
+           0 window wait markers
+           0 window kernel transfer markers
+           0 window function id markers
+           0 window function return address markers
+           0 window function argument markers
+           0 window function return value markers
+           0 window physical address \+ virtual address marker pairs
+           0 window physical address unavailable markers
+           1 window system call number markers
+           1 window blocking system call markers
+           0 window skipped memref markers
+           1 window other markers
+           5 window encodings
+Window #8:
            0 window \(fetched\) instructions
            0 window unique \(fetched\) instructions
            0 window non-fetched instructions
@@ -242,8 +269,8 @@ Window #7:
            1 window other markers
            0 window encodings
 Thread [0-9]* counts:
-           8 \(fetched\) instructions
-           8 unique \(fetched\) instructions
+          13 \(fetched\) instructions
+          13 unique \(fetched\) instructions
            4 non-fetched instructions
            0 prefetches
            5 data loads
@@ -261,7 +288,7 @@ Thread [0-9]* counts:
            0 physical address \+ virtual address marker pairs
            0 physical address unavailable markers
            1 system call number markers
-           0 blocking system call markers
+           1 blocking system call markers
            0 skipped memref markers
            6 other markers
-           8 encodings
+          13 encodings
