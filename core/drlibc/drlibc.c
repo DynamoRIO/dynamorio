@@ -109,6 +109,57 @@ extern void
 sys_icache_invalidate(void *, size_t);
 #    endif
 
+#    ifndef DR_HOST_NOT_TARGET
+static inline void
+get_cache_info(DR_PARAM_OUT size_t *dcache_line_size,
+               DR_PARAM_OUT size_t *icache_line_size, DR_PARAM_OUT bool *d_to_i_coherent,
+               DR_PARAM_OUT bool *i_to_d_coherent)
+{
+    static uint64 cache_info = 0;
+
+    /* "Cache Type Register" contains:
+     * CTR_EL0 [63:38] : RES0
+     * CTR_EL0 [37:32] : TminLine, Log2 of words covered by MTE allocation tags in
+     *                   smallest cache line.
+     * CTR_EL0 [31]    : RES1
+     * CTR_EL0 [30]    : RES0
+     * CTR_EL0 [29]    : DIC, if 1 cache invalidation is not required for data to
+     *                   instruction coherence.
+     * CTR_EL0 [28]    : IDC, if 1 cache invalidation is not required for instruction to
+     *                   data coherence.
+     * CTR_EL0 [19:16] : Log2 of number of 4-byte words in smallest dcache line
+     * CTR_EL0 [3:0]   : Log2 of number of 4-byte words in smallest icache line
+     * https://developer.arm.com/documentation/ddi0595/2021-09/AArch64-Registers/
+     * CTR-EL0--Cache-Type-Register
+     *
+     * Also, the whitepaper below documents AArch64 words being 32 bits wide.
+     * https://developer.arm.com/-/media/Files/pdf/
+     * graphics-and-multimedia/Porting%20to%20ARM%2064-bit.pdf
+     */
+    if (cache_info == 0) {
+#        if defined(MACOS)
+        /* XXX i#5383: Put in a proper solution; maybe getauxval() syscall with
+         * AT_HWCAP/AT_HWCAP2?
+         * mrs traps to illegal instruction on M1;
+         * hackily hardwire to "sysctl -a hw machdep.cpu" from one machine to
+         * make forward progress for now.
+         */
+        cache_info = (1 << 31) | (7 << 16) | (7 << 0);
+#        else
+        __asm__ __volatile__("mrs %0, ctr_el0" : "=r"(cache_info));
+#        endif
+    }
+    if (dcache_line_size != NULL)
+        *dcache_line_size = 4 << (cache_info >> 16 & 0xf);
+    if (icache_line_size != NULL)
+        *icache_line_size = 4 << (cache_info & 0xf);
+    if (d_to_i_coherent != NULL)
+        *d_to_i_coherent = TESTANY(1 << 29, cache_info);
+    if (i_to_d_coherent != NULL)
+        *i_to_d_coherent = TESTANY(1 << 28, cache_info);
+}
+#    endif /*DR_HOST_NOT_TARGET*/
+
 void
 clear_icache(void *beg, void *end)
 {
@@ -117,6 +168,8 @@ clear_icache(void *beg, void *end)
 #    else
     size_t dcache_line_size;
     size_t icache_line_size;
+    bool d_to_i_coherent;
+    bool i_to_d_coherent;
     ptr_uint_t beg_uint = (ptr_uint_t)beg;
     ptr_uint_t end_uint = (ptr_uint_t)end;
     ptr_uint_t addr;
@@ -124,32 +177,44 @@ clear_icache(void *beg, void *end)
     if (beg_uint >= end_uint)
         return;
 
-    if (!get_cache_line_size(&dcache_line_size, &icache_line_size)) {
-        /* We don't expect get_cache_line_size to return false, as this code is
-         * invoked only when (not DR_HOST_NOT_TARGET).
-         */
-        ASSERT_NOT_REACHED();
+    get_cache_info(&dcache_line_size, &icache_line_size, &d_to_i_coherent,
+                   &i_to_d_coherent);
+
+    /* See https://developer.arm.com/community/arm-community-blogs/b/
+     * architectures-and-processors-blog/posts/
+     * caches-self-modifying-code-implementing-clear-cache
+     * for a deeper explanation.
+     */
+
+    if (!i_to_d_coherent) {
+        /* Flush data cache to point of unification, one line at a time. */
+        addr = ALIGN_BACKWARD(beg_uint, dcache_line_size);
+        do {
+            __asm__ __volatile__("dc cvau, %0" : : "r"(addr) : "memory");
+            addr += dcache_line_size;
+        } while (addr != ALIGN_FORWARD(end_uint, dcache_line_size));
     }
 
-    /* Flush data cache to point of unification, one line at a time. */
-    addr = ALIGN_BACKWARD(beg_uint, dcache_line_size);
-    do {
-        __asm__ __volatile__("dc cvau, %0" : : "r"(addr) : "memory");
-        addr += dcache_line_size;
-    } while (addr != ALIGN_FORWARD(end_uint, dcache_line_size));
-
     /* Data Synchronization Barrier */
     __asm__ __volatile__("dsb ish" : : : "memory");
 
-    /* Invalidate instruction cache to point of unification, one line at a time. */
-    addr = ALIGN_BACKWARD(beg_uint, icache_line_size);
-    do {
-        __asm__ __volatile__("ic ivau, %0" : : "r"(addr) : "memory");
-        addr += icache_line_size;
-    } while (addr != ALIGN_FORWARD(end_uint, icache_line_size));
+    /*TODO i7585: The selfmod tests currently rely on seeing ic ivau instructions to
+     *            detect modified pages. Remove this line when we have fixed the
+     *            hw_cache_consistency bugs and enabled by default.
+     */
+    d_to_i_coherent = false;
 
-    /* Data Synchronization Barrier */
-    __asm__ __volatile__("dsb ish" : : : "memory");
+    if (!d_to_i_coherent) {
+        /* Invalidate instruction cache to point of unification, one line at a time. */
+        addr = ALIGN_BACKWARD(beg_uint, icache_line_size);
+        do {
+            __asm__ __volatile__("ic ivau, %0" : : "r"(addr) : "memory");
+            addr += icache_line_size;
+        } while (addr != ALIGN_FORWARD(end_uint, icache_line_size));
+
+        /* Data Synchronization Barrier */
+        __asm__ __volatile__("dsb ish" : : : "memory");
+    }
 
     /* Instruction Synchronization Barrier */
     __asm__ __volatile__("isb" : : : "memory");
@@ -177,36 +242,7 @@ get_cache_line_size(DR_PARAM_OUT size_t *dcache_line_size,
                     DR_PARAM_OUT size_t *icache_line_size)
 {
 #    ifndef DR_HOST_NOT_TARGET
-    static size_t cache_info = 0;
-
-    /* "Cache Type Register" contains:
-     * CTR_EL0 [31]    : 1
-     * CTR_EL0 [19:16] : Log2 of number of 4-byte words in smallest dcache line
-     * CTR_EL0 [3:0]   : Log2 of number of 4-byte words in smallest icache line
-     * https://developer.arm.com/documentation/ddi0595/2021-09/AArch64-Registers/
-     * CTR-EL0--Cache-Type-Register
-     *
-     * Also, the whitepaper below documents AArch64 words being 32 bits wide.
-     * https://developer.arm.com/-/media/Files/pdf/
-     * graphics-and-multimedia/Porting%20to%20ARM%2064-bit.pdf
-     */
-    if (cache_info == 0) {
-#        if defined(MACOS)
-        /* XXX i#5383: Put in a proper solution; maybe getauxval() syscall with
-         * AT_HWCAP/AT_HWCAP2?
-         * mrs traps to illegal instruction on M1;
-         * hackily hardwire to "sysctl -a hw machdep.cpu" from one machine to
-         * make forward progress for now.
-         */
-        cache_info = (1 << 31) | (7 << 16) | (7 << 0);
-#        else
-        __asm__ __volatile__("mrs %0, ctr_el0" : "=r"(cache_info));
-#        endif
-    }
-    if (dcache_line_size != NULL)
-        *dcache_line_size = 4 << (cache_info >> 16 & 0xf);
-    if (icache_line_size != NULL)
-        *icache_line_size = 4 << (cache_info & 0xf);
+    get_cache_info(dcache_line_size, icache_line_size, NULL, NULL);
     return true;
 #    endif
     return false;

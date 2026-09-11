@@ -236,16 +236,60 @@ instruction cache, so DynamoRIO must mangle these instructions so as
 to detect when a program may have legally modified itself.
 
 The prescribed recipe for synchronising the instruction cache is
-implemented by clear_icache() in "dr_helper.c". DynamoRIO detects when
-an app has performed these operations by mangling the IC and ISB
-instructions. A program will typically invoke IC on a contiguous set
-of cache lines, then invoke ISB, so DynamoRIO mangles IC into a call
-to a procedure that updates the set of cache lines, provided they are
-contiguous, without returning to the C runtime, which would involve
-saving nearly all the registers (about 800 bytes). A return to the C
-runtime with X0 set to linkstub_selfmod only occurs when an ISB
-instruction is executed after one or more IC instructions have been
-executed.
+implemented by clear_icache() in "drlibc.c". There are three scenarios
+we must consider:
+
+## Hardware without data to instruction cache coherence (\c CTR_EL0.DIC=0)
+
+Software running on hardware without data to instruction cache coherence
+must perform explicit cache maintenance to invalidate icache lines operating
+memory that has been modified. DynamoRIO detects when an app has performed
+these operations by mangling the IC instructions to return to the C
+runtime with \c X0 set to linkstub_selfmod.
+
+## Hardware with data to instruction cache coherence (\c CTR_EL0.DIC=1)
+
+Software does not have to perform explicit icache maintenance when modifying
+code. Some synchronisation is still required but the procedure is reduced to:
+
+\code
+dsb ish
+isb
+\endcode
+
+Even though we could detect this sequence it does not give any indication of
+the memory range which has been modified so it can't be mangled in the same way
+we do for \c IC in the \c CTR_EL0.DIC=0 case. Instead we need to use sandboxing
+similar to the x86 port (see below).
+
+## Concurrent Modification and Execution of instructions (CMODX)
+
+For a narrow class of instructions the ARM architecture allows one thread to
+modify instructions and guarantees that a second thread executing these
+instructions will either execute the original instruction, or the replacement
+and this does not require any explicit synchronisation. The only way to detect
+this is using sandboxing.
+
+## Sandboxing implementation
+
+The AArch64 sandboxing implementation works in a similar way to the x86 version:
+Fragments marked \c FRAG_SELFMOD_SANDBOXED have a copy of the original app code
+appended to the fragment and extra mangling code is emitted to the beginning of
+the fragment which compares the app memory with the copy to detect changes since
+the last time this fragment was executed. If a difference is detected the
+fragment takes a special exit and the fragment is rebuilt from the new modified
+code.
+
+If \c -sandbox_writes is on any store instructions in a sandboxed fragment will
+be mangled to check whether the destination range of the store overlaps with the
+app code for the current fragment. If it does, again it will exit and rebuild
+the fragment from the new modified code. Unlike x86 \c -sandbox_writes is off by
+default on AArch64. Even when running on hardware with icache coherence software
+must execute a \c DSB followed by \c ISB to guarantee modified instructions are
+executed. We can take advantage of this and skip sandbox write mangling and
+instead just terminate any sandboxed block after an \c ISB instruction. Execution
+will continue to the next fragment which will begin with the top-of-fragment
+modification check.
 
 
  ****************************************************************************

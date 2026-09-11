@@ -983,6 +983,10 @@ enum {
      * and its abort handler PC, in that order.
      */
     DR_NOTE_RSEQ_ENTRY,
+    /** On AArch64, identifies the ADR that should be patched to point to a fragment's
+     *  selfmod copy.
+     */
+    DR_NOTE_SELFMOD_COPY,
 };
 
 /**

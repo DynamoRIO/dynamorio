@@ -190,6 +190,9 @@ typedef struct _spill_state_t {
     /* In A32 mode we have no OP_cbnz so we have to save the flags. */
     reg_t ldstex_flags;
 #    endif
+#    ifdef AARCH64
+    ptr_uint_t selfmod_write_addr;
+#    endif
     /* TODO i#1575: coarse-grain NYI on ARM */
 #elif defined(RISCV64)
     /* State for converting LR/SC pair into compare-and-swap (-ldstex2cas). */
@@ -267,6 +270,10 @@ typedef struct _local_state_extended_t {
 #    define TLS_LDSTEX_SIZE_SLOT ((ushort)offsetof(spill_state_t, ldstex_size))
 #    ifdef ARM
 #        define TLS_LDSTEX_FLAGS_SLOT ((ushort)offsetof(spill_state_t, ldstex_flags))
+#    endif
+#    ifdef AARCH64
+#        define TLS_SELFMOD_WRITE_ADDR_SLOT \
+            ((ushort)offsetof(spill_state_t, selfmod_write_addr))
 #    endif
 #elif defined(RISCV64)
 #    define TLS_FCACHE_RETURN_SLOT ((ushort)offsetof(spill_state_t, fcache_return))
@@ -1550,7 +1557,7 @@ bool
 mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip);
 #endif
 void
-finalize_selfmod_sandbox(dcontext_t *dcontext, fragment_t *f);
+finalize_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, fragment_t *f);
 
 bool
 instr_check_xsp_mangling(dcontext_t *dcontext, instr_t *inst, int *xsp_adjust);

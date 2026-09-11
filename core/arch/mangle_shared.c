@@ -2334,9 +2334,9 @@ find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
 void
 mangle_finalize(dcontext_t *dcontext, instrlist_t *ilist, fragment_t *f)
 {
-#ifdef X86
+#ifdef ARCH_SUPPORTS_HW_CACHE_CONSISTENCY
     if (TESTANY(FRAG_SELFMOD_SANDBOXED, f->flags)) {
-        finalize_selfmod_sandbox(dcontext, f);
+        finalize_selfmod_sandbox(dcontext, ilist, f);
     }
 #endif
 #ifdef LINUX

@@ -3964,7 +3964,7 @@ set_selfmod_sandbox_offsets(dcontext_t *dcontext)
 }
 
 void
-finalize_selfmod_sandbox(dcontext_t *dcontext, fragment_t *f)
+finalize_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, fragment_t *f)
 {
     cache_pc copy_pc = FRAGMENT_SELFMOD_COPY_PC(f);
     byte *pc;
