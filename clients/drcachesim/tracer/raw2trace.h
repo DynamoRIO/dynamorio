@@ -1032,7 +1032,7 @@ protected:
     is_maybe_blocking_syscall(uintptr_t number);
 
     void
-    clear_last_block_info(raw2trace_thread_data_t *tdata);
+    clear_decode_and_last_block_info(raw2trace_thread_data_t *tdata);
 
     const module_mapper_t *modmap_ptr_ = nullptr;
 
