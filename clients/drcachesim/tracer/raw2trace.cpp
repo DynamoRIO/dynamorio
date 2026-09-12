@@ -2309,18 +2309,19 @@ raw2trace_t::append_repstring(raw2trace_thread_data_t *tdata,
         // We'd have to also remove from the expanded path for online and filtered:
         // for filtered via a post-unexpanded-repstr clean call applying filtering;
         // for online via the reader removing the expanded-repstr nofetch records.
-        buf->type = TRACE_TYPE_INSTR_NO_FETCH;
+        buf->type = static_cast<unsigned short>(TRACE_TYPE_INSTR_NO_FETCH);
         buf->size = instr->length();
         buf->addr = reinterpret_cast<addr_t>(orig_pc);
         ++buf;
-        buf->type = has_load ? TRACE_TYPE_READ : TRACE_TYPE_WRITE;
-        buf->size = size;
+        buf->type =
+            static_cast<unsigned short>(has_load ? TRACE_TYPE_READ : TRACE_TYPE_WRITE);
+        buf->size = static_cast<unsigned short>(size);
         buf->addr = start;
         ++buf;
         if (num_memrefs > 1) {
             log(4, "  Adding rep string memref %p\n", start_2);
-            buf->type = TRACE_TYPE_WRITE;
-            buf->size = size;
+            buf->type = static_cast<unsigned short>(TRACE_TYPE_WRITE);
+            buf->size = static_cast<unsigned short>(size);
             buf->addr = start_2;
             ++buf;
         }
