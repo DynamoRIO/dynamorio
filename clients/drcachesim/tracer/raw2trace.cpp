@@ -2209,7 +2209,7 @@ raw2trace_t::append_repstring(raw2trace_thread_data_t *tdata,
     // modifying the pointers, just to be safe), it's easier to append the 2 or
     // 4 memrefs and then modify the buffer afterward, instead of peeking ahead
     // in the raw stream and handling elision ourselves.
-    int num_memrefs = instr->num_mem_srcs() + instr->num_mem_dests();
+    int num_memrefs = static_cast<int>(instr->num_mem_srcs() + instr->num_mem_dests());
     bool has_load = instr->num_mem_srcs() > 0;
     bool has_store = instr->num_mem_dests() > 0;
     DR_ASSERT(num_memrefs == 1 || num_memrefs == 2);
