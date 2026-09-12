@@ -4664,6 +4664,9 @@ if (BUILD_CLIENTS)
       "-no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
       "@-tool@invariant_checker" "")
     if (X86 AND X64 AND UNIX)
+      # XXX i#4914: It is a pain to updating other tests using allasm_repstr when we
+      # add repstr coverage for testing new repstr features. Maybe this window test
+      # should have its own app.
       torunonly_drcacheoff(windows-asm allasm_repstr
         "-no_split_windows -trace_after_instrs 3 -trace_for_instrs 4 -retrace_every_instrs 4"
         "@-tool@basic_counts" "")

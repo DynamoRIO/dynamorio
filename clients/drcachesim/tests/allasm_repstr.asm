@@ -1,5 +1,5 @@
  /* **********************************************************
- * Copyright (c) 2021-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2021-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -45,6 +45,21 @@ _start:
         lea      edi, hello_str
         cld
         rep      movsd
+
+        // Test a backward rep string loop.
+        mov      ecx, 5
+        lea      esi, wally_str
+        add      esi, 4
+        lea      edi, hello_str
+        add      edi, 4
+        std // Setting DF makes rep go backward.
+        rep      movsb
+        // Print the backward-copied string to ensure we did it right.
+        mov      rdi, 2           // stderr
+        lea      rsi, hello_str
+        mov      rdx, 13          // sizeof(hello_str)
+        mov      eax, 1           // SYS_write
+        syscall
 
         // Test a rep string loop.
         mov      ecx, 5
@@ -101,6 +116,8 @@ hello_str:
         .string  "Hello world!\n"
 bye_str:
         .string  "Adios\n"
+wally_str:
+        .string  "Wally\n"
         // Push .data onto a 2nd page to test page-spanning accesses.
         // We assume 4K pages here.
         .align   4096
