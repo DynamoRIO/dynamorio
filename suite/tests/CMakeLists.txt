@@ -5041,6 +5041,12 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.burst_traceopts_nopost ON)
       torunonly_drcacheoff(burst_traceopts tool.drcacheoff.burst_traceopts "" "" "")
 
+      if (X86 AND UNIX)
+       set(tool.drcacheoff.burst_repstr_nodr ON)
+       set(tool.drcacheoff.burst_repstr_nopost ON)
+       torunonly_drcacheoff(burst_repstr tool.drcacheoff.burst_repstr "" "" "")
+      endif ()
+
       set(tool.drcacheoff.windows-timestamps_nodr ON)
       set(tool.drcacheoff.windows-timestamps_nopost ON)
       torunonly_drcacheoff(windows-timestamps tool.drcacheoff.windows-timestamps
@@ -5244,7 +5250,7 @@ if (BUILD_CLIENTS)
 
       # i#7769: Test instruction counting excludes REP emulation overhead.
       torunonly_drcacheoff(allasm-instcount allasm_instcount
-        "-trace_after_instrs 53" "@-tool@view" "")
+        "-trace_after_instrs 4" "@-tool@view" "")
       unset(tool.drcacheoff.allasm-instcount_rawtemp) # use preprocessor
 
       set(tool.drcacheoff.longblock_nodr ON)

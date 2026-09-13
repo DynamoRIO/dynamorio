@@ -1,5 +1,5 @@
- /* **********************************************************
- * Copyright (c) 2021-2025 Google, Inc.  All rights reserved.
+/* **********************************************************
+ * Copyright (c) 2021-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,6 +44,10 @@ _start:
 
     // Single REP instruction with 50 iterations.
     rep     stosb             // instruction 4
+
+    // End the basic block to trigger a mode change.
+    jmp     new_block
+new_block:
 
     // Exit
     mov     rdi, 0            // instruction 5
