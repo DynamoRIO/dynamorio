@@ -45,6 +45,10 @@ jobs:
 
   x86-64-insmod:
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        debug: ['ON', 'OFF']
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -61,7 +65,7 @@ jobs:
 
       - name: Build DynamoRIO Kernel Module against running kernel
         run: |
-          cmake -B build -DBUILD_KERNEL_MODULE=ON
+          cmake -B build -DBUILD_KERNEL_MODULE=ON -DDEBUG=${{ matrix.debug }}
           cmake --build build --parallel $(nproc) --target dynamorio_module
 
       - name: Load module and check dmesg for init/exit success
@@ -73,7 +77,12 @@ jobs:
           sudo dmesg -C
 
           echo "Loading $MODULE"
-          sudo insmod "$MODULE"
+          if [ "${{ matrix.debug }}" = "ON" ]; then
+            sudo insmod "$MODULE" options='"-loglevel 2"'
+            sudo dmesg | grep -F "DYNAMORIO_OPTIONS: -loglevel 2"
+          else
+            sudo insmod "$MODULE"
+          fi
           sudo dmesg | grep -F "dynamorio_module: Module started"
 
           echo "Removing dynamorio_module"

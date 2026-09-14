@@ -39,10 +39,15 @@
 
 #include "kernel_interface.h"
 
-#include <linux/kallsyms.h>
+#include <asm/page.h>
+#include <linux/cpumask.h>
 #include <linux/kprobes.h>
 #include <linux/ktime.h>
+#include <linux/panic.h>
+#include <linux/printk.h>
+#include <linux/preempt.h>
 #include <linux/smp.h>
+#include <linux/stdarg.h>
 #include <linux/string.h>
 #include <linux/vmalloc.h>
 
@@ -203,13 +208,43 @@ kernel_allocate_heap(size_t size)
 int
 kernel_get_cpu_id(void)
 {
+    KERNEL_ASSERT(!preemptible());
     return smp_processor_id();
+}
+
+int
+kernel_get_online_processor_count(void)
+{
+    return num_online_cpus();
+}
+
+size_t
+kernel_get_page_size(void)
+{
+    /* PAGE_SIZE is the target kernel's base page size, defined by <asm/page.h>. */
+    return PAGE_SIZE;
 }
 
 unsigned int
 kernel_query_time_seconds(void)
 {
     return (unsigned int)ktime_get_real_seconds();
+}
+
+void
+kernel_printk(const char *fmt, ...)
+{
+    va_list args;
+
+    va_start(args, fmt);
+    vprintk(fmt, args);
+    va_end(args);
+}
+
+void
+kernel_panic(const char *message)
+{
+    panic("%s", message);
 }
 
 #define KERNEL_ENV_MAX 20
@@ -219,14 +254,48 @@ typedef struct {
     char value[KERNEL_ENV_VALUE_MAX];
 } kernel_env_t;
 
+/* The env table is not protected by any lock: it is only written during module
+ * initialization (single-threaded) and read afterwards.
+ */
 static kernel_env_t env_vars[KERNEL_ENV_MAX];
 static int env_count = 0;
+
+int
+kernel_setenv(const char *name, const char *value)
+{
+    if (name == NULL || name[0] == '\0' || strchr(name, '=') != NULL || value == NULL) {
+        return -EINVAL;
+    }
+    if (strlen(name) >= KERNEL_ENV_NAME_MAX || strlen(value) >= KERNEL_ENV_VALUE_MAX) {
+        return -E2BIG;
+    }
+
+    /* If name already exists in env_vars, overwrite the existing value. */
+    for (int i = 0; i < env_count; i++) {
+        if (strcmp(name, env_vars[i].name) == 0) {
+            strscpy(env_vars[i].value, value, KERNEL_ENV_VALUE_MAX);
+            return 0;
+        }
+    }
+
+    /* If name doesn't exist in env_vars, try appending a new entry. */
+    if (env_count >= KERNEL_ENV_MAX) {
+        return -ENOSPC;
+    }
+    strscpy(env_vars[env_count].name, name, KERNEL_ENV_NAME_MAX);
+    strscpy(env_vars[env_count].value, value, KERNEL_ENV_VALUE_MAX);
+    env_count++;
+    return 0;
+}
 
 const char *
 kernel_getenv(const char *name)
 {
+    if (name == NULL || name[0] == '\0' || strchr(name, '=') != NULL) {
+        return NULL;
+    }
     for (int i = 0; i < env_count; i++) {
-        if (strncmp(name, env_vars[i].name, KERNEL_ENV_NAME_MAX) == 0) {
+        if (strcmp(name, env_vars[i].name) == 0) {
             return (const char *)env_vars[i].value;
         }
     }
