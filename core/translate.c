@@ -103,7 +103,7 @@ typedef struct _translate_walk_t {
 
 static void
 translate_walk_init(translate_walk_t *walk, byte *start_cache, byte *end_cache,
-                    priv_mcontext_t *mc, uint flags IF_NOT_AARCH64(UNUSED))
+                    priv_mcontext_t *mc)
 {
     memset(walk, 0, sizeof(*walk));
     walk->mc = mc;
@@ -820,7 +820,7 @@ translate_clear_last_direct_translation(dcontext_t *dcontext)
 static recreate_success_t
 recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *info,
                              byte *start_cache, byte *end_cache, priv_mcontext_t *mc,
-                             bool just_pc, uint flags)
+                             bool just_pc _IF_DEBUG(uint flags))
 {
     byte *answer = NULL;
     byte *cpc, *prev_cpc;
@@ -830,7 +830,7 @@ recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *in
     recreate_success_t res = (just_pc ? RECREATE_SUCCESS_PC : RECREATE_SUCCESS_STATE);
     instr_t instr;
     translate_walk_t walk;
-    translate_walk_init(&walk, start_cache, end_cache, mc, flags);
+    translate_walk_init(&walk, start_cache, end_cache, mc);
     instr_init(tdcontext, &instr);
 
     ASSERT(info != NULL);
@@ -1008,7 +1008,7 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
     prev_ok = NULL;
     prev_bytes = NULL;
 
-    translate_walk_init(&walk, start_cache, end_cache, mc, flags);
+    translate_walk_init(&walk, start_cache, end_cache, mc);
 
     for (inst = instrlist_first(ilist); inst; inst = instr_get_next(inst)) {
         int len = instr_length(tdcontext, inst);
