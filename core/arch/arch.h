@@ -1,6 +1,7 @@
 /* **********************************************************
  * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -1428,16 +1429,27 @@ get_simd_vals(priv_mcontext_t *mc);
 void *
 safe_read_asm(void *dst, const void *src, size_t size);
 /* These are labels, not function pointers.  We declare them as functions to
- * prevent loads and stores to these globals from compiling.
+ * prevent loads and stores to these globals from compiling.  Match the hidden
+ * visibility of their assembly definitions.
  */
+#if defined(USE_VISIBILITY_ATTRIBUTES) && !defined(LINUX_KERNEL)
+#    define SAFE_READ_ASM_LABEL __attribute__((visibility("hidden")))
+#else
+#    define SAFE_READ_ASM_LABEL
+#endif
+SAFE_READ_ASM_LABEL
 void
 safe_read_asm_pre(void);
+SAFE_READ_ASM_LABEL
 void
 safe_read_asm_mid(void);
+SAFE_READ_ASM_LABEL
 void
 safe_read_asm_post(void);
+SAFE_READ_ASM_LABEL
 void
 safe_read_asm_recover(void);
+#undef SAFE_READ_ASM_LABEL
 
 /* from x86.asm */
 /* Note these have specialized calling conventions and shouldn't be called from
