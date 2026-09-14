@@ -166,10 +166,10 @@ clear_icache(void *beg, void *end)
 #    ifdef DR_HOST_NOT_TARGET
     ASSERT_NOT_REACHED();
 #    else
-    size_t dcache_line_size;
-    size_t icache_line_size;
-    bool d_to_i_coherent;
-    bool i_to_d_coherent;
+    static size_t dcache_line_size = 0;
+    static size_t icache_line_size = 0;
+    static bool d_to_i_coherent = 0;
+    static bool i_to_d_coherent = 0;
     ptr_uint_t beg_uint = (ptr_uint_t)beg;
     ptr_uint_t end_uint = (ptr_uint_t)end;
     ptr_uint_t addr;
@@ -177,8 +177,10 @@ clear_icache(void *beg, void *end)
     if (beg_uint >= end_uint)
         return;
 
-    get_cache_info(&dcache_line_size, &icache_line_size, &d_to_i_coherent,
-                   &i_to_d_coherent);
+    if (dcache_line_size == 0) {
+        get_cache_info(&dcache_line_size, &icache_line_size, &d_to_i_coherent,
+                       &i_to_d_coherent);
+    }
 
     /* See https://developer.arm.com/community/arm-community-blogs/b/
      * architectures-and-processors-blog/posts/
