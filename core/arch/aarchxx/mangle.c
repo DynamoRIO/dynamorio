@@ -4154,6 +4154,9 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
     bool str_updates_base =
         instr_writes_to_reg(instr, opnd_get_base(op), DR_QUERY_INCLUDE_ALL);
 
+    /* There are no instructions which can update in index register. */
+    ASSERT(!instr_writes_to_reg(instr, opnd_get_index(op), DR_QUERY_INCLUDE_ALL));
+
     if (str_updates_base) {
         /* If the store updates the base register, we need to calculate the written
          * address before the write and store it in a tls slot.
