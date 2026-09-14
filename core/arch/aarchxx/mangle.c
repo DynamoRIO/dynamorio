@@ -4129,38 +4129,7 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
     ASSERT(STRIP_MEMORY_TAG(start_pc) == start_pc);
     ASSERT(STRIP_MEMORY_TAG(end_pc) == end_pc);
 
-    instr_t *next_app = next;
-    while (next_app != NULL && instr_is_meta(next_app))
-        next_app = instr_get_next(next_app);
-
-    app_pc after_write = NULL;
-
-    if (next_app != NULL) {
-        after_write = instr_get_app_pc(next_app);
-        if (after_write == NULL) {
-            if (instr_raw_bits_valid(next_app)) {
-                after_write = instr_get_raw_bits(next_app);
-            } else {
-                /* next must be the final artificially added jmp! */
-                ASSERT(instr_is_ubr(next_app) && instr_get_next(next_app) == NULL);
-                /* for sure this is the last jmp out, but it
-                 * doesn't have to be a direct jmp but instead
-                 * it could be the exit branch we add for an indirect call - which is the
-                 * only ind branch that writes to memory. CALL* already means that we're
-                 * leaving the block and it cannot be a selfmod instruction even though it
-                 * writes to memory
-                 */
-                DOLOG(4, LOG_INTERP,
-                      { d_r_loginst(dcontext, 4, next_app, "next app instr"); });
-                after_write = opnd_get_pc(instr_get_target(next_app));
-                LOG(THREAD, LOG_INTERP, 4,
-                    "after_write = " PFX " next should be final jmp\n", after_write);
-            }
-        }
-    } else {
-        ASSERT_NOT_TESTED();
-        after_write = end_pc;
-    }
+    app_pc after_write = sandbox_get_pc_after_write(dcontext, next, end_pc);
 
     struct scratch_reg_info_t scratch[2];
 

@@ -1558,6 +1558,8 @@ mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip);
 #endif
 void
 finalize_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, fragment_t *f);
+app_pc
+sandbox_get_pc_after_write(dcontext_t *dcontext, instr_t *next, app_pc end_pc);
 
 bool
 instr_check_xsp_mangling(dcontext_t *dcontext, instr_t *inst, int *xsp_adjust);

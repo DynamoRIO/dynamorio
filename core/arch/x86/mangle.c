@@ -3318,38 +3318,7 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
     int opcode = instr_get_opcode(instr);
     DOLOG(3, LOG_INTERP, { d_r_loginst(dcontext, 3, instr, "writes memory"); });
 
-    /* skip meta instrs to find next app instr (xref PR 472190) */
-    while (next_app != NULL && instr_is_meta(next_app))
-        next_app = instr_get_next(next_app);
-
-    if (next_app != NULL) {
-        /* client may have inserted non-meta instrs, so use translation first
-         * (xref PR 472190)
-         */
-        if (instr_get_app_pc(next_app) != NULL)
-            after_write = instr_get_app_pc(next_app);
-        else if (!instr_raw_bits_valid(next_app)) {
-            /* next must be the final artificially added jmp! */
-            ASSERT(instr_is_ubr(next_app) && instr_get_next(next_app) == NULL);
-            /* for sure this is the last jmp out, but it
-             * doesn't have to be a direct jmp but instead
-             * it could be the exit branch we add as an
-             * for an indirect call - which is the only ind branch
-             * that writes to memory
-             * CALL* already means that we're leaving the block and it cannot be a selfmod
-             * instruction even though it writes to memory
-             */
-            DOLOG(4, LOG_INTERP,
-                  { d_r_loginst(dcontext, 4, next_app, "next app instr"); });
-            after_write = opnd_get_pc(instr_get_target(next_app));
-            LOG(THREAD, LOG_INTERP, 4, "after_write = " PFX " next should be final jmp\n",
-                after_write);
-        } else
-            after_write = instr_get_raw_bits(next_app);
-    } else {
-        ASSERT_NOT_TESTED();
-        after_write = end_pc;
-    }
+    after_write = sandbox_get_pc_after_write(dcontext, next, end_pc);
 
     if (opcode == OP_ins || opcode == OP_movs || opcode == OP_stos) {
         /* These instrs modify their own addressing register so we must

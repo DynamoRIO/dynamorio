@@ -2350,6 +2350,47 @@ mangle_finalize(dcontext_t *dcontext, instrlist_t *ilist, fragment_t *f)
  *###########################################################################
  */
 
+/* Skip meta instructions to find the next app instruction.
+ * Helper function used by x86/AArch64 sandbox_write().
+ */
+app_pc
+sandbox_get_pc_after_write(dcontext_t *dcontext, instr_t *next, app_pc end_pc)
+{
+    instr_t *next_app = next;
+    while (next_app != NULL && instr_is_meta(next_app))
+        next_app = instr_get_next(next_app);
+
+    app_pc after_write = NULL;
+
+    if (next_app != NULL) {
+        after_write = instr_get_app_pc(next_app);
+        if (after_write == NULL) {
+            if (instr_raw_bits_valid(next_app)) {
+                after_write = instr_get_raw_bits(next_app);
+            } else {
+                /* Next must be the final artificially added jmp! */
+                ASSERT(instr_is_ubr(next_app) && instr_get_next(next_app) == NULL);
+                /* For sure this is the last jmp out, but it doesn't have to be a direct
+                 * jmp but instead it could be the exit branch we add for an indirect call
+                 * - which is the only ind branch that writes to memory. CALL* already
+                 * means that we're leaving the block and it cannot be a selfmod
+                 * instruction even though it writes to memory.
+                 */
+                DOLOG(4, LOG_INTERP,
+                      { d_r_loginst(dcontext, 4, next_app, "next app instr"); });
+                after_write = opnd_get_pc(instr_get_target(next_app));
+                LOG(THREAD, LOG_INTERP, 4,
+                    "after_write = " PFX " next should be final jmp\n", after_write);
+            }
+        }
+    } else {
+        ASSERT_NOT_TESTED();
+        after_write = end_pc;
+    }
+
+    return end_pc;
+}
+
 void
 clean_call_info_init(clean_call_info_t *cci, void *callee, bool save_fpstate,
                      uint num_args)
