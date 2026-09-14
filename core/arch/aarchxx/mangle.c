@@ -3999,7 +3999,13 @@ mangle_exclusive_monitor_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *i
 
 #ifdef ARCH_SUPPORTS_HW_CACHE_CONSISTENCY
 
-/* Calculate the target address.
+typedef struct _scratch_reg_info_t {
+    ushort slot;
+    reg_id_t reg;
+    bool needs_restore;
+} scratch_reg_info_t;
+
+/* Calculate the target address and strip memory tags.
  * XXX We can't use drutil_insert_get_mem_addr() here because:
  * a: It is part of an extension library, not libdynamorio.
  * b: The library is LGPL.
@@ -4103,12 +4109,6 @@ sandbox_insert_get_mem_addr(void *dcontext, reg_id_t output_reg, reg_id_t scratc
                          OPND_CREATE_INT(tag_mask)));
 }
 
-struct scratch_reg_info_t {
-    ushort slot;
-    reg_id_t reg;
-    bool needs_restore;
-};
-
 void
 sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *next,
               app_pc start_pc, app_pc end_pc /* end is open */)
@@ -4131,7 +4131,7 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
 
     app_pc after_write = sandbox_get_pc_after_write(dcontext, next, end_pc);
 
-    struct scratch_reg_info_t scratch[2];
+    scratch_reg_info_t scratch[2];
 
     scratch[0].reg = pick_scratch_reg(dcontext, instr, DR_REG_NULL, DR_REG_NULL,
                                       DR_REG_NULL, /*dead_reg_ok=*/false,
