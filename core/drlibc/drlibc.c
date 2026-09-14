@@ -119,13 +119,13 @@ get_cache_info(DR_PARAM_OUT size_t *dcache_line_size,
 
     /* "Cache Type Register" contains:
      * CTR_EL0 [63:38] : RES0
-     * CTR_EL0 [37:32] : TminLine, Log2 of words covered by MTE allocation tags in
+     * CTR_EL0 [37:32] : TminLine: Log2 of words covered by MTE allocation tags in
      *                   smallest cache line.
      * CTR_EL0 [31]    : RES1
      * CTR_EL0 [30]    : RES0
-     * CTR_EL0 [29]    : DIC, if 1 cache invalidation is not required for data to
+     * CTR_EL0 [29]    : DIC: If 1, cache invalidation is not required for data to
      *                   instruction coherence.
-     * CTR_EL0 [28]    : IDC, if 1 cache invalidation is not required for instruction to
+     * CTR_EL0 [28]    : IDC: If 1, cache invalidation is not required for instruction to
      *                   data coherence.
      * CTR_EL0 [19:16] : Log2 of number of 4-byte words in smallest dcache line
      * CTR_EL0 [3:0]   : Log2 of number of 4-byte words in smallest icache line
@@ -200,7 +200,7 @@ clear_icache(void *beg, void *end)
     /* Data Synchronization Barrier */
     __asm__ __volatile__("dsb ish" : : : "memory");
 
-    /*TODO i7585: The selfmod tests currently rely on seeing ic ivau instructions to
+    /*TODO i#7585: The selfmod tests currently rely on seeing ic ivau instructions to
      *            detect modified pages. Remove this line when we have fixed the
      *            hw_cache_consistency bugs and enabled by default.
      */
