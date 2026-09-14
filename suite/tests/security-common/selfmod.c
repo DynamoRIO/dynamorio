@@ -851,11 +851,13 @@ ADDRTAKEN_LABEL(sandbox_cti_tgt_end:)
 
 #ifdef AARCH64
 
-/* Holds the address of code we are modifying used in the str instructions
+/* Holds the address of code we are modifying used in the str instructions.
  * This must be kept in sync with the -steal_reg <N> option in the selfmod_stolen_reg
  * test.
  */
 #define ADDR_REG x9
+
+#define MOVZ_IMM16_OFFSET 5
 
 #define PREP_MOVZ_PATCH(target, value_reg, imm_reg, imm) \
         adr     ADDR_REG, target @N@\
@@ -882,7 +884,7 @@ GLOBAL_LABEL(FUNCNAME:)
 
         /* strb: patch just the low 3 immediate bits of "movz x0, #0". */
         adr     ADDR_REG, sandbox_aarch64_stores_strb_target
-        mov     w10, #(5 << 5)
+        mov     w10, #(5 << MOVZ_IMM16_OFFSET)
         strb    w10, [ADDR_REG]
         CLEAR_ICACHE_LINE(ADDR_REG)
 sandbox_aarch64_stores_strb_target:
@@ -891,7 +893,7 @@ sandbox_aarch64_stores_strb_target:
 
         /* strh: patch low 11 immediate bits of "movz x0, #0". */
         adr     ADDR_REG, sandbox_aarch64_stores_strh_target
-        mov     w10, #(0x123 << 5)
+        mov     w10, #(0x123 << MOVZ_IMM16_OFFSET)
         strh    w10, [ADDR_REG]
         CLEAR_ICACHE_LINE(ADDR_REG)
 sandbox_aarch64_stores_strh_target:
