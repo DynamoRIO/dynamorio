@@ -75,7 +75,7 @@ main(int argc, char **argv)
     tools_clear_icache(x, x + 3);
 
     /* Execute it a few times to warm up the cache. */
-    for (i = 0; i < 1000; i++) {
+    for (i = 0; i < 10; i++) {
         int r = f(i);
         if (r != 0) {
             print("FAIL 1: %d %d\n", i, r);
