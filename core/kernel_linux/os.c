@@ -297,12 +297,6 @@ os_check_option_compatibility(void)
     /* Shared traces have the same unsupported interrupt-handling races. */
     FORCE_OPTION_VALUE(shared_traces, false);
 
-    /* Do not request a shared trace IBL routine. On x86-64, the unconditional
-     * shared-gencode path currently overrides this option and must be addressed as
-     * part of takeover support.
-     */
-    FORCE_OPTION_VALUE(shared_trace_ibl_routine, false);
-
     /* Full state reconstruction from a PC in a separate direct-exit stub remains
      * unsupported, so keep exit stubs with their owning fragments.
      */
