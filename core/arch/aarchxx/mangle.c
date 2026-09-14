@@ -4318,9 +4318,10 @@ sandbox_top_restore_gprs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *wher
     RESTORE(DR_REG_R0, TLS_REG0_SLOT);
 }
 
+/* Materialise a constant using exactly 4 instructions. */
 static void
-sandbox_insert_mov_immed_ptrsz_fixed(dcontext_t *dcontext, instrlist_t *ilist,
-                                     instr_t *where, ptr_uint_t val, reg_id_t reg)
+sandbox_insert_mov_immed_ptrsz_4instr(dcontext_t *dcontext, instrlist_t *ilist,
+                                      instr_t *where, ptr_uint_t val, reg_id_t reg)
 {
     PRE(ilist, where,
         INSTR_CREATE_movz(dcontext, opnd_create_reg(reg), OPND_CREATE_INT16(val & 0xffff),
@@ -4394,8 +4395,8 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist, bool s2ro, uint flag
          * movk x0, #((counter >> 32) & 0xffff)
          * movk x0, #((counter >> 48) & 0xffff)
          */
-        sandbox_insert_mov_immed_ptrsz_fixed(dcontext, ilist, instr, (ptr_uint_t)counter,
-                                             counter_ptr);
+        sandbox_insert_mov_immed_ptrsz_4instr(dcontext, ilist, instr, (ptr_uint_t)counter,
+                                              counter_ptr);
         /* ldr counter_reg, [counter_ptr] */
         PRE(ilist, instr,
             INSTR_CREATE_ldr(dcontext, opnd_create_reg(counter_reg),
