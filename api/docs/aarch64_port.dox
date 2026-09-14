@@ -278,18 +278,21 @@ appended to the fragment and extra mangling code is emitted to the beginning of
 the fragment which compares the app memory with the copy to detect changes since
 the last time this fragment was executed. If a difference is detected the
 fragment takes a special exit and the fragment is rebuilt from the new modified
-code.
+code. This check currently always compares all instructions in the fragment. As
+a future possible optimization this could be changed to just check CMODX-safe
+instructions in the \c CTR_EL0.DIC=0 case.
 
-If \c -sandbox_writes is on any store instructions in a sandboxed fragment will
+If \c -sandbox_writes is on, any store instructions in a sandboxed fragment will
 be mangled to check whether the destination range of the store overlaps with the
 app code for the current fragment. If it does, again it will exit and rebuild
-the fragment from the new modified code. Unlike x86 \c -sandbox_writes is off by
-default on AArch64. Even when running on hardware with icache coherence software
+the fragment from the new modified code. Unlike x86, \c -sandbox_writes is off by
+default on AArch64. Even when running on hardware with icache coherence, software
 must execute a \c DSB followed by \c ISB to guarantee modified instructions are
 executed. We can take advantage of this and skip sandbox write mangling and
 instead just terminate any sandboxed block after an \c ISB instruction. Execution
 will continue to the next fragment which will begin with the top-of-fragment
-modification check.
+modification check. \c -sandbox_writes should not be required for typical AArch64
+applications and is provided for experimentation and possible future use.
 
 
  ****************************************************************************
