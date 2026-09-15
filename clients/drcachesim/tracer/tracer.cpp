@@ -672,8 +672,8 @@ insert_update_buf_ptr(void *drcontext, instrlist_t *ilist, instr_t *where,
 
 static int
 instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist, user_data_t *ud,
-                        instr_t *where, reg_id_t reg_ptr, int adjust, bool is_L0I_enabled,
-                        uintptr_t mode)
+                        instr_t *where, reg_id_t reg_ptr, int adjust,
+                        bool pc_record_per_instr, uintptr_t mode)
 {
     // Instrument to add a full instr entry for the first instr.
     if (op_instr_encodings.get_value()) {
@@ -683,7 +683,7 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist, user_dat
     }
     adjust =
         instru->instrument_instr(drcontext, tag, ud->instru_field, ilist, where, reg_ptr,
-                                 adjust, ud->delay_instrs[0], is_L0I_enabled, mode);
+                                 adjust, ud->delay_instrs[0], pc_record_per_instr, mode);
     if (op_use_physical.get_value() || op_instr_encodings.get_value()) {
         // No instr bundle if physical-2-virtual since instr bundle may
         // cross page bundary, and no bundles for encodings so we can easily
@@ -697,7 +697,7 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist, user_dat
             }
             adjust = instru->instrument_instr(drcontext, tag, ud->instru_field, ilist,
                                               where, reg_ptr, adjust, ud->delay_instrs[i],
-                                              is_L0I_enabled, mode);
+                                              pc_record_per_instr, mode);
         }
     } else {
         adjust =
@@ -1154,7 +1154,7 @@ instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t 
         insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
     adjust = instru->instrument_memref(drcontext, ud->instru_field, ilist, where, reg_ptr,
                                        adjust, app, ref, ref_index, write, pred,
-                                       is_L0I_enabled);
+                                       is_L0I_enabled || is_L0D_enabled);
     if ((is_L0I_enabled || is_L0D_enabled) && adjust != 0) {
         // When filtering we can't combine buf_ptr adjustments.
         insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, pred, adjust, mode);

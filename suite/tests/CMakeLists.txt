@@ -3281,6 +3281,10 @@ if (X86 OR AARCH64)
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_instcount.asm
         "-early_inject" "")
       append_pure_asm_app_link_flags(allasm_instcount)
+      add_exe(allasm_dfilter
+        ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_dfilter.asm
+        "-early_inject" "")
+      append_pure_asm_app_link_flags(allasm_dfilter)
     endif ()
   endif ()
 endif ()
@@ -5256,6 +5260,10 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.longblock_nodr ON)
       torunonly_drcacheoff(longblock tool.drcacheoff.longblock
         "" "@-tool@invariant_checker" "")
+
+      torunonly_drcacheoff(allasm-dfilter allasm_dfilter
+        "-L0D_filter -L0D_size 1024" "@-tool@view" "")
+      unset(tool.drcacheoff.allasm-dfilter_rawtemp) # use preprocessor
     endif (UNIX AND X86 AND X64)
 
     torunonly_drcacheoff(invariant_checker ${ci_shared_app}

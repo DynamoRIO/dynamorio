@@ -1720,6 +1720,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
     bool skip_icache = false;
     // This indicates that each memref has its own PC entry and that each
     // icache entry does not need to be considered a memref PC entry as well.
+    // For dfiltered-only, we handle the separate PC entries in append_memref().
     bool instrs_are_separate = TESTANY(
         OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED, get_file_type(tdata));
     bool is_instr_only_trace =
@@ -2654,6 +2655,33 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
             return false;
         }
         in_entry = get_next_entry(tdata);
+    }
+    if (TESTANY(OFFLINE_FILE_TYPE_DFILTERED, get_file_type(tdata)) &&
+        !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                 get_file_type(tdata))) {
+        if (in_entry != nullptr &&
+            (in_entry->pc.type ==
+             OFFLINE_TYPE_PC IF_X64(|| in_entry->pc.type == OFFLINE_TYPE_PC_TOP_BIT))) {
+            if (in_entry->pc.instr_count != 0) {
+                tdata->error = "Found multi-instr pc entry mid-block";
+                return false;
+            }
+            app_pc memref_pc =
+                modmap_().get_orig_pc(in_entry->pc.modidx, in_entry->pc.modoffs);
+            if (memref_pc < instr->pc()) {
+                tdata->error = "Bypassed dfilter memref";
+                return false;
+            }
+            if (memref_pc > instr->pc()) {
+                unread_last_entry(tdata);
+                return true;
+            }
+            in_entry = get_next_entry(tdata);
+            if (in_entry == nullptr) {
+                tdata->error = "Trace ends mid-block";
+                return false;
+            }
+        }
     }
     if (in_entry != nullptr && in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
         in_entry->extended.ext == OFFLINE_EXT_TYPE_MEMINFO) {
