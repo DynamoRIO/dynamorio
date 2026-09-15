@@ -2373,12 +2373,12 @@ insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
     instr_t *instr, *next;
 
     if (!INTERNAL_OPTION(hw_cache_consistency))
-        return true; /* Nothing to do */
+        return true; /* Nothing to do. */
 
     /* This code assumes bb covers single, contiguous region */
     ASSERT(!TESTANY(FRAG_HAS_DIRECT_CTI, flags));
 
-    /* Store first instr so loop below will skip top check */
+    /* Store first instr so loop below will skip top check. */
     instr = instrlist_first_expanded(dcontext, ilist);
     instrlist_set_our_mangling(ilist, true); /* PR 267260 */
     if (record_translation) {
@@ -2414,7 +2414,7 @@ insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
             if (instr_is_meta(instr))
                 continue;
             if (record_translation) {
-                /* make sure inserted instrs translate to the proper original instr */
+                /* Make sure inserted instrs translate to the proper original instr. */
                 ASSERT(instr_get_translation(instr) != NULL);
                 instrlist_set_translation_target(ilist, instr_get_translation(instr));
             }
@@ -2469,20 +2469,19 @@ insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                 after_write = end_pc;
             }
 
-            /* XXX case 8165: optimize for multiple push/pop */
+            /* XXX case 8165: Optimize for multiple push/pop. */
             for (int i = 0; i < instr_num_dsts(instr); i++) {
                 opnd_t op = instr_get_dst(instr, i);
                 if (opnd_is_memory_reference(op)) {
                     /* ignore CALL* since last anyways */
                     if (instr_is_call_indirect(instr)) {
                         ASSERT(next != NULL && !instr_raw_bits_valid(next));
-                        /* XXX case 8165: why do we ever care about the last
+                        /* XXX case 8165: Why do we ever care about the last
                          * instruction modifying anything?
                          */
-                        /* conversion of IAT calls (but not elision)
-                         * transforms this into a direct CALL,
-                         * in that case 'next' is a direct jmp
-                         * fall through, so has no exit flags
+                        /* Conversion of IAT calls (but not elision) transforms this into
+                         * a direct CALL, in that case 'next' is a direct jmp fall
+                         * through, so has no exit flags.
                          */
                         ASSERT(EXIT_IS_CALL(instr_exit_branch_type(next)) ||
                                (DYNAMO_OPTION(IAT_convert) &&
