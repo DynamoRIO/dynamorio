@@ -537,10 +537,10 @@ arith_newblock:
         sub      r0, #8
         ldr      r1, [r0, #16]
         // Modify via addressing mode base updates.
-        ldmia.w  r0!, {r1, r2}
-        ldmib.w  r0!, {r1, r2}
-        ldmda.w  r0!, {r1, r2}
-        ldmdb.w  r0!, {r1, r2}
+        ldmia    r0!, {r1, r2}
+        ldmib    r0!, {r1, r2}
+        ldmda    r0!, {r1, r2}
+        ldmdb    r0!, {r1, r2}
         // Test modified bases which should not be elided.
         mov      r1, #8
         add      r0, r1

@@ -1046,12 +1046,14 @@ offline_instru_t::does_reg_write_thwart_elision(int version, instr_t *instr, reg
     if (version >= OFFLINE_FILE_VERSION_ELIDE_IMMED_BASE) {
         if (instr_get_opcode(instr) == OP_add &&
             opnd_is_immed_int(instr_get_src(instr, 0))) {
-            value_delta = opnd_get_immed_int(instr_get_src(instr, 0));
+            // The ISA only supports 32-bit immeds here.
+            value_delta = static_cast<int>(opnd_get_immed_int(instr_get_src(instr, 0)));
             return false;
         }
         if (instr_get_opcode(instr) == OP_sub &&
             opnd_is_immed_int(instr_get_src(instr, 0))) {
-            value_delta = -opnd_get_immed_int(instr_get_src(instr, 0));
+            // The ISA only supports 32-bit immeds here.
+            value_delta = -static_cast<int>(opnd_get_immed_int(instr_get_src(instr, 0)));
             return false;
         }
         if (instr_get_opcode(instr) == OP_lea &&
