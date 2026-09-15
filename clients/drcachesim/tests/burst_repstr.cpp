@@ -37,7 +37,6 @@
 #    include "test_helpers.h"
 #    include "dr_api.h"
 #    include "drmemtrace/drmemtrace.h"
-#    include "drcovlib.h"
 #    include "analysis_tool.h"
 #    include "scheduler.h"
 #    include "tracer/raw2trace.h"
@@ -160,8 +159,8 @@ gather_trace(const std::string &tracer_ops, const std::string &out_subdir, char 
 }
 
 void
-verify_fault(void *drcontext, const std::string &trace_dir, char *dst, char *src,
-             int expected_iters)
+verify_trace(void *drcontext, const std::string &trace_dir, char *dst, char *src,
+             int expected_iters, bool expect_fault)
 {
     scheduler_t scheduler;
     std::vector<scheduler_t::input_workload_t> sched_opt_inputs;
@@ -199,6 +198,8 @@ verify_fault(void *drcontext, const std::string &trace_dir, char *dst, char *src
                     found_loop = true;
                 } else
                     entry_count_at_target = 0;
+            } else if (entry_count_at_target > 0) {
+                assert((entry_count - entry_count_at_target) % 3 == 0);
             }
         } else if (memref.marker.type == TRACE_TYPE_MARKER) {
             if (verbose) {
@@ -233,17 +234,18 @@ verify_fault(void *drcontext, const std::string &trace_dir, char *dst, char *src
                                (entry_count - entry_count_at_target) / 3);
                     ++target_write_count;
                 } else {
-                    // The 3rd is the non-fetched instr which won't come here.
+                    // %3==0 is the non-fetched instr which won't come here.
+                    // We assert on this above.
                     assert(false);
                 }
             }
         }
         ++entry_count;
     }
-    // If the loop faulted before any iters executed, we shouldn't see it at all.
-    if (expected_iters == 0) {
-        assert(found_uncompleted_marker);
+    if (expect_fault && expected_iters == 0) {
+        // If the loop faulted before any iters executed, we shouldn't see it at all.
         assert(!found_loop);
+        assert(found_uncompleted_marker);
     } else {
         assert(!found_uncompleted_marker);
         assert(found_loop);
@@ -270,16 +272,28 @@ test_main(int argc, const char *argv[])
     std::string dir_start =
         gather_trace("", "burst_repstr_start", map + page_size, map, 10);
     // Gather a trace with a loop that faults after 11 iterations.
-    size_t bytes_before_fault = 11;
+    const size_t bytes_before_fault = 11;
     char *dst = map + page_size - bytes_before_fault;
     char *src = map;
     std::string dir_midloop =
         gather_trace("", "burst_repstr_mid", dst, src, bytes_before_fault * 2);
+    // Gather a succesful trace.
+    const size_t bytes_success = 12;
+    std::string dir_success =
+        gather_trace("", "burst_repstr_success", map, map + bytes_success, bytes_success);
+    // Gather a zero iter trace with no fault.
+    std::string dir_zero =
+        gather_trace("", "burst_repstr_zero", map, map + bytes_success, 0);
 
     // Check the traces.
     void *drcontext = dr_standalone_init();
-    verify_fault(drcontext, dir_start, map + page_size, map, 0);
-    verify_fault(drcontext, dir_midloop, dst, src, bytes_before_fault);
+    verify_trace(drcontext, dir_start, map + page_size, map, 0, /*expect_fault=*/true);
+    verify_trace(drcontext, dir_midloop, dst, src, bytes_before_fault,
+                 /*expect_fault=*/true);
+    verify_trace(drcontext, dir_success, map, map + bytes_success, bytes_success,
+                 /*expect_fault=*/false);
+    verify_trace(drcontext, dir_zero, map, map + bytes_success, 0,
+                 /*expect_fault=*/false);
     dr_standalone_exit();
 
     std::cerr << "all done\n";

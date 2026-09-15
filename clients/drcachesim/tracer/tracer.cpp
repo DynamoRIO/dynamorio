@@ -148,7 +148,8 @@ typedef struct {
     bool recorded_instr;       /* For offline single-PC-per-block. */
     int bb_instr_count;        /* For filtered traces. */
     bool recorded_instr_count; /* For filtered traces. */
-    // For offline, we need to instrument repstrings before the next instr.
+    // For offline, we need to instrument the final iteration of repstrings
+    // before the next instr.
     // We insert a nop if necessary to ensure there is a next instr.
     instr_t *repstr_for_post;
 } user_data_t;
@@ -231,7 +232,7 @@ was_L0_filtering_ever_enabled()
 }
 
 static bool
-is_repstr_expanded()
+is_repstr_expansion_enabled()
 {
     return !op_offline.get_value() || was_L0_filtering_ever_enabled();
 }
@@ -1440,8 +1441,10 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     }
 
     if (ud->repstr_for_post != nullptr) {
-        // Insert the after-repstr instrumentation for the prior instruction, before
-        // instrumenting the current instruction.
+        // We need a second call to record final address register values for
+        // rep-string loops just prior to the next instruction. Do that before
+        // instrumenting the new instruction. (We don't do this as a post-insert
+        // as that would require duplicating scratch register and other setup.)
         adjust = instrument_memref_operands(drcontext, bb, where, ud->repstr_for_post,
                                             reg_ptr, adjust, mode, ud);
         ud->repstr_for_post = nullptr;
@@ -1507,14 +1510,16 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         (instr_reads_memory(instr_operands) || instr_writes_memory(instr_operands))) {
         adjust = instrument_memref_operands(drcontext, bb, where, instr_operands, reg_ptr,
                                             adjust, mode, ud);
-        if (instr_is_rep_string_op(instr_operands) && !is_repstr_expanded()) {
+        if (instr_is_rep_string_op(instr_operands) && !is_repstr_expansion_enabled()) {
             // We need the post-loop addresses so we insert *after* the app instr.
             // We added a nop if necessary to ensure our end-of-block code is afterward.
             DR_ASSERT(!is_last_instr(drcontext, instr));
             ud->repstr_for_post = instr_operands;
         }
-    } else if (adjust != 0)
+    } else if (adjust != 0) {
         insert_update_buf_ptr(drcontext, bb, where, reg_ptr, DR_PRED_NONE, adjust, mode);
+        adjust = 0;
+    }
 
     /* Insert code to call clean_call for processing the buffer.
      * We restore the registers after the clean call, which should be ok
@@ -1543,20 +1548,19 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
      * XXX i#5400: Integrating drbbdup into drmgr would provide user_data here.
      */
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    /* For online mode, we transform string loops into regular loops so we can more
-     * easily monitor every memory reference they make. For offline non-filtered, we
-     * can reconstruct the loop from the first and last iterations, so we avoid the
-     * performance cost of this expansion and of recording every iteration during
-     * tracing.
-     */
+    // For online mode, we transform string loops into regular loops so we can more
+    // easily monitor every memory reference they make. For offline non-filtered, we
+    // can reconstruct the loop from the first and last iterations, so we avoid the
+    // performance cost of this expansion and of recording every iteration during
+    // tracing.
+
     // Since app2app is outside bbdup, we cannot support a split strategy for
     // -L0_filter_until_instrs: we have to always expand.
     // (i#4915's proposal to perform L0 filtering in a post-repstr-loop clean call
     // is one way to solve this.)
-    if (is_repstr_expanded()) {
+    if (is_repstr_expansion_enabled()) {
         if (!drutil_expand_rep_string_ex(drcontext, bb, &pt->repstr, NULL)) {
             DR_ASSERT(false);
-            /* in release build, carry on: we'll just miss per-iter refs */
         }
     } else {
         // We need to insert code after a rep string so make sure that doesn't
@@ -1900,13 +1904,16 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
     if (BUF_PTR(data->seg_base) == NULL)
         return; /* This thread was filtered out. */
 #ifdef X86
-    if (!is_repstr_expanded() && info->source_mcontext != nullptr) {
+    if (!is_repstr_expansion_enabled() && info->source_mcontext != nullptr) {
         // When we don't expand and a rep string loop is interrupted, we need to
         // insert the final iteration addresses here.
         // We don't fully support an unhandled fault: we're ok with post-processing
         // failing in that case, so we don't also do this on the xl8 or other event.
         // XXX i#5790: We would like to support DR thread relocation mid-loop but we
         // need an event from DR for that.
+        // We could also use this to determine precisely where an expanded
+        // rep string was interrupted: since it has the same PC, the PC is not
+        // enough. But we plan to drop support for expanded rep strings.
         switch (info->type) {
         case DR_XFER_SIGNAL_DELIVERY:
         case DR_XFER_EXCEPTION_DISPATCHER:
@@ -2742,6 +2749,9 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
      * it to include the extra timestamps we now insert and to ensure we cover
      * skipping clean calls for sthg like strex.  We also check here that the
      * max_bb_instrs can fit in the instr_count bitfield in offline_entry_t.
+     * XXX i#8118: Add dynamic checks that no block exceeds the redzone, as it could
+     * theoretically happen (e.g., now rep strings are not expanded nor
+     * block-terminal and store up to 4 records each).
      */
     uint64 max_bb_instrs;
     if (!dr_get_integer_option(MAX_BB_INSTRS_NAME, &max_bb_instrs))

@@ -727,7 +727,9 @@ protected:
         std::string error;
         int version;
         offline_file_type_t file_type;
-        offline_file_type_t start_file_type; // Type at the start.
+        // Remember the type at the start ("file_type" above will be updated mid-run
+        // if we see a TRACE_MARKER_TYPE_FILTER_ENDPOINT marker).
+        offline_file_type_t start_file_type;
         size_t cache_line_size = 0;
         std::deque<offline_entry_t> pre_read;
         std::vector<offline_entry_t> kernel_event_lookahead;

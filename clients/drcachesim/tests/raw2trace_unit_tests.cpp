@@ -3595,65 +3595,8 @@ test_asynchronous_signal(void *drcontext)
     }
 #ifdef X86
     {
-        std::cerr << "\n===============\nTesting rep string instr without async signal\n";
-        instrlist_t *ilist = instrlist_create(drcontext);
-        // raw2trace doesn't like offsets of 0 so we shift with a nop.
-        instr_t *nop = XINST_CREATE_nop(drcontext);
-        instr_t *rep_stos = INSTR_CREATE_rep_stos_4(drcontext);
-        instr_t *move =
-            XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
-        instrlist_append(ilist, nop);
-        instrlist_append(ilist, rep_stos);
-        instrlist_append(ilist, move);
-        size_t offs_nop = 0;
-        size_t offs_rep_stos = offs_nop + instr_length(drcontext, nop);
-        size_t offs_move = offs_rep_stos + instr_length(drcontext, rep_stos);
-
-        std::vector<offline_entry_t> raw;
-        raw.push_back(make_header());
-        raw.push_back(make_tid());
-        raw.push_back(make_pid());
-        raw.push_back(make_line_size());
-        raw.push_back(make_timestamp());
-        raw.push_back(make_core());
-        raw.push_back(make_block(offs_rep_stos, 1));
-        constexpr uint64_t START_ADDR = 42;
-        raw.push_back(make_memref(START_ADDR));
-        raw.push_back(make_memref(START_ADDR + 12));
-        raw.push_back(make_block(offs_move, 1));
-        raw.push_back(make_exit());
-
-        std::vector<uint64_t> stats;
-        std::vector<trace_entry_t> entries;
-        if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
-            return false;
-        int idx = 0;
-        res &= check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
-            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
-            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
-            check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
-            check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
-            check_entry(entries, idx, TRACE_TYPE_MARKER,
-                        TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
-            check_entry(entries, idx, TRACE_TYPE_MARKER,
-                        TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
-            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
-            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
-            // The rep_stos instruction.
-            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-            check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_rep_stos) &&
-            check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR) &&
-            check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1) &&
-            check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR + 4) &&
-            check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1) &&
-            check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR + 8) &&
-            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-            check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move) &&
-            check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
-            check_entry(entries, idx, TRACE_TYPE_FOOTER, -1);
-    }
-    {
         std::cerr << "\n===============\nTesting rep string removal by async signal\n";
+        // (test_repstr_firstlast has rep string tests w/o signals.)
         instrlist_t *ilist = instrlist_create(drcontext);
         // raw2trace doesn't like offsets of 0 so we shift with a nop.
         instr_t *nop = XINST_CREATE_nop(drcontext);
@@ -3697,6 +3640,7 @@ test_asynchronous_signal(void *drcontext)
                         TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
             check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
             check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+            // We expect an uncompleted marker for the removed instruction.
             check_entry(entries, idx, TRACE_TYPE_MARKER,
                         TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION) &&
             check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT,
@@ -3760,6 +3704,9 @@ test_asynchronous_signal(void *drcontext)
             check_entry(entries, idx, TRACE_TYPE_WRITE, -1) &&
             // The last rep_stos instruction and the write record are removed because of
             // the asynchronous signal.
+            // Actually, because of the expanded loop having the same PC for
+            // each iteration, we can't be sure which iteration faulted:]
+            // but we are moving to never expanding string loops.
             check_entry(entries, idx, TRACE_TYPE_MARKER,
                         TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION) &&
             check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT,
@@ -5102,6 +5049,7 @@ test_repstr_firstlast(void *drcontext)
     // The allasm-repstr-basic-counts and other tests running allasm_repstr
     // also help to test the use of un-expanded repstr storing the first
     // and last iteration addresses.
+    // The burst_repstr test covers faults in unexpanded rep strings.
     // We limit this to 64-bit to avoid many ifdefs and complexity in the
     // 8-byte instructions.
 #ifdef X86_64
@@ -5123,7 +5071,8 @@ test_repstr_firstlast(void *drcontext)
         instr_t *repmov4 = INSTR_CREATE_rep_movs_4(drcontext);
         instr_t *repmov8 = INSTR_CREATE_rep_movs_8(drcontext);
         instr_t *repmov_back1 = INSTR_CREATE_rep_movs_1(drcontext);
-        instr_t *repmov_back4 = INSTR_CREATE_rep_movs_4(drcontext);
+        // Include a cmps for a two-load test case.
+        instr_t *repcmp_back4 = INSTR_CREATE_rep_cmps_4(drcontext);
         instr_t *repmov_back8 = INSTR_CREATE_rep_movs_8(drcontext);
 
         instrlist_append(ilist, nop);
@@ -5139,7 +5088,7 @@ test_repstr_firstlast(void *drcontext)
         instrlist_append(ilist, repmov4);
         instrlist_append(ilist, repmov8);
         instrlist_append(ilist, repmov_back1);
-        instrlist_append(ilist, repmov_back4);
+        instrlist_append(ilist, repcmp_back4);
         instrlist_append(ilist, repmov_back8);
 
         size_t offs_nop = 0;
@@ -5158,10 +5107,10 @@ test_repstr_firstlast(void *drcontext)
         size_t offs_repmov4 = offs_repmov1 + instr_length(drcontext, repmov1);
         size_t offs_repmov8 = offs_repmov4 + instr_length(drcontext, repmov4);
         size_t offs_repmov_back1 = offs_repmov8 + instr_length(drcontext, repmov8);
-        size_t offs_repmov_back4 =
+        size_t offs_repcmp_back4 =
             offs_repmov_back1 + instr_length(drcontext, repmov_back1);
         size_t offs_repmov_back8 =
-            offs_repmov_back4 + instr_length(drcontext, repmov_back4);
+            offs_repcmp_back4 + instr_length(drcontext, repcmp_back4);
 
         std::vector<offline_entry_t> raw;
         raw.push_back(make_header());
@@ -5224,7 +5173,7 @@ test_repstr_firstlast(void *drcontext)
         raw.push_back(make_memref(START_ADDR2));
         raw.push_back(make_memref(START_ADDR - 4)); // 4 iters.
         raw.push_back(make_memref(START_ADDR2 - 4));
-        // repmov_back4:
+        // repcmp_back4:
         raw.push_back(make_memref(START_ADDR));
         raw.push_back(make_memref(START_ADDR2));
         raw.push_back(make_memref(START_ADDR - 4)); // 1 iter.
@@ -5342,9 +5291,10 @@ test_repstr_firstlast(void *drcontext)
               check_entry(entries, idx, TRACE_TYPE_READ, 1, START_ADDR - 3) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR2 - 3) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_repmov_back4) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_repcmp_back4) &&
               check_entry(entries, idx, TRACE_TYPE_READ, 4, START_ADDR) &&
-              check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR2) &&
+              // Note the 2nd load.
+              check_entry(entries, idx, TRACE_TYPE_READ, 4, START_ADDR2) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
               check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_repmov_back8) &&
               check_entry(entries, idx, TRACE_TYPE_READ, 8, START_ADDR) &&
@@ -5523,8 +5473,13 @@ test_repstr_firstlast(void *drcontext)
         // Check again after the endpoint marker.
         raw.push_back(make_marker(TRACE_MARKER_TYPE_FILTER_ENDPOINT, 0));
         // We can't point at offs_repsto again as raw2trace will use
-        // a nofetch entry since the prior instr was a repstr.
+        // a nofetch entry since the prior instr was a repstr (as part
+        // of its code to handle TRACE_TYPE_INSTR_MAYBE_FETCH).
         // In real code there would be other code in between.
+        // On that note: could there be a mode transition to the filter
+        // endpoint mid-repstr-loop when expanded b/c each iter is a bb
+        // and the mode checks are at bb boundaries? Even if so, we plan to
+        // drop support for expanded so we do not try to fix any issue there.
         raw.push_back(make_block(offs_nop2, 2));
         raw.push_back(make_memref(START_ADDR));
         raw.push_back(make_block(offs_repsto, 1));

@@ -2210,29 +2210,33 @@ raw2trace_t::append_repstring(raw2trace_thread_data_t *tdata,
     // 4 memrefs and then modify the buffer afterward, instead of peeking ahead
     // in the raw stream and handling elision ourselves.
     int num_memrefs = static_cast<int>(instr->num_mem_srcs() + instr->num_mem_dests());
-    bool has_load = instr->num_mem_srcs() > 0;
-    bool has_store = instr->num_mem_dests() > 0;
+    log(5, "Rep string with %d memrefs (loads=%d stores=%d) pc=%p\n", num_memrefs,
+        instr->num_mem_srcs(), instr->num_mem_dests(), orig_pc);
     DR_ASSERT(num_memrefs == 1 || num_memrefs == 2);
-    log(5, "Rep string with %d memrefs (load=%d store=%d) pc=%p\n", num_memrefs, has_load,
-        has_store, orig_pc);
     bool reached_end_of_memrefs = false;
     for (int i = 0; i < 2 * num_memrefs; ++i) {
         const instr_summary_t::memref_summary_t *memref;
         bool is_store;
-        if (has_load && !has_store) {
-            memref = &instr->mem_src_at(0);
-            is_store = false;
-        } else if (!has_load && has_store) {
-            memref = &instr->mem_dest_at(0);
-            is_store = true;
-        } else {
-            if (i == 0 || i == 2) {
+        if (instr->num_mem_srcs() > 0) {
+            if (num_memrefs > 1) {
+                if (i == 0 || i == 2) {
+                    memref = &instr->mem_src_at(0);
+                    is_store = false;
+                } else if (instr->num_mem_srcs() > 1) {
+                    memref = &instr->mem_src_at(1);
+                    is_store = false;
+                } else {
+                    memref = &instr->mem_dest_at(0);
+                    is_store = true;
+                }
+            } else {
                 memref = &instr->mem_src_at(0);
                 is_store = false;
-            } else {
-                memref = &instr->mem_dest_at(0);
-                is_store = true;
             }
+        } else {
+            memref = &instr->mem_dest_at(0);
+            is_store = true;
+            DR_ASSERT(num_memrefs == 1);
         }
         if (!append_memref(tdata, &buf, instr, *memref, is_store, reg_vals,
                            &reached_end_of_memrefs, expect_all_memrefs, consumed_memrefs))
@@ -2313,14 +2317,15 @@ raw2trace_t::append_repstring(raw2trace_thread_data_t *tdata,
         buf->size = instr->length();
         buf->addr = reinterpret_cast<addr_t>(orig_pc);
         ++buf;
-        buf->type =
-            static_cast<unsigned short>(has_load ? TRACE_TYPE_READ : TRACE_TYPE_WRITE);
+        buf->type = static_cast<unsigned short>(
+            instr->num_mem_srcs() > 0 ? TRACE_TYPE_READ : TRACE_TYPE_WRITE);
         buf->size = static_cast<unsigned short>(size);
         buf->addr = start;
         ++buf;
         if (num_memrefs > 1) {
             log(4, "  Adding rep string memref %p\n", start_2);
-            buf->type = static_cast<unsigned short>(TRACE_TYPE_WRITE);
+            buf->type = static_cast<unsigned short>(
+                instr->num_mem_srcs() > 1 ? TRACE_TYPE_READ : TRACE_TYPE_WRITE);
             buf->size = static_cast<unsigned short>(size);
             buf->addr = start_2;
             ++buf;

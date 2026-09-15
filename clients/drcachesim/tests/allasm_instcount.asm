@@ -45,7 +45,8 @@ _start:
     // Single REP instruction with 50 iterations.
     rep     stosb             // instruction 4
 
-    // End the basic block to trigger a mode change.
+    // End the basic block to trigger a mode change check from instruction
+    // counting to tracing.
     jmp     new_block
 new_block:
 
