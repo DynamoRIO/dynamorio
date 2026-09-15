@@ -4176,6 +4176,7 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
      * Emitted code after this point should use where=next:
      * PRE(ilist, next, INSTR_CREATE_nop(dcontext));
      */
+    instr = NULL; /* Make it easy to catch code that uses where=instr by mistake. */
 
     for (size_t i = 0; i < 2; i++) {
         if (scratch[i].needs_restore) {
