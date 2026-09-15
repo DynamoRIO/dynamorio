@@ -1151,7 +1151,9 @@ typedef enum {
 #define OFFLINE_FILE_VERSION_REPSTR_LOOP 10
 /** All immediate-add-subtract GPR bases are elided. */
 #define OFFLINE_FILE_VERSION_ELIDE_IMMED_BASE 11
-#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_ELIDE_IMMED_BASE
+/** AArch64 stack pointer bases are elided. */
+#define OFFLINE_FILE_VERSION_ELIDE_AARCH64_SP 12
+#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_ELIDE_AARCH64_SP
 
 /**
  * Bitfields used to describe the high-level characteristics of both an
