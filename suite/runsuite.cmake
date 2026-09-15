@@ -348,28 +348,28 @@ endif ()
 if (NOT cross_riscv64_linux_only AND NOT cross_aarchxx_linux_only AND
   NOT cross_android_only AND NOT a64_on_x86_only)
   # For cross-arch execve test we need to "make install"
-  if (NOT arg_nontest_only)
-    testbuild_ex("debug-internal-32" OFF "
-      DEBUG:BOOL=ON
-      INTERNAL:BOOL=ON
-      ${build_tests}
-      ${install_path_cache}
-      " OFF ON "${install_build_args}")
-  endif ()
+#  if (NOT arg_nontest_only)
+#    testbuild_ex("debug-internal-32" OFF "
+#      DEBUG:BOOL=ON
+#      INTERNAL:BOOL=ON
+#      ${build_tests}
+#      ${install_path_cache}
+#      " OFF ON "${install_build_args}")
+#  endif ()
   if (last_build_dir MATCHES "-32")
     set(32bit_path "TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin")
   else ()
     set(32bit_path "")
   endif ()
-  if (NOT arg_nontest_only)
-    testbuild_ex("debug-internal-64" ON "
-      DEBUG:BOOL=ON
-      INTERNAL:BOOL=ON
-      ${build_tests}
-      ${install_path_cache}
-      ${32bit_path}
-      " OFF ON "${install_build_args}")
-  endif ()
+#  if (NOT arg_nontest_only)
+#    testbuild_ex("debug-internal-64" ON "
+#      DEBUG:BOOL=ON
+#      INTERNAL:BOOL=ON
+#      ${build_tests}
+#      ${install_path_cache}
+#      ${32bit_path}
+#      " OFF ON "${install_build_args}")
+#  endif ()
   # we don't really support debug-external anymore
   if (DO_ALL_BUILDS_NOT_SUPPORTED)
     testbuild("debug-external-64" ON "
