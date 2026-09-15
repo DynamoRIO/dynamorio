@@ -4114,7 +4114,22 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
               opnd_t op, app_pc start_pc, app_pc end_pc /* end is open */,
               app_pc after_write)
 {
-    /* TODO i#7585: Add support for scatter operations and DC ZVA. */
+    /* TODO i#7585: Add support for more write operations:
+     *
+     * DC ZVA shouldn't be too difficult to support. We just need to get op_size from
+     * DCZID_EL0.BS and also use it to align the access address.
+     *
+     * SVE contiguous predicated store operations should also be straight-forward if we
+     * ignore the predication. They operate over a contiguous range using base+index or
+     * base+offset addressing so we can reuse the existing address calculation code.
+     * Ignoring the predication means we might get false positives if we detect a "hit"
+     * on an element which is inactive, but this is probably a rare enough event that we
+     * needn't worry about it.
+     *
+     * SVE scatter operations are more tricky. These instructions have a vector base or
+     * index and write multiple non-contiguous regions. We would need to so something
+     * similar to drx_expand_scatter_gather() to support this properly.
+     */
     ASSERT_NOT_IMPLEMENTED(!instr_is_scatter(instr));
     ASSERT_NOT_IMPLEMENTED(instr_get_opcode(instr) != OP_dc_zva);
 
