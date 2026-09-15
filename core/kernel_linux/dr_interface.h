@@ -1,6 +1,5 @@
 /* **********************************************************
  * Copyright (c) 2026 Google, Inc.  All rights reserved.
- * Copyright (c) 2013 Peter Feiner.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,57 +30,14 @@
  * DAMAGE.
  */
 
-#ifndef _KERNEL_INTERFACE_H_
-#define _KERNEL_INTERFACE_H_
+#ifndef _DR_INTERFACE_H_
+#define _DR_INTERFACE_H_
 
-#include <linux/types.h>
-
-int
-kernel_module_init(size_t dr_heap_size);
+/* Interface exposed by DynamoRIO core to the kernel module entry and lifecycle
+ * management code (dynamorio_module_main.c).
+ */
 
 void
-kernel_module_exit(void);
+dynamorio_app_init_part_one_options(void);
 
-void *
-kernel_allocate_heap(size_t size);
-
-void *
-kernel_find_symbol(const char *name, size_t *size);
-
-int
-kernel_get_cpu_id(void);
-
-int
-kernel_get_online_processor_count(void);
-
-size_t
-kernel_get_page_size(void);
-
-unsigned int
-kernel_query_time_seconds(void);
-
-__attribute__((format(gnu_printf, 1, 2))) void
-kernel_printk(const char *fmt, ...);
-
-__attribute__((noreturn)) void
-kernel_panic(const char *message);
-
-#define KERNEL_ENV_NAME_MAX 64
-#define KERNEL_ENV_VALUE_MAX 2048
-
-/* Sets the environment variable |name| to |value|, overwriting the value of any existing
- * entry with the same name. Returns 0 on success, -EINVAL for a NULL/empty name, a name
- * containing '=', or a NULL value, -E2BIG if the name or value exceeds the maximum
- * length, and -ENOSPC if the table is full and no entry with |name| exists.
- */
-int
-kernel_setenv(const char *name, const char *value);
-
-/* Returns the value of the environment variable |name|, or NULL if it is not set.
- * Malformed names (NULL, empty, or containing '=') also return NULL, mirroring
- * our_getenv() in core/unix/os.c.
- */
-const char *
-kernel_getenv(const char *name);
-
-#endif /* _KERNEL_INTERFACE_H_ */
+#endif /* _DR_INTERFACE_H_ */
