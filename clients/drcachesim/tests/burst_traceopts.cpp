@@ -528,6 +528,8 @@ arith_newblock:
         mov      REG_XDX, PTRSZ [REG_XAX]
         ret
 # elif defined(ARM)
+        // XXX i#4913: Add add, sub, and pre and post indexing support in
+        // offline_instru_t::does_reg_write_thwart_elision().
         mov      r0, sp
         // Modify via add and subtract.
         add      r0, #8

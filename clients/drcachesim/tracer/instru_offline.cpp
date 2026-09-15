@@ -1031,7 +1031,8 @@ offline_instru_t::does_reg_write_thwart_elision(int version, instr_t *instr, reg
     if (version >= OFFLINE_FILE_VERSION_ELIDE_X86_PUSH && reg == DR_REG_XSP) {
         if (instr_get_opcode(instr) == OP_push ||
             instr_get_opcode(instr) == OP_push_imm) {
-            value_delta = -opnd_size_in_bytes(opnd_get_size(instr_get_dst(instr, 1)));
+            value_delta = -static_cast<int>(
+                opnd_size_in_bytes(opnd_get_size(instr_get_dst(instr, 1))));
             return false;
         }
         if (instr_get_opcode(instr) == OP_pop &&
@@ -1063,6 +1064,7 @@ offline_instru_t::does_reg_write_thwart_elision(int version, instr_t *instr, reg
         }
     }
 #elif defined(ARM)
+    // XXX i#4913: Add add, sub, and pre and post indexing support here.
 #elif defined(AARCH64)
     if (version >= OFFLINE_FILE_VERSION_ELIDE_IMMED_BASE) {
         // We track simple arithmetic.
