@@ -351,7 +351,7 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
 {
     if (cci == NULL)
         cci = &default_clean_call_info;
-    /* saved error code is currently on the top of the stack */
+        /* saved error code is currently on the top of the stack */
 
 #if defined(X86) && (defined(X64) || defined(UNIX))
     /* PR 218790: remove the padding we added for 16-byte rsp alignment */
@@ -2350,46 +2350,177 @@ mangle_finalize(dcontext_t *dcontext, instrlist_t *ilist, fragment_t *f)
  *###########################################################################
  */
 
-/* Skip meta instructions to find the next app instruction.
- * Helper function used by x86/AArch64 sandbox_write().
- */
-app_pc
-sandbox_get_pc_after_write(dcontext_t *dcontext, instr_t *next, app_pc end_pc)
+#ifdef ARCH_SUPPORTS_HW_CACHE_CONSISTENCY
+
+bool
+sandbox_top_of_bb_check_s2ro(dcontext_t *dcontext, app_pc start_pc)
 {
-    instr_t *next_app = next;
-    while (next_app != NULL && instr_is_meta(next_app))
-        next_app = instr_get_next(next_app);
+    return (DYNAMO_OPTION(sandbox2ro_threshold) > 0 &&
+            /* We can't make stack regions ro so don't put in the instrumentation. */
+            !is_address_on_stack(dcontext, start_pc) &&
+            /* Case 9098 we don't want to ever make RO untrackable driver areas. */
+            !is_driver_address(start_pc));
+}
 
-    app_pc after_write = NULL;
+/* Returns false if failed to add sandboxing b/c of a problematic ilist --
+ * invalid instrs, elided ctis, etc.
+ */
+bool
+insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
+                       app_pc start_pc, app_pc end_pc, /* end is open */
+                       bool record_translation, bool for_cache)
+{
+    instr_t *instr, *next;
 
-    if (next_app != NULL) {
-        after_write = instr_get_app_pc(next_app);
-        if (after_write == NULL) {
-            if (instr_raw_bits_valid(next_app)) {
-                after_write = instr_get_raw_bits(next_app);
-            } else {
-                /* Next must be the final artificially added jmp! */
-                ASSERT(instr_is_ubr(next_app) && instr_get_next(next_app) == NULL);
-                /* For sure this is the last jmp out, but it doesn't have to be a direct
-                 * jmp but instead it could be the exit branch we add for an indirect call
-                 * - which is the only ind branch that writes to memory. CALL* already
-                 * means that we're leaving the block and it cannot be a selfmod
-                 * instruction even though it writes to memory.
-                 */
-                DOLOG(4, LOG_INTERP,
-                      { d_r_loginst(dcontext, 4, next_app, "next app instr"); });
-                after_write = opnd_get_pc(instr_get_target(next_app));
-                LOG(THREAD, LOG_INTERP, 4,
-                    "after_write = " PFX " next should be final jmp\n", after_write);
-            }
-        }
-    } else {
-        ASSERT_NOT_TESTED();
-        after_write = end_pc;
+    if (!INTERNAL_OPTION(hw_cache_consistency))
+        return true; /* Nothing to do */
+
+    /* This code assumes bb covers single, contiguous region */
+    ASSERT(!TESTANY(FRAG_HAS_DIRECT_CTI, flags));
+
+    /* Store first instr so loop below will skip top check */
+    instr = instrlist_first_expanded(dcontext, ilist);
+    instrlist_set_our_mangling(ilist, true); /* PR 267260 */
+    if (record_translation) {
+        /* Skip client instrumentation, if any, as is done below */
+        while (instr != NULL && instr_is_meta(instr))
+            instr = instr_get_next_expanded(dcontext, ilist, instr);
+        /* Make sure inserted instrs translate to the proper original instr */
+        ASSERT(instr != NULL && instr_get_translation(instr) != NULL);
+        instrlist_set_translation_target(ilist, instr_get_translation(instr));
     }
 
-    return end_pc;
+    sandbox_top_of_bb(dcontext, ilist, sandbox_top_of_bb_check_s2ro(dcontext, start_pc),
+                      flags, start_pc, end_pc,
+                      for_cache _IF_X86(NULL) _IF_X86(NULL) _IF_X86(NULL));
+
+    if (INTERNAL_OPTION(sandbox_writes)) {
+        for (; instr != NULL; instr = next) {
+            int opcode = instr_get_opcode(instr);
+            if (!instr_valid(instr)) {
+                /* Invalid instr -- best to truncate block here, easiest way to do that
+                 * and get all flags right is to re-build it, but this time we'll use full
+                 * decode so we'll avoid the discrepancy between fast and full decode on
+                 * invalid instr detection.
+                 */
+                if (record_translation)
+                    instrlist_set_translation_target(ilist, NULL);
+                instrlist_set_our_mangling(ilist, false); /* PR 267260 */
+                return false;
+            }
+
+            /* Don't mangle anything that mangle inserts! */
+            next = instr_get_next_expanded(dcontext, ilist, instr);
+            if (instr_is_meta(instr))
+                continue;
+            if (record_translation) {
+                /* make sure inserted instrs translate to the proper original instr */
+                ASSERT(instr_get_translation(instr) != NULL);
+                instrlist_set_translation_target(ilist, instr_get_translation(instr));
+            }
+#    ifdef X86
+            if (opcode == OP_rep_ins || opcode == OP_rep_movs || opcode == OP_rep_stos) {
+                sandbox_rep_instr(dcontext, ilist, instr, next, start_pc, end_pc);
+                continue;
+            }
+#    endif
+#    ifdef AARCH64
+            /* Skip tag-only stores and unsupported writes.
+             * TODO i#7585: Add support for scatter operations and DC ZVA.
+             */
+            if (!instr_writes_memory(instr) || instr_is_scatter(instr) ||
+                opcode == OP_dc_zva) {
+                continue;
+            }
+#    endif
+
+            instr_t *next_app = next;
+            while (next_app != NULL && instr_is_meta(next_app))
+                next_app = instr_get_next(next_app);
+
+            app_pc after_write = NULL;
+
+            if (next_app != NULL) {
+                after_write = instr_get_app_pc(next_app);
+                if (after_write == NULL) {
+                    if (instr_raw_bits_valid(next_app)) {
+                        after_write = instr_get_raw_bits(next_app);
+                    } else {
+                        /* Next must be the final artificially added jmp! */
+                        ASSERT(instr_is_ubr(next_app) &&
+                               instr_get_next(next_app) == NULL);
+                        /* For sure this is the last jmp out, but it doesn't have to be a
+                         * direct jmp but instead it could be the exit branch we add for
+                         * an indirect call
+                         * - which is the only ind branch that writes to memory. CALL*
+                         * already means that we're leaving the block and it cannot be a
+                         * selfmod instruction even though it writes to memory.
+                         */
+                        DOLOG(4, LOG_INTERP,
+                              { d_r_loginst(dcontext, 4, next_app, "next app instr"); });
+                        after_write = opnd_get_pc(instr_get_target(next_app));
+                        LOG(THREAD, LOG_INTERP, 4,
+                            "after_write = " PFX " next should be final jmp\n",
+                            after_write);
+                    }
+                }
+            } else {
+                ASSERT_NOT_TESTED();
+                after_write = end_pc;
+            }
+
+            /* XXX case 8165: optimize for multiple push/pop */
+            for (int i = 0; i < instr_num_dsts(instr); i++) {
+                opnd_t op = instr_get_dst(instr, i);
+                if (opnd_is_memory_reference(op)) {
+                    /* ignore CALL* since last anyways */
+                    if (instr_is_call_indirect(instr)) {
+                        ASSERT(next != NULL && !instr_raw_bits_valid(next));
+                        /* XXX case 8165: why do we ever care about the last
+                         * instruction modifying anything?
+                         */
+                        /* conversion of IAT calls (but not elision)
+                         * transforms this into a direct CALL,
+                         * in that case 'next' is a direct jmp
+                         * fall through, so has no exit flags
+                         */
+                        ASSERT(EXIT_IS_CALL(instr_exit_branch_type(next)) ||
+                               (DYNAMO_OPTION(IAT_convert) &&
+                                TESTANY(INSTR_IND_CALL_DIRECT, instr->flags)));
+
+                        LOG(THREAD, LOG_INTERP, 3,
+                            " ignoring CALL* at end of fragment\n");
+                        /* This test could be done outside of this loop on
+                         * destinations, but since it is rare it is faster
+                         * to do it here.  Using continue instead of break in case
+                         * it gets moved out.
+                         */
+                        continue;
+                    }
+                    if (opnd_is_abs_addr(op) IF_X64(|| opnd_is_rel_addr(op))) {
+                        app_pc abs_addr = opnd_get_addr(op);
+                        uint size = opnd_size_in_bytes(opnd_get_size(op));
+                        if (!POINTER_OVERFLOW_ON_ADD(abs_addr, size) &&
+                            (abs_addr + size < start_pc || abs_addr >= end_pc)) {
+                            /* This is an absolute memory reference that points
+                             * outside the current basic block and doesn't need
+                             * sandboxing.
+                             */
+                            continue;
+                        }
+                    }
+                    sandbox_write(dcontext, ilist, instr, next, op, start_pc, end_pc,
+                                  after_write);
+                }
+            }
+        }
+    }
+    if (record_translation)
+        instrlist_set_translation_target(ilist, NULL);
+    instrlist_set_our_mangling(ilist, false); /* PR 267260 */
+    return true;
 }
+#endif /*ARCH_SUPPORTS_HW_CACHE_CONSISTENCY*/
 
 void
 clean_call_info_init(clean_call_info_t *cci, void *callee, bool save_fpstate,

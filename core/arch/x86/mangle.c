@@ -3111,7 +3111,7 @@ mangle_annotation_helper(dcontext_t *dcontext, instr_t *label, instrlist_t *ilis
         instr_create_restore_from_dcontext((dc), (reg), (dc_offs))
 #endif
 
-static void
+void
 sandbox_rep_instr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *next,
                   app_pc start_pc, app_pc end_pc /* end is open */)
 {
@@ -3279,9 +3279,10 @@ sandbox_rep_instr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, inst
     PRE(ilist, next, ok2);
 }
 
-static void
+void
 sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *next,
-              opnd_t op, app_pc start_pc, app_pc end_pc /* end is open */)
+              opnd_t op, app_pc start_pc, app_pc end_pc /* end is open */,
+              app_pc after_write)
 {
     /* can only test for equality w/o modifying flags, so save them
      * if (addr < end_pc && addr+opndsize > start_pc) => self-write
@@ -3307,18 +3308,14 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
      * if x64 && (start_pc > 4GB || end_pc > 4GB): restore xcx
      */
     instr_t *ok = INSTR_CREATE_label(dcontext), *jmp;
-    app_pc after_write = NULL;
     uint opndsize = opnd_size_in_bytes(opnd_get_size(op));
     uint flags =
         instr_eflags_to_fragment_eflags(forward_eflags_analysis(dcontext, ilist, next));
     bool use_tls = IF_X64_ELSE(true, false);
     IF_X64(bool x86_to_x64_ibl_opt = DYNAMO_OPTION(x86_to_x64_ibl_opt);)
-    instr_t *next_app = next;
     instr_t *get_addr_at = next;
     int opcode = instr_get_opcode(instr);
     DOLOG(3, LOG_INTERP, { d_r_loginst(dcontext, 3, instr, "writes memory"); });
-
-    after_write = sandbox_get_pc_after_write(dcontext, next, end_pc);
 
     if (opcode == OP_ins || opcode == OP_movs || opcode == OP_stos) {
         /* These instrs modify their own addressing register so we must
@@ -3442,17 +3439,7 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
 #endif
 }
 
-static bool
-sandbox_top_of_bb_check_s2ro(dcontext_t *dcontext, app_pc start_pc)
-{
-    return (DYNAMO_OPTION(sandbox2ro_threshold) > 0 &&
-            /* we can't make stack regions ro so don't put in the instrumentation */
-            !is_address_on_stack(dcontext, start_pc) &&
-            /* case 9098 we don't want to ever make RO untrackable driver areas */
-            !is_driver_address(start_pc));
-}
-
-static void
+void
 sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist, bool s2ro, uint flags,
                   app_pc start_pc, app_pc end_pc, /* end is open */
                   bool for_cache,
@@ -3737,121 +3724,6 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist, bool s2ro, uint flag
                           !use_tls _IF_X64(X64_CACHE_MODE_DC(dcontext) &&
                                            !X64_MODE_DC(dcontext) && x86_to_x64_ibl_opt));
     /* fall-through to bb start */
-}
-
-/* returns false if failed to add sandboxing b/c of a problematic ilist --
- * invalid instrs, elided ctis, etc.
- */
-bool
-insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
-                       app_pc start_pc, app_pc end_pc, /* end is open */
-                       bool record_translation, bool for_cache)
-{
-    instr_t *instr, *next;
-
-    if (!INTERNAL_OPTION(hw_cache_consistency))
-        return true; /* nothing to do */
-
-    /* this code assumes bb covers single, contiguous region */
-    ASSERT((flags & FRAG_HAS_DIRECT_CTI) == 0);
-
-    /* store first instr so loop below will skip top check */
-    instr = instrlist_first_expanded(dcontext, ilist);
-    instrlist_set_our_mangling(ilist, true); /* PR 267260 */
-    if (record_translation) {
-        /* skip client instrumentation, if any, as is done below */
-        while (instr != NULL && instr_is_meta(instr))
-            instr = instr_get_next_expanded(dcontext, ilist, instr);
-        /* make sure inserted instrs translate to the proper original instr */
-        ASSERT(instr != NULL && instr_get_translation(instr) != NULL);
-        instrlist_set_translation_target(ilist, instr_get_translation(instr));
-    }
-
-    sandbox_top_of_bb(dcontext, ilist, sandbox_top_of_bb_check_s2ro(dcontext, start_pc),
-                      flags, start_pc, end_pc, for_cache, NULL, NULL, NULL);
-
-    if (INTERNAL_OPTION(sandbox_writes)) {
-        for (; instr != NULL; instr = next) {
-            int i, opcode;
-            opnd_t op;
-
-            opcode = instr_get_opcode(instr);
-            if (!instr_valid(instr)) {
-                /* invalid instr -- best to truncate block here, easiest way
-                 * to do that and get all flags right is to re-build it,
-                 * but this time we'll use full decode so we'll avoid the discrepancy
-                 * between fast and full decode on invalid instr detection.
-                 */
-                if (record_translation)
-                    instrlist_set_translation_target(ilist, NULL);
-                instrlist_set_our_mangling(ilist, false); /* PR 267260 */
-                return false;
-            }
-
-            /* don't mangle anything that mangle inserts! */
-            next = instr_get_next_expanded(dcontext, ilist, instr);
-            if (instr_is_meta(instr))
-                continue;
-            if (record_translation) {
-                /* make sure inserted instrs translate to the proper original instr */
-                ASSERT(instr_get_translation(instr) != NULL);
-                instrlist_set_translation_target(ilist, instr_get_translation(instr));
-            }
-
-            if (opcode == OP_rep_ins || opcode == OP_rep_movs || opcode == OP_rep_stos) {
-                sandbox_rep_instr(dcontext, ilist, instr, next, start_pc, end_pc);
-                continue;
-            }
-
-            /* XXX case 8165: optimize for multiple push/pop */
-            for (i = 0; i < instr_num_dsts(instr); i++) {
-                op = instr_get_dst(instr, i);
-                if (opnd_is_memory_reference(op)) {
-                    /* ignore CALL* since last anyways */
-                    if (instr_is_call_indirect(instr)) {
-                        ASSERT(next != NULL && !instr_raw_bits_valid(next));
-                        /* XXX case 8165: why do we ever care about the last
-                         * instruction modifying anything?
-                         */
-                        /* conversion of IAT calls (but not elision)
-                         * transforms this into a direct CALL,
-                         * in that case 'next' is a direct jmp
-                         * fall through, so has no exit flags
-                         */
-                        ASSERT(EXIT_IS_CALL(instr_exit_branch_type(next)) ||
-                               (DYNAMO_OPTION(IAT_convert) &&
-                                TESTANY(INSTR_IND_CALL_DIRECT, instr->flags)));
-
-                        LOG(THREAD, LOG_INTERP, 3,
-                            " ignoring CALL* at end of fragment\n");
-                        /* This test could be done outside of this loop on
-                         * destinations, but since it is rare it is faster
-                         * to do it here.  Using continue instead of break in case
-                         * it gets moved out.
-                         */
-                        continue;
-                    }
-                    if (opnd_is_abs_addr(op) IF_X64(|| opnd_is_rel_addr(op))) {
-                        app_pc abs_addr = opnd_get_addr(op);
-                        uint size = opnd_size_in_bytes(opnd_get_size(op));
-                        if (!POINTER_OVERFLOW_ON_ADD(abs_addr, size) &&
-                            (abs_addr + size < start_pc || abs_addr >= end_pc)) {
-                            /* This is an absolute memory reference that points
-                             * outside the current basic block and doesn't need
-                             * sandboxing.
-                             */
-                            continue;
-                        }
-                    }
-                    sandbox_write(dcontext, ilist, instr, next, op, start_pc, end_pc);
-                }
-            }
-        }
-    }
-    if (record_translation)
-        instrlist_set_translation_target(ilist, NULL);
-    instrlist_set_our_mangling(ilist, false); /* PR 267260 */
-    return true;
 }
 
 /* Offsets within selfmod sandbox top-of-bb code that we patch once

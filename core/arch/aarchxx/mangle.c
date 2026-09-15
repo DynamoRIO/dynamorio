@@ -4111,8 +4111,10 @@ sandbox_insert_get_mem_addr(void *dcontext, reg_id_t output_reg, reg_id_t scratc
 
 void
 sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *next,
-              app_pc start_pc, app_pc end_pc /* end is open */)
+              opnd_t op, app_pc start_pc, app_pc end_pc /* end is open */,
+              app_pc after_write)
 {
+    /* TODO i#7585: Add support for scatter operations and DC ZVA. */
     ASSERT_NOT_IMPLEMENTED(!instr_is_scatter(instr));
     ASSERT_NOT_IMPLEMENTED(instr_get_opcode(instr) != OP_dc_zva);
 
@@ -4129,8 +4131,6 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
     ASSERT(STRIP_MEMORY_TAG(start_pc) == start_pc);
     ASSERT(STRIP_MEMORY_TAG(end_pc) == end_pc);
 
-    app_pc after_write = sandbox_get_pc_after_write(dcontext, next, end_pc);
-
     scratch_reg_info_t scratch[2];
 
     scratch[0].reg = pick_scratch_reg(dcontext, instr, DR_REG_NULL, DR_REG_NULL,
@@ -4139,17 +4139,6 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
     scratch[1].reg = pick_scratch_reg(
         dcontext, instr, scratch[0].reg, DR_REG_NULL, DR_REG_NULL,
         /*dead_reg_ok=*/false, &scratch[1].slot, &scratch[1].needs_restore);
-
-    /* Find the memory operand for the write. Assumes the instruction only has one. */
-    opnd_t op = opnd_create_null();
-    for (int i = 0; i < instr_num_dsts(instr); i++) {
-        opnd_t dst_i = instr_get_dst(instr, i);
-        if (opnd_is_memory_reference(dst_i)) {
-            op = dst_i;
-            break;
-        }
-    }
-    ASSERT(opnd_is_memory_reference(op));
 
     bool str_updates_base =
         instr_writes_to_reg(instr, opnd_get_base(op), DR_QUERY_INCLUDE_ALL);
@@ -4334,18 +4323,8 @@ sandbox_insert_mov_immed_ptrsz_4instr(dcontext_t *dcontext, instrlist_t *ilist,
     }
 }
 
-static bool
-sandbox_top_of_bb_check_s2ro(dcontext_t *dcontext, app_pc start_pc)
-{
-    return (DYNAMO_OPTION(sandbox2ro_threshold) > 0 &&
-            /* we can't make stack regions ro so don't put in the instrumentation */
-            !is_address_on_stack(dcontext, start_pc) &&
-            /* case 9098 we don't want to ever make RO untrackable driver areas */
-            !is_driver_address(start_pc));
-}
-
 void
-sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist, bool s2ro, uint flags,
+sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist, bool s2ro, uint flags UNUSED,
                   app_pc start_pc, app_pc end_pc, /* end is open */
                   bool for_cache)
 {
@@ -4359,7 +4338,6 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist, bool s2ro, uint flag
     ASSERT(instr != NULL);
     ASSERT(app_size > 0);
     ASSERT(ALIGNED(app_size, AARCH64_INSTR_SIZE));
-    (void)flags;
 
     sandbox_top_save_gprs(dcontext, ilist, instr);
 
@@ -4577,79 +4555,6 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist, bool s2ro, uint flag
 
     PRE(ilist, instr, match);
     sandbox_top_restore_gprs(dcontext, ilist, instr);
-}
-
-/* SELF-MODIFYING-CODE SANDBOXING
- *
- * When we detect it, we take an exit that targets our own routine
- * fragment_self_write. Dispatch checks for that target and if it
- * finds it, it calls that routine, so don't worry about building a bb
- * for it. Returns false if the bb has invalid instrs or CTIs and
- * should be rebuilt from scratch.
- */
-bool
-insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
-                       app_pc start_pc, app_pc end_pc, /* end is open */
-                       bool record_translation, bool for_cache)
-{
-    instr_t *instr, *next;
-
-    if (!INTERNAL_OPTION(hw_cache_consistency))
-        return true; /* nothing to do */
-
-    /* this code assumes bb covers single, contiguous region */
-    ASSERT((flags & FRAG_HAS_DIRECT_CTI) == 0);
-
-    /* store first instr so loop below will skip top check */
-    instr = instrlist_first_expanded(dcontext, ilist);
-    instrlist_set_our_mangling(ilist, true); /* PR 267260 */
-    if (record_translation) {
-        /* skip client instrumentation, if any, as is done below */
-        while (instr != NULL && instr_is_meta(instr))
-            instr = instr_get_next_expanded(dcontext, ilist, instr);
-        /* make sure inserted instrs translate to the proper original instr */
-        ASSERT(instr != NULL && instr_get_translation(instr) != NULL);
-        instrlist_set_translation_target(ilist, instr_get_translation(instr));
-    }
-
-    sandbox_top_of_bb(dcontext, ilist, sandbox_top_of_bb_check_s2ro(dcontext, start_pc),
-                      flags, start_pc, end_pc, for_cache);
-
-    if (INTERNAL_OPTION(sandbox_writes)) {
-        for (; instr != NULL; instr = next) {
-
-            if (!instr_valid(instr)) {
-                /* invalid instr -- best to truncate block here, easiest way
-                 * to do that and get all flags right is to re-build it,
-                 * but this time we'll use full decode so we'll avoid the discrepancy
-                 * between fast and full decode on invalid instr detection.
-                 */
-                if (record_translation)
-                    instrlist_set_translation_target(ilist, NULL);
-                instrlist_set_our_mangling(ilist, false); /* PR 267260 */
-                return false;
-            }
-
-            /* don't mangle anything that mangle inserts! */
-            next = instr_get_next_expanded(dcontext, ilist, instr);
-            if (instr_is_meta(instr))
-                continue;
-            if (record_translation) {
-                /* make sure inserted instrs translate to the proper original instr */
-                ASSERT(instr_get_translation(instr) != NULL);
-                instrlist_set_translation_target(ilist, instr_get_translation(instr));
-            }
-
-            if (instr_writes_memory(instr) && !instr_is_scatter(instr) &&
-                instr_get_opcode(instr) != OP_dc_zva) {
-                sandbox_write(dcontext, ilist, instr, next, start_pc, end_pc);
-            }
-        }
-    }
-    if (record_translation)
-        instrlist_set_translation_target(ilist, NULL);
-    instrlist_set_our_mangling(ilist, false); /* PR 267260 */
-    return true;
 }
 
 void

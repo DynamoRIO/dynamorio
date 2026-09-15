@@ -756,6 +756,7 @@ bool
 insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                        app_pc start_pc, app_pc end_pc, /* end is open */
                        bool record_translation, bool for_cache);
+
 #endif /* ARCH_SUPPORTS_HW_CACHE_CONSISTENCY */
 
 #ifdef ARM

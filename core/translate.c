@@ -1614,7 +1614,7 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
                    INTERNAL_OPTION(safe_translate_flushed));
             res = recreate_app_state_from_info(
                 tdcontext, FRAGMENT_TRANSLATION_INFO(f), (byte *)f->start_pc,
-                (byte *)f->start_pc + f->size, mcontext, just_pc, f->flags);
+                (byte *)f->start_pc + f->size, mcontext, just_pc _IF_DEBUG(f->flags));
             STATS_INC(recreate_via_stored_info);
         } else {
             res = recreate_app_state_from_ilist(
