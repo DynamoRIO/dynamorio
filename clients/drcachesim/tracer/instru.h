@@ -505,8 +505,11 @@ public:
 
     // Checks whether instr writes to reg in a way that we don't support,
     // preventing elision of reg as an addressing register.
+    // If we do support it, returns false and sets "value_delta" to the
+    // change this instruction makes to "reg".
     bool
-    does_reg_write_thwart_elision(int version, instr_t *instr, reg_id_t reg);
+    does_reg_write_thwart_elision(int version, instr_t *instr, reg_id_t reg,
+                                  int &value_delta);
 
     // Inserts labels marking elidable addresses. label_marks_elidable() identifies them.
     // "version" is an OFFLINE_FILE_VERSION* constant.

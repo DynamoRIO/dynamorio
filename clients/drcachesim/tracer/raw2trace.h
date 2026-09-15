@@ -150,7 +150,7 @@ struct instr_summary_t final {
             : opnd(opnd)
             , remember_base(0)
             , use_remembered_base(0)
-            , stack_disp(0)
+            , base_delta(0)
         {
         }
         /** The addressing mode of this reference. */
@@ -169,9 +169,9 @@ struct instr_summary_t final {
          */
         bool use_remembered_base : 1;
         /**
-         * Additional displacement value from stack operations.
+         * Additional offset from base register modifications.
          */
-        int16_t stack_disp;
+        int base_delta;
     };
 
     instr_summary_t()
@@ -204,34 +204,34 @@ struct instr_summary_t final {
 
     /**
      * Sets properties of the "pos"-th source memory operand by OR-ing in the
-     * two boolean values. "stack_disp" is only set if "use_remembered_base" is true.
+     * two boolean values. "base_delta" is only set if "use_remembered_base" is true.
      */
     void
     set_mem_src_flags(size_t pos, bool use_remembered_base, bool remember_base,
-                      int stack_disp)
+                      int base_delta)
     {
         DEBUG_ASSERT(pos < mem_srcs_and_dests_.size());
         auto target = &mem_srcs_and_dests_[pos];
         target->use_remembered_base = target->use_remembered_base || use_remembered_base;
         target->remember_base = target->remember_base || remember_base;
         if (use_remembered_base)
-            target->stack_disp = static_cast<int16_t>(stack_disp);
+            target->base_delta = static_cast<int16_t>(base_delta);
     }
 
     /**
      * Sets properties of the "pos"-th destination memory operand by OR-ing in the
-     * two boolean values. "stack_disp" is only set if "use_remembered_base" is true.
+     * two boolean values. "base_delta" is only set if "use_remembered_base" is true.
      */
     void
     set_mem_dest_flags(size_t pos, bool use_remembered_base, bool remember_base,
-                       int stack_disp)
+                       int base_delta)
     {
         DEBUG_ASSERT(num_mem_srcs_ + pos < mem_srcs_and_dests_.size());
         auto target = &mem_srcs_and_dests_[num_mem_srcs_ + pos];
         target->use_remembered_base = target->use_remembered_base || use_remembered_base;
         target->remember_base = target->remember_base || remember_base;
         if (use_remembered_base)
-            target->stack_disp = static_cast<int16_t>(stack_disp);
+            target->base_delta = static_cast<int16_t>(base_delta);
     }
 
 private:
@@ -1189,7 +1189,7 @@ private:
                             app_pc block_start, int instr_count, int index, app_pc pc,
                             app_pc orig, bool write, int memop_index,
                             bool use_remembered_base, bool remember_base,
-                            int stack_disp = 0);
+                            int base_delta = 0);
     void
     set_last_pc_fallthrough_if_syscall(raw2trace_thread_data_t *tdata, app_pc value);
     app_pc
@@ -1243,6 +1243,11 @@ private:
 
     bool
     emit_new_chunk_header(raw2trace_thread_data_t *tdata);
+
+    void
+    update_reg_deltas(raw2trace_thread_data_t *tdata, int version, instr_t *inst,
+                      reg_id_t only_reg, bool reg_remembered[DR_NUM_GPR_REGS],
+                      int reg_delta[DR_NUM_GPR_REGS]);
 
     bool
     analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 modidx,

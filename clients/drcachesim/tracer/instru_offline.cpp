@@ -1017,20 +1017,104 @@ offline_instru_t::opnd_check_elidable(void *drcontext, instrlist_t *ilist, instr
 }
 
 bool
-offline_instru_t::does_reg_write_thwart_elision(int version, instr_t *instr, reg_id_t reg)
+offline_instru_t::does_reg_write_thwart_elision(int version, instr_t *instr, reg_id_t reg,
+                                                int &value_delta)
 {
-    if (!instr_writes_to_reg(instr, reg, DR_QUERY_INCLUDE_COND_DSTS))
+    if (!instr_writes_to_reg(instr, reg, DR_QUERY_INCLUDE_COND_DSTS)) {
+        value_delta = 0;
         return false;
+    }
 #ifdef X86
     // We track push and pop updates so they do not stop elision.
     // XXX i#4913: Generalize to any immediate add/sub, incl aarchxx
     // pre-and-post indexing.
-    if (version >= OFFLINE_FILE_VERSION_ELIDE_X86_PUSH && reg == DR_REG_XSP &&
-        (instr_get_opcode(instr) == OP_push || instr_get_opcode(instr) == OP_push_imm ||
-         (instr_get_opcode(instr) == OP_pop &&
-          // The pop-into location *does* thwart: so "pop rsp".
-          opnd_get_reg(instr_get_dst(instr, 0)) != DR_REG_XSP))) {
-        return false;
+    if (version >= OFFLINE_FILE_VERSION_ELIDE_X86_PUSH && reg == DR_REG_XSP) {
+        if (instr_get_opcode(instr) == OP_push ||
+            instr_get_opcode(instr) == OP_push_imm) {
+            value_delta = -opnd_size_in_bytes(opnd_get_size(instr_get_dst(instr, 1)));
+            return false;
+        }
+        if (instr_get_opcode(instr) == OP_pop &&
+            // The pop-into location *does* thwart: so "pop rsp".
+            opnd_get_reg(instr_get_dst(instr, 0)) != DR_REG_XSP) {
+            value_delta = opnd_size_in_bytes(opnd_get_size(instr_get_src(instr, 1)));
+            return false;
+        }
+    }
+    // We also support simple arithmetic: add, sub, lea.
+    if (version >= OFFLINE_FILE_VERSION_ELIDE_IMMED_BASE) {
+        if (instr_get_opcode(instr) == OP_add &&
+            opnd_is_immed_int(instr_get_src(instr, 0))) {
+            value_delta = opnd_get_immed_int(instr_get_src(instr, 0));
+            return false;
+        }
+        if (instr_get_opcode(instr) == OP_sub &&
+            opnd_is_immed_int(instr_get_src(instr, 0))) {
+            value_delta = -opnd_get_immed_int(instr_get_src(instr, 0));
+            return false;
+        }
+        if (instr_get_opcode(instr) == OP_lea &&
+            opnd_is_base_disp(instr_get_src(instr, 0)) &&
+            opnd_get_base(instr_get_src(instr, 0)) ==
+                opnd_get_reg(instr_get_dst(instr, 0)) &&
+            opnd_get_index(instr_get_src(instr, 0)) == DR_REG_NULL) {
+            value_delta = opnd_get_disp(instr_get_src(instr, 0));
+            return false;
+        }
+    }
+#elif defined(ARM)
+#elif defined(AARCH64)
+    if (version >= OFFLINE_FILE_VERSION_ELIDE_IMMED_BASE) {
+        // We track simple arithmetic.
+        if ((instr_get_opcode(instr) == OP_add || instr_get_opcode(instr) == OP_sub) &&
+            opnd_is_reg(instr_get_src(instr, 0)) &&
+            opnd_get_reg(instr_get_src(instr, 0)) == reg &&
+            opnd_is_immed_int(instr_get_src(instr, 1)) &&
+            // We do not support shifting or extending.
+            opnd_is_immed_int(instr_get_src(instr, 2)) &&
+            opnd_get_immed_int(instr_get_src(instr, 2)) == 0) {
+            if (instr_get_opcode(instr) == OP_add)
+                value_delta = opnd_get_immed_int(instr_get_src(instr, 1));
+            else
+                value_delta = -opnd_get_immed_int(instr_get_src(instr, 1));
+            return false;
+        }
+        // We also support pre and post indexing.
+        opnd_t op_mem, op_base_src, op_base_dst = opnd_create_null(), op_immed;
+        if (instr_reads_memory(instr) && instr_num_srcs(instr) == 3 &&
+            opnd_is_reg(instr_get_dst(instr, 0))) {
+            op_immed = instr_get_src(instr, 2);
+            op_mem = instr_get_src(instr, 0);
+            op_base_src = instr_get_src(instr, 1);
+            if (instr_num_dsts(instr) == 2) {
+                op_base_dst = instr_get_dst(instr, 1);
+            } else if (instr_num_dsts(instr) == 3 &&
+                       opnd_is_reg(instr_get_dst(instr, 1))) {
+                // Load pair.
+                op_base_dst = instr_get_dst(instr, 2);
+            }
+        } else if (instr_writes_memory(instr) && instr_num_dsts(instr) == 2 &&
+                   opnd_is_reg(instr_get_src(instr, 0))) {
+            op_mem = instr_get_dst(instr, 0);
+            op_base_dst = instr_get_dst(instr, 1);
+            if (instr_num_srcs(instr) == 3) {
+                op_base_src = instr_get_src(instr, 1);
+                op_immed = instr_get_src(instr, 2);
+            } else if (instr_num_srcs(instr) == 4 &&
+                       opnd_is_reg(instr_get_src(instr, 1))) {
+                // Store pair.
+                op_base_src = instr_get_src(instr, 2);
+                op_immed = instr_get_src(instr, 3);
+            }
+        }
+        if (opnd_is_base_disp(op_mem) && opnd_is_reg(op_base_dst) &&
+            opnd_get_base(op_mem) == opnd_get_reg(op_base_dst) &&
+            opnd_get_index(op_mem) == DR_REG_NULL && opnd_is_reg(op_base_src) &&
+            opnd_get_reg(op_base_src) == opnd_get_reg(op_base_dst) &&
+            opnd_is_immed_int(op_immed)) {
+            value_delta = opnd_get_immed_int(op_immed);
+            return false;
+        }
     }
 #endif
     return true;
@@ -1117,8 +1201,9 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
             // Rule out sharing with any dest if the base is written to.  The ISA
             // does not specify the ordering of multiple dests.
             auto reg_it = saw_base.begin();
+            int delta_ignored;
             while (reg_it != saw_base.end()) {
-                if (does_reg_write_thwart_elision(version, instr, *reg_it))
+                if (does_reg_write_thwart_elision(version, instr, *reg_it, delta_ignored))
                     reg_it = saw_base.erase(reg_it);
                 else
                     ++reg_it;
@@ -1139,8 +1224,9 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
         }
         // Rule out sharing with subsequent instrs if the base is written to.
         auto reg_it = saw_base.begin();
+        int delta_ignored;
         while (reg_it != saw_base.end()) {
-            if (does_reg_write_thwart_elision(version, instr, *reg_it))
+            if (does_reg_write_thwart_elision(version, instr, *reg_it, delta_ignored))
                 reg_it = saw_base.erase(reg_it);
             else
                 ++reg_it;
