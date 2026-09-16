@@ -549,7 +549,7 @@ arith_newblock:
 # elif defined(AARCH64)
         mov      x0, sp
         // Make some room for safe stores.
-        sub      x0, x0, #-256
+        sub      x0, x0, #256
         ldr      x1, [x0, #16]
         // Modify via add and subtract.
         add      x0, x0, #8
