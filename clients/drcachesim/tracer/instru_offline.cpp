@@ -1029,8 +1029,6 @@ offline_instru_t::does_reg_write_thwart_elision(int version, instr_t *instr, reg
     }
 #ifdef X86
     // We track push and pop updates so they do not stop elision.
-    // XXX i#4913: Generalize to any immediate add/sub, incl aarchxx
-    // pre-and-post indexing.
     if (version >= OFFLINE_FILE_VERSION_ELIDE_X86_PUSH && reg == DR_REG_XSP) {
         if (instr_get_opcode(instr) == OP_push ||
             instr_get_opcode(instr) == OP_push_imm) {
