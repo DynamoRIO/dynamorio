@@ -135,6 +135,18 @@ get_process_id(void)
     return KERNEL_PROCESS_ID;
 }
 
+app_pc
+get_application_base(void)
+{
+    return (app_pc)kernel_get_image_start();
+}
+
+app_pc
+get_application_end(void)
+{
+    return (app_pc)kernel_get_image_end();
+}
+
 char *
 get_application_pid(void)
 {

@@ -66,6 +66,8 @@ static void *(*vmalloc_node_range_ptr)(unsigned long size, unsigned long align,
                                        gfp_t gfp_mask, pgprot_t prot,
                                        unsigned long vm_flags, int node,
                                        const void *caller) = NULL;
+static void *kernel_image_start = NULL;
+static void *kernel_image_end = NULL;
 
 static size_t
 get_symbol_size(unsigned long address)
@@ -159,6 +161,18 @@ resolve_kernel_symbols(void)
         return -ENOENT;
     }
 
+    kernel_image_start = kernel_find_symbol("_text", NULL);
+    if (kernel_image_start == NULL) {
+        pr_err("Failed to resolve _text\n");
+        return -ENOENT;
+    }
+
+    kernel_image_end = kernel_find_symbol("_end", NULL);
+    if (kernel_image_end == NULL) {
+        pr_err("Failed to resolve _end\n");
+        return -ENOENT;
+    }
+
     return 0;
 }
 
@@ -223,6 +237,18 @@ kernel_get_page_size(void)
 {
     /* PAGE_SIZE is the target kernel's base page size, defined by <asm/page.h>. */
     return PAGE_SIZE;
+}
+
+void *
+kernel_get_image_start(void)
+{
+    return kernel_image_start;
+}
+
+void *
+kernel_get_image_end(void)
+{
+    return kernel_image_end;
 }
 
 unsigned int

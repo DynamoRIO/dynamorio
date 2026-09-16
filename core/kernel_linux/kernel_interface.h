@@ -57,6 +57,12 @@ kernel_get_online_processor_count(void);
 size_t
 kernel_get_page_size(void);
 
+void *
+kernel_get_image_start(void);
+
+void *
+kernel_get_image_end(void);
+
 unsigned int
 kernel_query_time_seconds(void);
 
