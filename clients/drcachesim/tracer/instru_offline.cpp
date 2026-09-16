@@ -985,6 +985,9 @@ offline_instru_t::opnd_is_elidable(opnd_t memop, DR_PARAM_OUT reg_id_t &base, in
     base = opnd_get_base(memop);
     if (base == DR_REG_NULL)
         base = opnd_get_index(memop);
+    // We do not support non-GPR base elision.
+    if (base < DR_REG_START_GPR || base > DR_REG_STOP_GPR)
+        return false;
     return true;
 }
 
