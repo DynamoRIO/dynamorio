@@ -1374,6 +1374,11 @@ nt_remote_query_virtual_memory(HANDLE process, const byte *pc,
 size_t
 query_virtual_memory(const byte *pc, MEMORY_BASIC_INFORMATION *mbi, size_t mbilen);
 
+/* Query image extension information for Windows 11 24H2+ CFG support (i#XXXX) */
+NTSTATUS
+query_memory_image_extension(const byte *module_base,
+                              MEMORY_IMAGE_EXTENSION_INFORMATION *ext_info);
+
 NTSTATUS
 get_mapped_file_name(const byte *pc, PWSTR buf, USHORT buf_bytes);
 
@@ -2350,6 +2355,30 @@ typedef struct IMAGE_COR20_HEADER {
 #ifndef IMAGE_SCN_ALIGN_MASK
 #    define IMAGE_SCN_ALIGN_MASK 0x00F00000 /* from latest winnt.h */
 #endif                                      /* IMAGE_SCN_ALIGN_MASK */
+
+/* delayloadhandler.h */
+typedef struct _DELAYLOAD_PROC_DESCRIPTOR {
+    ULONG ImportDescribedByName;
+    union {
+        LPCSTR Name;
+        ULONG Ordinal;
+    } Description;
+} DELAYLOAD_PROC_DESCRIPTOR, *PDELAYLOAD_PROC_DESCRIPTOR;
+
+typedef struct _DELAYLOAD_INFO {
+    ULONG Size;
+    PCIMAGE_DELAYLOAD_DESCRIPTOR DelayloadDescriptor;
+    PIMAGE_THUNK_DATA ThunkAddress;
+    LPCSTR TargetDllName;
+    DELAYLOAD_PROC_DESCRIPTOR TargetApiDescriptor;
+    PVOID TargetModuleBase;
+    PVOID Unused;
+    ULONG LastError;
+} DELAYLOAD_INFO, *PDELAYLOAD_INFO;
+
+typedef PVOID(WINAPI *PDELAYLOAD_FAILURE_DLL_CALLBACK)(
+    _In_ ULONG NotificationReason, _In_ PDELAYLOAD_INFO DelayloadInfo);
+
 
 NTSTATUS
 nt_initialize_shared_directory(HANDLE *shared_directory /* OUT */, bool permanent);
