@@ -49,6 +49,8 @@ DR_API file_t our_stderr = 2;
 app_pc vsyscall_syscall_end_pc = NULL;
 app_pc vsyscall_sysenter_return_pc = NULL;
 
+static bool heap_already_reserved = false;
+
 #define ASSERT_NOT_PORTED(x) assert_not_ported(__FILE__, __LINE__, __func__)
 
 static void
@@ -175,6 +177,47 @@ file_t
 os_open(const char *fname, int os_open_flags)
 {
     return INVALID_FILE;
+}
+
+void *
+os_heap_reserve_in_region(void *start, void *end, size_t size,
+                          heap_error_code_t *error_code, bool executable)
+{
+    /* The kernel module cannot allocate virtual memory after takeover: the kernel
+     * allocators can sleep and may re-enter instrumented code. Instead, a single region
+     * is reserved at module load (see `kernel_module_init()`) and handed out here.
+     * Therefore, only one reservation can succeed. We verify that the region satisfies
+     * DR's requested range rather than making a new allocation within it.
+     *
+     * `executable` is currently ignored because we only have a single RWX heap. TODO
+     * i#8124: Split into a +x code region and an NX data region, then route on
+     * `executable`.
+     */
+    *error_code = HEAP_ERROR_CANT_RESERVE_IN_REGION;
+
+    if (heap_already_reserved) {
+        LOG(GLOBAL, LOG_HEAP, 1, "%s: heap already reserved\n", __FUNCTION__);
+        return NULL;
+    }
+
+    byte *heap = (byte *)kernel_allocate_heap(size);
+    if (heap == NULL) {
+        LOG(GLOBAL, LOG_HEAP, 1, "%s: cannot satisfy " SZFMT " bytes\n", __FUNCTION__,
+            size);
+        return NULL;
+    }
+    if (heap < (byte *)start || POINTER_OVERFLOW_ON_ADD(heap, size) ||
+        heap + size > (byte *)end) {
+        LOG(GLOBAL, LOG_HEAP, 1, "%s: heap " PFX "-" PFX " outside " PFX "-" PFX "\n",
+            __FUNCTION__, heap, heap + size, start, end);
+        return NULL;
+    }
+
+    heap_already_reserved = true;
+    *error_code = HEAP_ERROR_SUCCESS;
+    LOG(GLOBAL, LOG_HEAP, 2, "%s: reserved " SZFMT " bytes @ " PFX "\n", __FUNCTION__,
+        size, heap);
+    return heap;
 }
 
 void
