@@ -33,10 +33,12 @@
 
 #include "../globals.h"
 #include "arch.h"
+#include "instr_api.h"
 #include "instr_create_shared.h"
 #include "instrument.h" /* instrlist_meta_preinsert */
 #include "../clean_call_opt.h"
 #include "disassemble.h"
+#include "opnd_api.h"
 #ifdef AARCH64
 #    include "../aarch64/mangle_aarch64.h"
 #endif
@@ -3996,20 +3998,604 @@ mangle_exclusive_monitor_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *i
  */
 
 #ifdef ARCH_SUPPORTS_HW_CACHE_CONSISTENCY
-/* SELF-MODIFYING-CODE SANDBOXING
- *
- * When we detect it, we take an exit that targets our own routine
- * fragment_self_write. Dispatch checks for that target and if it
- * finds it, it calls that routine, so don't worry about building a bb
- * for it. Returns false if the bb has invalid instrs or CTIs and
- * should be rebuilt from scratch.
+
+typedef struct _scratch_reg_info_t {
+    ushort slot;
+    reg_id_t reg;
+    bool needs_restore;
+} scratch_reg_info_t;
+
+/* Calculate the target address and strip memory tags.
+ * XXX We can't use drutil_insert_get_mem_addr() here because:
+ * a: It is part of an extension library, not libdynamorio.
+ * b: The library is LGPL.
  */
-bool
-insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
-                       app_pc start_pc, app_pc end_pc, /* end is open */
-                       bool record_translation, bool for_cache)
+static void
+sandbox_insert_get_mem_addr(void *dcontext, reg_id_t output_reg, reg_id_t scratch,
+                            instrlist_t *ilist, instr_t *where, opnd_t addr_op)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#7585 */
-    return true;
+    ASSERT(opnd_is_base_disp(addr_op));
+    reg_id_t base = opnd_get_base(addr_op);
+    reg_id_t index = opnd_get_index(addr_op);
+    const int disp = opnd_get_disp(addr_op);
+
+    reg_id_t addr_reg;
+
+    if (disp == 0 && index == DR_REG_NULL) {
+        /* [base] post-indexed or 0 offset. */
+        if (base == dr_reg_stolen) {
+            dr_insert_get_stolen_reg_value(dcontext, ilist, where, output_reg);
+            addr_reg = output_reg;
+        } else if (base == DR_REG_SP) {
+            /* The result of this function is used as the Xn operand in an
+             *    and Xd|SP, Xn, #imm
+             * instruction. Since Xn cannot be SP need to move the value to a gpr first.
+             */
+            /* mov   scratch[0], sp */
+            PRE(ilist, where,
+                XINST_CREATE_move(dcontext, opnd_create_reg(output_reg),
+                                  opnd_create_reg(base)));
+            addr_reg = output_reg;
+        } else {
+            /* The base register already contains the address so we can just use that
+             * directly.
+             */
+            addr_reg = base;
+        }
+    } else {
+        /* If the base/index register is the stolen register we need to restore the stolen
+         * register to a scratch register and use that instead.
+         */
+        bool move_stolen_reg_to_scratch = false;
+        if (base == dr_reg_stolen) {
+            base = scratch;
+            move_stolen_reg_to_scratch = true;
+        }
+        if (index == dr_reg_stolen) {
+            index = scratch;
+            move_stolen_reg_to_scratch = true;
+        }
+        if (index == reg_64_to_32(dr_reg_stolen)) {
+            index = reg_64_to_32(scratch);
+            move_stolen_reg_to_scratch = true;
+        }
+
+        if (move_stolen_reg_to_scratch) {
+            dr_insert_get_stolen_reg_value(dcontext, ilist, where, scratch);
+        }
+
+        if (disp != 0) {
+            ASSERT(index == DR_REG_NULL);
+            /* [base, #imm] base+immediate address. */
+
+            instr_t *add_sub;
+            if (disp < 0) {
+                /* sub  output_reg, base, #-disp */
+                add_sub = INSTR_CREATE_sub(dcontext, opnd_create_reg(output_reg),
+                                           opnd_create_reg(base), OPND_CREATE_INT(-disp));
+            } else {
+                /* add  output_reg, base, #disp */
+                add_sub = INSTR_CREATE_add(dcontext, opnd_create_reg(output_reg),
+                                           opnd_create_reg(base), OPND_CREATE_INT(disp));
+            }
+
+            if (instr_is_encoding_possible(add_sub)) {
+                PRE(ilist, where, add_sub);
+            } else {
+                instr_destroy(dcontext, add_sub);
+                PRE(ilist, where,
+                    XINST_CREATE_load_int(dcontext, opnd_create_reg(output_reg),
+                                          OPND_CREATE_INT(disp)));
+                PRE(ilist, where,
+                    INSTR_CREATE_add(dcontext, opnd_create_reg(output_reg),
+                                     opnd_create_reg(base), opnd_create_reg(output_reg)));
+            }
+        } else {
+            /* [base, index{, <extend> #imm}] base+extended index address. */
+            uint imm;
+            const dr_extend_type_t extend = opnd_get_index_extend(addr_op, NULL, &imm);
+            PRE(ilist, where,
+                INSTR_CREATE_add_extend(dcontext, opnd_create_reg(output_reg),
+                                        opnd_create_reg(base), opnd_create_reg(index),
+                                        OPND_CREATE_INT(extend), OPND_CREATE_INT(imm)));
+        }
+        addr_reg = output_reg;
+    }
+
+    /* Now we need to strip any memory tags from the address. */
+    const uint64 tag_mask = 0x00ffffffffffffff;
+    PRE(ilist, where,
+        INSTR_CREATE_and(dcontext, opnd_create_reg(output_reg), opnd_create_reg(addr_reg),
+                         OPND_CREATE_INT(tag_mask)));
+}
+
+void
+sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *next,
+              opnd_t op, app_pc start_pc, app_pc end_pc /* end is open */,
+              app_pc after_write)
+{
+    /* TODO i#7585: Add support for more write operations:
+     *
+     * DC ZVA shouldn't be too difficult to support. We just need to get op_size from
+     * DCZID_EL0.BS and also use it to align the access address.
+     *
+     * SVE contiguous predicated store operations should also be straight-forward if we
+     * ignore the predication. They operate over a contiguous range using base+index or
+     * base+offset addressing so we can reuse the existing address calculation code.
+     * Ignoring the predication means we might get false positives if we detect a "hit"
+     * on an element which is inactive, but this is probably a rare enough event that we
+     * needn't worry about it.
+     *
+     * SVE scatter operations are more tricky. These instructions have a vector base or
+     * index and write multiple non-contiguous regions. We would need to so something
+     * similar to drx_expand_scatter_gather() to support this properly.
+     */
+    ASSERT_NOT_IMPLEMENTED(!instr_is_scatter(instr));
+    ASSERT_NOT_IMPLEMENTED(instr_get_opcode(instr) != OP_dc_zva);
+
+    /*
+     * perform_write()
+     * if ((write_addr < end_pc) && (write_addr + op_size > start_pc)) {
+     *     exit fragment
+     * } else {
+     *     continue to next fragment instruction after write
+     * }
+     */
+
+    /* start_pc and end_pc should be canonical addresses. */
+    ASSERT(STRIP_MEMORY_TAG(start_pc) == start_pc);
+    ASSERT(STRIP_MEMORY_TAG(end_pc) == end_pc);
+
+    scratch_reg_info_t scratch[2];
+
+    scratch[0].reg = pick_scratch_reg(dcontext, instr, DR_REG_NULL, DR_REG_NULL,
+                                      DR_REG_NULL, /*dead_reg_ok=*/false,
+                                      &scratch[0].slot, &scratch[0].needs_restore);
+    scratch[1].reg = pick_scratch_reg(
+        dcontext, instr, scratch[0].reg, DR_REG_NULL, DR_REG_NULL,
+        /*dead_reg_ok=*/false, &scratch[1].slot, &scratch[1].needs_restore);
+
+    bool str_updates_base =
+        instr_writes_to_reg(instr, opnd_get_base(op), DR_QUERY_INCLUDE_ALL);
+
+    /* There are no instructions which can update in index register. */
+    ASSERT(!instr_writes_to_reg(instr, opnd_get_index(op), DR_QUERY_INCLUDE_ALL));
+
+    if (str_updates_base) {
+        /* If the store updates the base register, we need to calculate the written
+         * address before the write and store it in a tls slot.
+         */
+        for (size_t i = 0; i < 2; i++) {
+            if (scratch[i].needs_restore) {
+                insert_save_to_tls_if_necessary(dcontext, ilist, instr, scratch[i].reg,
+                                                scratch[i].slot);
+            }
+        }
+        sandbox_insert_get_mem_addr(dcontext, scratch[0].reg, scratch[1].reg, ilist,
+                                    instr, op);
+
+        PRE(ilist, instr,
+            instr_create_save_to_tls(dcontext, scratch[0].reg,
+                                     TLS_SELFMOD_WRITE_ADDR_SLOT));
+
+        for (size_t i = 0; i < 2; i++) {
+            if (scratch[i].needs_restore) {
+                PRE(ilist, instr,
+                    instr_create_restore_from_tls(dcontext, scratch[i].reg,
+                                                  scratch[i].slot));
+            }
+        }
+    }
+
+    /* Write goes here.
+     * Emitted code after this point should use where=next:
+     * PRE(ilist, next, INSTR_CREATE_nop(dcontext));
+     */
+    instr = NULL; /* Make it easy to catch code that uses where=instr by mistake. */
+
+    for (size_t i = 0; i < 2; i++) {
+        if (scratch[i].needs_restore) {
+            insert_save_to_tls_if_necessary(dcontext, ilist, next, scratch[i].reg,
+                                            scratch[i].slot);
+        }
+    }
+
+    const uint64 op_size = opnd_size_in_bytes(opnd_get_size(op));
+
+    if (str_updates_base) {
+        PRE(ilist, next,
+            instr_create_restore_from_tls(dcontext, scratch[0].reg,
+                                          TLS_SELFMOD_WRITE_ADDR_SLOT));
+    } else {
+        sandbox_insert_get_mem_addr(dcontext, scratch[0].reg, scratch[1].reg, ilist, next,
+                                    op);
+    }
+
+    ASSERT(op_size > 0);
+    ptr_uint_t lower_bound =
+        (ptr_uint_t)start_pc < op_size ? 0 : (ptr_uint_t)start_pc - op_size + 1;
+    ptr_uint_t upper_bound = (ptr_uint_t)end_pc;
+
+    /* mov scratch, #upper_bound */
+    insert_mov_immed_ptrsz(dcontext, upper_bound, opnd_create_reg(scratch[1].reg), ilist,
+                           next, NULL, NULL);
+
+    /* sub scratch, addr, scratch ; scratch = write_addr - upper_bound */
+    PRE(ilist, next,
+        INSTR_CREATE_sub(dcontext, opnd_create_reg(scratch[0].reg),
+                         opnd_create_reg(scratch[0].reg),
+                         opnd_create_reg(scratch[1].reg)));
+
+    instr_t *not_selfmod = INSTR_CREATE_label(dcontext);
+    /* tbz scratch[0], #63, not_selfmod ; if (write_addr >= upper_bound): goto not_selfmod
+     */
+    PRE(ilist, next,
+        INSTR_CREATE_tbz(dcontext, opnd_create_instr(not_selfmod),
+                         opnd_create_reg(scratch[0].reg), OPND_CREATE_INT(63)));
+
+    /*
+     * Now we need to compare write_addr to lower_bound.
+     * Instead of materializing lower_bound into a register and subtracting it like we did
+     * with upper_bound we can take advantage of the fact that we have already calculated
+     * write_addr - upper_bound and the difference between upper_bound and lower_bound is
+     * small.
+     * write_addr - lower_bound = (write_addr - upper_bound) + (upper_bound - lower_bound)
+     */
+    const uint64 difference = upper_bound - lower_bound;
+    instr_t *add =
+        INSTR_CREATE_add(dcontext, opnd_create_reg(scratch[0].reg),
+                         opnd_create_reg(scratch[0].reg), OPND_CREATE_INT(difference));
+    if (instr_is_encoding_possible(add)) {
+        /* The value we are comparing is small enough to fit inside an immediate. */
+        PRE(ilist, next, add);
+    } else {
+        /* We need to move difference to a register and use the register version of add.
+         */
+        instr_destroy(dcontext, add);
+
+        /* mov  scratch[1], #difference
+         * add  scratch[0], scratch[0], scratch[1]
+         */
+        insert_mov_immed_ptrsz(dcontext, difference, opnd_create_reg(scratch[1].reg),
+                               ilist, next, NULL, NULL);
+
+        PRE(ilist, next,
+            INSTR_CREATE_add(dcontext, opnd_create_reg(scratch[0].reg),
+                             opnd_create_reg(scratch[0].reg),
+                             opnd_create_reg(scratch[1].reg)));
+    }
+
+    PRE(ilist, next,
+        INSTR_CREATE_tbnz(dcontext, opnd_create_instr(not_selfmod),
+                          opnd_create_reg(scratch[0].reg), OPND_CREATE_INT(63)));
+
+    for (size_t i = 0; i < 2; i++) {
+        if (scratch[i].needs_restore) {
+            PRE(ilist, next,
+                instr_create_restore_from_tls(dcontext, scratch[i].reg, scratch[i].slot));
+        }
+    }
+
+    instr_t *exit_cti = INSTR_CREATE_b(dcontext, opnd_create_pc(after_write));
+    instr_branch_set_special_exit(exit_cti, true);
+    instrlist_preinsert(ilist, next, exit_cti);
+
+    /* not_selfmod:
+     * The write is not a selfmod. Restore the flags and continue.
+     */
+    PRE(ilist, next, not_selfmod);
+
+    for (size_t i = 0; i < 2; i++) {
+        if (scratch[i].needs_restore) {
+            PRE(ilist, next,
+                instr_create_restore_from_tls(dcontext, scratch[i].reg, scratch[i].slot));
+        }
+    }
+}
+
+static void
+sandbox_top_save_gprs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where)
+{
+#    define SAVE(reg, slot) \
+        PRE(ilist, where, instr_create_save_to_tls(dcontext, reg, slot))
+
+    SAVE(DR_REG_R0, TLS_REG0_SLOT);
+    SAVE(DR_REG_R1, TLS_REG1_SLOT);
+    SAVE(DR_REG_R2, TLS_REG2_SLOT);
+    SAVE(DR_REG_R3, TLS_REG3_SLOT);
+    SAVE(DR_REG_R4, TLS_REG4_SLOT);
+#    undef SAVE
+}
+
+static void
+sandbox_top_restore_gprs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where)
+{
+#    define RESTORE(reg, slot)                                                   \
+        do {                                                                     \
+            instr_t *instr = instr_create_restore_from_tls(dcontext, reg, slot); \
+            PRE(ilist, where, instr);                                            \
+        } while (0)
+
+    RESTORE(DR_REG_R4, TLS_REG4_SLOT);
+    RESTORE(DR_REG_R3, TLS_REG3_SLOT);
+    RESTORE(DR_REG_R2, TLS_REG2_SLOT);
+    RESTORE(DR_REG_R1, TLS_REG1_SLOT);
+    RESTORE(DR_REG_R0, TLS_REG0_SLOT);
+}
+
+/* Materialise a constant using exactly 4 instructions. */
+static void
+sandbox_insert_mov_immed_ptrsz_4instr(dcontext_t *dcontext, instrlist_t *ilist,
+                                      instr_t *where, ptr_uint_t val, reg_id_t reg)
+{
+    PRE(ilist, where,
+        INSTR_CREATE_movz(dcontext, opnd_create_reg(reg), OPND_CREATE_INT16(val & 0xffff),
+                          OPND_CREATE_INT8(0)));
+    for (int i = 1; i < 4; ++i) {
+        PRE(ilist, where,
+            INSTR_CREATE_movk(dcontext, opnd_create_reg(reg),
+                              OPND_CREATE_INT16((val >> (16 * i)) & 0xffff),
+                              OPND_CREATE_INT8(i * 16)));
+    }
+}
+
+void
+sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist, bool s2ro, uint flags UNUSED,
+                  app_pc start_pc, app_pc end_pc, /* end is open */
+                  bool for_cache)
+{
+    /* Compare the app instructions against the saved copy stored after the fragment.
+     * finalize_selfmod_sandbox() patches the ADR below to point at the copy once
+     * final fragment layout is known.
+     */
+    instr_t *instr = instrlist_first_expanded(dcontext, ilist);
+    const ptr_uint_t app_size = end_pc - start_pc;
+
+    ASSERT(instr != NULL);
+    ASSERT(app_size > 0);
+    ASSERT(ALIGNED(app_size, AARCH64_INSTR_SIZE));
+
+    sandbox_top_save_gprs(dcontext, ilist, instr);
+
+    instr_t *exit = INSTR_CREATE_label(dcontext);
+
+    if (s2ro) {
+        uint thresh = DYNAMO_OPTION(sandbox2ro_threshold);
+        uint *counter;
+
+        if (for_cache) {
+            counter = get_selfmod_exec_counter(start_pc);
+        } else {
+            /* Won't find exec area since not a real fragment (probably
+             * a recreation post-flush).  Won't execute, so NULL is fine.
+             */
+            counter = NULL;
+        }
+
+        const reg_id_t counter_ptr = DR_REG_X0;
+        const reg_id_t counter_reg = DR_REG_W1;
+        const reg_id_t counter_reg64 = DR_REG_X1;
+        const reg_id_t scratch64 = DR_REG_X2;
+
+        /* insert_mov_immed_ptrsz() emits between 1 and 4 instructions depending on the
+         * value we need to materialise. In the !for_cache case we don't know the real
+         * counter value but we need to generate the same number of instructions as the
+         * for_cache case so instruction offsets match. To make sure we always generate
+         * the same number of instructions we use a version of insert_mov_immed_ptrsz()
+         * that always generates 4 instructions.
+         *
+         * movz x0, #(counter & 0xffff)
+         * movk x0, #((counter >> 16) & 0xffff)
+         * movk x0, #((counter >> 32) & 0xffff)
+         * movk x0, #((counter >> 48) & 0xffff)
+         */
+        sandbox_insert_mov_immed_ptrsz_4instr(dcontext, ilist, instr, (ptr_uint_t)counter,
+                                              counter_ptr);
+        /* ldr counter_reg, [counter_ptr] */
+        PRE(ilist, instr,
+            INSTR_CREATE_ldr(dcontext, opnd_create_reg(counter_reg),
+                             OPND_CREATE_MEM32(DR_REG_X0, 0)));
+
+        /* add counter_reg, counter_reg, #1 ; Increment counter. */
+        PRE(ilist, instr,
+            INSTR_CREATE_add(dcontext, opnd_create_reg(counter_reg),
+                             opnd_create_reg(counter_reg), OPND_CREATE_INT(1)));
+
+        /* str counter_reg, [counter_ptr] ; Write the new counter value back to memory.
+         */
+        PRE(ilist, instr,
+            INSTR_CREATE_str(dcontext, OPND_CREATE_MEM32(counter_ptr, 0),
+                             opnd_create_reg(counter_reg)));
+
+        /* Reuse counter_ptr register because we don't need it any more. */
+
+        instr_t *sub =
+            INSTR_CREATE_sub(dcontext, opnd_create_reg(scratch64),
+                             opnd_create_reg(counter_reg64), OPND_CREATE_INT(thresh));
+        if (instr_is_encoding_possible(sub)) {
+            /* sub counter_reg, #thresh */
+            PRE(ilist, instr, sub);
+        } else {
+            instr_destroy(dcontext, sub);
+
+            /* mov scratch, #thresh
+             * sub counter_reg, scratch
+             */
+            insert_mov_immed_ptrsz(dcontext, thresh, opnd_create_reg(scratch64), ilist,
+                                   instr, NULL, NULL);
+            PRE(ilist, instr,
+                INSTR_CREATE_sub(dcontext, opnd_create_reg(scratch64),
+                                 opnd_create_reg(counter_reg64),
+                                 opnd_create_reg(scratch64)));
+        }
+        PRE(ilist, instr,
+            INSTR_CREATE_tbz(dcontext, opnd_create_instr(exit),
+                             opnd_create_reg(scratch64), OPND_CREATE_INT(63)));
+    }
+
+    DOSTATS({
+        if (GLOBAL_STATS_ON()) {
+            /* mov stat_ptr, #GLOBAL_STAT_ADDR(num_sandbox_execs)
+             * ldr stat_value, [stat_ptr]
+             * add stat_value, stat_value, #1
+             * str stat_value, [stat_ptr]
+             */
+            const reg_id_t stat_ptr = DR_REG_X0;
+            const reg_id_t stat_value = DR_REG_X1;
+
+            opnd_t stat = opnd_create_base_disp(stat_ptr, DR_REG_NULL, 0, 0, OPSZ_STATS);
+            insert_mov_immed_ptrsz(dcontext,
+                                   (ptr_int_t)GLOBAL_STAT_ADDR(num_sandbox_execs),
+                                   opnd_create_reg(stat_ptr), ilist, instr, NULL, NULL);
+            PRE(ilist, instr,
+                XINST_CREATE_load(dcontext, opnd_create_reg(stat_value), stat));
+            PRE(ilist, instr,
+                INSTR_CREATE_add(dcontext, opnd_create_reg(stat_value),
+                                 opnd_create_reg(stat_value), OPND_CREATE_INT(1)));
+            PRE(ilist, instr,
+                XINST_CREATE_store(dcontext, stat, opnd_create_reg(stat_value)));
+        }
+    });
+
+    const reg_id_t copy_ptr_reg = DR_REG_X0;
+    const reg_id_t app_ptr_reg = DR_REG_X1;
+    const reg_id_t loop_counter_reg = DR_REG_X2;
+    const reg_id_t copy32_reg = DR_REG_W3;
+    const reg_id_t app32_reg = DR_REG_W4;
+    const reg_id_t copy64_reg = DR_REG_X3;
+    const reg_id_t app64_reg = DR_REG_X4;
+
+    instr_t *match = INSTR_CREATE_label(dcontext);
+
+    /* Use a placeholder offset for the adr. This will be patched later to the correct
+     * offset by finalize_selfmod_sandbox(). */
+    instr_t *copy_placeholder = INSTR_CREATE_label(dcontext);
+    instr_t *copy_adr = INSTR_CREATE_adr(dcontext, opnd_create_reg(copy_ptr_reg),
+                                         opnd_create_instr(copy_placeholder));
+    instr_set_note(copy_adr, (void *)DR_NOTE_SELFMOD_COPY);
+    PRE(ilist, instr, copy_adr);
+    PRE(ilist, instr, copy_placeholder);
+
+    insert_mov_immed_ptrsz(dcontext, (ptr_int_t)start_pc, opnd_create_reg(app_ptr_reg),
+                           ilist, instr, NULL, NULL);
+
+    const ptr_uint_t num_iterations = app_size / (AARCH64_INSTR_SIZE * 2);
+    insert_mov_immed_ptrsz(dcontext, num_iterations, opnd_create_reg(loop_counter_reg),
+                           ilist, instr, NULL, NULL);
+
+    ASSERT(app_size % AARCH64_INSTR_SIZE == 0);
+
+    if (app_size > AARCH64_INSTR_SIZE) {
+        instr_t *loop = INSTR_CREATE_label(dcontext);
+        /* bb has at least 2 instruction, loop over them and compare them two at a time.
+         * If there are an off number of instructions the last one is handled separately
+         * after the loop.
+         *
+         * loop:
+         *  ldr     copy, [copy_ptr], #8
+         *  ldr     app, [app_ptr], #8
+         *  sub     copy, app
+         *  cbnz    exit
+         *  sub     loop_counter, loop_counter, #1
+         *  cbnz    loop
+         *
+         */
+        PRE(ilist, instr, loop);
+        PRE(ilist, instr,
+            INSTR_CREATE_ldr_imm(
+                dcontext, opnd_create_reg(copy64_reg), opnd_create_reg(copy_ptr_reg),
+                opnd_create_base_disp_aarch64(copy_ptr_reg, DR_REG_NULL, DR_EXTEND_UXTX,
+                                              /*scaled=*/false, /*disp=*/0, /*flags=*/0,
+                                              OPSZ_8),
+                OPND_CREATE_INT(8)));
+        PRE(ilist, instr,
+            INSTR_CREATE_ldr_imm(
+                dcontext, opnd_create_reg(app64_reg), opnd_create_reg(app_ptr_reg),
+                opnd_create_base_disp_aarch64(app_ptr_reg, DR_REG_NULL, DR_EXTEND_UXTX,
+                                              /*scaled=*/false, /*disp=*/0, /*flags=*/0,
+                                              OPSZ_8),
+                OPND_CREATE_INT(8)));
+
+        /* copy64 is dead after the sub so reuse it as scratch. */
+        const reg_id_t scratch = copy64_reg;
+        PRE(ilist, instr,
+            INSTR_CREATE_sub(dcontext, opnd_create_reg(scratch),
+                             opnd_create_reg(copy64_reg), opnd_create_reg(app64_reg)));
+        PRE(ilist, instr,
+            INSTR_CREATE_cbnz(dcontext, opnd_create_instr(exit),
+                              opnd_create_reg(scratch)));
+        PRE(ilist, instr,
+            INSTR_CREATE_sub(dcontext, opnd_create_reg(loop_counter_reg),
+                             opnd_create_reg(loop_counter_reg), OPND_CREATE_INT(1)));
+
+        PRE(ilist, instr,
+            INSTR_CREATE_cbnz(dcontext, opnd_create_instr(loop),
+                              opnd_create_reg(loop_counter_reg)));
+    }
+
+    if ((app_size / AARCH64_INSTR_SIZE) % 2 == 1) {
+        /* bb has an odd number of instructions so we need to do an extra comparison after
+         * the loop:
+         *
+         * ldr  copy, [copy_ptr] // 32-bit load.
+         * ldr  app, [app_ptr] // 32-bit load.
+         * sub  scratch, copy, app
+         * cbnz exit
+         */
+
+        PRE(ilist, instr,
+            INSTR_CREATE_ldr(
+                dcontext, opnd_create_reg(copy32_reg),
+                opnd_create_base_disp(copy_ptr_reg, DR_REG_NULL, 0, 0, OPSZ_4)));
+        PRE(ilist, instr,
+            INSTR_CREATE_ldr(
+                dcontext, opnd_create_reg(app32_reg),
+                opnd_create_base_disp(app_ptr_reg, DR_REG_NULL, 0, 0, OPSZ_4)));
+        /* copy is dead after the sub so reuse it as scratch. */
+        const reg_id_t scratch = copy32_reg;
+        PRE(ilist, instr,
+            INSTR_CREATE_sub(dcontext, opnd_create_reg(scratch),
+                             opnd_create_reg(copy32_reg), opnd_create_reg(app32_reg)));
+        PRE(ilist, instr,
+            INSTR_CREATE_cbnz(dcontext, opnd_create_instr(exit),
+                              opnd_create_reg(scratch)));
+    }
+
+    PRE(ilist, instr, INSTR_CREATE_b(dcontext, opnd_create_instr(match)));
+
+    PRE(ilist, instr, exit);
+    sandbox_top_restore_gprs(dcontext, ilist, instr);
+    instr_t *exit_cti = INSTR_CREATE_b(dcontext, opnd_create_pc(start_pc));
+    instr_branch_set_special_exit(exit_cti, true);
+    instrlist_preinsert(ilist, instr, exit_cti);
+
+    PRE(ilist, instr, match);
+    sandbox_top_restore_gprs(dcontext, ilist, instr);
+}
+
+void
+finalize_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, fragment_t *f)
+{
+    /* Patch the ADR inserted by sandbox_top_of_bb() to use the correct offset for the
+     * selfmod copy pc.
+     */
+    DEBUG_DECLARE(bool found_adr = false;)
+    for (instr_t *instr = instrlist_first(ilist); instr != NULL;
+         instr = instr_get_next(instr)) {
+        if (instr_get_note(instr) == (void *)DR_NOTE_SELFMOD_COPY) {
+            ASSERT(instr_is_our_mangling(instr));
+            ASSERT(instr_get_opcode(instr) == OP_adr);
+            instr_set_src(instr, 0,
+                          opnd_create_rel_addr(FRAGMENT_SELFMOD_COPY_PC(f), OPSZ_0));
+
+            cache_pc pc = (cache_pc)vmcode_get_writable_addr(FCACHE_ENTRY_PC(f) +
+                                                             instr_get_offset(instr));
+            instr_encode_to_copy(dcontext, instr, pc,
+                                 FCACHE_ENTRY_PC(f) + instr_get_offset(instr));
+            DODEBUG({ found_adr = true; });
+            break;
+        }
+    }
+    ASSERT(found_adr);
 }
 #endif /* ARCH_SUPPORTS_HW_CACHE_CONSISTENCY */
