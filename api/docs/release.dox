@@ -213,6 +213,9 @@ compatibility changes:
  - A C++17-supporting toolchain is now required to build.
 
 Further non-compatibility-affecting changes include:
+ - On Linux, shared non-executable ELF module candidates are now validated against
+   their executable load segments.  Use `-no_validate_shared_elf_modules` to restore
+   the prior behavior (i#8031).
  - Changed the types of `block_size`, `total_size`, `num_blocks`, to `int64_t`
    in dynamorio::drmemtrace::caching_device_t and its deriving classes.
  - Added support for reading a single drmemtrace trace file from stdin

@@ -1,5 +1,6 @@
 /* *******************************************************************************
  * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -798,6 +799,11 @@ OPTION_DEFAULT_INTERNAL(bool, use_sigreturn_setcontext, true,
 OPTION_DEFAULT(bool, use_all_memory_areas, true,
                "Use all_memory_areas "
                "address space cache to query page protections.")
+#    ifdef LINUX
+/* i#8031: Reject flat shared ELF file views during the initial module scan. */
+OPTION_DEFAULT(bool, validate_shared_elf_modules, true,
+               "Validate shared ELF mappings before treating them as modules.")
+#    endif
 #endif /* UNIX */
 
 /* Disable diagnostics by default. -security turns it on */
