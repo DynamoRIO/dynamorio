@@ -3905,9 +3905,14 @@ fragment_shift_fcache_pointers(dcontext_t *dcontext, fragment_t *f, ssize_t shif
 
 #ifdef X86
     if (TESTANY(FRAG_SELFMOD_SANDBOXED, f->flags)) {
-        /* just re-finalize to update */
-        finalize_selfmod_sandbox(dcontext, f);
+        /* Just re-finalize to update. */
+        finalize_selfmod_sandbox(dcontext, /*ilist=*/NULL, f);
     }
+#elif defined(AARCH64)
+    /* Nothing to do.
+     * AArch64 uses PC-relative addressing to get the app code copy pointer so it can be
+     * relocated without needing to re-finalize it.
+     */
 #endif
 
     /* inter-cache links must be redone, but all fragment entry pcs must be

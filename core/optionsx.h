@@ -2380,10 +2380,18 @@ DYNAMIC_OPTION_DEFAULT(bool, allow_detach, true, "allow detaching from process")
 #ifdef WINDOWS
 PC_OPTION_INTERNAL(bool, noasynch, "disable asynchronous event interceptions")
 #endif
+
+/* TODO i7585: Default to on for AArch64 when we have tested it more. */
+#if defined(X86) /* || defined(AARCH64) */
+#    define HW_CACHE_CONSISTENCY_DEFAULT true
+#else
+#    define HW_CACHE_CONSISTENCY_DEFAULT false
+#endif
 PC_OPTION_DEFAULT_INTERNAL(
-    bool, hw_cache_consistency, IF_X86_ELSE(true, false),
+    bool, hw_cache_consistency, HW_CACHE_CONSISTENCY_DEFAULT,
     "keep code cache consistent in face of hardware implicit icache sync")
-OPTION_DEFAULT_INTERNAL(bool, sandbox_writes, true,
+#undef HW_CACHE_CONSISTENCY_DEFAULT
+OPTION_DEFAULT_INTERNAL(bool, sandbox_writes, IF_AARCH64_ELSE(false, true),
                         "check each sandboxed write for selfmod?")
 /* XXX: off by default until dll load perf issues are solved: case 3559 */
 OPTION_DEFAULT_INTERNAL(bool, safe_translate_flushed, false,

@@ -57,6 +57,9 @@ fault instruction is 0x00000000 preceded by 0xf90013e0
 #endif
 end fault test
 end selfmod loop test
+#ifdef AARCH64
+end AArch64 store selfmod test
+#endif
 #ifdef X86
 end selfmod direction flag test
 #endif
