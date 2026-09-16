@@ -783,13 +783,13 @@ offline_instru_t::instrument_memref(void *drcontext, void *bb_field, instrlist_t
 int
 offline_instru_t::instrument_instr(void *drcontext, void *tag, void *bb_field,
                                    instrlist_t *ilist, instr_t *where, reg_id_t reg_ptr,
-                                   int adjust, instr_t *app, bool memref_needs_full_info,
+                                   int adjust, instr_t *app, bool pc_record_per_instr,
                                    uintptr_t mode)
 {
     per_block_t *per_block = reinterpret_cast<per_block_t *>(bb_field);
     app_pc pc;
     reg_id_t reg_tmp;
-    if (!memref_needs_full_info) {
+    if (!pc_record_per_instr) {
         // We write just once per bb, if not filtering.
         if (per_block->instr_count > MAX_INSTR_COUNT)
             return adjust;
@@ -803,9 +803,8 @@ offline_instru_t::instrument_instr(void *drcontext, void *tag, void *bb_field,
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
     adjust += insert_save_pc(
         drcontext, ilist, where, reg_ptr, reg_tmp, adjust, pc,
-        memref_needs_full_info ? 1 : static_cast<uint>(per_block->instr_count),
-        per_block);
-    if (!memref_needs_full_info)
+        pc_record_per_instr ? 1 : static_cast<uint>(per_block->instr_count), per_block);
+    if (!pc_record_per_instr)
         per_block->instr_count = MAX_INSTR_COUNT + 1;
     res = drreg_unreserve_register(drcontext, ilist, where, reg_tmp);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.

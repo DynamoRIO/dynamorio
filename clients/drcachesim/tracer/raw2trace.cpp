@@ -1720,6 +1720,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
     bool skip_icache = false;
     // This indicates that each memref has its own PC entry and that each
     // icache entry does not need to be considered a memref PC entry as well.
+    // For dfiltered-only, we handle the separate PC entries in append_memref().
     bool instrs_are_separate = TESTANY(
         OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED, get_file_type(tdata));
     bool is_instr_only_trace =
@@ -1977,7 +1978,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             !is_instr_only_trace) {
             if (instr->is_scatter_or_gather()) {
                 if (!append_scatter_gather(tdata, instr, &buf, reg_vals,
-                                           expect_all_memrefs, consumed_memrefs))
+                                           expect_all_memrefs, consumed_memrefs, orig_pc))
                     return false;
             } else if (instrs_are_separate) {
                 // There is only one memref entry (each memref is after a count=0 PC
@@ -1986,7 +1987,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 if (instr->num_mem_srcs() + instr->num_mem_dests() > 0) {
                     if (!append_memref(tdata, &buf, instr, instr->mem_src_at(0), false,
                                        reg_vals, nullptr, expect_all_memrefs,
-                                       consumed_memrefs))
+                                       consumed_memrefs, orig_pc))
                         return false;
                 }
             } else if (instr->is_rep_string() && repstr_first_last_supported) {
@@ -1995,10 +1996,12 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                                       &saved_decode_pc, interrupted, added_encoding))
                     return false;
             } else {
+                log(4, "Walking memrefs: %d srcs, %d dsts\n", instr->num_mem_srcs(),
+                    instr->num_mem_dests());
                 for (uint j = 0; j < instr->num_mem_srcs(); j++) {
                     if (!append_memref(tdata, &buf, instr, instr->mem_src_at(j), false,
                                        reg_vals, nullptr, expect_all_memrefs,
-                                       consumed_memrefs))
+                                       consumed_memrefs, orig_pc))
                         return false;
                 }
                 // We break before subsequent memrefs on an interrupt, though with
@@ -2006,7 +2009,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 for (uint j = 0; !interrupted && j < instr->num_mem_dests(); j++) {
                     if (!append_memref(tdata, &buf, instr, instr->mem_dest_at(j), true,
                                        reg_vals, nullptr, expect_all_memrefs,
-                                       consumed_memrefs))
+                                       consumed_memrefs, orig_pc))
                         return false;
                 }
             }
@@ -2015,10 +2018,23 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             // might have caused a fault, we omit them all along with the
             // instruction fetch.
             if (interrupted) {
+                bool dfiltered =
+                    TESTANY(OFFLINE_FILE_TYPE_DFILTERED, get_file_type(tdata)) &&
+                    !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                             get_file_type(tdata));
                 const offline_entry_t *next_entry = get_next_entry(tdata);
                 while (next_entry != nullptr &&
                        (next_entry->addr.type == OFFLINE_TYPE_MEMREF ||
-                        next_entry->addr.type == OFFLINE_TYPE_MEMREF_HIGH)) {
+                        next_entry->addr.type == OFFLINE_TYPE_MEMREF_HIGH ||
+                        // XXX i#8109: Add test cases for interrupted meminfo
+                        // and interrupted dfiltered blocks.
+                        (next_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
+                         next_entry->extended.ext == OFFLINE_EXT_TYPE_MEMINFO) ||
+                        (dfiltered &&
+                         (next_entry->pc.type ==
+                          OFFLINE_TYPE_PC IF_X64(
+                              || in_entry->pc.type == OFFLINE_TYPE_PC_TOP_BIT)) &&
+                         next_entry->pc.instr_count == 0))) {
                     next_entry = get_next_entry(tdata);
                 }
                 if (next_entry != nullptr)
@@ -2076,7 +2092,7 @@ raw2trace_t::append_scatter_gather(raw2trace_thread_data_t *tdata,
                                    DR_PARAM_INOUT trace_entry_t **buf_in,
                                    std::unordered_map<reg_id_t, addr_t> &reg_vals,
                                    bool expect_all_memrefs,
-                                   DR_PARAM_OUT int &consumed_memrefs)
+                                   DR_PARAM_OUT int &consumed_memrefs, app_pc orig_pc)
 {
     // The instr should either load or store, but not both. Also,
     // it should have a single src or dest operand.
@@ -2149,7 +2165,7 @@ raw2trace_t::append_scatter_gather(raw2trace_thread_data_t *tdata,
                            // dest/src of the original scatter/gather instr for all.
                            is_scatter ? instr->mem_dest_at(0) : instr->mem_src_at(0),
                            is_scatter, reg_vals, &reached_end_of_memrefs,
-                           expect_all_memrefs, consumed_memrefs))
+                           expect_all_memrefs, consumed_memrefs, orig_pc))
             return false;
     }
     --memref_count; // The final append_memref did not find one.
@@ -2239,7 +2255,8 @@ raw2trace_t::append_repstring(raw2trace_thread_data_t *tdata,
             DR_ASSERT(num_memrefs == 1);
         }
         if (!append_memref(tdata, &buf, instr, *memref, is_store, reg_vals,
-                           &reached_end_of_memrefs, expect_all_memrefs, consumed_memrefs))
+                           &reached_end_of_memrefs, expect_all_memrefs, consumed_memrefs,
+                           orig_pc))
             return false;
         if (reached_end_of_memrefs) {
             // We don't fully support an unhandled fault: we're ok with post-processing
@@ -2619,7 +2636,8 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
                            instr_summary_t::memref_summary_t memref, bool write,
                            std::unordered_map<reg_id_t, addr_t> &reg_vals,
                            DR_PARAM_OUT bool *reached_end_of_memrefs,
-                           bool expect_all_memrefs, DR_PARAM_OUT int &consumed_memrefs)
+                           bool expect_all_memrefs, DR_PARAM_OUT int &consumed_memrefs,
+                           app_pc orig_pc)
 {
     DR_ASSERT(!TESTANY(OFFLINE_FILE_TYPE_INSTRUCTION_ONLY, get_file_type(tdata)));
     trace_entry_t *buf = *buf_in;
@@ -2655,6 +2673,42 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
         }
         in_entry = get_next_entry(tdata);
     }
+    if (TESTANY(OFFLINE_FILE_TYPE_DFILTERED, get_file_type(tdata)) &&
+        !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                 get_file_type(tdata))) {
+        if (in_entry != nullptr &&
+            (in_entry->pc.type ==
+             OFFLINE_TYPE_PC IF_X64(|| in_entry->pc.type == OFFLINE_TYPE_PC_TOP_BIT))) {
+            // A non-zero instr-count PC entry is the start of a new block.
+            if (in_entry->pc.instr_count != 0) {
+                // All further memrefs for this block must have been filtered out.
+                unread_last_entry(tdata);
+                return true;
+            }
+            // Otherwise, this is a 0-instr-count entry identifying which PC the
+            // following address record belongs to. With filtering, some instructions
+            // had their address records ommitted, in which case we just return here.
+            app_pc memref_pc =
+                modmap_().get_orig_pc(in_entry->pc.modidx, in_entry->pc.modoffs);
+            if (memref_pc < orig_pc) {
+                tdata->error = "Bypassed dfilter memref";
+                return false;
+            }
+            if (memref_pc > orig_pc) {
+                log(4, "Did not yet reach next memref @%p vs instr %p\n", memref_pc,
+                    orig_pc);
+                unread_last_entry(tdata);
+                return true;
+            }
+            in_entry = get_next_entry(tdata);
+            if (in_entry == nullptr) {
+                tdata->error = "Trace ends mid-block";
+                return false;
+            }
+        }
+    }
+    // At this point we expect in_entry to be an address record, or a MEMINFO record
+    // for multi-address instructions.
     if (in_entry != nullptr && in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
         in_entry->extended.ext == OFFLINE_EXT_TYPE_MEMINFO) {
         // For -L0_filter we have to store the type for multi-memref instrs where
