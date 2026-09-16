@@ -756,6 +756,26 @@ bool
 insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                        app_pc start_pc, app_pc end_pc, /* end is open */
                        bool record_translation, bool for_cache);
+#    ifdef X86
+void
+sandbox_rep_instr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *next,
+                  app_pc start_pc, app_pc end_pc /* end is open */);
+#    endif
+void
+sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *next,
+              opnd_t op, app_pc start_pc, app_pc end_pc /* end is open */,
+              app_pc after_write);
+struct patch_list_t;
+void
+sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist, bool s2ro, uint flags,
+                  app_pc start_pc, app_pc end_pc, /* end is open */
+                  bool for_cache
+                      /* For obtaining the two patch locations: */
+                      _IF_X86(struct patch_list_t *patchlist)
+                          _IF_X86(cache_pc *copy_start_loc)
+                              _IF_X86(cache_pc *copy_end_loc));
+bool
+sandbox_top_of_bb_check_s2ro(dcontext_t *dcontext, app_pc start_pc);
 
 #endif /* ARCH_SUPPORTS_HW_CACHE_CONSISTENCY */
 
