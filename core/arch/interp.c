@@ -3890,6 +3890,23 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             if (!bb_process_interrupt(dcontext, bb))
                 break;
         }
+#ifdef AARCH64
+        /* Cut off sandboxed fragments after an ISB instruction when -sandbox_writes is
+         * off. Even on hardware with icache coherency, AArch64 requires an ISB
+         * instruction to guarantee that the processor fetches the new version of modified
+         * instructions. We truncate the fragment after the ISB so that any instructions
+         * after the ISB will be in a different fragment and modifications will be caught
+         * by the top-of-fragment modification check.
+         *
+         * When -sandbox_writes is on, the write mangling code takes care of detecting
+         * modifications instead.
+         */
+        else if (TESTANY(FRAG_SELFMOD_SANDBOXED, bb->flags) &&
+                 !INTERNAL_OPTION(sandbox_writes) &&
+                 instr_get_opcode(bb->instr) == OP_isb) {
+            break;
+        }
+#endif
 #if 0 /*i#1313, i#1314*/
         else if (instr_get_opcode(bb->instr) == OP_getsec) {
             /* XXX i#1313: if we support CPL0 in the future we'll need to
