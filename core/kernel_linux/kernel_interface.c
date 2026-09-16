@@ -191,7 +191,7 @@ kernel_module_init(size_t dr_heap_size)
 
     heap_size = dr_heap_size;
     heap = vmalloc_node_range_ptr(heap_size, PAGE_SIZE, MODULES_VADDR, MODULES_END,
-                                  GFP_KERNEL, PAGE_KERNEL, VM_FLUSH_RESET_PERMS,
+                                  GFP_KERNEL, PAGE_KERNEL_EXEC, VM_FLUSH_RESET_PERMS,
                                   NUMA_NO_NODE, __builtin_return_address(0));
     if (heap == NULL) {
         pr_err("Failed to allocate %zu bytes with __vmalloc_node_range\n", heap_size);
