@@ -1450,7 +1450,7 @@ raw2trace_t::update_reg_deltas(raw2trace_thread_data_t *tdata, int version, inst
     for (int i = 0; i < instr_num_dsts(inst); ++i) {
         opnd_t dst = instr_get_dst(inst, i);
         if (opnd_is_reg(dst)) {
-            reg_id_t reg = opnd_get_reg(dst);
+            reg_id_t reg = reg_to_pointer_sized(opnd_get_reg(dst));
             // Do not start tracking until we've started remembering.
             if (!reg_remembered[reg - DR_REG_START_GPR] ||
                 (only_reg != DR_REG_NULL && reg != only_reg))
@@ -1554,7 +1554,7 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
             write ? instr_get_dst(meminst, index) : instr_get_src(meminst, index);
         reg_id_t base = DR_REG_NULL;
         bool got_base = tdata->instru_offline.opnd_is_elidable(elided_op, base, version);
-        DR_ASSERT(got_base && base != DR_REG_NULL);
+        DR_ASSERT(got_base && base != DR_REG_NULL && reg_to_pointer_sized(base) == base);
         // Find the source of the base.  It has to be the first instance when
         // walking backward.
         // We could maybe add a 2nd label type in offline_instru_t to avoid this
