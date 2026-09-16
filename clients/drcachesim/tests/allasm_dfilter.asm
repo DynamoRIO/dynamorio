@@ -36,14 +36,15 @@
 .type _start, @function
         .align   8
 _start:
-        // Load addresses with a mix of hit and miss in L0D.
+        // Load addresses with a mix of hit and miss in L0D with 64-byte
+        // cache lines by adding 32 so every other one will hit.
         lea      rcx, buffer
         mov      rax, [rcx]
-        mov      rax, [rcx+32]
+        mov      rax, [rcx+32]    // Hit since same cache line as prior.
         mov      rax, [rcx+32*2]
-        mov      rax, [rcx+32*3]
+        mov      rax, [rcx+32*3]  // Hit since same cache line as prior.
         mov      rax, [rcx+32*4]
-        mov      rax, [rcx+32*5]
+        mov      rax, [rcx+32*5]  // Hit since same cache line as prior.
         mov      rax, [rcx+32*6]
 
         mov      rdi, 2           // stderr
