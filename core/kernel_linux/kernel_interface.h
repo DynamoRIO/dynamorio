@@ -42,6 +42,9 @@ kernel_module_init(size_t dr_heap_size);
 void
 kernel_module_exit(void);
 
+size_t
+kernel_get_heap_size(void);
+
 void *
 kernel_allocate_heap(size_t size);
 

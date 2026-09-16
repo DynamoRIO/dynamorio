@@ -320,6 +320,14 @@ os_check_option_compatibility(void)
     FORCE_OPTION_VALUE(heap_in_lower_4GB, false);
 #endif
 
+    /* vm_size cannot exceed the heap region reserved at module load. DR's default vm_size
+     * is far larger than any reasonable kernel budget, so we need to clamp it down.
+     */
+    if (DYNAMO_OPTION(vm_size) > kernel_get_heap_size()) {
+        dynamo_options.vm_size = kernel_get_heap_size();
+        changed_options = true;
+    }
+
     /* Currently the kernel module has no filesystem logging support.
      * Only logging to printk is supported.
      */
