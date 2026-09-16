@@ -1284,7 +1284,8 @@ private:
     append_scatter_gather(raw2trace_thread_data_t *tdata, const instr_summary_t *instr,
                           DR_PARAM_INOUT trace_entry_t **buf_in,
                           std::unordered_map<reg_id_t, addr_t> &reg_vals,
-                          bool expect_all_memrefs, DR_PARAM_OUT int &consumed_memrefs);
+                          bool expect_all_memrefs, DR_PARAM_OUT int &consumed_memrefs,
+                          app_pc orig_pc);
 
     bool
     append_repstring(raw2trace_thread_data_t *tdata, const instr_summary_t *instr,
@@ -1298,7 +1299,7 @@ private:
                   const instr_summary_t *instr, instr_summary_t::memref_summary_t memref,
                   bool write, std::unordered_map<reg_id_t, addr_t> &reg_vals,
                   DR_PARAM_OUT bool *reached_end_of_memrefs, bool expect_all_memrefs,
-                  DR_PARAM_OUT int &consumed_memrefs);
+                  DR_PARAM_OUT int &consumed_memrefs, app_pc orig_pc);
 
     bool
     should_omit_syscall(raw2trace_thread_data_t *tdata);

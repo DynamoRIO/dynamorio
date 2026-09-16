@@ -2,44 +2,44 @@ Hello world!
 Output format:
 <--record#-> <--instr#->: <Wrkld.Tid> <record details>
 ------------------------------------------------------------
-           1           0:  W0.T.* <marker: version 7>
-           2           0:  W0.T.* <marker: filetype 0xf42>
-           3           0:  W0.T.* <marker: cache line size 64>
-           4           0:  W0.T.* <marker: chunk instruction count 10000000>
-           5           0:  W0.T.* <marker: page size 4096>
-           6           0:  W0.T.* <marker: timestamp .*>
-           7           0:  W0.T.* <marker: W0.T.* on core .*>
-           8           1:  W0.T.* ifetch       8 byte\(s\) @ 0x0000000000401000 48 8d 0c 25 00 20 40 lea    0x00402000, %rcx
-           8           1:  W0.T.*                                       00
-           9           2:  W0.T.* ifetch       3 byte\(s\) @ 0x0000000000401008 48 8b 01             mov    \(%rcx\), %rax
-          10           2:  W0.T.* read         8 byte\(s\) @ 0x0000000000402000 by PC 0x0000000000401008
-          11           3:  W0.T.* ifetch       4 byte\(s\) @ 0x000000000040100b 48 8b 41 20          mov    0x20\(%rcx\), %rax
-          12           4:  W0.T.* ifetch       4 byte\(s\) @ 0x000000000040100f 48 8b 41 40          mov    0x40\(%rcx\), %rax
-          13           4:  W0.T.* read         8 byte\(s\) @ 0x0000000000402040 by PC 0x000000000040100f
-          14           5:  W0.T.* ifetch       4 byte\(s\) @ 0x0000000000401013 48 8b 41 60          mov    0x60\(%rcx\), %rax
-          15           6:  W0.T.* ifetch       7 byte\(s\) @ 0x0000000000401017 48 8b 81 80 00 00 00 mov    0x80\(%rcx\), %rax
-          16           6:  W0.T.* read         8 byte\(s\) @ 0x0000000000402080 by PC 0x0000000000401017
-          17           7:  W0.T.* ifetch       7 byte\(s\) @ 0x000000000040101e 48 8b 81 a0 00 00 00 mov    0xa0\(%rcx\), %rax
-          18           8:  W0.T.* ifetch       7 byte\(s\) @ 0x0000000000401025 48 8b 81 c0 00 00 00 mov    0xc0\(%rcx\), %rax
-          19           8:  W0.T.* read         8 byte\(s\) @ 0x00000000004020c0 by PC 0x0000000000401025
-          20           9:  W0.T.* ifetch       7 byte\(s\) @ 0x000000000040102c 48 c7 c7 02 00 00 00 mov    \$0x00000002, %rdi
-          21          10:  W0.T.* ifetch       8 byte\(s\) @ 0x0000000000401033 48 8d 34 25 80 22 40 lea    0x00402280, %rsi
-          21          10:  W0.T.*                                       00
-          22          11:  W0.T.* ifetch       7 byte\(s\) @ 0x000000000040103b 48 c7 c2 0d 00 00 00 mov    \$0x0000000d, %rdx
-          23          12:  W0.T.* ifetch       5 byte\(s\) @ 0x0000000000401042 b8 01 00 00 00       mov    \$0x00000001, %eax
-          24          13:  W0.T.* ifetch       2 byte\(s\) @ 0x0000000000401047 0f 05                syscall
-          25          13:  W0.T.* <marker: timestamp .*>
-          26          13:  W0.T.* <marker: W0.T.* on core .*>
-          27          13:  W0.T.* <marker: system call 1>
-          28          13:  W0.T.* <marker: maybe-blocking system call>
-          29          13:  W0.T.* <marker: timestamp .*>
-          30          13:  W0.T.* <marker: W0.T.* on core .*>
-          31          14:  W0.T.* ifetch       7 byte\(s\) @ 0x0000000000401049 48 c7 c7 00 00 00 00 mov    \$0x00000000, %rdi
-          32          15:  W0.T.* ifetch       5 byte\(s\) @ 0x0000000000401050 b8 e7 00 00 00       mov    \$0x000000e7, %eax
-          33          16:  W0.T.* ifetch       2 byte\(s\) @ 0x0000000000401055 0f 05                syscall
-          34          16:  W0.T.* <marker: timestamp .*>
-          35          16:  W0.T.* <marker: W0.T.* on core .*>
-          36          16:  W0.T.* <marker: system call 231>
-          37          16:  W0.T.* <thread W0.T.* exited>
+           1           0: *W0.T.* <marker: version 7>
+           2           0: *W0.T.* <marker: filetype 0xf42>
+           3           0: *W0.T.* <marker: cache line size 64>
+           4           0: *W0.T.* <marker: chunk instruction count 10000000>
+           5           0: *W0.T.* <marker: page size 4096>
+           6           0: *W0.T.* <marker: timestamp .*>
+           7           0: *W0.T.* <marker: W0.T.* on core .*>
+           8           1: *W0.T.* ifetch       8 byte\(s\) @ 0x0000000000401000 48 8d 0c 25 00 20 40 lea    0x00402000, %rcx
+           8           1: *W0.T.*                                       00
+           9           2: *W0.T.* ifetch       3 byte\(s\) @ 0x0000000000401008 48 8b 01             mov    \(%rcx\), %rax
+          10           2: *W0.T.* read         8 byte\(s\) @ 0x0000000000402000 by PC 0x0000000000401008
+          11           3: *W0.T.* ifetch       4 byte\(s\) @ 0x000000000040100b 48 8b 41 20          mov    0x20\(%rcx\), %rax
+          12           4: *W0.T.* ifetch       4 byte\(s\) @ 0x000000000040100f 48 8b 41 40          mov    0x40\(%rcx\), %rax
+          13           4: *W0.T.* read         8 byte\(s\) @ 0x0000000000402040 by PC 0x000000000040100f
+          14           5: *W0.T.* ifetch       4 byte\(s\) @ 0x0000000000401013 48 8b 41 60          mov    0x60\(%rcx\), %rax
+          15           6: *W0.T.* ifetch       7 byte\(s\) @ 0x0000000000401017 48 8b 81 80 00 00 00 mov    0x80\(%rcx\), %rax
+          16           6: *W0.T.* read         8 byte\(s\) @ 0x0000000000402080 by PC 0x0000000000401017
+          17           7: *W0.T.* ifetch       7 byte\(s\) @ 0x000000000040101e 48 8b 81 a0 00 00 00 mov    0xa0\(%rcx\), %rax
+          18           8: *W0.T.* ifetch       7 byte\(s\) @ 0x0000000000401025 48 8b 81 c0 00 00 00 mov    0xc0\(%rcx\), %rax
+          19           8: *W0.T.* read         8 byte\(s\) @ 0x00000000004020c0 by PC 0x0000000000401025
+          20           9: *W0.T.* ifetch       7 byte\(s\) @ 0x000000000040102c 48 c7 c7 02 00 00 00 mov    \$0x00000002, %rdi
+          21          10: *W0.T.* ifetch       8 byte\(s\) @ 0x0000000000401033 48 8d 34 25 80 22 40 lea    0x00402280, %rsi
+          21          10: *W0.T.*                                       00
+          22          11: *W0.T.* ifetch       7 byte\(s\) @ 0x000000000040103b 48 c7 c2 0d 00 00 00 mov    \$0x0000000d, %rdx
+          23          12: *W0.T.* ifetch       5 byte\(s\) @ 0x0000000000401042 b8 01 00 00 00       mov    \$0x00000001, %eax
+          24          13: *W0.T.* ifetch       2 byte\(s\) @ 0x0000000000401047 0f 05                syscall
+          25          13: *W0.T.* <marker: timestamp .*>
+          26          13: *W0.T.* <marker: W0.T.* on core .*>
+          27          13: *W0.T.* <marker: system call 1>
+          28          13: *W0.T.* <marker: maybe-blocking system call>
+          29          13: *W0.T.* <marker: timestamp .*>
+          30          13: *W0.T.* <marker: W0.T.* on core .*>
+          31          14: *W0.T.* ifetch       7 byte\(s\) @ 0x0000000000401049 48 c7 c7 00 00 00 00 mov    \$0x00000000, %rdi
+          32          15: *W0.T.* ifetch       5 byte\(s\) @ 0x0000000000401050 b8 e7 00 00 00       mov    \$0x000000e7, %eax
+          33          16: *W0.T.* ifetch       2 byte\(s\) @ 0x0000000000401055 0f 05                syscall
+          34          16: *W0.T.* <marker: timestamp .*>
+          35          16: *W0.T.* <marker: W0.T.* on core .*>
+          36          16: *W0.T.* <marker: system call 231>
+          37          16: *W0.T.* <thread W0.T.* exited>
 View tool results:
              16 : total instructions
