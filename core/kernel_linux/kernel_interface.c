@@ -144,7 +144,7 @@ resolve_kernel_symbols(void)
      *   read-only-execute (ROX) in 6.13+.
      * - execmem_alloc_rw(): Introduced in 6.14. Returns RW+NX.
      *
-     * TODO i#8021: We would need to allocate two separate memory heaps at startup for
+     * TODO i#8124: We would need to allocate two separate memory heaps at startup for
      * fine-grained W^X protection:
      *   1) An executable code heap (marked +x).
      *   2) A non-executable data heap (left NX).
