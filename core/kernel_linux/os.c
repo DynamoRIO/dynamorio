@@ -268,6 +268,22 @@ is_readable_without_exception_query_os_noblock(byte *pc, size_t size)
     return kernel_is_readable_without_fault(pc, size);
 }
 
+/* Diagnostics are not supported in kernel mode, as is also the case in
+ * core/unix/diagnost.c.
+ */
+void
+report_diagnostics(DR_PARAM_IN const char *message, DR_PARAM_IN const char *name,
+                   security_violation_t violation_type)
+{
+    /* No-op in kernel mode. */
+}
+
+void
+diagnost_exit(void)
+{
+    /* No-op in kernel mode. */
+}
+
 void
 os_close(file_t f)
 {
