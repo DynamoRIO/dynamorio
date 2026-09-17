@@ -220,6 +220,32 @@ os_heap_reserve_in_region(void *start, void *end, size_t size,
     return heap;
 }
 
+bool
+os_heap_commit(void *p, size_t size, uint prot, heap_error_code_t *error_code)
+{
+    /* The kernel heap is allocated at module load via __vmalloc_node_range(), which
+     * allocates and maps every page upfront with PAGE_KERNEL_EXEC (RWX). So there is
+     * nothing to commit here.
+     */
+    *error_code = HEAP_ERROR_SUCCESS;
+    return true;
+}
+
+void
+os_heap_decommit(void *p, size_t size, heap_error_code_t *error_code)
+{
+    *error_code = HEAP_ERROR_SUCCESS;
+}
+
+bool
+os_heap_get_commit_limit(size_t *commit_used, size_t *commit_limit)
+{
+    /* DR only uses this to trigger a reset when the system is low on memory, and
+     * resets are currently disabled (see os_check_option_compatibility()).
+     */
+    return false;
+}
+
 void
 os_close(file_t f)
 {
