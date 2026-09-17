@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1069,8 +1069,58 @@ our_memcpy_vs_libc(void)
 }
 
 static void
+unit_test_memset(void)
+{
+    /* Testing for our asm memset routines. This is targeted at the aarch64
+     * DC ZVA where we have a fastpath for setting to 0.
+     */
+    char buf[256];
+
+    /* Setup: fill with "42" which will hit more-trusted slowpath. */
+    char *res = memset(buf, 42, 256);
+    EXPECT_EQ(res, buf); /* Test return value. */
+    for (int i = 0; i < 256; i++)
+        EXPECT_EQ(buf[i], 42);
+    /* Now test fastpath. */
+    res = memset(buf + 1, 0, 254);
+    EXPECT_EQ(res, buf + 1);
+    /* Ensure no underflow or overflow. */
+    EXPECT_EQ(buf[0], 42);
+    EXPECT_EQ(buf[255], 42);
+    for (int i = 1; i < 254; i++)
+        EXPECT_EQ(buf[i], 0);
+
+    /* Re-fill with "42". */
+    res = memset(buf, 42, 256);
+    EXPECT_EQ(res, buf);
+    /* Test aligned-to-64, the typical DC ZVA block size, with extra at end. */
+    char *aligned = (char *)((((uint64)buf) + 63) & (~(63UL - 1)));
+    res = memset(aligned, 0, 180);
+    EXPECT_EQ(res, aligned);
+    EXPECT_EQ(*(aligned - 1), 42);
+    EXPECT_EQ(*(aligned + 180), 42);
+    for (int i = 0; i < 180; i++)
+        EXPECT_EQ(*(aligned + i), 0);
+
+    /* Re-fill with "42". */
+    res = memset(buf, 42, 256);
+    EXPECT_EQ(res, buf);
+    /* Test aligned to 64 with nothing extra at the end. */
+    res = memset(aligned, 0, 128);
+    EXPECT_EQ(res, aligned);
+    EXPECT_EQ(*(aligned - 1), 42);
+    EXPECT_EQ(*(aligned + 128), 42);
+    for (int i = 0; i < 128; i++)
+        EXPECT_EQ(*(aligned + i), 0);
+    print_file(STDERR, "functional memset tests passed\n");
+}
+
+static void
 our_memset_vs_libc(void)
 {
+    /* Functional test. */
+    unit_test_memset();
+
     /* Compare our memset with libc memset. */
     size_t alloc_size = 20 * 1024;
     int loop_count = 100 * 1000;
