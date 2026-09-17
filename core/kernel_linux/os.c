@@ -49,8 +49,6 @@ DR_API file_t our_stderr = 2;
 app_pc vsyscall_syscall_end_pc = NULL;
 app_pc vsyscall_sysenter_return_pc = NULL;
 
-static bool heap_already_reserved = false;
-
 #define ASSERT_NOT_PORTED(x) assert_not_ported(__FILE__, __LINE__, __func__)
 
 static void
@@ -179,6 +177,57 @@ os_open(const char *fname, int os_open_flags)
     return INVALID_FILE;
 }
 
+void
+os_close(file_t f)
+{
+    /* No-op in kernel mode. */
+}
+
+/* Only supports text as it's backed by printk.
+ * Long messages are chunked and each chunk becomes a separate printk record,
+ * so they may gain line breaks when displayed and interleave with other output.
+ */
+ssize_t
+os_write(file_t f, const void *buf, size_t count)
+{
+    if (f != STDOUT && f != STDERR) {
+        return -1;
+    }
+    if (buf == NULL && count != 0) {
+        return -1;
+    }
+
+    /* Each printk record reservation is capped at 1024 bytes (PRINTKRB_RECORD_MAX).
+     * Leave headroom for a possible text prefix and the terminating NUL.
+     */
+    const size_t chunk_size = 900;
+    const char *cursor = (const char *)buf;
+    size_t remaining = count;
+
+    while (remaining > 0) {
+        int chunk = MIN(remaining, chunk_size);
+        kernel_printk("%.*s", chunk, cursor);
+        cursor += chunk;
+        remaining -= chunk;
+    }
+
+    return count;
+}
+
+void
+os_flush(file_t f)
+{
+    /* This is a no-op as there is no DR-side buffering for printk output. */
+}
+
+size_t
+os_page_size(void)
+{
+    return kernel_get_page_size();
+}
+
+static bool heap_already_reserved = false;
+
 void *
 os_heap_reserve_in_region(void *start, void *end, size_t size,
                           heap_error_code_t *error_code, bool executable)
@@ -268,69 +317,29 @@ is_readable_without_exception_query_os_noblock(byte *pc, size_t size)
     return kernel_is_readable_without_fault(pc, size);
 }
 
-/* Diagnostics are not supported in kernel mode, as is also the case in
- * core/unix/diagnost.c.
- */
 void
-report_diagnostics(DR_PARAM_IN const char *message, DR_PARAM_IN const char *name,
-                   security_violation_t violation_type)
+all_memory_areas_lock(void)
 {
     /* No-op in kernel mode. */
 }
 
 void
-diagnost_exit(void)
+all_memory_areas_unlock(void)
 {
     /* No-op in kernel mode. */
 }
 
 void
-os_close(file_t f)
+update_all_memory_areas(app_pc start, app_pc end, uint prot, int type)
 {
     /* No-op in kernel mode. */
 }
 
-/* Only supports text as it's backed by printk.
- * Long messages are chunked and each chunk becomes a separate printk record,
- * so they may gain line breaks when displayed and interleave with other output.
- */
-ssize_t
-os_write(file_t f, const void *buf, size_t count)
+bool
+remove_from_all_memory_areas(app_pc start, app_pc end)
 {
-    if (f != STDOUT && f != STDERR) {
-        return -1;
-    }
-    if (buf == NULL && count != 0) {
-        return -1;
-    }
-
-    /* Each printk record reservation is capped at 1024 bytes (PRINTKRB_RECORD_MAX).
-     * Leave headroom for a possible text prefix and the terminating NUL.
-     */
-    const size_t chunk_size = 900;
-    const char *cursor = (const char *)buf;
-    size_t remaining = count;
-
-    while (remaining > 0) {
-        int chunk = MIN(remaining, chunk_size);
-        kernel_printk("%.*s", chunk, cursor);
-        cursor += chunk;
-        remaining -= chunk;
-    }
-
-    return count;
-}
-
-void
-os_flush(file_t f)
-{
-    /* This is a no-op as there is no DR-side buffering for printk output. */
-}
-
-size_t
-os_page_size(void)
-{
-    return kernel_get_page_size();
+    /* No-op in kernel mode. */
+    return true;
 }
 
 static int num_online_processors = 0;
@@ -472,27 +481,18 @@ our_getenv(const char *name)
     return (char *)kernel_getenv(name);
 }
 
+/* Diagnostics are not supported in kernel mode, as is also the case in
+ * core/unix/diagnost.c.
+ */
 void
-all_memory_areas_lock(void)
+report_diagnostics(DR_PARAM_IN const char *message, DR_PARAM_IN const char *name,
+                   security_violation_t violation_type)
 {
     /* No-op in kernel mode. */
 }
 
 void
-all_memory_areas_unlock(void)
+diagnost_exit(void)
 {
     /* No-op in kernel mode. */
-}
-
-void
-update_all_memory_areas(app_pc start, app_pc end, uint prot, int type)
-{
-    /* No-op in kernel mode. */
-}
-
-bool
-remove_from_all_memory_areas(app_pc start, app_pc end)
-{
-    /* No-op in kernel mode. */
-    return true;
 }

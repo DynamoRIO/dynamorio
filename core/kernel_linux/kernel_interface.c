@@ -68,6 +68,7 @@ static void *(*vmalloc_node_range_ptr)(unsigned long size, unsigned long align,
                                        gfp_t gfp_mask, pgprot_t prot,
                                        unsigned long vm_flags, int node,
                                        const void *caller) = NULL;
+
 static void *kernel_image_start = NULL;
 static void *kernel_image_end = NULL;
 
@@ -259,6 +260,54 @@ kernel_get_image_end(void)
     return kernel_image_end;
 }
 
+/* Returns whether the |size| bytes at |addr| can be read without faulting.  Probes one
+ * byte per page, as read protections are page-granular.  The kernel's no-fault accessors
+ * disable page faults and rely on the exception tables to recover, so this requires no
+ * locks and never sleeps.  It is safe to call in any context, including in a crash
+ * report.
+ *
+ * XXX i#8021: A probe of a device MMIO address performs a real read, which can have side
+ * effects.  Callers only inspect ordinary memory today, so this is not a concern.
+ */
+bool
+kernel_is_readable_without_fault(const void *addr, size_t size)
+{
+    if (size == 0) {
+        return true;
+    }
+
+    unsigned long cur = (unsigned long)addr;
+    unsigned long last;
+    char dummy;
+
+    /* Clamp a range that would overflow. */
+    if (cur + size < cur) {
+        last = ULONG_MAX;
+    } else {
+        last = cur + size - 1;
+    }
+
+    while (true) {
+        /* copy_from_user_nofault rejects kernel addresses while copy_from_kernel_nofault
+         * rejects user addresses, so we split on the boundary the kernel itself uses.
+         */
+        long res = cur < TASK_SIZE_MAX
+            ? copy_from_user_nofault(&dummy, (const void __user *)cur, 1)
+            : copy_from_kernel_nofault(&dummy, (const void *)cur, 1);
+        if (res != 0) {
+            return false;
+        }
+        /* Get the last byte of this page, compare with last then add 1 to get to the
+         * first byte of the next page.  This prevents wrapping.
+         */
+        unsigned long page_last = cur | (PAGE_SIZE - 1);
+        if (page_last >= last) {
+            return true;
+        }
+        cur = page_last + 1;
+    }
+}
+
 unsigned int
 kernel_query_time_seconds(void)
 {
@@ -334,52 +383,4 @@ kernel_getenv(const char *name)
         }
     }
     return NULL;
-}
-
-/* Returns whether the |size| bytes at |addr| can be read without faulting.  Probes one
- * byte per page, as read protections are page-granular.  The kernel's no-fault accessors
- * disable page faults and rely on the exception tables to recover, so this requires no
- * locks and never sleeps.  It is safe to call in any context, including in a crash
- * report.
- *
- * XXX i#8021: A probe of a device MMIO address performs a real read, which can have side
- * effects.  Callers only inspect ordinary memory today, so this is not a concern.
- */
-bool
-kernel_is_readable_without_fault(const void *addr, size_t size)
-{
-    if (size == 0) {
-        return true;
-    }
-
-    unsigned long cur = (unsigned long)addr;
-    unsigned long last;
-    char dummy;
-
-    /* Clamp a range that would overflow. */
-    if (cur + size < cur) {
-        last = ULONG_MAX;
-    } else {
-        last = cur + size - 1;
-    }
-
-    while (true) {
-        /* copy_from_user_nofault rejects kernel addresses while copy_from_kernel_nofault
-         * rejects user addresses, so we split on the boundary the kernel itself uses.
-         */
-        long res = cur < TASK_SIZE_MAX
-            ? copy_from_user_nofault(&dummy, (const void __user *)cur, 1)
-            : copy_from_kernel_nofault(&dummy, (const void *)cur, 1);
-        if (res != 0) {
-            return false;
-        }
-        /* Get the last byte of this page, compare with last then add 1 to get to the
-         * first byte of the next page.  This prevents wrapping.
-         */
-        unsigned long page_last = cur | (PAGE_SIZE - 1);
-        if (page_last >= last) {
-            return true;
-        }
-        cur = page_last + 1;
-    }
 }
