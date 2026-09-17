@@ -318,6 +318,11 @@ os_check_option_compatibility(void)
      * heap_in_lower_4GB placement constraint cannot be satisfied.
      */
     FORCE_OPTION_VALUE(heap_in_lower_4GB, false);
+
+    /* The module heap is within rel32 reach of kernel text, so a single vmcode unit
+     * serves every allocation. DR's separate vmheap cannot be reserved after load.
+     */
+    FORCE_OPTION_VALUE(reachable_heap, true);
 #endif
 
     /* vm_size cannot exceed the heap region reserved at module load. DR's default vm_size
