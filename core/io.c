@@ -1094,7 +1094,7 @@ unit_test_memset(void)
     res = memset(buf, 42, 256);
     EXPECT_EQ(res, buf);
     /* Test aligned-to-64, the typical DC ZVA block size, with extra at end. */
-    char *aligned = (char *)((((uint64)buf) + 63) & (~(63UL - 1)));
+    char *aligned = (char *)((((ptr_uint_t)buf) + 63) & (~(63UL - 1)));
     res = memset(aligned, 0, 180);
     EXPECT_EQ(res, aligned);
     EXPECT_EQ(*(aligned - 1), 42);
