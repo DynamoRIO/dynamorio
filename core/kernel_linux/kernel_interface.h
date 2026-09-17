@@ -93,4 +93,11 @@ kernel_setenv(const char *name, const char *value);
 const char *
 kernel_getenv(const char *name);
 
+/* Returns whether the |size| bytes at |addr| can be read without faulting.  Handles both
+ * kernel and user addresses.  Acquires no locks and never sleeps, so it is safe to call
+ * in any context.  A zero |size| returns true.
+ */
+bool
+kernel_is_readable_without_fault(const void *addr, size_t size);
+
 #endif /* _KERNEL_INTERFACE_H_ */
