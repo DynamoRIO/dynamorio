@@ -246,6 +246,28 @@ os_heap_get_commit_limit(size_t *commit_used, size_t *commit_limit)
     return false;
 }
 
+/* Unlike user space, there is no all_memory_areas cache and no maps file to parse: the
+ * probe consults the page tables through the hardware.  It acquires no locks and cannot
+ * block, so the plain, "query_os" and "noblock" variants are all the same check.
+ */
+bool
+is_readable_without_exception(const byte *pc, size_t size)
+{
+    return kernel_is_readable_without_fault(pc, size);
+}
+
+bool
+is_readable_without_exception_query_os(byte *pc, size_t size)
+{
+    return kernel_is_readable_without_fault(pc, size);
+}
+
+bool
+is_readable_without_exception_query_os_noblock(byte *pc, size_t size)
+{
+    return kernel_is_readable_without_fault(pc, size);
+}
+
 void
 os_close(file_t f)
 {
