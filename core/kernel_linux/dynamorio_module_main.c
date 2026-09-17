@@ -48,7 +48,7 @@ MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("DynamoRIO dynamic instrumentation engine");
 MODULE_AUTHOR("DynamoRIO developers");
 
-static ulong dr_heap_size = 257 * 1024 * 1024;
+static ulong dr_heap_size = 256 * 1024 * 1024;
 module_param(dr_heap_size, ulong, 0444);
 MODULE_PARM_DESC(dr_heap_size, "DynamoRIO module heap size in bytes (read-only)");
 
