@@ -371,10 +371,15 @@ os_check_option_compatibility(void)
     FORCE_OPTION_VALUE(vm_reserve, true);
 
     /* A reset rebuilds the code cache after suspending every thread at a safe point,
-     * which we cannot do yet.
+     * which we cannot do yet.  DISABLE_RESET() also clears the -reset_at_* sub-options:
+     * leaving those set makes check_option_compatibility_helper() turn -enable_reset
+     * back on.
      * XXX i#8021: Revisit once CPUs can be synched.
      */
-    FORCE_OPTION_VALUE(enable_reset, false);
+    if (DYNAMO_OPTION(enable_reset)) {
+        DISABLE_RESET(&dynamo_options);
+        changed_options = true;
+    }
 
     /* SMP takeover requires CPUs to initialize and enter DR concurrently; the
      * global single-thread-in-DR mode would serialize them.
