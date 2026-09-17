@@ -339,6 +339,12 @@ os_check_option_compatibility(void)
     FORCE_OPTION_VALUE(switch_to_os_at_vmm_reset_limit, false);
     FORCE_OPTION_VALUE(vm_reserve, true);
 
+    /* A reset rebuilds the code cache after suspending every thread at a safe point,
+     * which we cannot do yet.
+     * XXX i#8021: Revisit once CPUs can be synched.
+     */
+    FORCE_OPTION_VALUE(enable_reset, false);
+
     /* SMP takeover requires CPUs to initialize and enter DR concurrently; the
      * global single-thread-in-DR mode would serialize them.
      */
