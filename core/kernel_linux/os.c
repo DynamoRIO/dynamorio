@@ -471,3 +471,28 @@ our_getenv(const char *name)
 {
     return (char *)kernel_getenv(name);
 }
+
+void
+all_memory_areas_lock(void)
+{
+    /* No-op in kernel mode. */
+}
+
+void
+all_memory_areas_unlock(void)
+{
+    /* No-op in kernel mode. */
+}
+
+void
+update_all_memory_areas(app_pc start, app_pc end, uint prot, int type)
+{
+    /* No-op in kernel mode. */
+}
+
+bool
+remove_from_all_memory_areas(app_pc start, app_pc end)
+{
+    /* No-op in kernel mode. */
+    return true;
+}
