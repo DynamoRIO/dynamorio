@@ -1084,7 +1084,13 @@ offline_instru_t::does_reg_write_thwart_elision(int version, instr_t *instr, reg
                 value_delta = -opnd_get_immed_int(instr_get_src(instr, 1));
             return false;
         }
-        // We also support pre and post indexing.
+        // We also support pre and post indexed loads and stores.
+        // In DR's ISA that means the base register is also a source and a dest
+        // and there is an immediate source added to the base (which equals
+        // the disp for pre-indexed, but that does not matter for elision).
+        // Examples:
+        //   ldp    +0x08(%x0)[16byte] %x0 $0x8 -> %x1 %x2 %x0
+        //   str    %x1 %x0 $0x8 -> +0x08(%x0)[8byte] %x0
         opnd_t op_mem, op_base_src, op_base_dst = opnd_create_null(), op_immed;
         if (instr_reads_memory(instr) && instr_num_srcs(instr) == 3 &&
             opnd_is_reg(instr_get_dst(instr, 0))) {
@@ -1093,10 +1099,17 @@ offline_instru_t::does_reg_write_thwart_elision(int version, instr_t *instr, reg
             op_base_src = instr_get_src(instr, 1);
             if (instr_num_dsts(instr) == 2) {
                 op_base_dst = instr_get_dst(instr, 1);
+                // A load's actual destination reg should thwart elision.
+                if (opnd_get_reg(instr_get_dst(instr, 0)) == reg)
+                    return true;
             } else if (instr_num_dsts(instr) == 3 &&
                        opnd_is_reg(instr_get_dst(instr, 1))) {
                 // Load pair.
                 op_base_dst = instr_get_dst(instr, 2);
+                // A load's actual destination reg should thwart elision.
+                if (opnd_get_reg(instr_get_dst(instr, 0)) == reg ||
+                    opnd_get_reg(instr_get_dst(instr, 1)) == reg)
+                    return true;
             }
         } else if (instr_writes_memory(instr) && instr_num_dsts(instr) == 2 &&
                    opnd_is_reg(instr_get_src(instr, 0))) {
@@ -1112,11 +1125,12 @@ offline_instru_t::does_reg_write_thwart_elision(int version, instr_t *instr, reg
                 op_immed = instr_get_src(instr, 3);
             }
         }
+        // Now that we have the operands set, check for pre/postindexing.
         if (opnd_is_base_disp(op_mem) && opnd_is_reg(op_base_dst) &&
             opnd_get_base(op_mem) == opnd_get_reg(op_base_dst) &&
             opnd_get_index(op_mem) == DR_REG_NULL && opnd_is_reg(op_base_src) &&
             opnd_get_reg(op_base_src) == opnd_get_reg(op_base_dst) &&
-            opnd_is_immed_int(op_immed)) {
+            opnd_get_reg(op_base_src) == reg && opnd_is_immed_int(op_immed)) {
             value_delta = opnd_get_immed_int(op_immed);
             return false;
         }
@@ -1183,6 +1197,7 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
         bool instr_accesses_memory =
             instr_reads_memory(instr) || instr_writes_memory(instr);
         // For now we bail at predication.
+        // XXX i#4913: We should be able to use a previously seen address.
         if (instr_get_predicate(instr) != DR_PRED_NONE) {
             saw_base.clear();
             if (instr_accesses_memory)

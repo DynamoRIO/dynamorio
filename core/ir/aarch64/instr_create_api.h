@@ -3094,8 +3094,8 @@ INSTR_CREATE_lsl(void *dc, opnd_t rd, opnd_t rn, opnd_t shift)
     instr_create_2dst_3src(                                                              \
         dc, OP_ldr, r_dst, r_base,                                                       \
         opnd_create_base_disp_aarch64(opnd_get_reg(r_base), DR_REG_NULL, DR_EXTEND_UXTX, \
-                                      false, DISP, DR_OPND_DEFAULT, OPSZ_PTR),           \
-        r_base, OPND_CREATE_INT(DISP))
+                                      false, disp, DR_OPND_DEFAULT, OPSZ_PTR),           \
+        r_base, OPND_CREATE_INT(disp))
 
 /**
  * Creates an LDR immediate post-indexed pointer-sized instruction.
@@ -3109,7 +3109,7 @@ INSTR_CREATE_lsl(void *dc, opnd_t rd, opnd_t rn, opnd_t shift)
         dc, OP_ldr, r_dst, r_base,                                                       \
         opnd_create_base_disp_aarch64(opnd_get_reg(r_base), DR_REG_NULL, DR_EXTEND_UXTX, \
                                       false, 0, DR_OPND_DEFAULT, OPSZ_PTR),              \
-        r_base, OPND_CREATE_INT(DISP))
+        r_base, OPND_CREATE_INT(disp))
 
 /* XXX: This should auto-extract the base reg and the immediate from the memop! */
 /**
@@ -3134,8 +3134,8 @@ INSTR_CREATE_lsl(void *dc, opnd_t rd, opnd_t rn, opnd_t shift)
     instr_create_2dst_3src(                                                              \
         dc, OP_str,                                                                      \
         opnd_create_base_disp_aarch64(opnd_get_reg(r_base), DR_REG_NULL, DR_EXTEND_UXTX, \
-                                      false, DISP, DR_OPND_DEFAULT, OPSZ_PTR),           \
-        r_base, r_src, r_base, OPND_CREATE_INT(DISP))
+                                      false, disp, DR_OPND_DEFAULT, OPSZ_PTR),           \
+        r_base, r_src, r_base, OPND_CREATE_INT(disp))
 
 /**
  * Creates a STR immediate post-indexed pointer-sized instruction.
@@ -3149,7 +3149,7 @@ INSTR_CREATE_lsl(void *dc, opnd_t rd, opnd_t rn, opnd_t shift)
         dc, OP_str,                                                                      \
         opnd_create_base_disp_aarch64(opnd_get_reg(r_base), DR_REG_NULL, DR_EXTEND_UXTX, \
                                       false, 0, DR_OPND_DEFAULT, OPSZ_PTR),              \
-        r_base, r_src, r_base, OPND_CREATE_INT(DISP))
+        r_base, r_src, r_base, OPND_CREATE_INT(disp))
 
 /**
  * Creates an LDP immediate pre-indexed double-pointer-sized instruction.
@@ -3163,8 +3163,8 @@ INSTR_CREATE_lsl(void *dc, opnd_t rd, opnd_t rn, opnd_t shift)
     instr_create_3dst_3src(                                                              \
         dc, OP_ldp, r_dst1, r_dst2, r_base,                                              \
         opnd_create_base_disp_aarch64(opnd_get_reg(r_base), DR_REG_NULL, DR_EXTEND_UXTX, \
-                                      false, DISP, DR_OPND_DEFAULT, OPSZ_16),            \
-        r_base, OPND_CREATE_INT(DISP))
+                                      false, disp, DR_OPND_DEFAULT, OPSZ_16),            \
+        r_base, OPND_CREATE_INT(disp))
 
 /**
  * Creates an LDP immediate post-indexed double-pointer-sized instruction.
@@ -3179,7 +3179,7 @@ INSTR_CREATE_lsl(void *dc, opnd_t rd, opnd_t rn, opnd_t shift)
         dc, OP_ldp, r_dst1, r_dst2, r_base,                                              \
         opnd_create_base_disp_aarch64(opnd_get_reg(r_base), DR_REG_NULL, DR_EXTEND_UXTX, \
                                       false, 0, DR_OPND_DEFAULT, OPSZ_16),               \
-        r_base, OPND_CREATE_INT(DISP))
+        r_base, OPND_CREATE_INT(disp))
 
 /**
  * Creates a STP immediate pre-indexed double-pointer-sized instruction.
@@ -3193,8 +3193,8 @@ INSTR_CREATE_lsl(void *dc, opnd_t rd, opnd_t rn, opnd_t shift)
     instr_create_2dst_4src(                                                              \
         dc, OP_stp,                                                                      \
         opnd_create_base_disp_aarch64(opnd_get_reg(r_base), DR_REG_NULL, DR_EXTEND_UXTX, \
-                                      false, DISP, DR_OPND_DEFAULT, OPSZ_16),            \
-        r_base, r_src1, r_src2, r_base, OPND_CREATE_INT(DISP))
+                                      false, disp, DR_OPND_DEFAULT, OPSZ_16),            \
+        r_base, r_src1, r_src2, r_base, OPND_CREATE_INT(disp))
 
 /**
  * Creates a STP immediate post-indexed double-pointer-sized instruction.
@@ -3209,7 +3209,7 @@ INSTR_CREATE_lsl(void *dc, opnd_t rd, opnd_t rn, opnd_t shift)
         dc, OP_stp,                                                                      \
         opnd_create_base_disp_aarch64(opnd_get_reg(r_base), DR_REG_NULL, DR_EXTEND_UXTX, \
                                       false, 0, DR_OPND_DEFAULT, OPSZ_16),               \
-        r_base, r_src1, r_src2, r_base, OPND_CREATE_INT(DISP))
+        r_base, r_src1, r_src2, r_base, OPND_CREATE_INT(disp))
 
 /* -------- Floating-point data-processing (1 source) ------------------ */
 

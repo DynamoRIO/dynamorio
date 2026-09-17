@@ -5565,8 +5565,9 @@ test_gpr_elision(void *drcontext)
         instr_t *blocker =
             XINST_CREATE_add(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
         // Now start it again.
+        constexpr int STORE_DISP2 = 16;
         instr_t *store2 = XINST_CREATE_store(
-            drcontext, OPND_CREATE_MEMPTR(REG1, LOAD_DISP), opnd_create_reg(REG2));
+            drcontext, OPND_CREATE_MEMPTR(REG1, STORE_DISP2), opnd_create_reg(REG2));
         constexpr int ADD_VALUE = 42;
         instr_t *add2 = XINST_CREATE_add(drcontext, opnd_create_reg(REG1),
                                          OPND_CREATE_INT16(ADD_VALUE));
@@ -5604,7 +5605,9 @@ test_gpr_elision(void *drcontext)
         raw.push_back(make_block(offs_add1, 8));
         constexpr uint64_t BASE_ADDR = 0x1200;
         raw.push_back(make_memref(BASE_ADDR));
-        raw.push_back(make_memref(BASE_ADDR - SUB_VALUE));
+        // The 2nd chain as noted above.
+        constexpr uint64_t BASE_ADDR2 = BASE_ADDR - SUB_VALUE;
+        raw.push_back(make_memref(BASE_ADDR2));
         raw.push_back(make_timestamp(TIME_VALUE));
         raw.push_back(make_core());
         raw.push_back(make_exit());
@@ -5642,13 +5645,13 @@ test_gpr_elision(void *drcontext)
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
               check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_store2) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, -1,
-                          BASE_ADDR - SUB_VALUE + LOAD_DISP) &&
+                          BASE_ADDR - SUB_VALUE + STORE_DISP2) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
               check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_add2) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
               check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_store3) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, -1,
-                          BASE_ADDR - SUB_VALUE + ADD_VALUE + STORE_DISP) &&
+                          BASE_ADDR2 + ADD_VALUE + STORE_DISP) &&
               // Tail of trace.
               check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
                           TIME_VALUE) &&
@@ -5683,6 +5686,13 @@ test_gpr_elision(void *drcontext)
         instr_t *stp_post = INSTR_CREATE_stp_imm_postindex(
             drcontext, opnd_create_reg(DR_REG_R2), opnd_create_reg(REG2),
             opnd_create_reg(REG1), DISP);
+        // Ensure a load into a base reg by a post-indexed instr blocks elision.
+        instr_t *ldp_post_mod = INSTR_CREATE_ldp_imm_postindex(
+            drcontext, opnd_create_reg(DR_REG_R2), opnd_create_reg(REG1),
+            opnd_create_reg(REG2), DISP);
+        instr_t *stp_post2 = INSTR_CREATE_stp_imm_postindex(
+            drcontext, opnd_create_reg(DR_REG_R2), opnd_create_reg(REG2),
+            opnd_create_reg(REG1), DISP);
 
         instrlist_append(ilist, nop);
         instrlist_append(ilist, ldr_pre);
@@ -5693,6 +5703,8 @@ test_gpr_elision(void *drcontext)
         instrlist_append(ilist, ldp_post);
         instrlist_append(ilist, stp_pre);
         instrlist_append(ilist, stp_post);
+        instrlist_append(ilist, ldp_post_mod);
+        instrlist_append(ilist, stp_post2);
 
         size_t offs_nop = 0;
         size_t offs_ldr_pre = offs_nop + instr_length(drcontext, nop);
@@ -5703,6 +5715,8 @@ test_gpr_elision(void *drcontext)
         size_t offs_ldp_post = offs_ldp_pre + instr_length(drcontext, ldp_pre);
         size_t offs_stp_pre = offs_ldp_post + instr_length(drcontext, ldp_post);
         size_t offs_stp_post = offs_stp_pre + instr_length(drcontext, stp_pre);
+        size_t offs_ldp_post_mod = offs_stp_post + instr_length(drcontext, stp_post);
+        size_t offs_stp_post2 = offs_ldp_post_mod + instr_length(drcontext, ldp_post_mod);
 
         std::vector<offline_entry_t> raw;
         raw.push_back(make_header());
@@ -5712,9 +5726,15 @@ test_gpr_elision(void *drcontext)
         constexpr uint64_t TIME_VALUE = 0x0013000000000000;
         raw.push_back(make_timestamp(TIME_VALUE));
         raw.push_back(make_core());
-        raw.push_back(make_block(offs_ldr_pre, 8));
+        raw.push_back(make_block(offs_ldr_pre, 10));
+        // The first load's address.
         constexpr uint64_t BASE_ADDR = 0x1200;
         raw.push_back(make_memref(BASE_ADDR));
+        // The ldp_post_mod blocked elision so it and the final store are here.
+        constexpr uint64_t BLOCK_ADDR = 0x2200;
+        raw.push_back(make_memref(BLOCK_ADDR));
+        constexpr uint64_t BASE_ADDR2 = 0x3200;
+        raw.push_back(make_memref(BASE_ADDR2));
         raw.push_back(make_timestamp(TIME_VALUE));
         raw.push_back(make_core());
         raw.push_back(make_exit());
@@ -5760,6 +5780,12 @@ test_gpr_elision(void *drcontext)
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
               check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_stp_post) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, -1, BASE_ADDR + 7 * DISP) &&
+              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_ldp_post_mod) &&
+              check_entry(entries, idx, TRACE_TYPE_READ, -1, BLOCK_ADDR) &&
+              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_stp_post2) &&
+              check_entry(entries, idx, TRACE_TYPE_WRITE, -1, BASE_ADDR2) &&
               // Tail of trace.
               check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
                           TIME_VALUE) &&

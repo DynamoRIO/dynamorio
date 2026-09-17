@@ -165,7 +165,7 @@ do_some_work()
 }
 
 static std::string
-post_process(const std::string &out_subdir)
+post_process(const std::string &out_subdir, int64 &elided_count)
 {
     const char *raw_dir;
     drmemtrace_status_t mem_res = drmemtrace_get_output_path(&raw_dir);
@@ -208,13 +208,15 @@ post_process(const std::string &out_subdir)
             std::cerr << "raw2trace failed: " << error << "\n";
             assert(false);
         }
+        elided_count = raw2trace.get_statistic(RAW2TRACE_STAT_COUNT_ELIDED);
     }
     dr_standalone_exit();
     return outdir;
 }
 
 static std::string
-gather_trace(const std::string &tracer_ops, const std::string &out_subdir)
+gather_trace(const std::string &tracer_ops, const std::string &out_subdir,
+             int64 &elided_count)
 {
     std::string dr_ops("-stderr_mask 0xc -client_lib ';;-offline " + tracer_ops + "'");
     if (!my_setenv("DYNAMORIO_OPTIONS", dr_ops.c_str()))
@@ -227,7 +229,7 @@ gather_trace(const std::string &tracer_ops, const std::string &out_subdir)
     dr_app_stop_and_cleanup();
     assert(!dr_app_running_under_dynamorio());
 
-    return post_process(out_subdir);
+    return post_process(out_subdir, elided_count);
 }
 
 int
@@ -235,8 +237,22 @@ test_main(int argc, const char *argv[])
 {
     reg_id_set_unit_tests();
 
-    std::string dir_opt = gather_trace("", "opt");
-    std::string dir_noopt = gather_trace("-disable_optimizations", "noopt");
+    int64 elided_count_opt = 0, elided_count_noopt = 0;
+    std::string dir_opt = gather_trace("", "opt", elided_count_opt);
+    std::string dir_noopt =
+        gather_trace("-disable_optimizations", "noopt", elided_count_noopt);
+
+    assert(elided_count_noopt == 0);
+    // Ensure some kind of elision actually happened.
+    // XXX i#4913: Ideally we would check that we had elision on each asm instruction
+    // where we expect it, but that's not simple: we'd need a global label for each
+    // asm instruction and then we'd either need to duplicate a raw reader here or
+    // add some debug interface to raw2trace: a marker added on each elision, or
+    // a callback or something. This would not scale well with separate variable for
+    // each. For now we rely on this sanity check on a large-ish count combined with
+    // raw2trace_unit_tests showing raw2trace *expects* elision in this cases and
+    // will fail without it.
+    assert(elided_count_opt > 15);
 
     // Now compare the two traces using external iterators and a custom tool.
     void *dr_context = dr_standalone_init();
@@ -567,6 +583,10 @@ arith_newblock:
         ldrb     w1, [x0], #8
         ldp      x1, x2, [x0, #8]!
         ldp      x1, x2, [x0], #8
+        // Test a load dest which should block elision.
+        mov      x2, x0
+        ldp      x0, x1, [x2], #8
+        mov      x0, sp
         // Test modified bases which should not be elided.
         mov      x1, #8
         add      x0, x0, x1
