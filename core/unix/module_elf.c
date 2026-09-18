@@ -173,8 +173,6 @@ typedef struct _elf_exec_load_t {
     bool matched;
 } elf_exec_load_t;
 
-enum { MAX_VALIDATED_PHDRS = 256 };
-
 /* A flat offset-zero ELF file mapping can resemble a module header.  Validate
  * that the same file backs an executable PT_LOAD at its candidate-relative
  * address before projecting the full ELF image into the module map.
@@ -190,17 +188,14 @@ module_validate_shared_elf_mapping(app_pc base, size_t view_size, uint device_ma
     ptr_uint_t min_vaddr = POINTER_MAX;
     ptr_uint_t max_end = 0;
     uint exec_count = 0;
-    uint exec_index = 0;
     uint matched_exec_count = 0;
     uint i;
-    bool has_zero_offset_base_load = false;
     bool valid = false;
 
-    /* Bound attach-time memory use for an untrusted candidate header. */
     if (view_size < sizeof(ehdr) || !d_r_safe_read(base, sizeof(ehdr), &ehdr) ||
         !is_elf_so_header((app_pc)&ehdr, sizeof(ehdr)) || ehdr.e_phoff == 0 ||
         ehdr.e_phentsize != sizeof(ELF_PROGRAM_HEADER_TYPE) || ehdr.e_phnum == 0 ||
-        ehdr.e_phnum > MAX_VALIDATED_PHDRS || ehdr.e_phoff > view_size ||
+        ehdr.e_phnum == PN_XNUM || ehdr.e_phoff > view_size ||
         ehdr.e_phnum > (view_size - (size_t)ehdr.e_phoff) / ehdr.e_phentsize) {
         return false;
     }
@@ -210,57 +205,17 @@ module_validate_shared_elf_mapping(app_pc base, size_t view_size, uint device_ma
     if (phdrs == NULL || !d_r_safe_read(base + (size_t)ehdr.e_phoff, phdr_bytes, phdrs)) {
         goto cleanup;
     }
-    /* Unlike module_vaddr_from_prog_header(), this walk validates arithmetic before
-     * aligning the bounds because this candidate is not yet known to be a module.
-     */
-    for (i = 0; i < ehdr.e_phnum; ++i) {
-        ptr_uint_t vaddr;
-        ptr_uint_t offset;
-        ptr_uint_t memsz;
-        ptr_uint_t aligned_vaddr;
-        ptr_uint_t end;
-
-        if (phdrs[i].p_type != PT_LOAD)
-            continue;
-        vaddr = (ptr_uint_t)phdrs[i].p_vaddr;
-        offset = (ptr_uint_t)phdrs[i].p_offset;
-        memsz = (ptr_uint_t)phdrs[i].p_memsz;
-        if (phdrs[i].p_filesz > phdrs[i].p_memsz)
-            goto cleanup;
-        if (memsz == 0)
-            continue;
-        if (phdrs[i].p_filesz != 0 &&
-            (vaddr & (PAGE_SIZE - 1)) != (offset & (PAGE_SIZE - 1))) {
-            goto cleanup;
-        }
-        if (memsz > POINTER_MAX - vaddr ||
-            vaddr + memsz > POINTER_MAX - (PAGE_SIZE - 1)) {
-            goto cleanup;
-        }
-        aligned_vaddr = ALIGN_BACKWARD(vaddr, PAGE_SIZE);
-        end = ALIGN_FORWARD(vaddr + memsz, PAGE_SIZE);
-        if (aligned_vaddr < min_vaddr) {
-            min_vaddr = aligned_vaddr;
-            has_zero_offset_base_load =
-                ALIGN_BACKWARD(offset, PAGE_SIZE) == 0 && phdrs[i].p_filesz != 0;
-        } else if (aligned_vaddr == min_vaddr && ALIGN_BACKWARD(offset, PAGE_SIZE) == 0 &&
-                   phdrs[i].p_filesz != 0) {
-            has_zero_offset_base_load = true;
-        }
-        max_end = MAX(max_end, end);
-        if (TESTANY(PF_X, phdrs[i].p_flags) && phdrs[i].p_filesz != 0)
-            ++exec_count;
+    {
+        app_pc max_end_pc = NULL;
+        app_pc min_vaddr_pc =
+            module_vaddr_from_prog_header((app_pc)phdrs, ehdr.e_phnum, NULL, &max_end_pc);
+        min_vaddr = (ptr_uint_t)min_vaddr_pc;
+        max_end = (ptr_uint_t)max_end_pc;
     }
-    if (!has_zero_offset_base_load || min_vaddr == POINTER_MAX || max_end <= min_vaddr ||
-        exec_count == 0 || max_end - min_vaddr > POINTER_MAX - (ptr_uint_t)base) {
+    if (max_end <= min_vaddr || max_end - min_vaddr > POINTER_MAX - (ptr_uint_t)base) {
         goto cleanup;
     }
-    /* A non-executable mapping containing the full image cannot currently contain
-     * the executable PT_LOAD described by the header.
-     */
-    if (view_size >= max_end - min_vaddr)
-        goto cleanup;
-    exec_loads = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, elf_exec_load_t, exec_count,
+    exec_loads = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, elf_exec_load_t, ehdr.e_phnum,
                                   ACCT_OTHER, PROTECTED);
     if (exec_loads == NULL)
         goto cleanup;
@@ -275,14 +230,16 @@ module_validate_shared_elf_mapping(app_pc base, size_t view_size, uint device_ma
         offset = (ptr_uint_t)phdrs[i].p_offset;
         vaddr = ALIGN_BACKWARD((ptr_uint_t)phdrs[i].p_vaddr, PAGE_SIZE);
         offset = ALIGN_BACKWARD(offset, PAGE_SIZE);
-        if (vaddr - min_vaddr > POINTER_MAX - (ptr_uint_t)base)
+        if (vaddr < min_vaddr || vaddr - min_vaddr > POINTER_MAX - (ptr_uint_t)base) {
             goto cleanup;
-        exec_loads[exec_index].start = (app_pc)((ptr_uint_t)base + (vaddr - min_vaddr));
-        exec_loads[exec_index].offset = (size_t)offset;
-        exec_loads[exec_index].matched = false;
-        ++exec_index;
+        }
+        exec_loads[exec_count].start = (app_pc)((ptr_uint_t)base + (vaddr - min_vaddr));
+        exec_loads[exec_count].offset = (size_t)offset;
+        exec_loads[exec_count].matched = false;
+        ++exec_count;
     }
-    ASSERT(exec_index == exec_count);
+    if (exec_count == 0)
+        goto cleanup;
 
     {
         const app_pc projected_end = (app_pc)((ptr_uint_t)base + (max_end - min_vaddr));
@@ -290,6 +247,7 @@ module_validate_shared_elf_mapping(app_pc base, size_t view_size, uint device_ma
 
         if (!memquery_iterator_start(&iter, base, false /*may_alloc*/))
             goto cleanup;
+
         while (memquery_iterator_next(&iter)) {
             if (iter.vm_start >= projected_end)
                 break;
@@ -320,7 +278,7 @@ module_validate_shared_elf_mapping(app_pc base, size_t view_size, uint device_ma
 
 cleanup:
     if (exec_loads != NULL) {
-        HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, exec_loads, elf_exec_load_t, exec_count,
+        HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, exec_loads, elf_exec_load_t, ehdr.e_phnum,
                         ACCT_OTHER, PROTECTED);
     }
     if (phdrs != NULL) {

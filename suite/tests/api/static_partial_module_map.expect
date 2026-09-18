@@ -1,5 +1,6 @@
 pre-DR start
 shared ELF view is not a module
+full shared ELF view is not a module
 shared ELF module is a module
 pre-DR stop
 all done

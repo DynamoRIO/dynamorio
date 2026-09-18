@@ -43,12 +43,14 @@
 #include <unistd.h>
 
 static void *elf_view;
+static void *full_elf_view;
+static size_t full_elf_view_size;
 static void *shared_module;
 static size_t shared_module_size;
 
-/* i#8031: Map one flat page and one complete PT_LOAD layout from the same copied ELF.
- * The former must be rejected while the latter must remain a module.
- * Copying gives both views a distinct inode from the already-loaded executable.
+/* i#8031: Map flat views and a complete PT_LOAD layout from the same copied ELF.
+ * The flat views must be rejected while the PT_LOAD layout must remain a module.
+ * Copying gives the mappings a distinct inode from the already-loaded executable.
  */
 
 static uintptr_t
@@ -149,6 +151,10 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     print("shared ELF view is %sa module\n", view_module == NULL ? "not " : "");
     assert(view_module == NULL);
 
+    module_data_t *full_view_module = dr_lookup_module(full_elf_view);
+    print("full shared ELF view is %sa module\n", full_view_module == NULL ? "not " : "");
+    assert(full_view_module == NULL);
+
     module_data_t *mapped_module = dr_lookup_module(shared_module);
     print("shared ELF module is %sa module\n", mapped_module != NULL ? "" : "not ");
     assert(mapped_module != NULL);
@@ -168,6 +174,9 @@ main(int argc, const char *argv[])
     elf_view = mmap(NULL, view_size, PROT_READ, MAP_SHARED, copy_fd, 0);
     assert(elf_view != MAP_FAILED);
     shared_module = map_shared_module(copy_fd, view_size, &shared_module_size);
+    full_elf_view_size = shared_module_size;
+    full_elf_view = mmap(NULL, full_elf_view_size, PROT_READ, MAP_SHARED, copy_fd, 0);
+    assert(full_elf_view != MAP_FAILED);
     close(copy_fd);
     unlink(copy_path);
 
@@ -180,6 +189,7 @@ main(int argc, const char *argv[])
     assert(!dr_app_running_under_dynamorio());
 
     munmap(elf_view, view_size);
+    munmap(full_elf_view, full_elf_view_size);
     munmap(shared_module, shared_module_size);
     print("all done\n");
     return 0;
