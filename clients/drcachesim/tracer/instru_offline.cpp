@@ -792,13 +792,13 @@ offline_instru_t::instrument_memref(void *drcontext, void *bb_field, instrlist_t
 int
 offline_instru_t::instrument_instr(void *drcontext, void *tag, void *bb_field,
                                    instrlist_t *ilist, instr_t *where, reg_id_t reg_ptr,
-                                   int adjust, instr_t *app, bool memref_needs_full_info,
+                                   int adjust, instr_t *app, bool pc_record_per_instr,
                                    uintptr_t mode)
 {
     per_block_t *per_block = reinterpret_cast<per_block_t *>(bb_field);
     app_pc pc;
     reg_id_t reg_tmp;
-    if (!memref_needs_full_info) {
+    if (!pc_record_per_instr) {
         // We write just once per bb, if not filtering.
         if (per_block->instr_count > MAX_INSTR_COUNT)
             return adjust;
@@ -812,9 +812,8 @@ offline_instru_t::instrument_instr(void *drcontext, void *tag, void *bb_field,
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
     adjust += insert_save_pc(
         drcontext, ilist, where, reg_ptr, reg_tmp, adjust, pc,
-        memref_needs_full_info ? 1 : static_cast<uint>(per_block->instr_count),
-        per_block);
-    if (!memref_needs_full_info)
+        pc_record_per_instr ? 1 : static_cast<uint>(per_block->instr_count), per_block);
+    if (!pc_record_per_instr)
         per_block->instr_count = MAX_INSTR_COUNT + 1;
     res = drreg_unreserve_register(drcontext, ilist, where, reg_tmp);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
@@ -1081,9 +1080,10 @@ offline_instru_t::does_reg_write_thwart_elision(int version, instr_t *instr, reg
             opnd_is_reg(instr_get_src(instr, 0)) &&
             opnd_get_reg(instr_get_src(instr, 0)) == reg &&
             opnd_is_immed_int(instr_get_src(instr, 1)) &&
-            // We do not support shifting or extending.
-            opnd_is_immed_int(instr_get_src(instr, 2)) &&
-            opnd_get_immed_int(instr_get_src(instr, 2)) == 0) {
+            // We do not support shifting: ensure the shift value is 0 as in:
+            //   add    %x0 $0x0008 lsl $0x00 -> %x0
+            opnd_is_immed_int(instr_get_src(instr, 3)) &&
+            opnd_get_immed_int(instr_get_src(instr, 3)) == 0) {
             if (instr_get_opcode(instr) == OP_add)
                 value_delta = opnd_get_immed_int(instr_get_src(instr, 1));
             else
@@ -1097,7 +1097,8 @@ offline_instru_t::does_reg_write_thwart_elision(int version, instr_t *instr, reg
         // Examples:
         //   ldp    +0x08(%x0)[16byte] %x0 $0x8 -> %x1 %x2 %x0
         //   str    %x1 %x0 $0x8 -> +0x08(%x0)[8byte] %x0
-        opnd_t op_mem, op_base_src, op_base_dst = opnd_create_null(), op_immed;
+        opnd_t op_mem = opnd_create_null(), op_base_src = opnd_create_null(),
+               op_base_dst = opnd_create_null(), op_immed = opnd_create_null();
         if (instr_reads_memory(instr) && instr_num_srcs(instr) == 3 &&
             opnd_is_reg(instr_get_dst(instr, 0))) {
             op_immed = instr_get_src(instr, 2);
@@ -1130,6 +1131,8 @@ offline_instru_t::does_reg_write_thwart_elision(int version, instr_t *instr, reg
                 op_base_src = instr_get_src(instr, 2);
                 op_immed = instr_get_src(instr, 3);
             }
+        } else {
+            return true;
         }
         // Now that we have the operands set, check for pre/postindexing.
         if (opnd_is_base_disp(op_mem) && opnd_is_reg(op_base_dst) &&

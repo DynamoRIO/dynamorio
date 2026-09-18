@@ -469,7 +469,7 @@ public:
     int
     instrument_instr(void *drcontext, void *tag, void *bb_field, instrlist_t *ilist,
                      instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app,
-                     bool memref_needs_full_info, uintptr_t mode) override;
+                     bool pc_record_per_instr, uintptr_t mode) override;
     int
     instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
                        reg_id_t reg_ptr, int adjust, instr_t **delay_instrs,
