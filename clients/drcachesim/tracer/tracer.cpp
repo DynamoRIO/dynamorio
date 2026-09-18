@@ -1397,7 +1397,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         !(is_L0I_enabled || is_L0D_enabled) &&
         // The delay instr buffer is not full.
         ud->num_delay_instrs < MAX_NUM_DELAY_INSTRS) {
-        ud->delay_instrs[ud->num_delay_instrs++] = instr_fetch;
+        if (!op_offline.get_value())
+            ud->delay_instrs[ud->num_delay_instrs++] = instr_fetch;
         return flags;
     }
 
@@ -1425,8 +1426,10 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     instr_t *skip_instru = INSTR_CREATE_label(drcontext);
     reg_id_t reg_skip = DR_REG_NULL;
     reg_id_set_t app_regs_at_skip;
+    instr_t *buf_ptr_load = nullptr;
     if (!(is_L0I_enabled || is_L0D_enabled)) {
         insert_load_buf_ptr(drcontext, bb, where, reg_ptr);
+        buf_ptr_load = instr_get_prev(where);
         if (thread_filtering_enabled) {
             bool short_reaches = false;
 #ifdef X86
@@ -1529,6 +1532,19 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         if ((is_L0I_enabled || is_L0D_enabled))
             insert_load_buf_ptr(drcontext, bb, where, reg_ptr);
         instrument_clean_call(drcontext, bb, where, reg_ptr, mode);
+    } else if (buf_ptr_load != nullptr) {
+        instr_t *prev = instr_get_prev(where);
+        while (prev != nullptr && instr_is_label(prev)) {
+            prev = instr_get_prev(prev);
+        }
+        if (prev == buf_ptr_load) {
+            // We didn't actually insert any instrumentation (likely due to
+            // elision), so we do not need the buffer load.
+            NOTIFY(3, "Removing unused buf ptr load\n");
+            instrlist_remove(bb, buf_ptr_load);
+            instr_destroy(drcontext, buf_ptr_load);
+            buf_ptr_load = nullptr;
+        }
     }
 
     insert_conditional_skip_target(drcontext, bb, where, skip_instru, reg_skip,
