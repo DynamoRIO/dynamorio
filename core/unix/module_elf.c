@@ -173,9 +173,9 @@ typedef struct _elf_exec_load_t {
     bool matched;
 } elf_exec_load_t;
 
-/* A flat offset-zero ELF file mapping can resemble a module header.  Validate
- * that the same file backs an executable PT_LOAD at its candidate-relative
- * address before projecting the full ELF image into the module map.
+/* A flat mapping reads an ELF file as data without loading it as a module.
+ * Treat it as a module only if executable mappings from that file exist at
+ * the addresses and offsets described by its program headers.
  */
 bool
 module_validate_shared_elf_mapping(app_pc base, size_t view_size, uint device_major,
@@ -192,14 +192,19 @@ module_validate_shared_elf_mapping(app_pc base, size_t view_size, uint device_ma
     uint i;
     bool valid = false;
 
-    if (view_size < sizeof(ehdr) || !d_r_safe_read(base, sizeof(ehdr), &ehdr) ||
-        !is_elf_so_header((app_pc)&ehdr, sizeof(ehdr)) || ehdr.e_phoff == 0 ||
-        ehdr.e_phentsize != sizeof(ELF_PROGRAM_HEADER_TYPE) || ehdr.e_phnum == 0 ||
-        ehdr.e_phnum == PN_XNUM || ehdr.e_phoff > view_size ||
-        ehdr.e_phnum > (view_size - (size_t)ehdr.e_phoff) / ehdr.e_phentsize) {
+    if (!d_r_safe_read(base, sizeof(ehdr), &ehdr) ||
+        !is_elf_so_header((app_pc)&ehdr, sizeof(ehdr))) {
         return false;
     }
-    phdr_bytes = ehdr.e_phnum * sizeof(*phdrs);
+    if (ehdr.e_phoff == 0 || ehdr.e_phentsize != sizeof(*phdrs) || ehdr.e_phnum == 0 ||
+        ehdr.e_phnum == PN_XNUM) {
+        return false;
+    }
+    phdr_bytes = (size_t)ehdr.e_phnum * sizeof(*phdrs);
+    if ((size_t)ehdr.e_phoff > view_size ||
+        phdr_bytes > view_size - (size_t)ehdr.e_phoff) {
+        return false;
+    }
     phdrs = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, ELF_PROGRAM_HEADER_TYPE, ehdr.e_phnum,
                              ACCT_OTHER, PROTECTED);
     if (phdrs == NULL || !d_r_safe_read(base + (size_t)ehdr.e_phoff, phdr_bytes, phdrs)) {
