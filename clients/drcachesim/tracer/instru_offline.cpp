@@ -665,6 +665,7 @@ offline_instru_t::insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t 
     bool reserved = false;
     bool have_addr = false;
     drreg_status_t res;
+    // This is only used for live tracing with the latest offline version.
     if (opnd_disp_is_elidable(ref, OFFLINE_FILE_VERSION)) {
         /* Optimization: to avoid needing a scratch reg to lea into, we simply
          * store the base reg directly and add the disp during post-processing.
@@ -946,6 +947,7 @@ offline_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
     app_pc tag_pc = dr_fragment_app_pc(tag);
     per_block->start_pc = tag_pc;
 
+    // This is only used for live tracing with the latest offline version.
     identify_elidable_addresses(drcontext, ilist, OFFLINE_FILE_VERSION,
                                 memref_needs_full_info);
 
