@@ -800,7 +800,7 @@ OPTION_DEFAULT(bool, use_all_memory_areas, true,
                "Use all_memory_areas "
                "address space cache to query page protections.")
 #    ifdef LINUX
-/* i#8031: Reject flat shared ELF file views during the initial module scan. */
+/* i#8117: Reject flat shared ELF file views during the initial module scan. */
 OPTION_DEFAULT(bool, validate_shared_elf_modules, true,
                "Validate shared ELF mappings before treating them as modules.")
 #    endif

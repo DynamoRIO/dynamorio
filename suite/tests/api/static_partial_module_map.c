@@ -48,7 +48,7 @@ static size_t full_elf_view_size;
 static void *shared_module;
 static size_t shared_module_size;
 
-/* i#8031: Map flat views and a complete PT_LOAD layout from the same copied ELF.
+/* i#8117: Map flat views and a complete PT_LOAD layout from the same copied ELF.
  * The flat views must be rejected while the PT_LOAD layout must remain a module.
  * Writable MAP_SHARED segments require an O_RDWR file, so use a temporary copy
  * instead of the running executable.
