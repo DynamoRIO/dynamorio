@@ -1149,7 +1149,9 @@ typedef enum {
 #define OFFLINE_FILE_VERSION_ELIDE_X86_PUSH 9
 /** Rep string loops are not unrolled for unfiltered traces. */
 #define OFFLINE_FILE_VERSION_REPSTR_LOOP 10
-#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_REPSTR_LOOP
+/** All immediate-add-subtract GPR bases are elided. */
+#define OFFLINE_FILE_VERSION_ELIDE_IMMED_BASE 11
+#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_ELIDE_IMMED_BASE
 
 /**
  * Bitfields used to describe the high-level characteristics of both an
