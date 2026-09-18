@@ -42,23 +42,47 @@ START_FILE
 #ifdef UNIX
 
 /* Private memcpy.
- * XXX i#1569: We should optimize this as it can be on the critical path.
+ * Performance matters here so we have simple optimizations.
+ * Run core_unit_tests to see comparisons to libc times.
  */
         DECLARE_FUNC(memcpy)
 GLOBAL_LABEL(memcpy:)
-        mov      x3, ARG1
-        cbz      ARG3, 2f
-1:      ldrb     w4, [ARG2], #1
-        strb     w4, [x3], #1
-        sub      ARG3, ARG3, #1
-        cbnz     ARG3, 1b
-2:      ret
+        // We're supposed to return x0, so make a copy we can modify.
+        mov      x3, x0
+        // If < 8, go to final 1-byte-at-a-time path.
+        cmp      x2, #8
+        b.lo     memcpy_post_unaligned
+        // 1-byte path until reach 8-byte-aligned aligned start.
+        mov      x4, #0x7
+        ands     x4, x3, x4
+        b.eq     memcpy_aligned_loop
+        mov      x6, #8
+        sub      x5, x6, x4 // Count of unaligned at start.
+        sub      x2, x2, x5 // Update total count.
+memcpy_pre_unaligned:
+        ldrb     w6, [x1], #1
+        strb     w6, [x3], #1
+        subs     x5, x5, #1
+        b.ne     memcpy_pre_unaligned
+memcpy_aligned_loop:
+        cmp      x2, #8
+        b.lo     memcpy_post_unaligned
+        ldr      x6, [x1], #8
+        str      x6, [x3], #8
+        sub      x2, x2, #8
+        b        memcpy_aligned_loop
+memcpy_post_unaligned:
+        cbz      x2, memcpy_done
+        ldrb     w6, [x1], #1
+        strb     w6, [x3], #1
+        sub      x2, x2, #1
+        cbnz     x2, memcpy_post_unaligned
+memcpy_done:
+        ret
         END_FUNC(memcpy)
 
 /* Private memset.
- * Performance matters here so we have a fastpath, currently limited to
- * setting memory to 0.
- * XXX i#8125: Add a fastpath for non-0 values.
+ * Performance matters here so we have simple optimizations.
  * Run core_unit_tests to see comparisons to libc times.
  */
         DECLARE_FUNC(memset)
@@ -66,13 +90,13 @@ GLOBAL_LABEL(memset:)
         // We're supposed to return x0, so make a copy we can modify.
         mov      x6, x0
         // If not setting zero, go to slow path.
-        cbnz     w1, slow_path
+        cbnz     w1, memset_postzva_unaligned
         // If < 128 size, go to slow path.
         cmp      x2, #128
-        b.lo     slow_path
+        b.lo     memset_postzva_unaligned
         // See whether DC ZVA is available: if not, go to slow path.
         mrs      x3, dczid_el0
-        tbnz     x3, #4, slow_path // If 5th bit is 1: disabled.
+        tbnz     x3, #4, memset_postzva_unaligned // If 5th bit is 1: disabled.
         // Get DC ZVA block size in bytes. The bottom 4 bits hold log_2 in words.
         and      x3, x3, #0xf
         add      x3, x3, #2 // Shift an extra 2 for word size == 4.
@@ -86,27 +110,57 @@ GLOBAL_LABEL(memset:)
         // Slow path until reach aligned start.
         sub      x4, x3, #1 // Mask for block size.
         ands     x4, x6, x4
-        b.eq     aligned_loop
+        b.eq     memset_alignedzva_loop
         sub      x5, x3, x4 // Count of unaligned at start.
         sub      x2, x2, x5 // Update total count.
-pre_unaligned:
+memset_prezva_unaligned:
         strb     w1, [x6], #1
         subs     x5, x5, #1
-        b.ne     pre_unaligned
-aligned_loop:
+        b.ne     memset_prezva_unaligned
+memset_alignedzva_loop:
         cmp      x2, x3
-        b.lo     slow_path
+        b.lo     memset_postzva_unaligned
         dc       zva, x6
         add      x6, x6, x3 // Add block size to dest.
         sub      x2, x2, x3 // Update total count.
-        b        aligned_loop
-slow_path:
-        cbz      x2, done
-slow_loop_or_post_unaligned:
+        b        memset_alignedzva_loop
+memset_postzva_unaligned:
+        // Now we try to do 8 aligned bytes at a time.
+        // If < 8, go to final 1-byte-at-a-time path.
+        cmp      x2, #8
+        b.lo     memset_post8_unaligned
+        // Replicate the byte to write across a GPR.
+        // (We could use "dup" if we want to assume vector register availability.)
+        // We multiple the bottom byte by 0x0101010101010101.
+        and      w7, w1, #0xff
+        movk     x8, #0x0101, lsl #0
+        movk     x8, #0x0101, lsl #16
+        movk     x8, #0x0101, lsl #32
+        movk     x8, #0x0101, lsl #48
+        mul      x7, x7, x8
+        // 1-byte path until reach 8-byte-aligned aligned start.
+        mov      x4, #0x7
+        ands     x4, x6, x4
+        b.eq     memset_aligned8_loop
+        mov      x3, #8
+        sub      x5, x3, x4 // Count of unaligned at start.
+        sub      x2, x2, x5 // Update total count.
+memset_pre8_unaligned:
+        strb     w1, [x6], #1
+        subs     x5, x5, #1
+        b.ne     memset_pre8_unaligned
+memset_aligned8_loop:
+        cmp      x2, #8
+        b.lo     memset_post8_unaligned
+        str      x7, [x6], #8
+        sub      x2, x2, #8
+        b        memset_aligned8_loop
+memset_post8_unaligned:
+        cbz      x2, memset_done
         strb     w1, [x6], #1
         subs     x2, x2, #1
-        b.ne     slow_loop_or_post_unaligned
-done:
+        b.ne     memset_post8_unaligned
+memset_done:
         ret
         END_FUNC(memset)
 
