@@ -78,6 +78,11 @@ GLOBAL_LABEL(memset:)
         add      x3, x3, #2 // Shift an extra 2 for word size == 4.
         mov      x4, #1
         lsl      x3, x4, x3 // 1<<(log_2 + 2) = bytes
+        // If memset size < block size, go to slowpath.
+        // On some cores, the block size is as high as 512 bytes, though usually
+        // it's 64 bytes.
+        cmp      x2, x3
+        b.lo     slow_path
         // Slow path until reach aligned start.
         sub      x4, x3, #1 // Mask for block size.
         ands     x4, x6, x4
