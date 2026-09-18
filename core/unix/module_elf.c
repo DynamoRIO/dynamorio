@@ -173,9 +173,9 @@ typedef struct _elf_exec_load_t {
     bool matched;
 } elf_exec_load_t;
 
-/* A flat mapping reads an ELF file as data without loading it as a module.
- * Treat it as a module only if executable mappings from that file exist at
- * the addresses and offsets described by its program headers.
+/* i#8117: A flat mapping reads an ELF file as data without loading it as a
+ * module.  Treat it as a module only if executable mappings from that file
+ * exist at the addresses and offsets described by its program headers.
  */
 bool
 module_validate_shared_elf_mapping(app_pc base, size_t view_size, uint device_major,
@@ -196,11 +196,13 @@ module_validate_shared_elf_mapping(app_pc base, size_t view_size, uint device_ma
         !is_elf_so_header((app_pc)&ehdr, sizeof(ehdr))) {
         return false;
     }
+    /* Validate the program header table metadata. */
     if (ehdr.e_phoff == 0 || ehdr.e_phentsize != sizeof(*phdrs) || ehdr.e_phnum == 0 ||
         ehdr.e_phnum == PN_XNUM) {
         return false;
     }
     phdr_bytes = (size_t)ehdr.e_phnum * sizeof(*phdrs);
+    /* Ensure that the program header table fits in this mapping. */
     if ((size_t)ehdr.e_phoff > view_size ||
         phdr_bytes > view_size - (size_t)ehdr.e_phoff) {
         return false;
@@ -224,6 +226,7 @@ module_validate_shared_elf_mapping(app_pc base, size_t view_size, uint device_ma
                                   ACCT_OTHER, PROTECTED);
     if (exec_loads == NULL)
         goto cleanup;
+    /* Record the expected executable segments. */
     for (i = 0; i < ehdr.e_phnum; ++i) {
         ptr_uint_t vaddr;
         ptr_uint_t offset;
@@ -246,6 +249,7 @@ module_validate_shared_elf_mapping(app_pc base, size_t view_size, uint device_ma
     if (exec_count == 0)
         goto cleanup;
 
+    /* Match each executable segment to its expected file mapping. */
     {
         const app_pc projected_end = (app_pc)((ptr_uint_t)base + (max_end - min_vaddr));
         memquery_iter_t iter;

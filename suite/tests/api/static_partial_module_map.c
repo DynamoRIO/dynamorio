@@ -50,7 +50,8 @@ static size_t shared_module_size;
 
 /* i#8031: Map flat views and a complete PT_LOAD layout from the same copied ELF.
  * The flat views must be rejected while the PT_LOAD layout must remain a module.
- * Copying gives the mappings a distinct inode from the already-loaded executable.
+ * Writable MAP_SHARED segments require an O_RDWR file, so use a temporary copy
+ * instead of the running executable.
  */
 
 static uintptr_t
