@@ -591,6 +591,11 @@ arith_newblock:
         mov      x1, #8
         add      x0, x0, x1
         ldr      x1, [x0, #8]
+        // Test a shifted add which should block elision.
+        ldr      x1, [x0, #16]
+        add      x0, x0, #1, LSL #12
+        sub      x0, x0, #0xff0
+        ldr      x1, [x0, #16]
         // Test a 2nd elision chain in the same block for the same reg.
         ldr      x1, [x0, #16]
         add      x0, x0, #8

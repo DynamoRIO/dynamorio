@@ -1075,9 +1075,10 @@ offline_instru_t::does_reg_write_thwart_elision(int version, instr_t *instr, reg
             opnd_is_reg(instr_get_src(instr, 0)) &&
             opnd_get_reg(instr_get_src(instr, 0)) == reg &&
             opnd_is_immed_int(instr_get_src(instr, 1)) &&
-            // We do not support shifting or extending.
-            opnd_is_immed_int(instr_get_src(instr, 2)) &&
-            opnd_get_immed_int(instr_get_src(instr, 2)) == 0) {
+            // We do not support shifting: ensure the shift value is 0 as in:
+            //   add    %x0 $0x0008 lsl $0x00 -> %x0
+            opnd_is_immed_int(instr_get_src(instr, 3)) &&
+            opnd_get_immed_int(instr_get_src(instr, 3)) == 0) {
             if (instr_get_opcode(instr) == OP_add)
                 value_delta = opnd_get_immed_int(instr_get_src(instr, 1));
             else
@@ -1091,7 +1092,8 @@ offline_instru_t::does_reg_write_thwart_elision(int version, instr_t *instr, reg
         // Examples:
         //   ldp    +0x08(%x0)[16byte] %x0 $0x8 -> %x1 %x2 %x0
         //   str    %x1 %x0 $0x8 -> +0x08(%x0)[8byte] %x0
-        opnd_t op_mem, op_base_src, op_base_dst = opnd_create_null(), op_immed;
+        opnd_t op_mem = opnd_create_null(), op_base_src = opnd_create_null(),
+               op_base_dst = opnd_create_null(), op_immed = opnd_create_null();
         if (instr_reads_memory(instr) && instr_num_srcs(instr) == 3 &&
             opnd_is_reg(instr_get_dst(instr, 0))) {
             op_immed = instr_get_src(instr, 2);
@@ -1124,6 +1126,8 @@ offline_instru_t::does_reg_write_thwart_elision(int version, instr_t *instr, reg
                 op_base_src = instr_get_src(instr, 2);
                 op_immed = instr_get_src(instr, 3);
             }
+        } else {
+            return true;
         }
         // Now that we have the operands set, check for pre/postindexing.
         if (opnd_is_base_disp(op_mem) && opnd_is_reg(op_base_dst) &&

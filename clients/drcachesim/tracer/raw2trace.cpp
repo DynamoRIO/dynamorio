@@ -1449,28 +1449,28 @@ raw2trace_t::update_reg_deltas(raw2trace_thread_data_t *tdata, int version, inst
     // we explicitly add its value separately).
     for (int i = 0; i < instr_num_dsts(inst); ++i) {
         opnd_t dst = instr_get_dst(inst, i);
-        if (opnd_is_reg(dst)) {
-            reg_id_t reg = reg_to_pointer_sized(opnd_get_reg(dst));
-            // We do not support non-GPR base elision.
-            if (reg < DR_REG_START_GPR || reg > DR_REG_STOP_GPR)
-                continue;
-            // Do not start tracking until we've started remembering.
-            if (!reg_remembered[reg - DR_REG_START_GPR] ||
-                (only_reg != DR_REG_NULL && reg != only_reg))
-                continue;
-            int delta;
-            if (tdata->instru_offline.does_reg_write_thwart_elision(version, inst, reg,
-                                                                    delta)) {
-                // Clear if we were eliding and hit a break in the elision chain.
-                reg_delta[reg - DR_REG_START_GPR] = 0;
-                reg_remembered[reg - DR_REG_START_GPR] = false;
-                log(5, "Clearing reg %s delta @ " PFX "\n", get_register_name(reg),
-                    instr_get_app_pc(inst));
-            } else {
-                reg_delta[reg - DR_REG_START_GPR] += delta;
-                log(5, "New reg %s delta %d @ " PFX "\n", get_register_name(reg),
-                    reg_delta[reg - DR_REG_START_GPR], instr_get_app_pc(inst));
-            }
+        if (!opnd_is_reg(dst))
+            continue;
+        reg_id_t reg = reg_to_pointer_sized(opnd_get_reg(dst));
+        // We do not support non-GPR base elision.
+        if (reg < DR_REG_START_GPR || reg > DR_REG_STOP_GPR)
+            continue;
+        // Do not start tracking until we've started remembering.
+        if (!reg_remembered[reg - DR_REG_START_GPR] ||
+            (only_reg != DR_REG_NULL && reg != only_reg))
+            continue;
+        int delta;
+        if (tdata->instru_offline.does_reg_write_thwart_elision(version, inst, reg,
+                                                                delta)) {
+            // Clear if we were eliding and hit a break in the elision chain.
+            reg_delta[reg - DR_REG_START_GPR] = 0;
+            reg_remembered[reg - DR_REG_START_GPR] = false;
+            log(5, "Clearing reg %s delta @ " PFX "\n", get_register_name(reg),
+                instr_get_app_pc(inst));
+        } else {
+            reg_delta[reg - DR_REG_START_GPR] += delta;
+            log(5, "New reg %s delta %d @ " PFX "\n", get_register_name(reg),
+                reg_delta[reg - DR_REG_START_GPR], instr_get_app_pc(inst));
         }
     }
 }
@@ -1560,10 +1560,15 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
         DR_ASSERT(got_base && base != DR_REG_NULL && base >= DR_REG_START_GPR &&
                   base <= DR_REG_STOP_GPR);
         // Find the source of the base.  It has to be the first instance when
-        // walking backward.
-        // We could maybe add a 2nd label type in offline_instru_t to avoid this
-        // backward walk for the starting source of an elision chain, and then
-        // remember the last marks-elidable label for each reg?
+        // walking backward, which is an assumption currently provided by
+        // instru_offline_t. But, we'd like to remove that assumption, to allow
+        // things like an elision chain crossing an intermediate memref w/ an index
+        // reg or something. It would be cleaner to have offline_instru_t add
+        // a label at the precise source of each elision so we know exactly where it is.
+        // Note that this backward walk could probably be eliminated by looking for
+        // the same assumption of the prior memref when updating the deltas, but
+        // if we're going to rewrite this, better to eliminate the assumptions
+        // by the described label scheme.
         bool update_deltas_backward = !reg_remembered[base - DR_REG_START_GPR];
         reg_remembered[base - DR_REG_START_GPR] = true;
         log(5, "For backward walk base=%s updating=%d\n", get_register_name(base),
@@ -1574,6 +1579,11 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
                 continue;
             // For the first elision for any one reg, we have to update on this
             // backward walk as we didn't have reg_remembered set on the forward walk.
+            // See the comment above on possibly adding a label to avoid this.
+            // The delta updates are commutative so this is fine, except an elision
+            // break: but we know there's isn't one between here and the source
+            // or else this wouldn't be marked as an elision.
+            // We start on the prior instr to avoid double-counting.
             if (update_deltas_backward && prev != meminst)
                 update_reg_deltas(tdata, version, prev, base, reg_remembered, reg_delta);
             //  Use instr_{reads,writes}_memory() to rule out LEA and NOP.
@@ -1622,7 +1632,7 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
                                          index_in_bb, pc, orig_pc, write, memop_index,
                                          true /*use_remembered*/,
                                          false /*don't change "remember"*/, base_delta)) {
-                tdata->error = "Failed to set flags for elided base address";
+                tdata->error = "Failed to set flags to use remembered base for elision";
                 return false;
             }
             app_pc pc_prev = instr_get_app_pc(prev);
@@ -1635,7 +1645,7 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
                     orig_pc_prev, remember_write, remember_index,
                     false /*don't change "use_remembered" or "base_delta"*/,
                     true /*remember*/)) {
-                tdata->error = "Failed to set flags for elided base address";
+                tdata->error = "Failed to set flags to remember base for elision";
                 return false;
             }
             log(5, "Asking <" PFX ", " PFX "> %s #%d to remember base\n", start_pc,
