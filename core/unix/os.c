@@ -11497,6 +11497,7 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
     priv_mcontext_t *dc_mc;
 #ifdef PTRACE_TAKEOVER_SUPPORTED
     void *pt_param = NULL;
+    kernel_sigset_t pre_unmask_sigset;
 #endif
 
     LOG(GLOBAL, LOG_THREADS, 1, "TAKEOVER: received signal in thread " TIDFMT "\n",
@@ -11520,6 +11521,17 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
         dcontext = get_thread_private_dcontext();
         ASSERT(dcontext != NULL);
     }
+#ifdef PTRACE_TAKEOVER_SUPPORTED
+    /* Look up the current thread's TID in the table populated by
+     * ptrace_unmask_all_threads() and if found, save the thread's original
+     * mask into pre_unmask_sigset.
+     */
+    if (DYNAMO_OPTION(attach_unmask_suspend_signal) &&
+        ptrace_get_pre_unmask_sigmask(get_sys_thread_id(), &pre_unmask_sigset)) {
+        /* Initialise application visible mask from original mask. */
+        sigset = &pre_unmask_sigset;
+    }
+#endif
     signal_set_mask(dcontext, sigset);
     signal_swap_mask(dcontext, true /*to app*/);
     dynamo_thread_under_dynamo(dcontext);
