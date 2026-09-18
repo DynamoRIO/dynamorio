@@ -30,18 +30,23 @@
  * DAMAGE.
  */
 
-#ifndef _DR_INTERFACE_H_
-#define _DR_INTERFACE_H_
+#include "globals.h"
+#include "dr_interface.h"
+#include "instrument.h"
 
-/* Interface exposed by DynamoRIO core to the kernel module entry and lifecycle
- * management code (dynamorio_module_main.c).
+/* Temporary scaffolding for incremental kernel bring-up. Call after
+ * dynamorio_app_init_part_one_options(). Keep this sequence in sync
+ * with the heap initialization prefix of dynamorio_app_init_part_two_finalize().
+ * TODO i#8021: Remove this helper once module initialization can call
+ * dynamorio_app_init() directly.
  */
-
 void
-dynamorio_app_init_part_one_options(void);
-
-/* Temporary heap-init stage; call after options initialization. */
-void
-kernel_heap_init_scaffolding(void);
-
-#endif /* _DR_INTERFACE_H_ */
+kernel_heap_init_scaffolding(void)
+{
+    if (dynamo_heap_initialized || INTERNAL_OPTION(nullcalls))
+        return;
+    vmm_heap_init();
+    instrument_load_client_libs();
+    d_r_heap_init();
+    dynamo_heap_initialized = true;
+}

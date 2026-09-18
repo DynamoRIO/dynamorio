@@ -927,9 +927,9 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, uint vm_flags, uint f
     ASSERT_VMAREA_VECTOR_PROTECTED(v, WRITE);
     LOG(GLOBAL, LOG_VMAREAS, 4, "in add_vm_area%s " PFX " " PFX " %s\n",
         (v == executable_areas ? " executable_areas"
-                               : (v == IF_LINUX_ELSE(all_memory_areas, NULL)
-                                      ? " all_memory_areas"
-                                      : (v == dynamo_areas ? " dynamo_areas" : ""))),
+             : v == dynamo_areas
+             ? " dynamo_areas"
+             : IF_MEMQUERY_ELSE("", v == all_memory_areas ? " all_memory_areas" : "")),
         start, end, comment);
     /* N.B.: new area could span multiple existing areas! */
     for (i = 0; i < v->length; i++) {

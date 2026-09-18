@@ -42,6 +42,9 @@ kernel_module_init(size_t dr_heap_size);
 void
 kernel_module_exit(void);
 
+size_t
+kernel_get_heap_size(void);
+
 void *
 kernel_allocate_heap(size_t size);
 
@@ -56,6 +59,19 @@ kernel_get_online_processor_count(void);
 
 size_t
 kernel_get_page_size(void);
+
+void *
+kernel_get_image_start(void);
+
+void *
+kernel_get_image_end(void);
+
+/* Returns whether the |size| bytes at |addr| can be read without faulting.  Handles both
+ * kernel and user addresses.  Acquires no locks and never sleeps, so it is safe to call
+ * in any context.  A zero |size| returns true.
+ */
+bool
+kernel_is_readable_without_fault(const void *addr, size_t size);
 
 unsigned int
 kernel_query_time_seconds(void);

@@ -135,6 +135,18 @@ get_process_id(void)
     return KERNEL_PROCESS_ID;
 }
 
+app_pc
+get_application_base(void)
+{
+    return (app_pc)kernel_get_image_start();
+}
+
+app_pc
+get_application_end(void)
+{
+    return (app_pc)kernel_get_image_end();
+}
+
 char *
 get_application_pid(void)
 {
@@ -214,6 +226,122 @@ os_page_size(void)
     return kernel_get_page_size();
 }
 
+static bool heap_already_reserved = false;
+
+void *
+os_heap_reserve_in_region(void *start, void *end, size_t size,
+                          heap_error_code_t *error_code, bool executable)
+{
+    /* The kernel module cannot allocate virtual memory after takeover: the kernel
+     * allocators can sleep and may re-enter instrumented code. Instead, a single region
+     * is reserved at module load (see `kernel_module_init()`) and handed out here.
+     * Therefore, only one reservation can succeed. We verify that the region satisfies
+     * DR's requested range rather than making a new allocation within it.
+     *
+     * `executable` is currently ignored because we only have a single RWX heap. TODO
+     * i#8124: Split into a +x code region and an NX data region, then route on
+     * `executable`.
+     */
+    *error_code = HEAP_ERROR_CANT_RESERVE_IN_REGION;
+
+    if (heap_already_reserved) {
+        LOG(GLOBAL, LOG_HEAP, 1, "%s: heap already reserved\n", __FUNCTION__);
+        return NULL;
+    }
+
+    byte *heap = (byte *)kernel_allocate_heap(size);
+    if (heap == NULL) {
+        LOG(GLOBAL, LOG_HEAP, 1, "%s: cannot satisfy " SZFMT " bytes\n", __FUNCTION__,
+            size);
+        return NULL;
+    }
+    if (heap < (byte *)start || POINTER_OVERFLOW_ON_ADD(heap, size) ||
+        heap + size > (byte *)end) {
+        LOG(GLOBAL, LOG_HEAP, 1, "%s: heap " PFX "-" PFX " outside " PFX "-" PFX "\n",
+            __FUNCTION__, heap, heap + size, start, end);
+        return NULL;
+    }
+
+    heap_already_reserved = true;
+    *error_code = HEAP_ERROR_SUCCESS;
+    LOG(GLOBAL, LOG_HEAP, 2, "%s: reserved " SZFMT " bytes @ " PFX "\n", __FUNCTION__,
+        size, heap);
+    return heap;
+}
+
+bool
+os_heap_commit(void *p, size_t size, uint prot, heap_error_code_t *error_code)
+{
+    /* The kernel heap is allocated at module load via __vmalloc_node_range(), which
+     * allocates and maps every page upfront with PAGE_KERNEL_EXEC (RWX). So there is
+     * nothing to commit here.
+     */
+    *error_code = HEAP_ERROR_SUCCESS;
+    return true;
+}
+
+void
+os_heap_decommit(void *p, size_t size, heap_error_code_t *error_code)
+{
+    *error_code = HEAP_ERROR_SUCCESS;
+}
+
+bool
+os_heap_get_commit_limit(size_t *commit_used, size_t *commit_limit)
+{
+    /* DR only uses this to trigger a reset when the system is low on memory, and
+     * resets are currently disabled (see os_check_option_compatibility()).
+     */
+    return false;
+}
+
+/* Unlike user space, there is no all_memory_areas cache and no maps file to parse: the
+ * probe consults the page tables through the hardware.  It acquires no locks and cannot
+ * block, so the plain, "query_os" and "noblock" variants are all the same check.
+ */
+bool
+is_readable_without_exception(const byte *pc, size_t size)
+{
+    return kernel_is_readable_without_fault(pc, size);
+}
+
+bool
+is_readable_without_exception_query_os(byte *pc, size_t size)
+{
+    return kernel_is_readable_without_fault(pc, size);
+}
+
+bool
+is_readable_without_exception_query_os_noblock(byte *pc, size_t size)
+{
+    return kernel_is_readable_without_fault(pc, size);
+}
+
+void
+all_memory_areas_lock(void)
+{
+    /* No-op in kernel mode. */
+}
+
+void
+all_memory_areas_unlock(void)
+{
+    /* No-op in kernel mode. */
+}
+
+void
+update_all_memory_areas(app_pc start, app_pc end, uint prot, int type)
+{
+    /* No-op in kernel mode. */
+}
+
+bool
+remove_from_all_memory_areas(app_pc start, app_pc end)
+{
+    /* No-op in kernel mode. */
+    return true;
+}
+
 static int num_online_processors = 0;
 
 int
@@ -263,7 +391,20 @@ os_check_option_compatibility(void)
      * heap_in_lower_4GB placement constraint cannot be satisfied.
      */
     FORCE_OPTION_VALUE(heap_in_lower_4GB, false);
+
+    /* The module heap is within rel32 reach of kernel text, so a single vmcode unit
+     * serves every allocation. DR's separate vmheap cannot be reserved after load.
+     */
+    FORCE_OPTION_VALUE(reachable_heap, true);
 #endif
+
+    /* vm_size cannot exceed the heap region reserved at module load. DR's default vm_size
+     * is far larger than any reasonable kernel budget, so we need to clamp it down.
+     */
+    if (DYNAMO_OPTION(vm_size) > kernel_get_heap_size()) {
+        dynamo_options.vm_size = kernel_get_heap_size();
+        changed_options = true;
+    }
 
     /* Currently the kernel module has no filesystem logging support.
      * Only logging to printk is supported.
@@ -275,6 +416,17 @@ os_check_option_compatibility(void)
      */
     FORCE_OPTION_VALUE(switch_to_os_at_vmm_reset_limit, false);
     FORCE_OPTION_VALUE(vm_reserve, true);
+
+    /* A reset rebuilds the code cache after suspending every thread at a safe point,
+     * which we cannot do yet.  DISABLE_RESET() also clears the -reset_at_* sub-options:
+     * leaving those set makes check_option_compatibility_helper() turn -enable_reset
+     * back on.
+     * XXX i#8021: Revisit once CPUs can be synched.
+     */
+    if (DYNAMO_OPTION(enable_reset)) {
+        DISABLE_RESET(&dynamo_options);
+        changed_options = true;
+    }
 
     /* SMP takeover requires CPUs to initialize and enter DR concurrently; the
      * global single-thread-in-DR mode would serialize them.
@@ -327,4 +479,20 @@ char *
 our_getenv(const char *name)
 {
     return (char *)kernel_getenv(name);
+}
+
+/* Diagnostics are not supported in kernel mode, as is also the case in
+ * core/unix/diagnost.c.
+ */
+void
+report_diagnostics(DR_PARAM_IN const char *message, DR_PARAM_IN const char *name,
+                   security_violation_t violation_type)
+{
+    /* No-op in kernel mode. */
+}
+
+void
+diagnost_exit(void)
+{
+    /* No-op in kernel mode. */
 }

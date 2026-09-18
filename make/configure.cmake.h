@@ -266,7 +266,14 @@
 #  define HAVE_SIGALTSTACK
 # elif defined(LINUX)
 #  define HAVE_MEMINFO
-#  define HAVE_MEMINFO_MAPS
+#  ifdef LINUX_KERNEL
+/* The kernel module probes the page tables directly: there is no /proc/self/maps and no
+ * all_memory_areas cache.
+ */
+#    define HAVE_MEMINFO_QUERY
+#  else
+#    define HAVE_MEMINFO_MAPS
+#  endif
 #  define HAVE_TLS
 #  define HAVE_SIGALTSTACK
 # else

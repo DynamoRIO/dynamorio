@@ -43,12 +43,14 @@
 #include <linux/cpumask.h>
 #include <linux/kprobes.h>
 #include <linux/ktime.h>
+#include <linux/limits.h>
 #include <linux/panic.h>
 #include <linux/printk.h>
 #include <linux/preempt.h>
 #include <linux/smp.h>
 #include <linux/stdarg.h>
 #include <linux/string.h>
+#include <linux/uaccess.h>
 #include <linux/vmalloc.h>
 
 #include "configure.h"
@@ -66,6 +68,9 @@ static void *(*vmalloc_node_range_ptr)(unsigned long size, unsigned long align,
                                        gfp_t gfp_mask, pgprot_t prot,
                                        unsigned long vm_flags, int node,
                                        const void *caller) = NULL;
+
+static void *kernel_image_start = NULL;
+static void *kernel_image_end = NULL;
 
 static size_t
 get_symbol_size(unsigned long address)
@@ -142,7 +147,7 @@ resolve_kernel_symbols(void)
      *   read-only-execute (ROX) in 6.13+.
      * - execmem_alloc_rw(): Introduced in 6.14. Returns RW+NX.
      *
-     * TODO i#8021: We would need to allocate two separate memory heaps at startup for
+     * TODO i#8124: We would need to allocate two separate memory heaps at startup for
      * fine-grained W^X protection:
      *   1) An executable code heap (marked +x).
      *   2) A non-executable data heap (left NX).
@@ -156,6 +161,18 @@ resolve_kernel_symbols(void)
     }
     if (vmalloc_node_range_ptr == NULL) {
         pr_err("Failed to resolve __vmalloc_node_range or __vmalloc_node_range_noprof\n");
+        return -ENOENT;
+    }
+
+    kernel_image_start = kernel_find_symbol("_text", NULL);
+    if (kernel_image_start == NULL) {
+        pr_err("Failed to resolve _text\n");
+        return -ENOENT;
+    }
+
+    kernel_image_end = kernel_find_symbol("_end", NULL);
+    if (kernel_image_end == NULL) {
+        pr_err("Failed to resolve _end\n");
         return -ENOENT;
     }
 
@@ -177,7 +194,7 @@ kernel_module_init(size_t dr_heap_size)
 
     heap_size = dr_heap_size;
     heap = vmalloc_node_range_ptr(heap_size, PAGE_SIZE, MODULES_VADDR, MODULES_END,
-                                  GFP_KERNEL, PAGE_KERNEL, VM_FLUSH_RESET_PERMS,
+                                  GFP_KERNEL, PAGE_KERNEL_EXEC, VM_FLUSH_RESET_PERMS,
                                   NUMA_NO_NODE, __builtin_return_address(0));
     if (heap == NULL) {
         pr_err("Failed to allocate %zu bytes with __vmalloc_node_range\n", heap_size);
@@ -194,6 +211,12 @@ kernel_module_exit(void)
         vfree(heap);
         heap = NULL;
     }
+}
+
+size_t
+kernel_get_heap_size(void)
+{
+    return heap_size;
 }
 
 void *
@@ -223,6 +246,66 @@ kernel_get_page_size(void)
 {
     /* PAGE_SIZE is the target kernel's base page size, defined by <asm/page.h>. */
     return PAGE_SIZE;
+}
+
+void *
+kernel_get_image_start(void)
+{
+    return kernel_image_start;
+}
+
+void *
+kernel_get_image_end(void)
+{
+    return kernel_image_end;
+}
+
+/* Returns whether the |size| bytes at |addr| can be read without faulting.  Probes one
+ * byte per page, as read protections are page-granular.  The kernel's no-fault accessors
+ * disable page faults and rely on the exception tables to recover, so this requires no
+ * locks and never sleeps.  It is safe to call in any context, including in a crash
+ * report.
+ *
+ * XXX i#8021: A probe of a device MMIO address performs a real read, which can have side
+ * effects.  Callers only inspect ordinary memory today, so this is not a concern.
+ */
+bool
+kernel_is_readable_without_fault(const void *addr, size_t size)
+{
+    if (size == 0) {
+        return true;
+    }
+
+    unsigned long cur = (unsigned long)addr;
+    unsigned long last;
+    char dummy;
+
+    /* Clamp a range that would overflow. */
+    if (cur + size < cur) {
+        last = ULONG_MAX;
+    } else {
+        last = cur + size - 1;
+    }
+
+    while (true) {
+        /* copy_from_user_nofault rejects kernel addresses while copy_from_kernel_nofault
+         * rejects user addresses, so we split on the boundary the kernel itself uses.
+         */
+        long res = cur < TASK_SIZE_MAX
+            ? copy_from_user_nofault(&dummy, (const void __user *)cur, 1)
+            : copy_from_kernel_nofault(&dummy, (const void *)cur, 1);
+        if (res != 0) {
+            return false;
+        }
+        /* Get the last byte of this page, compare with last then add 1 to get to the
+         * first byte of the next page.  This prevents wrapping.
+         */
+        unsigned long page_last = cur | (PAGE_SIZE - 1);
+        if (page_last >= last) {
+            return true;
+        }
+        cur = page_last + 1;
+    }
 }
 
 unsigned int
