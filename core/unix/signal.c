@@ -3152,12 +3152,15 @@ set_sigcontext_isa_mode(sig_full_cxt_t *sc_full, dr_isa_mode_t isa_mode)
 #    endif
 #endif
 
-/* Returns whether successful.  If avoid_failure, tries to translate
- * at least pc if not successful.  Pass f if known.
+/* Returns whether successful.  If avoid_failure, tries to translate at least pc if not
+ * successful.
+ * fragment_inout should point to the fragment to use for translation if known.
+ * If fragment_inout points to NULL, the fragment will be looked up from the PC in uc
+ * and fragment_inout will be set to point to the looked up fragment.
  */
 static bool
 translate_sigcontext(dcontext_t *dcontext, kernel_ucontext_t *uc, bool avoid_failure,
-                     fragment_t *f)
+                     DR_PARAM_INOUT fragment_t **fragment_inout, fragment_t *wrapper)
 {
     bool success = false;
     priv_mcontext_t mcontext;
@@ -3180,6 +3183,13 @@ translate_sigcontext(dcontext_t *dcontext, kernel_ucontext_t *uc, bool avoid_fai
     /* PR 214962: we assume we're going to relocate to this stored context,
      * so we restore memory now
      */
+
+    if (fragment_inout != NULL && *fragment_inout == NULL && wrapper != NULL) {
+        *fragment_inout = fragment_pclookup(dcontext, (cache_pc)sc->SC_XIP, wrapper);
+    }
+
+    fragment_t *f = fragment_inout == NULL ? NULL : *fragment_inout;
+
     if (translate_mcontext(dcontext->thread_record, &mcontext, true /*restore memory*/,
                            f)) {
         mcontext_to_ucontext(uc, &mcontext);
@@ -4074,10 +4084,10 @@ copy_frame_to_pending(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
 
 /* transfer control from signal handler to fcache return routine */
 static void
-transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext_t *uc,
-                                           sigcontext_t *sc_interrupted, int sig,
-                                           app_pc next_pc, linkstub_t *last_exit,
-                                           bool is_kernel_xfer)
+transfer_from_sig_handler_to_fcache_return(
+    dcontext_t *dcontext, kernel_ucontext_t *uc, sigcontext_t *sc_interrupted, int sig,
+    app_pc next_pc, linkstub_t *last_exit,
+    bool is_kernel_xfer _IF_NOT_X86(bool context_is_translated))
 {
     sigcontext_t *sc = SIGCXT_FROM_UCXT(uc);
     if (is_kernel_xfer) {
@@ -4112,11 +4122,7 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
      */
     sc->SC_XIP = (ptr_uint_t)fcache_return_routine(dcontext);
 #if defined(AARCHXX) || defined(RISCV64)
-    /* If !is_kernel_xfer then we have come here from main_signal_handler
-     * via check_for_modified_code and recreate_app_state_internal was
-     * called with just_pc so the stolen register still points at TLS.
-     */
-    if (is_kernel_xfer) {
+    if (is_kernel_xfer || context_is_translated) {
         /* We do not have to set dr_reg_stolen in dcontext's mcontext here
          * because dcontext's mcontext is stale and we used the mcontext
          * created from recreate_app_state_internal with the original sigcontext.
@@ -4125,11 +4131,8 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
          * so now we need set dr_reg_stolen to hold DR's TLS before sigreturn
          * from DR's handler.
          */
-        ASSERT(get_sigcxt_stolen_reg(sc) != (reg_t)*get_dr_tls_base_addr());
         /* Preserve the translated value. */
         dcontext->local_state->spill_space.reg_stolen = get_sigcxt_stolen_reg(sc);
-        /* Now put DR's base in the sigcontext. */
-        set_sigcxt_stolen_reg(sc, (reg_t)*get_dr_tls_base_addr());
 #    ifdef RISCV64
         os_set_app_tls_base(dcontext, TLS_REG_LIB, (void *)get_sigcxt_tp_reg(sc));
         /* Now put host tp in the sigcontext. */
@@ -4141,6 +4144,9 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
         set_pc_mode_in_cpsr(sc, DEFAULT_ISA_MODE);
 #    endif
     }
+
+    /* fcache_return requires the stolen register to contain the TLS base. */
+    set_sigcxt_stolen_reg(sc, (reg_t)*get_dr_tls_base_addr());
 #endif
 
 #if defined(X64) || defined(ARM)
@@ -4266,7 +4272,8 @@ handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_
          */
         transfer_from_sig_handler_to_fcache_return(
             dcontext, uc, sc_interrupted, sig, (app_pc)sc->SC_XIP,
-            (linkstub_t *)get_asynch_linkstub(), true);
+            (linkstub_t *)get_asynch_linkstub(),
+            /*is_kernel_transfer=*/true _IF_NOT_X86(/*context_is_translated=*/false));
         if (is_building_trace(dcontext)) {
             LOG(THREAD, LOG_ASYNCH, 3, "\tsquashing trace-in-progress\n");
             trace_abort(dcontext);
@@ -5162,9 +5169,8 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
 
         sc_orig = *sc;
         ASSERT(!forged);
-        /* cache the fragment since pclookup is expensive for coarse (i#658) */
-        f = fragment_pclookup(dcontext, (cache_pc)sc->SC_XIP, &wrapper);
-        xl8_success = translate_sigcontext(dcontext, ucxt, !can_always_delay[sig], f);
+        xl8_success =
+            translate_sigcontext(dcontext, ucxt, !can_always_delay[sig], &f, &wrapper);
 
         if (can_always_delay[sig] && !xl8_success) {
             /* delay: we expect this for coarse fragments if alarm arrives
@@ -5208,10 +5214,8 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
          */
         if (blocked && !forged && !reroute && !can_always_delay[sig] &&
             safe_is_in_fcache(dcontext, pc, xsp)) {
-            /* cache the fragment since pclookup is expensive for coarse (i#658) */
-            f = fragment_pclookup(dcontext, (cache_pc)sc->SC_XIP, &wrapper);
             sc_orig = *sc;
-            translate_sigcontext(dcontext, ucxt, true /*shouldn't fail*/, f);
+            translate_sigcontext(dcontext, ucxt, true /*shouldn't fail*/, &f, &wrapper);
 
             if (!send_signal_to_client_and_handle_action(
                     dcontext, sig, frame, sc, &sc_orig, access_address, true /*blocked*/,
@@ -5235,7 +5239,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             if (forged)
                 ASSERT(is_couldbelinking(dcontext));
             else
-                translate_sigcontext(dcontext, ucxt, true /*shouldn't fail*/, NULL);
+                translate_sigcontext(dcontext, ucxt, true /*shouldn't fail*/, NULL, NULL);
             /* the process should be terminated */
             execute_default_from_cache(dcontext, sig, frame, &sc_orig, forged);
             ASSERT_NOT_REACHED();
@@ -5520,26 +5524,39 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
      * how can we tell the difference?
      */
     if (was_executable_area_writable(target)) {
-        /* translate instr_cache_pc to original app pc
-         * DO NOT use translate_sigcontext, don't want to change the
-         * signal frame or else we'll lose control when we try to
-         * return to signal pc!
+        /* There are three scenarios we need to consider here:
+         * 1. Fault was in native code, we return to the native PC,
+         * 2. Fault was in fcache code, we return to the fcache PC,
+         * 3. Fault was in fcache code, we return to d_r_dispatch.
+         *
+         * Cases 1 and 2 we need to preserve the sigcontext state because we are
+         * returning to that context but case 3 we need to restore app state.
+         *
+         * If native_state==true we are in case 1 and don't need to restore the app state
+         * but if native_state==false then theoretically we don't know whether we are in
+         * case 2 or 3 until handle_modified_code() returns. This is a problem because
+         * if we are restoring state it needs to be done before calling
+         * handle_modified_code() because it might flush the current fragment.
+         *
+         * In practice however case 2 never happens. Comments in handle_modified_code()
+         * describe the case 2 scenario as a possible future optimisation that hasn't
+         * been implemented. If we assume case 2 is impossible then we can distinguish
+         * case 1 and 3 using native_state.
          */
         app_pc next_pc, translated_pc = NULL;
         fragment_t *f = NULL;
         fragment_t wrapper;
         ASSERT((cache_pc)SIGCXT_FROM_UCXT(uc)->SC_XIP == instr_cache_pc);
+        bool context_is_translated = false;
         if (!native_state) {
-            /* For safe recreation we need to either be couldbelinking or hold
-             * the initexit lock (to keep someone from flushing current
-             * fragment), the initexit lock is easier
+            /* handle_modified_code() might flush f so we need to recreate app state
+             * before the call.
              */
-            d_r_mutex_lock(&thread_initexit_lock);
-            /* cache the fragment since pclookup is expensive for coarse units (i#658) */
-            f = fragment_pclookup(dcontext, instr_cache_pc, &wrapper);
-            translated_pc = recreate_app_pc(dcontext, instr_cache_pc, f);
+            context_is_translated =
+                translate_sigcontext(dcontext, uc, true, &f, &wrapper);
+            ASSERT(context_is_translated);
+            translated_pc = (app_pc)SIGCXT_FROM_UCXT(uc)->SC_XIP;
             ASSERT(translated_pc != NULL);
-            d_r_mutex_unlock(&thread_initexit_lock);
         }
 
         next_pc =
@@ -5556,6 +5573,7 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
         }
 
         if (next_pc == NULL) {
+            ASSERT(native_state);
             /* re-execute the write -- just have main_signal_handler return */
             return true;
         } else {
@@ -5563,7 +5581,8 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
             /* Do not resume execution in cache, go back to d_r_dispatch. */
             transfer_from_sig_handler_to_fcache_return(
                 dcontext, uc, NULL, SIGSEGV, next_pc,
-                (linkstub_t *)get_selfmod_linkstub(), false);
+                (linkstub_t *)get_selfmod_linkstub(),
+                /*is_kernel_transfer=*/false _IF_NOT_X86(context_is_translated));
             /* now have main_signal_handler return */
             return true;
         }
@@ -6292,7 +6311,8 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
         dcontext, uc, app_sc, sig,
         /* Make sure handler is next thing we execute */
         (app_pc)SIGACT_PRIMARY_HANDLER(info->sighand->action[sig]),
-        (linkstub_t *)get_asynch_linkstub(), true);
+        (linkstub_t *)get_asynch_linkstub(),
+        /*is_kernel_xfer=*/true _IF_NOT_X86(/*context_is_translated=*/false));
 
     if ((info->sighand->action[sig]->flags & SA_ONESHOT) != 0) {
         /* clear handler now -- can't delete memory since sigreturn,
