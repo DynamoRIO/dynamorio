@@ -497,8 +497,9 @@ public:
                        int (*print_cb)(void *data, char *dst, size_t max_len),
                        void (*free_cb)(void *data));
 
+    // "version" is an OFFLINE_FILE_VERSION* constant.
     bool
-    opnd_disp_is_elidable(opnd_t memop);
+    opnd_disp_is_elidable(opnd_t memop, int version);
     // "version" is an OFFLINE_FILE_VERSION* constant.
     bool
     opnd_is_elidable(opnd_t memop, DR_PARAM_OUT reg_id_t &base, int version);

@@ -4967,6 +4967,237 @@ test_stack_elision(void *drcontext)
             check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
             check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
     }
+#elif defined(AARCH64)
+    {
+        std::cerr << "\n===============\nTesting push/pop elision\n";
+        instrlist_t *ilist = instrlist_create(drcontext);
+        instr_t *nop = XINST_CREATE_nop(drcontext);
+        constexpr int DISP = 32;
+        instr_t *ldr_pre = INSTR_CREATE_ldr_imm_preindex(
+            drcontext, opnd_create_reg(REG2), opnd_create_reg(DR_REG_SP), DISP);
+        instr_t *ldr_post = INSTR_CREATE_ldr_imm_postindex(
+            drcontext, opnd_create_reg(REG2), opnd_create_reg(DR_REG_SP), DISP);
+        instr_t *str_pre = INSTR_CREATE_str_imm_preindex(
+            drcontext, opnd_create_reg(REG2), opnd_create_reg(DR_REG_SP), DISP);
+        instr_t *str_post = INSTR_CREATE_str_imm_postindex(
+            drcontext, opnd_create_reg(REG2), opnd_create_reg(DR_REG_SP), DISP);
+        instr_t *ldp_pre = INSTR_CREATE_ldp_imm_preindex(
+            drcontext, opnd_create_reg(DR_REG_R2), opnd_create_reg(REG2),
+            opnd_create_reg(DR_REG_SP), DISP);
+        instr_t *ldp_post = INSTR_CREATE_ldp_imm_postindex(
+            drcontext, opnd_create_reg(DR_REG_R2), opnd_create_reg(REG2),
+            opnd_create_reg(DR_REG_SP), DISP);
+        instr_t *stp_pre = INSTR_CREATE_stp_imm_preindex(
+            drcontext, opnd_create_reg(DR_REG_R2), opnd_create_reg(REG2),
+            opnd_create_reg(DR_REG_SP), DISP);
+        instr_t *stp_post = INSTR_CREATE_stp_imm_postindex(
+            drcontext, opnd_create_reg(DR_REG_R2), opnd_create_reg(REG2),
+            opnd_create_reg(DR_REG_SP), DISP);
+
+        instrlist_append(ilist, nop);
+        instrlist_append(ilist, ldr_pre);
+        instrlist_append(ilist, ldr_post);
+        instrlist_append(ilist, str_pre);
+        instrlist_append(ilist, str_post);
+        instrlist_append(ilist, ldp_pre);
+        instrlist_append(ilist, ldp_post);
+        instrlist_append(ilist, stp_pre);
+        instrlist_append(ilist, stp_post);
+
+        size_t offs_nop = 0;
+        size_t offs_ldr_pre = offs_nop + instr_length(drcontext, nop);
+        size_t offs_ldr_post = offs_ldr_pre + instr_length(drcontext, ldr_pre);
+        size_t offs_str_pre = offs_ldr_post + instr_length(drcontext, ldr_post);
+        size_t offs_str_post = offs_str_pre + instr_length(drcontext, str_pre);
+        size_t offs_ldp_pre = offs_str_post + instr_length(drcontext, str_post);
+        size_t offs_ldp_post = offs_ldp_pre + instr_length(drcontext, ldp_pre);
+        size_t offs_stp_pre = offs_ldp_post + instr_length(drcontext, ldp_post);
+        size_t offs_stp_post = offs_stp_pre + instr_length(drcontext, stp_pre);
+
+        std::vector<offline_entry_t> raw;
+        raw.push_back(make_header());
+        raw.push_back(make_tid());
+        raw.push_back(make_pid());
+        raw.push_back(make_line_size());
+        constexpr uint64_t TIME_VALUE = 0x0013000000000000;
+        raw.push_back(make_timestamp(TIME_VALUE));
+        raw.push_back(make_core());
+        raw.push_back(make_block(offs_ldr_pre, 8));
+        constexpr uint64_t BASE_ADDR = 0x1200;
+        raw.push_back(make_memref(BASE_ADDR));
+        raw.push_back(make_timestamp(TIME_VALUE));
+        raw.push_back(make_core());
+        raw.push_back(make_exit());
+
+        std::vector<uint64_t> stats;
+        std::vector<trace_entry_t> entries;
+        if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
+            return false;
+        int idx = 0;
+        if (!(check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+              check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER,
+                          TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER,
+                          TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                          TIME_VALUE) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_ldr_pre) &&
+              check_entry(entries, idx, TRACE_TYPE_READ, -1, BASE_ADDR + DISP) &&
+              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_ldr_post) &&
+              check_entry(entries, idx, TRACE_TYPE_READ, -1, BASE_ADDR + DISP) &&
+              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_str_pre) &&
+              check_entry(entries, idx, TRACE_TYPE_WRITE, -1, BASE_ADDR + 3 * DISP) &&
+              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_str_post) &&
+              check_entry(entries, idx, TRACE_TYPE_WRITE, -1, BASE_ADDR + 3 * DISP) &&
+              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_ldp_pre) &&
+              check_entry(entries, idx, TRACE_TYPE_READ, -1, BASE_ADDR + 5 * DISP) &&
+              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_ldp_post) &&
+              check_entry(entries, idx, TRACE_TYPE_READ, -1, BASE_ADDR + 5 * DISP) &&
+              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_stp_pre) &&
+              check_entry(entries, idx, TRACE_TYPE_WRITE, -1, BASE_ADDR + 7 * DISP) &&
+              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_stp_post) &&
+              check_entry(entries, idx, TRACE_TYPE_WRITE, -1, BASE_ADDR + 7 * DISP) &&
+              // Tail of trace.
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                          TIME_VALUE) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+              check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_FOOTER, -1)))
+            return false;
+    }
+    {
+        std::cerr << "\n===============\nTesting legacy push/pop\n";
+        instrlist_t *ilist = instrlist_create(drcontext);
+        instr_t *nop = XINST_CREATE_nop(drcontext);
+        constexpr int DISP = 32;
+        instr_t *ldr_pre = INSTR_CREATE_ldr_imm_preindex(
+            drcontext, opnd_create_reg(REG2), opnd_create_reg(DR_REG_SP), DISP);
+        instr_t *ldr_post = INSTR_CREATE_ldr_imm_postindex(
+            drcontext, opnd_create_reg(REG2), opnd_create_reg(DR_REG_SP), DISP);
+        instr_t *str_pre = INSTR_CREATE_str_imm_preindex(
+            drcontext, opnd_create_reg(REG2), opnd_create_reg(DR_REG_SP), DISP);
+        instr_t *str_post = INSTR_CREATE_str_imm_postindex(
+            drcontext, opnd_create_reg(REG2), opnd_create_reg(DR_REG_SP), DISP);
+        instr_t *ldp_pre = INSTR_CREATE_ldp_imm_preindex(
+            drcontext, opnd_create_reg(DR_REG_R2), opnd_create_reg(REG2),
+            opnd_create_reg(DR_REG_SP), DISP);
+        instr_t *ldp_post = INSTR_CREATE_ldp_imm_postindex(
+            drcontext, opnd_create_reg(DR_REG_R2), opnd_create_reg(REG2),
+            opnd_create_reg(DR_REG_SP), DISP);
+        instr_t *stp_pre = INSTR_CREATE_stp_imm_preindex(
+            drcontext, opnd_create_reg(DR_REG_R2), opnd_create_reg(REG2),
+            opnd_create_reg(DR_REG_SP), DISP);
+        instr_t *stp_post = INSTR_CREATE_stp_imm_postindex(
+            drcontext, opnd_create_reg(DR_REG_R2), opnd_create_reg(REG2),
+            opnd_create_reg(DR_REG_SP), DISP);
+
+        instrlist_append(ilist, nop);
+        instrlist_append(ilist, ldr_pre);
+        instrlist_append(ilist, ldr_post);
+        instrlist_append(ilist, str_pre);
+        instrlist_append(ilist, str_post);
+        instrlist_append(ilist, ldp_pre);
+        instrlist_append(ilist, ldp_post);
+        instrlist_append(ilist, stp_pre);
+        instrlist_append(ilist, stp_post);
+
+        size_t offs_nop = 0;
+        size_t offs_ldr_pre = offs_nop + instr_length(drcontext, nop);
+        size_t offs_ldr_post = offs_ldr_pre + instr_length(drcontext, ldr_pre);
+        size_t offs_str_pre = offs_ldr_post + instr_length(drcontext, ldr_post);
+        size_t offs_str_post = offs_str_pre + instr_length(drcontext, str_pre);
+        size_t offs_ldp_pre = offs_str_post + instr_length(drcontext, str_post);
+        size_t offs_ldp_post = offs_ldp_pre + instr_length(drcontext, ldp_pre);
+        size_t offs_stp_pre = offs_ldp_post + instr_length(drcontext, ldp_post);
+        size_t offs_stp_post = offs_stp_pre + instr_length(drcontext, stp_pre);
+
+        std::vector<offline_entry_t> raw;
+        raw.push_back(make_header(OFFLINE_FILE_VERSION_ELIDE_AARCH64_SP - 1));
+        raw.push_back(make_tid());
+        raw.push_back(make_pid());
+        raw.push_back(make_line_size());
+        constexpr uint64_t TIME_VALUE = 0x0013000000000000;
+        raw.push_back(make_timestamp(TIME_VALUE));
+        raw.push_back(make_core());
+        raw.push_back(make_block(offs_ldr_pre, 8));
+        constexpr uint64_t BASE_ADDR = 0x1200;
+        // This is a legacy trace: make sure raw2trace handles displacements and
+        // the full set of addrs.
+        raw.push_back(make_memref(BASE_ADDR + DISP));
+        raw.push_back(make_memref(BASE_ADDR + DISP));
+        raw.push_back(make_memref(BASE_ADDR + 3 * DISP));
+        raw.push_back(make_memref(BASE_ADDR + 3 * DISP));
+        raw.push_back(make_memref(BASE_ADDR + 5 * DISP));
+        raw.push_back(make_memref(BASE_ADDR + 5 * DISP));
+        raw.push_back(make_memref(BASE_ADDR + 7 * DISP));
+        raw.push_back(make_memref(BASE_ADDR + 7 * DISP));
+        raw.push_back(make_timestamp(TIME_VALUE));
+        raw.push_back(make_core());
+        raw.push_back(make_exit());
+
+        std::vector<uint64_t> stats;
+        std::vector<trace_entry_t> entries;
+        if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
+            return false;
+        int idx = 0;
+        if (!(check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+              check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER,
+                          TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER,
+                          TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                          TIME_VALUE) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_ldr_pre) &&
+              check_entry(entries, idx, TRACE_TYPE_READ, -1, BASE_ADDR + DISP) &&
+              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_ldr_post) &&
+              check_entry(entries, idx, TRACE_TYPE_READ, -1, BASE_ADDR + DISP) &&
+              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_str_pre) &&
+              check_entry(entries, idx, TRACE_TYPE_WRITE, -1, BASE_ADDR + 3 * DISP) &&
+              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_str_post) &&
+              check_entry(entries, idx, TRACE_TYPE_WRITE, -1, BASE_ADDR + 3 * DISP) &&
+              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_ldp_pre) &&
+              check_entry(entries, idx, TRACE_TYPE_READ, -1, BASE_ADDR + 5 * DISP) &&
+              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_ldp_post) &&
+              check_entry(entries, idx, TRACE_TYPE_READ, -1, BASE_ADDR + 5 * DISP) &&
+              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_stp_pre) &&
+              check_entry(entries, idx, TRACE_TYPE_WRITE, -1, BASE_ADDR + 7 * DISP) &&
+              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_stp_post) &&
+              check_entry(entries, idx, TRACE_TYPE_WRITE, -1, BASE_ADDR + 7 * DISP) &&
+              // Tail of trace.
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                          TIME_VALUE) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+              check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_FOOTER, -1)))
+            return false;
+    }
+    return true;
 #else
     return true;
 #endif

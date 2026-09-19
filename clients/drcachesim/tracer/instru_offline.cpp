@@ -638,15 +638,18 @@ offline_instru_t::insert_save_type_and_size(void *drcontext, instrlist_t *ilist,
 }
 
 bool
-offline_instru_t::opnd_disp_is_elidable(opnd_t memop)
+offline_instru_t::opnd_disp_is_elidable(opnd_t memop, int version)
 {
     return !disable_optimizations_ && opnd_is_near_base_disp(memop) &&
         opnd_get_base(memop) != DR_REG_NULL &&
         opnd_get_index(memop) == DR_REG_NULL
 #ifdef AARCH64
-        /* On AArch64 we cannot directly store SP to memory. */
-        && opnd_get_base(memop) != DR_REG_SP
-#elif defined(AARCH32)
+        // Older versions didn't elide SP due to being unable to write it directly
+        // to memory. New versions elide even with the slower write path.
+        && (opnd_get_base(memop) != DR_REG_SP ||
+            version >= OFFLINE_FILE_VERSION_ELIDE_AARCH64_SP)
+#endif
+#ifdef AARCH32
         /* Avoid complexities with PC bases which are completely elided separately. */
         && opnd_get_base(memop) != DR_REG_PC
 #endif
@@ -662,12 +665,19 @@ offline_instru_t::insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t 
     bool reserved = false;
     bool have_addr = false;
     drreg_status_t res;
-    if (opnd_disp_is_elidable(ref)) {
+    // This is only used for live tracing with the latest offline version.
+    if (opnd_disp_is_elidable(ref, OFFLINE_FILE_VERSION)) {
         /* Optimization: to avoid needing a scratch reg to lea into, we simply
          * store the base reg directly and add the disp during post-processing.
          */
         reg_addr = opnd_get_base(ref);
-        if (opnd_get_base(ref) == reg_ptr || opnd_get_base(ref) == dr_get_stolen_reg()) {
+        if (opnd_get_base(ref) == reg_ptr ||
+            opnd_get_base(ref) == dr_get_stolen_reg()
+#ifdef AARCH64
+            /* On AArch64 we cannot directly store SP to memory. */
+            || opnd_get_base(ref) == DR_REG_SP
+#endif
+        ) {
             /* Here we do need a scratch reg, and raw2trace can't identify these cases:
              * so we set disp to 0 (since raw2trace will add it on) and use the
              * regular path below.
@@ -937,6 +947,7 @@ offline_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
     app_pc tag_pc = dr_fragment_app_pc(tag);
     per_block->start_pc = tag_pc;
 
+    // This is only used for live tracing with the latest offline version.
     identify_elidable_addresses(drcontext, ilist, OFFLINE_FILE_VERSION,
                                 memref_needs_full_info);
 
@@ -975,10 +986,7 @@ offline_instru_t::opnd_is_elidable(opnd_t memop, DR_PARAM_OUT reg_id_t &base, in
     if (!opnd_is_near_base_disp(memop) ||
         // We're assuming displacements are all factored out, such that we can share
         // a base across all uses without subtracting the original disp.
-        // TODO(i#4898): This is blocking elision of SP bases on AArch64.  We should
-        // add disp subtraction by storing the disp along with reg_vals in raw2trace
-        // for AArch64.
-        !opnd_disp_is_elidable(memop) ||
+        !opnd_disp_is_elidable(memop, version) ||
         (opnd_get_base(memop) != DR_REG_NULL && opnd_get_index(memop) != DR_REG_NULL))
         return false;
     base = opnd_get_base(memop);

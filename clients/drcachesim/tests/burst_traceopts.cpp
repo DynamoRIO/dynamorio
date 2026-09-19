@@ -252,7 +252,10 @@ test_main(int argc, const char *argv[])
     // each. For now we rely on this sanity check on a large-ish count combined with
     // raw2trace_unit_tests showing raw2trace *expects* elision in this cases and
     // will fail without it.
-    assert(elided_count_opt > 15);
+    // The count here is so high because it elides stack accesses in the code
+    // run before and after the asm code: the asm itself is more like 25 elisions
+    // (and this total count was just 19 for AArch64 before stack elision was added).
+    assert(elided_count_opt > 150);
 
     // Now compare the two traces using external iterators and a custom tool.
     void *dr_context = dr_standalone_init();
@@ -499,7 +502,22 @@ stack_newblock2:
         // test_arith_immed_elision() covers all GPRs.
         bx       lr
 # elif defined(AARCH64)
-        // TODO i#4898: Add stack elision support.
+        mov      x0, sp
+        // Make some room for safe stores.
+        sub      sp, sp, #256
+        ldr      x1, [sp, #16]
+        // Test both pre and post index stack references.
+        str      x1, [sp, #16]!
+        str      x1, [sp], #16
+        stp      x1, x2, [sp, #16]!
+        stp      x1, x2, [sp], #16
+        ldr      x1, [sp, #16]!
+        ldr      x1, [sp], #16
+        ldrh     w1, [sp, #16]!
+        ldrb     w1, [sp], #16
+        ldp      x1, x2, [sp, #16]!
+        ldp      x1, x2, [sp], #16
+        mov      sp, x0
         ret
 # else
 #  error NYI

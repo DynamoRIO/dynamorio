@@ -2181,7 +2181,7 @@ raw2trace_t::append_scatter_gather(raw2trace_thread_data_t *tdata,
             opnd_t memref =
                 is_scatter ? instr->mem_dest_at(0).opnd : instr->mem_src_at(0).opnd;
             if (!TESTANY(OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS, get_file_type(tdata)) &&
-                tdata->instru_offline.opnd_disp_is_elidable(memref)) {
+                tdata->instru_offline.opnd_disp_is_elidable(memref, get_version(tdata))) {
                 // We stored only the base reg, as an optimization.
                 // This happens even with predicated instructions where we
                 // don't do base reg elision.
@@ -2852,7 +2852,7 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
         reg_vals[base] = buf->addr;
     }
     if (!TESTANY(OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS, get_file_type(tdata)) &&
-        tdata->instru_offline.opnd_disp_is_elidable(memref.opnd)) {
+        tdata->instru_offline.opnd_disp_is_elidable(memref.opnd, version)) {
         // We stored only the base reg, as an optimization.
         buf->addr += opnd_get_disp(memref.opnd);
         log(5, "Added disp %d\n", opnd_get_disp(memref.opnd));
