@@ -106,7 +106,7 @@ GLOBAL_LABEL(memset:)
         // On some cores, the block size is as high as 512 bytes, though usually
         // it's 64 bytes.
         cmp      x2, x3
-        b.lo     slow_path
+        b.lo     memset_postzva_unaligned
         // Slow path until reach aligned start.
         sub      x4, x3, #1 // Mask for block size.
         ands     x4, x6, x4
