@@ -1188,6 +1188,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap, bool at_thread_ex
     byte *mem_ref, *buf_ptr;
     byte *redzone;
     bool do_write = true;
+    bool hit_window_end = false;
     uint current_num_refs = 0;
 
     if (op_offline.get_value() && data->file == INVALID_FILE) {
@@ -1368,7 +1369,6 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap, bool at_thread_ex
                 set_local_mode(data, BBDUP_MODE_TRACE);
             }
         } else if (get_current_trace_for_instrs_value() > 0) {
-            bool hit_window_end = false;
             for (mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
                  mem_ref += instru->sizeof_entry()) {
                 if (!window_changed && !hit_window_end &&
@@ -1447,6 +1447,17 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap, bool at_thread_ex
             // we settle for exiting.
             NOTIFY(0, "Exiting process after ~" UINT64_FORMAT_STRING " references.\n",
                    num_refs_racy - num_filter_refs_racy);
+            dr_exit_process(0);
+        }
+        dr_mutex_unlock(mutex);
+    }
+    if (hit_window_end) {
+        dr_mutex_lock(mutex);
+        if (!exited_process) {
+            exited_process = true;
+            dr_mutex_unlock(mutex);
+            NOTIFY(0, "Exiting process after ~" UINT64_FORMAT_STRING " instructions.\n",
+                   op_trace_for_instrs.get_value());
             dr_exit_process(0);
         }
         dr_mutex_unlock(mutex);
