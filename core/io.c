@@ -972,6 +972,7 @@ test_our_memcpy(void)
     test_memcpy_offset_size(2, 2, 2);
     test_memcpy_offset_size(1, 1, 3);
     test_memcpy_offset_size(2, 2, 3);
+    test_memcpy_offset_size(3, 3, 15);
     /* Test a variety of offsets. */
     for (i = 0; i < 16; i++) {
         for (j = 0; j < 16; j++) {
