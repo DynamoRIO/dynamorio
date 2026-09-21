@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc. All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc. All rights reserved.
  * Copyright (c) 2016-2024 ARM Limited. All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc. All rights reserved.
  * **********************************************************/
@@ -3083,6 +3083,34 @@ INSTR_CREATE_lsl(void *dc, opnd_t rd, opnd_t rn, opnd_t shift)
 #define INSTR_CREATE_ldr_imm(dc, Rt, Xn, Rn, imm) \
     instr_create_2dst_3src(dc, OP_ldr, Rt, Xn, Rn, Xn, imm)
 
+/**
+ * Creates an LDR immediate pre-indexed pointer-sized instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param r_dst   The output register.
+ * \param r_base  The address base register or stack pointer.
+ * \param disp    Raw integer to add to r_base (and address) prior to loading.
+ */
+#define INSTR_CREATE_ldr_imm_preindex(dc, r_dst, r_base, disp)                           \
+    instr_create_2dst_3src(                                                              \
+        dc, OP_ldr, r_dst, r_base,                                                       \
+        opnd_create_base_disp_aarch64(opnd_get_reg(r_base), DR_REG_NULL, DR_EXTEND_UXTX, \
+                                      false, disp, DR_OPND_DEFAULT, OPSZ_PTR),           \
+        r_base, OPND_CREATE_INT(disp))
+
+/**
+ * Creates an LDR immediate post-indexed pointer-sized instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param r_dst   The output register.
+ * \param r_base  The address base register or stack pointer.
+ * \param disp    Raw integer to add to r_base after loading.
+ */
+#define INSTR_CREATE_ldr_imm_postindex(dc, r_dst, r_base, disp)                          \
+    instr_create_2dst_3src(                                                              \
+        dc, OP_ldr, r_dst, r_base,                                                       \
+        opnd_create_base_disp_aarch64(opnd_get_reg(r_base), DR_REG_NULL, DR_EXTEND_UXTX, \
+                                      false, 0, DR_OPND_DEFAULT, OPSZ_PTR),              \
+        r_base, OPND_CREATE_INT(disp))
+
 /* XXX: This should auto-extract the base reg and the immediate from the memop! */
 /**
  * Creates a STR immediate instruction.
@@ -3094,6 +3122,94 @@ INSTR_CREATE_lsl(void *dc, opnd_t rd, opnd_t rn, opnd_t shift)
  */
 #define INSTR_CREATE_str_imm(dc, Rt, Xt, Xn, imm) \
     instr_create_2dst_3src(dc, OP_str, Rt, Xn, Xt, Xn, imm)
+
+/**
+ * Creates a STR immediate pre-indexed pointer-sized instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param r_src   The input register to store.
+ * \param r_base  The address base register or stack pointer.
+ * \param disp    Raw integer to add to r_base (and address) prior to storing.
+ */
+#define INSTR_CREATE_str_imm_preindex(dc, r_src, r_base, disp)                           \
+    instr_create_2dst_3src(                                                              \
+        dc, OP_str,                                                                      \
+        opnd_create_base_disp_aarch64(opnd_get_reg(r_base), DR_REG_NULL, DR_EXTEND_UXTX, \
+                                      false, disp, DR_OPND_DEFAULT, OPSZ_PTR),           \
+        r_base, r_src, r_base, OPND_CREATE_INT(disp))
+
+/**
+ * Creates a STR immediate post-indexed pointer-sized instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param r_src   The input register to store.
+ * \param r_base  The address base register or stack pointer.
+ * \param disp    Raw integer to add to r_base after storing.
+ */
+#define INSTR_CREATE_str_imm_postindex(dc, r_src, r_base, disp)                          \
+    instr_create_2dst_3src(                                                              \
+        dc, OP_str,                                                                      \
+        opnd_create_base_disp_aarch64(opnd_get_reg(r_base), DR_REG_NULL, DR_EXTEND_UXTX, \
+                                      false, 0, DR_OPND_DEFAULT, OPSZ_PTR),              \
+        r_base, r_src, r_base, OPND_CREATE_INT(disp))
+
+/**
+ * Creates an LDP immediate pre-indexed double-pointer-sized instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param r_dst1  The first output register.
+ * \param r_dst2  The second output register.
+ * \param r_base  The address base register or stack pointer.
+ * \param disp    Raw integer to add to r_base (and address) prior to loading.
+ */
+#define INSTR_CREATE_ldp_imm_preindex(dc, r_dst1, r_dst2, r_base, disp)                  \
+    instr_create_3dst_3src(                                                              \
+        dc, OP_ldp, r_dst1, r_dst2, r_base,                                              \
+        opnd_create_base_disp_aarch64(opnd_get_reg(r_base), DR_REG_NULL, DR_EXTEND_UXTX, \
+                                      false, disp, DR_OPND_DEFAULT, OPSZ_16),            \
+        r_base, OPND_CREATE_INT(disp))
+
+/**
+ * Creates an LDP immediate post-indexed double-pointer-sized instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param r_dst1  The first output register.
+ * \param r_dst2  The second output register.
+ * \param r_base  The address base register or stack pointer.
+ * \param disp    Raw integer to add to r_base (and address) after loading.
+ */
+#define INSTR_CREATE_ldp_imm_postindex(dc, r_dst1, r_dst2, r_base, disp)                 \
+    instr_create_3dst_3src(                                                              \
+        dc, OP_ldp, r_dst1, r_dst2, r_base,                                              \
+        opnd_create_base_disp_aarch64(opnd_get_reg(r_base), DR_REG_NULL, DR_EXTEND_UXTX, \
+                                      false, 0, DR_OPND_DEFAULT, OPSZ_16),               \
+        r_base, OPND_CREATE_INT(disp))
+
+/**
+ * Creates a STP immediate pre-indexed double-pointer-sized instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param r_src1  The first input register.
+ * \param r_src2  The second input register.
+ * \param r_base  The address base register or stack pointer.
+ * \param disp    Raw integer to add to r_base (and address) prior to storing.
+ */
+#define INSTR_CREATE_stp_imm_preindex(dc, r_src1, r_src2, r_base, disp)                  \
+    instr_create_2dst_4src(                                                              \
+        dc, OP_stp,                                                                      \
+        opnd_create_base_disp_aarch64(opnd_get_reg(r_base), DR_REG_NULL, DR_EXTEND_UXTX, \
+                                      false, disp, DR_OPND_DEFAULT, OPSZ_16),            \
+        r_base, r_src1, r_src2, r_base, OPND_CREATE_INT(disp))
+
+/**
+ * Creates a STP immediate post-indexed double-pointer-sized instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param r_src1  The first input register.
+ * \param r_src2  The second input register.
+ * \param r_base  The address base register or stack pointer.
+ * \param disp    Raw integer to add to r_base after storing.
+ */
+#define INSTR_CREATE_stp_imm_postindex(dc, r_src1, r_src2, r_base, disp)                 \
+    instr_create_2dst_4src(                                                              \
+        dc, OP_stp,                                                                      \
+        opnd_create_base_disp_aarch64(opnd_get_reg(r_base), DR_REG_NULL, DR_EXTEND_UXTX, \
+                                      false, 0, DR_OPND_DEFAULT, OPSZ_16),               \
+        r_base, r_src1, r_src2, r_base, OPND_CREATE_INT(disp))
 
 /* -------- Floating-point data-processing (1 source) ------------------ */
 

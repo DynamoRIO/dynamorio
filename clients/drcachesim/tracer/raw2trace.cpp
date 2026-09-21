@@ -1437,6 +1437,44 @@ raw2trace_t::aggregate_and_write_schedule_files()
  * Block and memref handling
  */
 
+void
+raw2trace_t::update_reg_deltas(raw2trace_thread_data_t *tdata, int version, instr_t *inst,
+                               reg_id_t only_reg, bool reg_remembered[DR_NUM_GPR_REGS],
+                               int reg_delta[DR_NUM_GPR_REGS])
+{
+    // Track immediate/displacement modifications to elided base registers.
+    // Since the instr summary updates occur on the elision label *before*
+    // the actual instr, the summary will *not* include base reg modifications
+    // by the current instr (which is what we want for a dest, and for a disp
+    // we explicitly add its value separately).
+    for (int i = 0; i < instr_num_dsts(inst); ++i) {
+        opnd_t dst = instr_get_dst(inst, i);
+        if (!opnd_is_reg(dst))
+            continue;
+        reg_id_t reg = reg_to_pointer_sized(opnd_get_reg(dst));
+        // We do not support non-GPR base elision.
+        if (reg < DR_REG_START_GPR || reg > DR_REG_STOP_GPR)
+            continue;
+        // Do not start tracking until we've started remembering.
+        if (!reg_remembered[reg - DR_REG_START_GPR] ||
+            (only_reg != DR_REG_NULL && reg != only_reg))
+            continue;
+        int delta;
+        if (tdata->instru_offline.does_reg_write_thwart_elision(version, inst, reg,
+                                                                delta)) {
+            // Clear if we were eliding and hit a break in the elision chain.
+            reg_delta[reg - DR_REG_START_GPR] = 0;
+            reg_remembered[reg - DR_REG_START_GPR] = false;
+            log(5, "Clearing reg %s delta @ " PFX "\n", get_register_name(reg),
+                instr_get_app_pc(inst));
+        } else {
+            reg_delta[reg - DR_REG_START_GPR] += delta;
+            log(5, "New reg %s delta %d @ " PFX "\n", get_register_name(reg),
+                reg_delta[reg - DR_REG_START_GPR], instr_get_app_pc(inst));
+        }
+    }
+}
+
 bool
 raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 modidx,
                                         uint64 modoffs, app_pc start_pc, uint instr_count)
@@ -1478,33 +1516,13 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
         return true;
     }
 
-    int stack_disp = 0;
+    int reg_delta[DR_NUM_GPR_REGS] = {};
+    bool reg_remembered[DR_NUM_GPR_REGS] = {};
     for (instr_t *inst = instrlist_first(ilist); inst != nullptr;
          inst = instr_get_next(inst)) {
-        if (version >= OFFLINE_FILE_VERSION_ELIDE_X86_PUSH) {
-#ifdef X86
-            // We track only push and pop for now; we won't elide on other stack
-            // pointer changes.
-            // Since the instr summary updates occur on the elision label *before*
-            // the actual instr, our stack_disp updates here will *not* include the
-            // current instr.
-            // XXX i#4913: Generalize to any immediate add/sub, incl aarchxx
-            // pre-and-post indexing.
-            if (instr_get_opcode(inst) == OP_push ||
-                instr_get_opcode(inst) == OP_push_imm) {
-                stack_disp -= opnd_size_in_bytes(opnd_get_size(instr_get_dst(inst, 1)));
-            }
-            if (instr_get_opcode(inst) == OP_pop) {
-                stack_disp += opnd_size_in_bytes(opnd_get_size(instr_get_src(inst, 1)));
-            }
-            if (tdata->instru_offline.does_reg_write_thwart_elision(version, inst,
-                                                                    DR_REG_XSP)) {
-                // Clear if we were eliding and hit a break in the elision chain.
-                stack_disp = 0;
-                log(5, "Clearing stack_disp @ " PFX "\n", instr_get_app_pc(inst));
-            }
-#endif
-        }
+
+        update_reg_deltas(tdata, version, inst, DR_REG_NULL, reg_remembered, reg_delta);
+
         int index, memop_index;
         bool write, needs_base;
         if (!tdata->instru_offline.label_marks_elidable(inst, &index, &memop_index,
@@ -1520,33 +1538,55 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
         int index_in_bb =
             static_cast<int>(reinterpret_cast<ptr_int_t>(instr_get_note(meminst)));
         app_pc orig_pc = modmap_().get_orig_pc_from_map_pc(pc, modidx, modoffs);
-        log(5,
-            "Marking < " PFX ", " PFX "> %s #%d to use remembered base stack_disp=%d\n",
-            start_pc, pc, write ? "write" : "read", memop_index, stack_disp);
-        if (!set_instr_summary_flags(tdata, modidx, modoffs, start_pc, instr_count,
-                                     index_in_bb, pc, orig_pc, write, memop_index,
-                                     true /*use_remembered*/,
-                                     false /*don't change "remember"*/, stack_disp)) {
-            tdata->error = "Failed to set flags for elided base address";
-            return false;
-        }
-        // We still need to set the use_remember flag for rip-rel, even though it
-        // does not need a prior base, because we do not elide *all* rip-rels
-        // (e.g., predicated rip-rels).
-        if (!needs_base)
+        if (!needs_base) {
+            // We still need to set the use_remember flag for rip-rel, even though it
+            // does not need a prior base, because we do not elide *all* rip-rels
+            // (e.g., predicated rip-rels).
+            log(5, "Marking < " PFX ", " PFX "> %s #%d to as rip-rel for elision\n",
+                start_pc, pc, write ? "write" : "read", memop_index);
+            if (!set_instr_summary_flags(tdata, modidx, modoffs, start_pc, instr_count,
+                                         index_in_bb, pc, orig_pc, write, memop_index,
+                                         true /*use_remembered*/,
+                                         false /*don't change "remember"*/)) {
+                tdata->error = "Failed to set flags for elided base address";
+                return false;
+            }
             continue;
-        // Find the source of the base.  It has to be the first instance when
-        // walking backward.
+        }
         opnd_t elided_op =
             write ? instr_get_dst(meminst, index) : instr_get_src(meminst, index);
-        reg_id_t base;
+        reg_id_t base = DR_REG_NULL;
         bool got_base = tdata->instru_offline.opnd_is_elidable(elided_op, base, version);
-        DR_ASSERT(got_base && base != DR_REG_NULL);
+        DR_ASSERT(got_base && base != DR_REG_NULL && base >= DR_REG_START_GPR &&
+                  base <= DR_REG_STOP_GPR);
+        // Find the source of the base.  It has to be the first instance when
+        // walking backward, which is an assumption currently provided by
+        // instru_offline_t. But, we'd like to remove that assumption, to allow
+        // things like an elision chain crossing an intermediate memref w/ an index
+        // reg or something. It would be cleaner to have offline_instru_t add
+        // a label at the precise source of each elision so we know exactly where it is.
+        // Note that this backward walk could probably be eliminated by looking for
+        // the same assumption of the prior memref when updating the deltas, but
+        // if we're going to rewrite this, better to eliminate the assumptions
+        // by the described label scheme.
+        bool update_deltas_backward = !reg_remembered[base - DR_REG_START_GPR];
+        reg_remembered[base - DR_REG_START_GPR] = true;
+        log(5, "For backward walk base=%s updating=%d\n", get_register_name(base),
+            update_deltas_backward);
         int remember_index = -1;
         for (instr_t *prev = meminst; prev != nullptr; prev = instr_get_prev(prev)) {
             if (!instr_is_app(prev))
                 continue;
-            // Use instr_{reads,writes}_memory() to rule out LEA and NOP.
+            // For the first elision for any one reg, we have to update on this
+            // backward walk as we didn't have reg_remembered set on the forward walk.
+            // See the comment above on possibly adding a label to avoid this.
+            // The delta updates are commutative so this is fine, except an elision
+            // break: but we know there's isn't one between here and the source
+            // or else this wouldn't be marked as an elision.
+            // We start on the prior instr to avoid double-counting.
+            if (update_deltas_backward && prev != meminst)
+                update_reg_deltas(tdata, version, prev, base, reg_remembered, reg_delta);
+            //  Use instr_{reads,writes}_memory() to rule out LEA and NOP.
             if (!instr_reads_memory(prev) && !instr_writes_memory(prev))
                 continue;
             bool remember_write = false;
@@ -1583,6 +1623,18 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
             }
             if (remember_index == -1)
                 continue;
+            int base_delta = reg_delta[base - DR_REG_START_GPR];
+            log(5,
+                "Marking < " PFX ", " PFX
+                "> %s #%d to use remembered base base_delta=%d\n",
+                start_pc, pc, write ? "write" : "read", memop_index, base_delta);
+            if (!set_instr_summary_flags(tdata, modidx, modoffs, start_pc, instr_count,
+                                         index_in_bb, pc, orig_pc, write, memop_index,
+                                         true /*use_remembered*/,
+                                         false /*don't change "remember"*/, base_delta)) {
+                tdata->error = "Failed to set flags to use remembered base for elision";
+                return false;
+            }
             app_pc pc_prev = instr_get_app_pc(prev);
             app_pc orig_pc_prev =
                 modmap_().get_orig_pc_from_map_pc(pc_prev, modidx, modoffs);
@@ -1591,9 +1643,9 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
             if (!set_instr_summary_flags(
                     tdata, modidx, modoffs, start_pc, instr_count, index_prev, pc_prev,
                     orig_pc_prev, remember_write, remember_index,
-                    false /*don't change "use_remembered" or "stack_disp"*/,
+                    false /*don't change "use_remembered" or "base_delta"*/,
                     true /*remember*/)) {
-                tdata->error = "Failed to set flags for elided base address";
+                tdata->error = "Failed to set flags to remember base for elision";
                 return false;
             }
             log(5, "Asking <" PFX ", " PFX "> %s #%d to remember base\n", start_pc,
@@ -1720,6 +1772,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
     bool skip_icache = false;
     // This indicates that each memref has its own PC entry and that each
     // icache entry does not need to be considered a memref PC entry as well.
+    // For dfiltered-only, we handle the separate PC entries in append_memref().
     bool instrs_are_separate = TESTANY(
         OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED, get_file_type(tdata));
     bool is_instr_only_trace =
@@ -1977,7 +2030,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             !is_instr_only_trace) {
             if (instr->is_scatter_or_gather()) {
                 if (!append_scatter_gather(tdata, instr, &buf, reg_vals,
-                                           expect_all_memrefs, consumed_memrefs))
+                                           expect_all_memrefs, consumed_memrefs, orig_pc))
                     return false;
             } else if (instrs_are_separate) {
                 // There is only one memref entry (each memref is after a count=0 PC
@@ -1986,7 +2039,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 if (instr->num_mem_srcs() + instr->num_mem_dests() > 0) {
                     if (!append_memref(tdata, &buf, instr, instr->mem_src_at(0), false,
                                        reg_vals, nullptr, expect_all_memrefs,
-                                       consumed_memrefs))
+                                       consumed_memrefs, orig_pc))
                         return false;
                 }
             } else if (instr->is_rep_string() && repstr_first_last_supported) {
@@ -1995,10 +2048,12 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                                       &saved_decode_pc, interrupted, added_encoding))
                     return false;
             } else {
+                log(4, "Walking memrefs: %d srcs, %d dsts\n", instr->num_mem_srcs(),
+                    instr->num_mem_dests());
                 for (uint j = 0; j < instr->num_mem_srcs(); j++) {
                     if (!append_memref(tdata, &buf, instr, instr->mem_src_at(j), false,
                                        reg_vals, nullptr, expect_all_memrefs,
-                                       consumed_memrefs))
+                                       consumed_memrefs, orig_pc))
                         return false;
                 }
                 // We break before subsequent memrefs on an interrupt, though with
@@ -2006,7 +2061,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 for (uint j = 0; !interrupted && j < instr->num_mem_dests(); j++) {
                     if (!append_memref(tdata, &buf, instr, instr->mem_dest_at(j), true,
                                        reg_vals, nullptr, expect_all_memrefs,
-                                       consumed_memrefs))
+                                       consumed_memrefs, orig_pc))
                         return false;
                 }
             }
@@ -2015,10 +2070,23 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             // might have caused a fault, we omit them all along with the
             // instruction fetch.
             if (interrupted) {
+                bool dfiltered =
+                    TESTANY(OFFLINE_FILE_TYPE_DFILTERED, get_file_type(tdata)) &&
+                    !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                             get_file_type(tdata));
                 const offline_entry_t *next_entry = get_next_entry(tdata);
                 while (next_entry != nullptr &&
                        (next_entry->addr.type == OFFLINE_TYPE_MEMREF ||
-                        next_entry->addr.type == OFFLINE_TYPE_MEMREF_HIGH)) {
+                        next_entry->addr.type == OFFLINE_TYPE_MEMREF_HIGH ||
+                        // XXX i#8109: Add test cases for interrupted meminfo
+                        // and interrupted dfiltered blocks.
+                        (next_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
+                         next_entry->extended.ext == OFFLINE_EXT_TYPE_MEMINFO) ||
+                        (dfiltered &&
+                         (next_entry->pc.type ==
+                          OFFLINE_TYPE_PC IF_X64(
+                              || in_entry->pc.type == OFFLINE_TYPE_PC_TOP_BIT)) &&
+                         next_entry->pc.instr_count == 0))) {
                     next_entry = get_next_entry(tdata);
                 }
                 if (next_entry != nullptr)
@@ -2076,7 +2144,7 @@ raw2trace_t::append_scatter_gather(raw2trace_thread_data_t *tdata,
                                    DR_PARAM_INOUT trace_entry_t **buf_in,
                                    std::unordered_map<reg_id_t, addr_t> &reg_vals,
                                    bool expect_all_memrefs,
-                                   DR_PARAM_OUT int &consumed_memrefs)
+                                   DR_PARAM_OUT int &consumed_memrefs, app_pc orig_pc)
 {
     // The instr should either load or store, but not both. Also,
     // it should have a single src or dest operand.
@@ -2113,7 +2181,7 @@ raw2trace_t::append_scatter_gather(raw2trace_thread_data_t *tdata,
             opnd_t memref =
                 is_scatter ? instr->mem_dest_at(0).opnd : instr->mem_src_at(0).opnd;
             if (!TESTANY(OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS, get_file_type(tdata)) &&
-                tdata->instru_offline.opnd_disp_is_elidable(memref)) {
+                tdata->instru_offline.opnd_disp_is_elidable(memref, get_version(tdata))) {
                 // We stored only the base reg, as an optimization.
                 // This happens even with predicated instructions where we
                 // don't do base reg elision.
@@ -2149,7 +2217,7 @@ raw2trace_t::append_scatter_gather(raw2trace_thread_data_t *tdata,
                            // dest/src of the original scatter/gather instr for all.
                            is_scatter ? instr->mem_dest_at(0) : instr->mem_src_at(0),
                            is_scatter, reg_vals, &reached_end_of_memrefs,
-                           expect_all_memrefs, consumed_memrefs))
+                           expect_all_memrefs, consumed_memrefs, orig_pc))
             return false;
     }
     --memref_count; // The final append_memref did not find one.
@@ -2239,7 +2307,8 @@ raw2trace_t::append_repstring(raw2trace_thread_data_t *tdata,
             DR_ASSERT(num_memrefs == 1);
         }
         if (!append_memref(tdata, &buf, instr, *memref, is_store, reg_vals,
-                           &reached_end_of_memrefs, expect_all_memrefs, consumed_memrefs))
+                           &reached_end_of_memrefs, expect_all_memrefs, consumed_memrefs,
+                           orig_pc))
             return false;
         if (reached_end_of_memrefs) {
             // We don't fully support an unhandled fault: we're ok with post-processing
@@ -2619,7 +2688,8 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
                            instr_summary_t::memref_summary_t memref, bool write,
                            std::unordered_map<reg_id_t, addr_t> &reg_vals,
                            DR_PARAM_OUT bool *reached_end_of_memrefs,
-                           bool expect_all_memrefs, DR_PARAM_OUT int &consumed_memrefs)
+                           bool expect_all_memrefs, DR_PARAM_OUT int &consumed_memrefs,
+                           app_pc orig_pc)
 {
     DR_ASSERT(!TESTANY(OFFLINE_FILE_TYPE_INSTRUCTION_ONLY, get_file_type(tdata)));
     trace_entry_t *buf = *buf_in;
@@ -2655,6 +2725,42 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
         }
         in_entry = get_next_entry(tdata);
     }
+    if (TESTANY(OFFLINE_FILE_TYPE_DFILTERED, get_file_type(tdata)) &&
+        !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                 get_file_type(tdata))) {
+        if (in_entry != nullptr &&
+            (in_entry->pc.type ==
+             OFFLINE_TYPE_PC IF_X64(|| in_entry->pc.type == OFFLINE_TYPE_PC_TOP_BIT))) {
+            // A non-zero instr-count PC entry is the start of a new block.
+            if (in_entry->pc.instr_count != 0) {
+                // All further memrefs for this block must have been filtered out.
+                unread_last_entry(tdata);
+                return true;
+            }
+            // Otherwise, this is a 0-instr-count entry identifying which PC the
+            // following address record belongs to. With filtering, some instructions
+            // had their address records ommitted, in which case we just return here.
+            app_pc memref_pc =
+                modmap_().get_orig_pc(in_entry->pc.modidx, in_entry->pc.modoffs);
+            if (memref_pc < orig_pc) {
+                tdata->error = "Bypassed dfilter memref";
+                return false;
+            }
+            if (memref_pc > orig_pc) {
+                log(4, "Did not yet reach next memref @%p vs instr %p\n", memref_pc,
+                    orig_pc);
+                unread_last_entry(tdata);
+                return true;
+            }
+            in_entry = get_next_entry(tdata);
+            if (in_entry == nullptr) {
+                tdata->error = "Trace ends mid-block";
+                return false;
+            }
+        }
+    }
+    // At this point we expect in_entry to be an address record, or a MEMINFO record
+    // for multi-address instructions.
     if (in_entry != nullptr && in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
         in_entry->extended.ext == OFFLINE_EXT_TYPE_MEMINFO) {
         // For -L0_filter we have to store the type for multi-memref instrs where
@@ -2746,13 +2852,13 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
         reg_vals[base] = buf->addr;
     }
     if (!TESTANY(OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS, get_file_type(tdata)) &&
-        tdata->instru_offline.opnd_disp_is_elidable(memref.opnd)) {
+        tdata->instru_offline.opnd_disp_is_elidable(memref.opnd, version)) {
         // We stored only the base reg, as an optimization.
         buf->addr += opnd_get_disp(memref.opnd);
         log(5, "Added disp %d\n", opnd_get_disp(memref.opnd));
-        if (opnd_get_base(memref.opnd) == DR_REG_XSP) {
-            buf->addr += memref.stack_disp;
-            log(5, "Added stack_disp %d\n", memref.stack_disp);
+        if (memref.base_delta != 0) {
+            buf->addr += memref.base_delta;
+            log(5, "Added base_delta %d\n", memref.base_delta);
         }
     }
     log(4, "Appended memref type %s (%d) size %d to " PFX "\n",
@@ -3195,7 +3301,7 @@ raw2trace_t::set_instr_summary_flags(raw2trace_thread_data_t *tdata, uint64 modi
                                      uint64 modoffs, app_pc block_start, int instr_count,
                                      int index, app_pc pc, app_pc orig, bool write,
                                      int memop_index, bool use_remembered_base,
-                                     bool remember_base, int stack_disp)
+                                     bool remember_base, int base_delta)
 {
     block_summary_t *block;
     instr_summary_t *desc =
@@ -3209,10 +3315,10 @@ raw2trace_t::set_instr_summary_flags(raw2trace_thread_data_t *tdata, uint64 modi
         return false;
     if (write) {
         desc->set_mem_dest_flags(memop_index, use_remembered_base, remember_base,
-                                 stack_disp);
+                                 base_delta);
     } else {
         desc->set_mem_src_flags(memop_index, use_remembered_base, remember_base,
-                                stack_disp);
+                                base_delta);
     }
     return true;
 }
