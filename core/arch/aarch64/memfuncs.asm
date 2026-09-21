@@ -52,7 +52,7 @@ GLOBAL_LABEL(memcpy:)
         // If < 16, go to final 1-byte-at-a-time path.
         cmp      x2, #16
         b.lo     memcpy_post_unaligned
-        // 1-byte path until reach 16-byte-aligned aligned start.
+        // 1-byte path until reach 16-byte-aligned aligned dest start.
         mov      x4, #0xf
         ands     x4, x3, x4
         b.eq     memcpy_aligned_loop
@@ -67,6 +67,10 @@ memcpy_pre_unaligned:
 memcpy_aligned_loop:
         cmp      x2, #16
         b.lo     memcpy_post_unaligned
+        // We've aligned the dest, but the source could be unaligned.
+        // We assume that won't fault as strict alignment control is pretty rare.
+        // XXX i#8125: We could try to read SCTLR_EL0.A (if set to 1 unaligned accesses
+        // fault) but it is not always accessible from EL0!
         ldp      x6, x7, [x1], #16
         stp      x6, x7, [x3], #16
         sub      x2, x2, #16
