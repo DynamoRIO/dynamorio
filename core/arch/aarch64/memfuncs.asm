@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2025 Google, Inc. All rights reserved.
+ * Copyright (c) 2019-2026 Google, Inc. All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -56,16 +56,58 @@ GLOBAL_LABEL(memcpy:)
         END_FUNC(memcpy)
 
 /* Private memset.
- * XXX i#1569: we should optimize this as it can be on the critical path.
+ * Performance matters here so we have a fastpath, currently limited to
+ * setting memory to 0.
+ * XXX i#8125: Add a fastpath for non-0 values.
+ * Run core_unit_tests to see comparisons to libc times.
  */
         DECLARE_FUNC(memset)
 GLOBAL_LABEL(memset:)
-        mov      x3, ARG1
-        cbz      ARG3, 2f
-1:      strb     w1, [x3], #1
-        sub      ARG3, ARG3, #1
-        cbnz     ARG3, 1b
-2:      ret
+        // We're supposed to return x0, so make a copy we can modify.
+        mov      x6, x0
+        // If not setting zero, go to slow path.
+        cbnz     w1, slow_path
+        // If < 128 size, go to slow path.
+        cmp      x2, #128
+        b.lo     slow_path
+        // See whether DC ZVA is available: if not, go to slow path.
+        mrs      x3, dczid_el0
+        tbnz     x3, #4, slow_path // If 5th bit is 1: disabled.
+        // Get DC ZVA block size in bytes. The bottom 4 bits hold log_2 in words.
+        and      x3, x3, #0xf
+        add      x3, x3, #2 // Shift an extra 2 for word size == 4.
+        mov      x4, #1
+        lsl      x3, x4, x3 // 1<<(log_2 + 2) = bytes
+        // If memset size < block size, go to slowpath.
+        // On some cores, the block size is as high as 512 bytes, though usually
+        // it's 64 bytes.
+        cmp      x2, x3
+        b.lo     slow_path
+        // Slow path until reach aligned start.
+        sub      x4, x3, #1 // Mask for block size.
+        ands     x4, x6, x4
+        b.eq     aligned_loop
+        sub      x5, x3, x4 // Count of unaligned at start.
+        sub      x2, x2, x5 // Update total count.
+pre_unaligned:
+        strb     w1, [x6], #1
+        subs     x5, x5, #1
+        b.ne     pre_unaligned
+aligned_loop:
+        cmp      x2, x3
+        b.lo     slow_path
+        dc       zva, x6
+        add      x6, x6, x3 // Add block size to dest.
+        sub      x2, x2, x3 // Update total count.
+        b        aligned_loop
+slow_path:
+        cbz      x2, done
+slow_loop_or_post_unaligned:
+        strb     w1, [x6], #1
+        subs     x2, x2, #1
+        b.ne     slow_loop_or_post_unaligned
+done:
+        ret
         END_FUNC(memset)
 
 /* See x86.asm notes about needing these to avoid gcc invoking *_chk */
