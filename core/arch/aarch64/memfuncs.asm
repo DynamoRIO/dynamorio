@@ -49,14 +49,14 @@ START_FILE
 GLOBAL_LABEL(memcpy:)
         // We're supposed to return x0, so make a copy we can modify.
         mov      x3, x0
-        // If < 8, go to final 1-byte-at-a-time path.
-        cmp      x2, #8
+        // If < 16, go to final 1-byte-at-a-time path.
+        cmp      x2, #16
         b.lo     memcpy_post_unaligned
-        // 1-byte path until reach 8-byte-aligned aligned start.
+        // 1-byte path until reach 16-byte-aligned aligned start.
         mov      x4, #0x7
         ands     x4, x3, x4
         b.eq     memcpy_aligned_loop
-        mov      x6, #8
+        mov      x6, #16
         sub      x5, x6, x4 // Count of unaligned at start.
         sub      x2, x2, x5 // Update total count.
 memcpy_pre_unaligned:
@@ -65,18 +65,19 @@ memcpy_pre_unaligned:
         subs     x5, x5, #1
         b.ne     memcpy_pre_unaligned
 memcpy_aligned_loop:
-        cmp      x2, #8
+        cmp      x2, #16
         b.lo     memcpy_post_unaligned
-        ldr      x6, [x1], #8
-        str      x6, [x3], #8
-        sub      x2, x2, #8
+        ldp      x6, x7, [x1], #16
+        stp      x6, x7, [x3], #16
+        sub      x2, x2, #16
         b        memcpy_aligned_loop
 memcpy_post_unaligned:
         cbz      x2, memcpy_done
+memcpy_post_unaligned_loop:
         ldrb     w6, [x1], #1
         strb     w6, [x3], #1
         sub      x2, x2, #1
-        cbnz     x2, memcpy_post_unaligned
+        cbnz     x2, memcpy_post_unaligned_loop
 memcpy_done:
         ret
         END_FUNC(memcpy)
@@ -125,10 +126,10 @@ memset_alignedzva_loop:
         sub      x2, x2, x3 // Update total count.
         b        memset_alignedzva_loop
 memset_postzva_unaligned:
-        // Now we try to do 8 aligned bytes at a time.
-        // If < 8, go to final 1-byte-at-a-time path.
-        cmp      x2, #8
-        b.lo     memset_post8_unaligned
+        // Now we try to do 16 aligned bytes at a time.
+        // If < 16, go to final 1-byte-at-a-time path.
+        cmp      x2, #16
+        b.lo     memset_post16_unaligned
         // Replicate the byte to write across a GPR.
         // (We could use "dup" if we want to assume vector register availability.)
         // We multiple the bottom byte by 0x0101010101010101.
@@ -138,28 +139,29 @@ memset_postzva_unaligned:
         movk     x8, #0x0101, lsl #32
         movk     x8, #0x0101, lsl #48
         mul      x7, x7, x8
-        // 1-byte path until reach 8-byte-aligned aligned start.
-        mov      x4, #0x7
+        // 1-byte path until reach 16-byte-aligned aligned start.
+        mov      x4, #0xf
         ands     x4, x6, x4
-        b.eq     memset_aligned8_loop
-        mov      x3, #8
+        b.eq     memset_aligned16_loop
+        mov      x3, #16
         sub      x5, x3, x4 // Count of unaligned at start.
         sub      x2, x2, x5 // Update total count.
-memset_pre8_unaligned:
+memset_pre16_unaligned:
         strb     w1, [x6], #1
         subs     x5, x5, #1
-        b.ne     memset_pre8_unaligned
-memset_aligned8_loop:
-        cmp      x2, #8
-        b.lo     memset_post8_unaligned
-        str      x7, [x6], #8
-        sub      x2, x2, #8
-        b        memset_aligned8_loop
-memset_post8_unaligned:
+        b.ne     memset_pre16_unaligned
+memset_aligned16_loop:
+        cmp      x2, #16
+        b.lo     memset_post16_unaligned
+        stp      x7, x7, [x6], #16
+        sub      x2, x2, #16
+        b        memset_aligned16_loop
+memset_post16_unaligned:
         cbz      x2, memset_done
+memset_post16_unaligned_loop:
         strb     w1, [x6], #1
         subs     x2, x2, #1
-        b.ne     memset_post8_unaligned
+        b.ne     memset_post16_unaligned_loop
 memset_done:
         ret
         END_FUNC(memset)
