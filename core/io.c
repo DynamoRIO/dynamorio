@@ -1017,6 +1017,53 @@ test_our_memset(void)
     /* Check that memset returns dst. */
     ret = our_memset(&i, -1, sizeof(i));
     EXPECT(ret == &i, 1);
+
+    /* Further testing of larger values, targeted at the aarch64
+     * DC ZVA where we have a fastpath for setting >128-byte buffers to 0.
+     * We use a 1024-sized buffer to be large enough for cross-arch
+     * tests where QEMU reports a 512-byte DC ZVA block size.
+     */
+    char buf[1024];
+
+    /* Setup: fill with "42" which will the hit more-trusted slowpath. */
+    char *res = memset(buf, 42, BUFFER_SIZE_BYTES(buf));
+    EXPECT_EQ(res, buf); /* Test return value. */
+    for (int i = 0; i < BUFFER_SIZE_BYTES(buf); i++)
+        EXPECT_EQ(buf[i], 42);
+    /* Now test fastpath. */
+    res = memset(buf + 1, 0, BUFFER_SIZE_BYTES(buf) - 2);
+    EXPECT_EQ(res, buf + 1);
+    /* Ensure no underflow or overflow. */
+    EXPECT_EQ(buf[0], 42);
+    EXPECT_EQ(buf[BUFFER_SIZE_BYTES(buf) - 1], 42);
+    for (int i = 1; i < BUFFER_SIZE_BYTES(buf) - 2; i++)
+        EXPECT_EQ(buf[i], 0);
+
+    /* Re-fill with "42". */
+    res = memset(buf, 42, BUFFER_SIZE_BYTES(buf));
+    EXPECT_EQ(res, buf);
+    /* Test aligned-to-64, the typical DC ZVA block size, with extra at end. */
+    char *aligned = (char *)ALIGN_FORWARD(&buf[65], 64);
+    const size_t ALIGN_COPY_SIZE = 180;
+    res = memset(aligned, 0, ALIGN_COPY_SIZE);
+    EXPECT_EQ(res, aligned);
+    EXPECT_EQ(*(aligned - 1), 42);
+    EXPECT_EQ(*(aligned + ALIGN_COPY_SIZE), 42);
+    for (int i = 0; i < ALIGN_COPY_SIZE; i++)
+        EXPECT_EQ(*(aligned + i), 0);
+
+    /* Re-fill with "42". */
+    res = memset(buf, 42, BUFFER_SIZE_BYTES(buf));
+    EXPECT_EQ(res, buf);
+    /* Test aligned to 64 with nothing extra at the end. */
+    const size_t ALIGN_COPY_ALIGN_SIZE = 128;
+    res = memset(aligned, 0, ALIGN_COPY_ALIGN_SIZE);
+    EXPECT_EQ(res, aligned);
+    EXPECT_EQ(*(aligned - 1), 42);
+    EXPECT_EQ(*(aligned + ALIGN_COPY_ALIGN_SIZE), 42);
+    for (int i = 0; i < ALIGN_COPY_ALIGN_SIZE; i++)
+        EXPECT_EQ(*(aligned + i), 0);
+    print_file(STDERR, "functional memset tests passed\n");
 }
 
 static void

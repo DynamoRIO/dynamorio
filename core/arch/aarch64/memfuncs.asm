@@ -53,7 +53,7 @@ GLOBAL_LABEL(memcpy:)
         cmp      x2, #16
         b.lo     memcpy_post_unaligned
         // 1-byte path until reach 16-byte-aligned aligned start.
-        mov      x4, #0x7
+        mov      x4, #0xf
         ands     x4, x3, x4
         b.eq     memcpy_aligned_loop
         mov      x6, #16

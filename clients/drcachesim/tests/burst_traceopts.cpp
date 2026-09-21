@@ -60,6 +60,8 @@ void
 test_base_elision();
 void
 test_stack_elision();
+void
+test_arith_immed_elision();
 };
 
 namespace dynamorio {
@@ -159,10 +161,11 @@ do_some_work()
     test_base_elision();
     test_arrays();
     test_stack_elision();
+    test_arith_immed_elision();
 }
 
 static std::string
-post_process(const std::string &out_subdir)
+post_process(const std::string &out_subdir, int64 &elided_count)
 {
     const char *raw_dir;
     drmemtrace_status_t mem_res = drmemtrace_get_output_path(&raw_dir);
@@ -205,13 +208,15 @@ post_process(const std::string &out_subdir)
             std::cerr << "raw2trace failed: " << error << "\n";
             assert(false);
         }
+        elided_count = raw2trace.get_statistic(RAW2TRACE_STAT_COUNT_ELIDED);
     }
     dr_standalone_exit();
     return outdir;
 }
 
 static std::string
-gather_trace(const std::string &tracer_ops, const std::string &out_subdir)
+gather_trace(const std::string &tracer_ops, const std::string &out_subdir,
+             int64 &elided_count)
 {
     std::string dr_ops("-stderr_mask 0xc -client_lib ';;-offline " + tracer_ops + "'");
     if (!my_setenv("DYNAMORIO_OPTIONS", dr_ops.c_str()))
@@ -224,7 +229,7 @@ gather_trace(const std::string &tracer_ops, const std::string &out_subdir)
     dr_app_stop_and_cleanup();
     assert(!dr_app_running_under_dynamorio());
 
-    return post_process(out_subdir);
+    return post_process(out_subdir, elided_count);
 }
 
 int
@@ -232,8 +237,25 @@ test_main(int argc, const char *argv[])
 {
     reg_id_set_unit_tests();
 
-    std::string dir_opt = gather_trace("", "opt");
-    std::string dir_noopt = gather_trace("-disable_optimizations", "noopt");
+    int64 elided_count_opt = 0, elided_count_noopt = 0;
+    std::string dir_opt = gather_trace("", "opt", elided_count_opt);
+    std::string dir_noopt =
+        gather_trace("-disable_optimizations", "noopt", elided_count_noopt);
+
+    assert(elided_count_noopt == 0);
+    // Ensure some kind of elision actually happened.
+    // XXX i#4913: Ideally we would check that we had elision on each asm instruction
+    // where we expect it, but that's not simple: we'd need a global label for each
+    // asm instruction and then we'd either need to duplicate a raw reader here or
+    // add some debug interface to raw2trace: a marker added on each elision, or
+    // a callback or something. This would not scale well with separate variable for
+    // each. For now we rely on this sanity check on a large-ish count combined with
+    // raw2trace_unit_tests showing raw2trace *expects* elision in this cases and
+    // will fail without it.
+    // The count here is so high because it elides stack accesses in the code
+    // run before and after the asm code: the asm itself is more like 25 elisions
+    // (and this total count was just 19 for AArch64 before stack elision was added).
+    assert(elided_count_opt > 150);
 
     // Now compare the two traces using external iterators and a custom tool.
     void *dr_context = dr_standalone_init();
@@ -387,7 +409,8 @@ newblock:
         mov      REG_XAX, PTRSZ [REG_XAX]
         mov      REG_XDX, PTRSZ [REG_XAX + 16]
         // Modify via non-memref.
-        add      REG_XAX, 8
+        mov      REG_XDX, 8
+        add      REG_XAX, REG_XDX
         mov      REG_XDX, PTRSZ [REG_XAX + 16]
         pop      REG_XAX
         ret
@@ -410,8 +433,10 @@ mysym:
         ldr      r1, [r0, #32]
         ldr      r1, [r0, #16]
         // Modify via non-memref.
-        add      r0, #8
+        mov      r1, #8
+        add      r0, r1
         ldr      r1, [r0, #32]
+        bx       lr
 # elif defined(AARCH64)
         // Test pc-relative
         ldr      x0, mysym
@@ -425,7 +450,8 @@ mysym:
         ldr      x1, [x0, #32]
         ldr      x1, [x0, #16]
         // Modify via non-memref.
-        add      x0, x0, #8
+        mov      x1, #8
+        add      x0, x0, x1
         ldr      x1, [x0, #32]
         // There are no conditional/predicate loads/stores.
         ret
@@ -472,9 +498,136 @@ stack_newblock2:
         // Elision should happen again here.
         pop      REG_XAX
         ret
+# elif defined(ARM)
+        // test_arith_immed_elision() covers all GPRs.
+        bx       lr
+# elif defined(AARCH64)
+        mov      x0, sp
+        // Make some room for safe stores.
+        sub      sp, sp, #256
+        ldr      x1, [sp, #16]
+        // Test both pre and post index stack references.
+        str      x1, [sp, #16]!
+        str      x1, [sp], #16
+        stp      x1, x2, [sp, #16]!
+        stp      x1, x2, [sp], #16
+        ldr      x1, [sp, #16]!
+        ldr      x1, [sp], #16
+        ldrh     w1, [sp, #16]!
+        ldrb     w1, [sp], #16
+        ldp      x1, x2, [sp, #16]!
+        ldp      x1, x2, [sp], #16
+        mov      sp, x0
+        ret
 # else
-        // XXX i#4913: Generalize to any immediate add/sub, incl aarchxx
-        // pre-and-post indexing.
+#  error NYI
+# endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+    #define FUNCNAME test_arith_immed_elision
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+# if defined(X86)
+        mov      REG_XAX, REG_XSP
+        mov      REG_XDX, PTRSZ [REG_XAX + 8]
+        // Modify via add and subtract and lea.
+        add      REG_XAX, HEX(8)
+        mov      REG_XDX, PTRSZ [REG_XAX]
+        sub      REG_XAX, HEX(8)
+        mov      REG_XDX, PTRSZ [REG_XAX+16]
+        lea      REG_XAX, [REG_XAX+4]
+        mov      REG_XDX, PTRSZ [REG_XAX+16]
+        // Test a conditional which should not be elided.
+        cmovne   REG_XDX, PTRSZ [REG_XAX + 32]
+        // Test modified bases which should not be elided.
+        // Modify via non-standard add and subtract.
+        adc      REG_XAX, HEX(8)
+        mov      REG_XDX, PTRSZ [REG_XAX]
+        sbb      REG_XAX, HEX(8)
+        mov      REG_XDX, PTRSZ [REG_XAX]
+        // Modify via non-immeds.
+        mov      REG_XDX, HEX(8)
+        lea      REG_XAX, [REG_XAX+REG_XDX+8]
+        mov      REG_XDX, PTRSZ [REG_XAX]
+        // Test a 2nd elision chain in the same block for the same reg.
+        mov      REG_XDX, PTRSZ [REG_XAX + 8]
+        add      REG_XAX, HEX(8)
+        mov      REG_XDX, PTRSZ [REG_XAX]
+        jmp      arith_newblock
+arith_newblock:
+        // Test modifications *before* the first remembered base.
+        add      REG_XAX, HEX(8)
+        mov      REG_XDX, PTRSZ [REG_XAX]
+        mov      REG_XDX, PTRSZ [REG_XAX]
+        ret
+# elif defined(ARM)
+        // XXX i#4913: Add add, sub, and pre and post indexing support in
+        // offline_instru_t::does_reg_write_thwart_elision().
+        mov      r0, sp
+        // Modify via add and subtract.
+        add      r0, #8
+        ldr      r1, [r0, #16]
+        sub      r0, #8
+        ldr      r1, [r0, #16]
+        // Modify via addressing mode base updates.
+        ldmia    r0!, {r1, r2}
+        ldmib    r0!, {r1, r2}
+        ldmda    r0!, {r1, r2}
+        ldmdb    r0!, {r1, r2}
+        // Test modified bases which should not be elided.
+        mov      r1, #8
+        add      r0, r1
+        ldr      r1, [r0, #8]
+        bx       lr
+# elif defined(AARCH64)
+        mov      x0, sp
+        // Make some room for safe stores.
+        sub      x0, x0, #256
+        ldr      x1, [x0, #16]
+        // Modify via add and subtract.
+        add      x0, x0, #8
+        ldr      x1, [x0, #16]
+        sub      x0, x0, #8
+        ldr      x1, [x0, #16]
+        // Modify via addressing mode base updates.
+        str      x1, [x0, #8]!
+        str      x1, [x0], #8
+        stp      x1, x2, [x0, #8]!
+        stp      x1, x2, [x0], #8
+        ldr      x1, [x0, #8]!
+        ldr      x1, [x0], #8
+        ldrh     w1, [x0, #8]!
+        ldrb     w1, [x0], #8
+        ldp      x1, x2, [x0, #8]!
+        ldp      x1, x2, [x0], #8
+        // Test a load dest which should block elision.
+        mov      x2, x0
+        ldp      x0, x1, [x2], #8
+        mov      x0, sp
+        // Test modified bases which should not be elided.
+        mov      x1, #8
+        add      x0, x0, x1
+        ldr      x1, [x0, #8]
+        // Test a shifted add which should block elision.
+        ldr      x1, [x0, #16]
+        add      x0, x0, #1, LSL #12
+        sub      x0, x0, #0xff0
+        ldr      x1, [x0, #16]
+        // Test a 2nd elision chain in the same block for the same reg.
+        ldr      x1, [x0, #16]
+        add      x0, x0, #8
+        ldr      x1, [x0, #16]
+        b        arith_newblock
+arith_newblock:
+        // Test modifications *before* the first remembered base.
+        add      x0, x0, #8
+        ldr      x1, [x0, #16]
+        add      x0, x0, #8
+        ldr      x1, [x0, #16]
+        ret
+# else
+#  error NYI
 # endif
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
