@@ -33,20 +33,29 @@
 #include "globals.h"
 #include "dr_interface.h"
 #include "instrument.h"
+#include "module_shared.h"
+#include "vmareas.h"
 
-/* Temporary scaffolding for incremental kernel bring-up. Call after
- * dynamorio_app_init_part_one_options(). Keep this sequence in sync
- * with the heap initialization prefix of dynamorio_app_init_part_two_finalize().
+/* Temporary scaffolding for part two of app init through modules_init(). Call after
+ * dynamorio_app_init_part_one_options() through modules_init().
  * TODO i#8021: Remove this helper once module initialization can call
  * dynamorio_app_init() directly.
  */
 void
-kernel_heap_init_scaffolding(void)
+kernel_app_init_part_two_partial(void)
 {
-    if (dynamo_heap_initialized || INTERNAL_OPTION(nullcalls))
+    if (dynamo_heap_initialized)
         return;
     vmm_heap_init();
     instrument_load_client_libs();
     d_r_heap_init();
     dynamo_heap_initialized = true;
+
+    SYSLOG(SYSLOG_INFORMATION, INFO_PROCESS_START_CLIENT, 2, get_application_name(),
+           get_application_pid());
+
+    dynamo_vm_areas_init();
+    d_r_decode_init();
+    proc_init();
+    modules_init();
 }

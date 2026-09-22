@@ -82,7 +82,7 @@ dynamorio_module_init(void)
      */
     preempt_disable();
     dynamorio_app_init_part_one_options();
-    kernel_heap_init_scaffolding();
+    kernel_app_init_part_two_partial();
     preempt_enable();
 
     pr_info("Module started\n");
