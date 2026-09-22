@@ -404,7 +404,7 @@ exit_compression(void *drcontext, per_thread_t *data)
     if (op_offline.get_value() &&
         (op_raw_compress.get_value() == "zlib" ||
          op_raw_compress.get_value() == "gzip")) {
-        dr_raw_mem_free(data->buf_compressed, max_buf_size);
+        dr_raw_mem_free(data->buf_compressed, data->max_buf_size);
         data->buf_compressed = nullptr;
     }
 #endif
@@ -487,13 +487,13 @@ close_thread_file(void *drcontext)
         const int MAX_ITERS = 32; // Sanity limit to avoid hang.
         do {
             data->zstream.next_out = (Bytef *)data->buf_compressed;
-            data->zstream.avail_out = static_cast<uInt>(max_buf_size);
+            data->zstream.avail_out = static_cast<uInt>(data->max_buf_size);
             res = deflate(&data->zstream, Z_FINISH);
             NOTIFY(3, "final deflate => %d in=%d out=%d => in=%d, out=%d, wrote=%d\n",
-                   res, 0, max_buf_size, data->zstream.avail_in, data->zstream.avail_out,
-                   max_buf_size - data->zstream.avail_out);
+                   res, 0, data->max_buf_size, data->zstream.avail_in,
+                   data->zstream.avail_out, data->max_buf_size - data->zstream.avail_out);
             file_ops_func.write_file(data->file, data->buf_compressed,
-                                     max_buf_size - data->zstream.avail_out);
+                                     data->max_buf_size - data->zstream.avail_out);
         } while ((res == Z_OK || res == Z_BUF_ERROR) && ++iters < MAX_ITERS);
         DR_ASSERT(res == Z_STREAM_END);
         free_compression_file_data(drcontext, data);
@@ -700,7 +700,7 @@ write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end,
 
         if (file_ops_func.handoff_buf != NULL) {
             if (!file_ops_func.handoff_buf(data->file, towrite_start, size,
-                                           max_buf_size)) {
+                                           data->max_buf_size)) {
                 FATAL("Fatal error: failed to hand off trace\n");
             }
         } else {
@@ -719,16 +719,16 @@ write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end,
                 int res;
                 do {
                     data->zstream.next_out = (Bytef *)data->buf_compressed;
-                    data->zstream.avail_out = static_cast<uInt>(max_buf_size);
+                    data->zstream.avail_out = static_cast<uInt>(data->max_buf_size);
                     res = deflate(&data->zstream, Z_NO_FLUSH);
                     NOTIFY(3, "deflate => %d in=%d out=%d => in=%d, out=%d, write=%d\n",
                            res, size, size, data->zstream.avail_in,
                            data->zstream.avail_out,
-                           max_buf_size - data->zstream.avail_out);
+                           data->max_buf_size - data->zstream.avail_out);
                     DR_ASSERT(res != Z_STREAM_ERROR);
-                    wrote =
-                        file_ops_func.write_file(data->file, data->buf_compressed,
-                                                 max_buf_size - data->zstream.avail_out);
+                    wrote = file_ops_func.write_file(data->file, data->buf_compressed,
+                                                     data->max_buf_size -
+                                                         data->zstream.avail_out);
                 } while (data->zstream.avail_out == 0);
                 DR_ASSERT(data->zstream.avail_in == 0);
                 wrote = size;
@@ -820,8 +820,8 @@ set_local_window(void *drcontext, ptr_int_t value)
 static void
 create_buffer(per_thread_t *data)
 {
-    data->buf_base =
-        (byte *)dr_raw_mem_alloc(max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+    data->buf_base = (byte *)dr_raw_mem_alloc(data->max_buf_size,
+                                              DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
     /* For file_ops_func.handoff_buf we have to handle failure as OOM is not unlikely. */
     if (data->buf_base == NULL) {
         /* Switch to "reserve" buffer. */
@@ -834,9 +834,10 @@ create_buffer(per_thread_t *data)
         op_max_trace_size.set_value(data->bytes_written - 1);
         return;
     }
-    /* dr_raw_mem_alloc guarantees to give us zeroed memory, so no need for a memset */
-    /* set sentinel (non-zero) value in redzone */
-    memset(data->buf_base + trace_buf_size, -1, redzone_size);
+    /* dr_raw_mem_alloc guarantees to give us zeroed memory, so no need for a memset. */
+    /* Set sentinel value in redzone. */
+    size_t redzone_size = data->max_buf_size - data->trace_buf_size;
+    memset(data->buf_base + data->trace_buf_size, -1, redzone_size);
     data->num_buffers++;
     if (data->num_buffers == 2) {
         /* Create a "reserve" buffer so we can continue after hitting OOM later.
@@ -846,9 +847,9 @@ create_buffer(per_thread_t *data)
          * why we wait for the 2nd buffer) but we gain simplicity.
          */
         data->reserve_buf = (byte *)dr_raw_mem_alloc(
-            max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+            data->max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
         if (data->reserve_buf != NULL)
-            memset(data->reserve_buf + trace_buf_size, -1, redzone_size);
+            memset(data->reserve_buf + data->trace_buf_size, -1, redzone_size);
     }
 }
 
@@ -1414,10 +1415,10 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap, bool at_thread_ex
         // Our instrumentation reads from buffer and skips the clean call if the
         // content is 0, so we need set zero in the trace buffer and set non-zero
         // in redzone.
-        memset(data->buf_base, 0, trace_buf_size);
-        redzone = data->buf_base + trace_buf_size;
+        memset(data->buf_base, 0, data->trace_buf_size);
+        redzone = data->buf_base + data->trace_buf_size;
         if (buf_ptr > redzone) {
-            // Set sentinel (non-zero) value in redzone
+            // Set sentinel (non-zero) value in redzone.
             memset(redzone, -1, buf_ptr - redzone);
         }
     }
@@ -1473,13 +1474,13 @@ init_thread_io(void *drcontext)
     if (op_offline.get_value() &&
         (op_raw_compress.get_value() == "zlib" ||
          op_raw_compress.get_value() == "gzip")) {
-        data->buf_compressed = static_cast<byte *>(
-            dr_raw_mem_alloc(max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, nullptr));
+        data->buf_compressed = static_cast<byte *>(dr_raw_mem_alloc(
+            data->max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, nullptr));
     }
 #endif
 #ifdef HAS_LZ4
     if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
-        data->buf_lz4_size = LZ4F_compressBound(max_buf_size, &lz4_ops);
+        data->buf_lz4_size = LZ4F_compressBound(data->max_buf_size, &lz4_ops);
         DR_ASSERT(data->buf_lz4_size >= LZ4F_HEADER_SIZE_MAX);
         data->buf_lz4 = static_cast<byte *>(dr_raw_mem_alloc(
             data->buf_lz4_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, nullptr));
