@@ -837,7 +837,12 @@ create_buffer(per_thread_t *data)
     /* dr_raw_mem_alloc guarantees to give us zeroed memory, so no need for a memset. */
     /* Set sentinel value in redzone. */
     size_t redzone_size = data->max_buf_size - data->trace_buf_size;
-    memset(data->buf_base + data->trace_buf_size, -1, redzone_size);
+    for (size_t i = 0; i < redzone_size; i += sizeof(int64_t)) {
+        *(int64_t *)(data->buf_base + data->trace_buf_size + i) = REDZONE_SENTINEL;
+    }
+    NOTIFY(4, "Created buffer %p-%p; set redzone %p-%p to %d\n", data->buf_base,
+           data->buf_base + data->max_buf_size, data->buf_base + data->trace_buf_size,
+           data->buf_base + data->trace_buf_size + redzone_size, REDZONE_SENTINEL);
     data->num_buffers++;
     if (data->num_buffers == 2) {
         /* Create a "reserve" buffer so we can continue after hitting OOM later.
@@ -848,8 +853,12 @@ create_buffer(per_thread_t *data)
          */
         data->reserve_buf = (byte *)dr_raw_mem_alloc(
             data->max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
-        if (data->reserve_buf != NULL)
-            memset(data->reserve_buf + data->trace_buf_size, -1, redzone_size);
+        if (data->reserve_buf != NULL) {
+            for (size_t i = 0; i < redzone_size; i += sizeof(int64_t)) {
+                *(int64_t *)(data->reserve_buf + data->trace_buf_size + i) =
+                    REDZONE_SENTINEL;
+            }
+        }
     }
 }
 
@@ -1230,6 +1239,9 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap, bool at_thread_ex
     }
 
     buf_ptr = BUF_PTR(data->seg_base);
+    NOTIFY(4, "In %s with %zd bytes written to buffer %p\n", __FUNCTION__,
+           buf_ptr - data->buf_base, data->buf_base);
+
     // We may get called with nothing to write: e.g., on a syscall for
     // -L0I_filter and -L0D_filter.
     if (buf_ptr == data->buf_base + header_size) {
@@ -1412,14 +1424,16 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap, bool at_thread_ex
     }
 
     if (file_ops_func.handoff_buf == NULL) {
-        // Our instrumentation reads from buffer and skips the clean call if the
-        // content is 0, so we need set zero in the trace buffer and set non-zero
-        // in redzone.
-        memset(data->buf_base, 0, data->trace_buf_size);
+        // If we hit a false positive sentinel and output early, clear it to avoid
+        // doing that again on the same sentinel.
+        if (*(int64_t *)buf_ptr == REDZONE_SENTINEL)
+            *(int64_t *)buf_ptr = 0;
         redzone = data->buf_base + data->trace_buf_size;
         if (buf_ptr > redzone) {
-            // Set sentinel (non-zero) value in redzone.
-            memset(redzone, -1, buf_ptr - redzone);
+            // Set sentinel value in redzone.
+            for (ssize_t i = 0; i < buf_ptr - redzone; i += sizeof(int64_t)) {
+                *(int64_t *)(redzone + i) = REDZONE_SENTINEL;
+            }
         }
     }
     BUF_PTR(data->seg_base) = data->buf_base;

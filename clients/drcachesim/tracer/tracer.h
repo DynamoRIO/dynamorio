@@ -260,6 +260,11 @@ extern char logsubdir[MAXIMUM_PATH];
 extern char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
 extern size_t buf_hdr_slots_size;
 
+// We avoid having to memset the actual buffer by picking a sentinel that is very unlikely
+// to be a real raw record. (If it is, we have only an early buffer output, not a
+// correctness issue.)
+#define REDZONE_SENTINEL 1
+
 #define MAX_NUM_DELAY_INSTRS 32
 // Really sizeof(trace_entry_t.length)
 #define MAX_NUM_DELAY_ENTRIES (MAX_NUM_DELAY_INSTRS / sizeof(addr_t))
