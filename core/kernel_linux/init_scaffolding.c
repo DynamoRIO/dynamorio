@@ -37,7 +37,7 @@
 #include "vmareas.h"
 
 /* Temporary scaffolding for part two of app init through modules_init(). Call after
- * dynamorio_app_init_part_one_options() through modules_init().
+ * dynamorio_app_init_part_one_options().
  * TODO i#8021: Remove this helper once module initialization can call
  * dynamorio_app_init() directly.
  */
