@@ -2087,9 +2087,10 @@ event_thread_init(void *drcontext)
     data->seg_base = (byte *)dr_get_dr_segment_base(tls_seg);
     DR_ASSERT(data->seg_base != NULL);
 
-    uint64 buf_records = (dr_get_thread_id(drcontext) == main_thread_id)
-        ? op_main_buf_records.get_value()
-        : op_trace_buf_records.get_value();
+    size_t buf_records =
+        static_cast<size_t>((dr_get_thread_id(drcontext) == main_thread_id)
+                                ? op_main_buf_records.get_value()
+                                : op_trace_buf_records.get_value());
     data->trace_buf_size = instru->sizeof_entry() * buf_records;
     data->max_buf_size =
         ALIGN_FORWARD(data->trace_buf_size + base_redzone_size, dr_page_size());

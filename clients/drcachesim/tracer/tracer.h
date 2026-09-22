@@ -79,8 +79,8 @@ extern named_pipe_t ipc_pipe;
 struct per_thread_t {
     byte *seg_base;
     byte *buf_base;
-    uint64 trace_buf_size; // Size without the redzone.
-    uint64 max_buf_size;   // Allocated size, which includes the redzone.
+    size_t trace_buf_size; // Size without the redzone.
+    size_t max_buf_size;   // Allocated size, which includes the redzone.
     uint64 num_refs;
     uint64 num_writeouts; /* Buffer writeout instances. */
     uint64 bytes_written;
