@@ -442,6 +442,17 @@ droption_t<bytesize_t> op_exit_after_tracing(
     "exited with an exit code of 0.  The reference count is approximate. "
     "Use -max_global_trace_refs instead to avoid terminating the process.");
 
+droption_t<bytesize_t> op_main_buf_records(
+    DROPTION_SCOPE_CLIENT, "main_buf_records", 4096,
+    "Capacity in records of main thread's trace buffer",
+    "The capacity of the initial thread's output buffer, as a count of 8-byte records.");
+
+droption_t<bytesize_t> op_trace_buf_records(
+    DROPTION_SCOPE_CLIENT, "trace_buf_records", 4096,
+    "Capacity in records of non-main-thread trace buffers",
+    "The capacity of the output buffer for all thread besides the initial thread (whose "
+    "capacity is -main_buf_records), as a count of 8-byte records.");
+
 droption_t<std::string> op_raw_compress(
     DROPTION_SCOPE_CLIENT, "raw_compress",
 #if defined(HAS_LZ4) && (!defined(DRMEMTRACE_STATIC) || defined(HAS_LZ4_CUSTOM_MEM))

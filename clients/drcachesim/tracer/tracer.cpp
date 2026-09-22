@@ -118,19 +118,15 @@ static file_t module_file;
 static file_t funclist_file = INVALID_FILE;
 static file_t encoding_file = INVALID_FILE;
 
-/* Max number of entries a buffer can have. It should be big enough
- * to hold all entries between clean calls.
- */
-// XXX i#1703: use an option instead.
-#define MAX_NUM_ENTRIES 4096
-/* The buffer size for holding trace entries. */
-size_t trace_buf_size;
 /* The redzone is allocated right after the trace buffer.
  * We fill the redzone with sentinel value to detect when the redzone
  * is reached, i.e., when the trace buffer is full.
+ * This holds the base size; any padding from page-aligning the buffer
+ * is added to this, so typically the redzone ends up a full page size.
  */
-size_t redzone_size;
-size_t max_buf_size;
+static size_t base_redzone_size;
+
+static thread_id_t main_thread_id;
 
 std::atomic<uint64> attached_timestamp;
 
@@ -638,7 +634,8 @@ append_marker_seg_base(void *drcontext, func_trace_entry_vector_t *vec)
      * a redzone check at the end guarding a clean call to memtrace(), but to
      * be a litte safer in case that changes we also do a redzone check here.
      */
-    if (BUF_PTR(data->seg_base) - data->buf_base > static_cast<ssize_t>(trace_buf_size)) {
+    if (BUF_PTR(data->seg_base) - data->buf_base >
+        static_cast<ssize_t>(data->trace_buf_size)) {
         append_timestamp_and_cpu_marker(data);
         process_and_output_buffer(drcontext, false);
     }
@@ -2090,6 +2087,16 @@ event_thread_init(void *drcontext)
     data->seg_base = (byte *)dr_get_dr_segment_base(tls_seg);
     DR_ASSERT(data->seg_base != NULL);
 
+    size_t buf_records = (dr_get_thread_id(drcontext) == main_thread_id)
+        ? op_main_buf_records.get_value()
+        : op_trace_buf_records.get_value();
+    data->trace_buf_size = instru->sizeof_entry() * buf_records;
+    data->max_buf_size =
+        ALIGN_FORWARD(data->trace_buf_size + base_redzone_size, dr_page_size());
+    NOTIFY(2, "T%d trace buffer size=%d max=%d redzone=%d\n", dr_get_thread_id(drcontext),
+           data->trace_buf_size, data->max_buf_size,
+           data->max_buf_size - data->trace_buf_size);
+
     event_inscount_thread_init(drcontext);
 
     if ((should_trace_thread_cb != NULL &&
@@ -2174,9 +2181,9 @@ event_thread_exit(void *drcontext)
         num_v2p_writeouts += data->num_v2p_writeouts;
         num_phys_markers += data->num_phys_markers;
         dr_mutex_unlock(mutex);
-        dr_raw_mem_free(data->buf_base, max_buf_size);
+        dr_raw_mem_free(data->buf_base, data->max_buf_size);
         if (data->reserve_buf != NULL)
-            dr_raw_mem_free(data->reserve_buf, max_buf_size);
+            dr_raw_mem_free(data->reserve_buf, data->max_buf_size);
     }
     data->~per_thread_t();
     dr_thread_free(drcontext, data, sizeof(per_thread_t));
@@ -2755,8 +2762,6 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 
     instrumentation_init();
 
-    trace_buf_size = instru->sizeof_entry() * MAX_NUM_ENTRIES;
-
     /* The redzone needs to hold one bb's worth of data, until we
      * reach the clean call at the bottom of the bb that dumps the
      * buffer if full.  We leave room for each of the maximum count of
@@ -2765,6 +2770,9 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
      * it to include the extra timestamps we now insert and to ensure we cover
      * skipping clean calls for sthg like strex.  We also check here that the
      * max_bb_instrs can fit in the instr_count bitfield in offline_entry_t.
+     * This will also be expanded to fill the page-aligned difference between
+     * trace_buf_size and its page-aligned allocation, so typically this
+     * ends up being a full page in size.
      * XXX i#8118: Add dynamic checks that no block exceeds the redzone, as it could
      * theoretically happen (e.g., now rep strings are not expanded nor
      * block-terminal and store up to 4 records each).
@@ -2779,11 +2787,10 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
             MAX_BB_INSTRS_NAME, MAX_BB_INSTRS);
     }
     DR_ASSERT(max_bb_instrs < uint64(1) << PC_INSTR_COUNT_BITS);
-    redzone_size = instru->sizeof_entry() * (size_t)max_bb_instrs * 2;
+    base_redzone_size = instru->sizeof_entry() * (size_t)max_bb_instrs * 2;
 
-    max_buf_size = ALIGN_FORWARD(trace_buf_size + redzone_size, dr_page_size());
-    /* Mark any padding as redzone as well */
-    redzone_size = max_buf_size - trace_buf_size;
+    main_thread_id = dr_get_thread_id(dr_get_current_drcontext());
+
     /* Append a throwaway header to get its size. */
     buf_hdr_slots_size = append_unit_header(
         NULL /*no TLS yet*/, buf, 0 /*doesn't matter*/, has_tracing_windows() ? 0 : -1);
