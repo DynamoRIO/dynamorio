@@ -418,11 +418,25 @@ os_check_option_compatibility(void)
     FORCE_OPTION_VALUE(reachable_heap, true);
 #endif
 
-    /* vm_size cannot exceed the heap region reserved at module load. DR's default vm_size
-     * is far larger than any reasonable kernel budget, so we need to clamp it down.
+    /* Place vmcode via the near-app path in vmm_place_vmcode(), which reserves
+     * the module heap within rel32 reach of kernel text without extra alignment
+     * padding or falling back to os_heap_reserve().
      */
-    if (DYNAMO_OPTION(vm_size) > kernel_get_heap_size()) {
-        dynamo_options.vm_size = kernel_get_heap_size();
+    FORCE_OPTION_VALUE(vm_base_near_app, true);
+
+    /* Use page-sized VMM blocks so placing vmcode in the page-aligned module heap
+     * does not require an extra block for alignment.
+     */
+    FORCE_OPTION_VALUE(vmm_block_size, PAGE_SIZE);
+
+    /* Clamp vm_size to the heap reserved at module load, rounded down to a multiple
+     * of BITMAP_DENSITY blocks: DR's VMM tracks free blocks in groups of that size
+     * and leaves a partial group untracked.
+     */
+    const size_t max_vm_size = ALIGN_BACKWARD(
+        kernel_get_heap_size(), DYNAMO_OPTION(vmm_block_size) * BITMAP_DENSITY);
+    if (DYNAMO_OPTION(vm_size) > max_vm_size) {
+        dynamo_options.vm_size = max_vm_size;
         changed_options = true;
     }
 
