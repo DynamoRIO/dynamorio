@@ -836,7 +836,6 @@ create_buffer(per_thread_t *data)
     }
     /* dr_raw_mem_alloc guarantees to give us zeroed memory, so no need for a memset. */
     /* Set sentinel value in redzone. */
-    /* set sentinel (non-zero) value in redzone */
     size_t redzone_size = data->max_buf_size - data->trace_buf_size;
     memset(data->buf_base + data->trace_buf_size, -1, redzone_size);
     data->num_buffers++;
