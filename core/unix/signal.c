@@ -4084,10 +4084,10 @@ copy_frame_to_pending(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
 
 /* transfer control from signal handler to fcache return routine */
 static void
-transfer_from_sig_handler_to_fcache_return(
-    dcontext_t *dcontext, kernel_ucontext_t *uc, sigcontext_t *sc_interrupted, int sig,
-    app_pc next_pc, linkstub_t *last_exit,
-    bool is_kernel_xfer _IF_NOT_X86(bool context_is_translated))
+transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext_t *uc,
+                                           sigcontext_t *sc_interrupted, int sig,
+                                           app_pc next_pc, linkstub_t *last_exit,
+                                           bool is_kernel_xfer)
 {
     sigcontext_t *sc = SIGCXT_FROM_UCXT(uc);
     if (is_kernel_xfer) {
@@ -4122,31 +4122,28 @@ transfer_from_sig_handler_to_fcache_return(
      */
     sc->SC_XIP = (ptr_uint_t)fcache_return_routine(dcontext);
 #if defined(AARCHXX) || defined(RISCV64)
-    if (is_kernel_xfer || context_is_translated) {
-        /* We do not have to set dr_reg_stolen in dcontext's mcontext here
-         * because dcontext's mcontext is stale and we used the mcontext
-         * created from recreate_app_state_internal with the original sigcontext.
-         */
-        /* We restore dr_reg_stolen's app value in recreate_app_state_internal,
-         * so now we need set dr_reg_stolen to hold DR's TLS before sigreturn
-         * from DR's handler.
-         */
-        /* Preserve the translated value. */
-        dcontext->local_state->spill_space.reg_stolen = get_sigcxt_stolen_reg(sc);
+    /* We do not have to set dr_reg_stolen in dcontext's mcontext here
+     * because dcontext's mcontext is stale and we used the mcontext
+     * created from recreate_app_state_internal with the original sigcontext.
+     */
+    /* We restore dr_reg_stolen's app value in recreate_app_state_internal,
+     * so now we need set dr_reg_stolen to hold DR's TLS before sigreturn
+     * from DR's handler.
+     */
+    /* Preserve the translated value. */
+    dcontext->local_state->spill_space.reg_stolen = get_sigcxt_stolen_reg(sc);
+    /* Now put DR's base in the sigcontext. */
+    set_sigcxt_stolen_reg(sc, (reg_t)*get_dr_tls_base_addr());
 #    ifdef RISCV64
-        os_set_app_tls_base(dcontext, TLS_REG_LIB, (void *)get_sigcxt_tp_reg(sc));
-        /* Now put host tp in the sigcontext. */
-        set_sigcxt_tp_reg(sc, (reg_t)read_thread_register(TLS_REG_LIB));
+    os_set_app_tls_base(dcontext, TLS_REG_LIB, (void *)get_sigcxt_tp_reg(sc));
+    /* Now put host tp in the sigcontext. */
+    set_sigcxt_tp_reg(sc, (reg_t)read_thread_register(TLS_REG_LIB));
 #    endif
 
 #    ifdef ARM
-        /* We're going to our fcache_return gencode which uses DEFAULT_ISA_MODE */
-        set_pc_mode_in_cpsr(sc, DEFAULT_ISA_MODE);
+    /* We're going to our fcache_return gencode which uses DEFAULT_ISA_MODE */
+    set_pc_mode_in_cpsr(sc, DEFAULT_ISA_MODE);
 #    endif
-    }
-
-    /* fcache_return requires the stolen register to contain the TLS base. */
-    set_sigcxt_stolen_reg(sc, (reg_t)*get_dr_tls_base_addr());
 #endif
 
 #if defined(X64) || defined(ARM)
@@ -4272,8 +4269,7 @@ handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_
          */
         transfer_from_sig_handler_to_fcache_return(
             dcontext, uc, sc_interrupted, sig, (app_pc)sc->SC_XIP,
-            (linkstub_t *)get_asynch_linkstub(),
-            /*is_kernel_transfer=*/true _IF_NOT_X86(/*context_is_translated=*/false));
+            (linkstub_t *)get_asynch_linkstub(), true);
         if (is_building_trace(dcontext)) {
             LOG(THREAD, LOG_ASYNCH, 3, "\tsquashing trace-in-progress\n");
             trace_abort(dcontext);
@@ -5581,8 +5577,7 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
             /* Do not resume execution in cache, go back to d_r_dispatch. */
             transfer_from_sig_handler_to_fcache_return(
                 dcontext, uc, NULL, SIGSEGV, next_pc,
-                (linkstub_t *)get_selfmod_linkstub(),
-                /*is_kernel_transfer=*/false _IF_NOT_X86(context_is_translated));
+                (linkstub_t *)get_selfmod_linkstub(), false);
             /* now have main_signal_handler return */
             return true;
         }
@@ -6311,8 +6306,7 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
         dcontext, uc, app_sc, sig,
         /* Make sure handler is next thing we execute */
         (app_pc)SIGACT_PRIMARY_HANDLER(info->sighand->action[sig]),
-        (linkstub_t *)get_asynch_linkstub(),
-        /*is_kernel_xfer=*/true _IF_NOT_X86(/*context_is_translated=*/false));
+        (linkstub_t *)get_asynch_linkstub(), true);
 
     if ((info->sighand->action[sig]->flags & SA_ONESHOT) != 0) {
         /* clear handler now -- can't delete memory since sigreturn,
