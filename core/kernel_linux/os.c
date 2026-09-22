@@ -38,6 +38,7 @@
 
 #include "globals.h"
 #include "kernel_interface.h"
+#include "module_shared.h"
 
 /* Kernel code has no standard streams of its own. These synthetic handles use
  * conventional descriptor numbers for compatibility with shared DR code.
@@ -169,6 +170,19 @@ DYNAMORIO_EXPORT const char *
 get_application_short_name(void)
 {
     return get_application_name();
+}
+
+/* The kernel port has no OS-specific module-list state, matching core/unix/module.c. */
+void
+os_modules_init(void)
+{
+    /* Nothing. */
+}
+
+void
+os_modules_exit(void)
+{
+    /* Nothing. */
 }
 
 void
