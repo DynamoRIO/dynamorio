@@ -79,10 +79,16 @@ os_get_app_tls_reg_offset(reg_id_t reg)
 thread_id_t
 d_r_get_thread_id(void)
 {
-    /* kernel_get_cpu_id is reentrant and fast
-     * (it just reads gs:[&per_cpu_var(cpu_number)])
+    /* kernel_get_cpu_id is reentrant and fast because it just reads
+     * gs:[&per_cpu_var(cpu_number)].
+     * Avoid INVALID_THREAD_ID (0) which is used for unowned locks by returning CPU ID
+     * plus one.
+     *
+     * XXX i#8131: It's also possible to avoid the plus one by changing the value of
+     * INVALID_THREAD_ID, possibly also switching thread_id_t to signed. Xref comments for
+     * INVALID_THREAD_ID in core/globals.h.
      */
-    return kernel_get_cpu_id();
+    return kernel_get_cpu_id() + 1;
 }
 
 thread_id_t
@@ -94,7 +100,7 @@ get_tls_thread_id(void)
 thread_id_t
 get_sys_thread_id(void)
 {
-    return kernel_get_cpu_id();
+    return d_r_get_thread_id();
 }
 
 dcontext_t *
