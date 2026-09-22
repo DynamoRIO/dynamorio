@@ -194,7 +194,7 @@ typedef unsigned long ulong;
 #    define ALT_DIRSEP DIRSEP
 #endif
 
-/* XXX: what is range of thread_id_t on linux and on win32?
+/* XXX i#8131: what is range of thread_id_t on linux and on win32?
  * linux routines use -1 as sentinel, right?
  * on win32, are ids only 16 bits?
  * if so, change thread_id_t to be a signed int and use -1?
