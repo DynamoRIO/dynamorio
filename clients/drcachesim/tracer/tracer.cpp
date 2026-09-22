@@ -2087,7 +2087,7 @@ event_thread_init(void *drcontext)
     data->seg_base = (byte *)dr_get_dr_segment_base(tls_seg);
     DR_ASSERT(data->seg_base != NULL);
 
-    size_t buf_records = (dr_get_thread_id(drcontext) == main_thread_id)
+    uint64 buf_records = (dr_get_thread_id(drcontext) == main_thread_id)
         ? op_main_buf_records.get_value()
         : op_trace_buf_records.get_value();
     data->trace_buf_size = instru->sizeof_entry() * buf_records;
