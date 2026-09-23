@@ -1,8 +1,13 @@
+in run_reroute_test
 sending 10
 in handler for signal 10
 sending 28 with value
 in handler for signal 28 from -1 value 0xdeadbeef
 in handler for signal 12
+in run_alarm_test with ensure_pending_sig=0
+init thread now inside handler: setting up itimer
+done with itimer; exiting
+in run_alarm_test with ensure_pending_sig=1
 init thread now inside handler: setting up itimer
 done with itimer; exiting
 all done
