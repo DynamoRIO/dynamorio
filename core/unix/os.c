@@ -8901,6 +8901,8 @@ static void
 process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
              uint flags _IF_DEBUG(const char *map_type))
 {
+    if (size == 0)
+        return;
     bool image = false;
     uint memprot = osprot_to_memprot(prot);
 #ifdef ANDROID
