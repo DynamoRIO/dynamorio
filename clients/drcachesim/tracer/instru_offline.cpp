@@ -710,6 +710,8 @@ offline_instru_t::insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t 
         }
         reserved = true;
     }
+    // 32-bit relies on the buffer starting out zero so we don't have to write
+    // a zero into the top word here.
     MINSERT(ilist, where,
             XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, disp),
                                opnd_create_reg(reg_addr)));

@@ -1421,6 +1421,11 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap, bool at_thread_ex
     }
 
     if (file_ops_func.handoff_buf == NULL) {
+#ifndef X64
+        // 32-bit relies on a memset here to avoid an extra store to zero the
+        // top word of each load/store record.
+        memset(data->buf_base, 0, data->trace_buf_size);
+#endif
         redzone = data->buf_base + data->trace_buf_size;
         if (buf_ptr > redzone) {
             // Set sentinel value in redzone.
