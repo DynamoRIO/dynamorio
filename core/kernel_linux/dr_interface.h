@@ -37,13 +37,7 @@
  * management code (dynamorio_module_main.c).
  */
 
-void
-dynamorio_app_init_part_one_options(void);
-
-/* Temporary scaffolding for part two of app init through modules_init();
- * call after dynamorio_app_init_part_one_options().
- */
-void
-kernel_app_init_part_two_partial(void);
+int
+dynamorio_app_init(void);
 
 #endif /* _DR_INTERFACE_H_ */
