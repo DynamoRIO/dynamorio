@@ -1020,8 +1020,7 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
         insert_conditional_skip(drcontext, ilist, where, reg_ptr, &reg_tmp, skip_thread,
                                 short_reaches, app_regs_at_skip_thread);
     }
-    // We fill the redzone so that the first 8 bytes of each record (the whole record
-    // for offline, first 8 of the 12-byte trace_entry_t for online) holds
+    // We fill the redzone so that the first pointer-sized bytes of each record holds
     // REDZONE_SENTINEL, which we load and look for here.
     MINSERT(ilist, where,
             XINST_CREATE_load(drcontext, opnd_create_reg(reg_ptr),
@@ -2801,7 +2800,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     byte redzone_test[32];
     DR_ASSERT(sizeof(redzone_test) > instru->sizeof_entry());
     instru->fill_with_sentinel(redzone_test, instru->sizeof_entry(), REDZONE_SENTINEL);
-    DR_ASSERT(*(int64_t *)redzone_test == REDZONE_SENTINEL);
+    DR_ASSERT(*(ptr_int_t *)redzone_test == REDZONE_SENTINEL);
 
     if (op_offline.get_value() &&
         !func_trace_init(append_marker_seg_base, file_ops_func.write_file,

@@ -1428,8 +1428,8 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap, bool at_thread_ex
         } else {
             // If we hit a false positive sentinel and output early, clear it to avoid
             // doing that again on the same sentinel.
-            if (*(int64_t *)buf_ptr == REDZONE_SENTINEL) {
-                *(int64_t *)buf_ptr = 0;
+            if (*(ptr_int_t *)buf_ptr == REDZONE_SENTINEL) {
+                *(ptr_int_t *)buf_ptr = 0;
                 ++num_false_sentinels;
             }
         }

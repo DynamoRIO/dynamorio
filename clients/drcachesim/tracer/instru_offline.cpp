@@ -299,10 +299,13 @@ offline_instru_t::set_entry_addr(byte *buf_ptr, addr_t addr)
 }
 
 void
-offline_instru_t::fill_with_sentinel(byte *start, size_t size, int64 sentinel)
+offline_instru_t::fill_with_sentinel(byte *start, size_t size, ptr_int_t sentinel)
 {
     for (size_t i = 0; i < size; i += sizeof_entry()) {
-        *(int64 *)(start + i) = sentinel;
+        *(ptr_int_t *)(start + i) = sentinel;
+#ifndef X64
+        *(ptr_int_t *)(start + i + 4) = 0;
+#endif
     }
 }
 
