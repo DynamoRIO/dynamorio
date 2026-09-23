@@ -160,6 +160,7 @@ static client_id_t client_id;
 void *mutex;                 /* for multithread support */
 uint64 num_refs_racy;        /* racy global memory reference count */
 uint64 num_filter_refs_racy; /* racy global memory reference count in warmup mode */
+uint64 num_false_sentinels;  /* Racy global count of false REDZONE_SENTINEL hit. */
 static uint64 num_refs;      /* keep a global memory reference count */
 static uint64 num_writeouts;
 static uint64 num_v2p_writeouts;
@@ -779,7 +780,7 @@ insert_conditional_skip(void *drcontext, instrlist_t *ilist, instr_t *where,
         if (skip_if_not_sentinel) {
             if (sentinel != 0) {
                 MINSERT(ilist, where,
-                        INSTR_CREATE_sub(drcontext, opnd_create_reg(reg_skip_if_zero),
+                        XINST_CREATE_sub(drcontext, opnd_create_reg(reg_skip_if_zero),
                                          OPND_CREATE_INT(sentinel)));
             }
             MINSERT(ilist, where,
@@ -819,7 +820,7 @@ insert_conditional_skip(void *drcontext, instrlist_t *ilist, instr_t *where,
         if (sentinel != 0) {
             MINSERT(ilist, where,
                     XINST_CREATE_sub(drcontext, opnd_create_reg(reg_skip_if_zero),
-                                     OPND_CREATE_INT(REDZONE_SENTINEL)));
+                                     OPND_CREATE_INT(sentinel)));
         }
         MINSERT(ilist, where,
                 INSTR_CREATE_cbnz(drcontext, opnd_create_instr(skip_label),
@@ -1019,6 +1020,9 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
         insert_conditional_skip(drcontext, ilist, where, reg_ptr, &reg_tmp, skip_thread,
                                 short_reaches, app_regs_at_skip_thread);
     }
+    // We fill the redzone so that the first 8 bytes of each record (the whole record
+    // for offline, first 8 of the 12-byte trace_entry_t for online) holds
+    // REDZONE_SENTINEL, which we load and look for here.
     MINSERT(ilist, where,
             XINST_CREATE_load(drcontext, opnd_create_reg(reg_ptr),
                               OPND_CREATE_MEMPTR(reg_ptr, 0)));
@@ -2291,8 +2295,9 @@ event_exit(void)
            num_refs);
     NOTIFY(1,
            "drmemtrace exiting process " PIDFMT "; traced " UINT64_FORMAT_STRING
-           " references in " UINT64_FORMAT_STRING " writeouts.\n",
-           dr_get_process_id(), num_refs, num_writeouts);
+           " references in " UINT64_FORMAT_STRING " writeouts with " UINT64_FORMAT_STRING
+           " false sentinels.\n",
+           dr_get_process_id(), num_refs, num_writeouts, num_false_sentinels);
     if (op_use_physical.get_value()) {
         dr_log(NULL, DR_LOG_ALL, 1,
                "drcachesim num physical address markers emitted: " UINT64_FORMAT_STRING
@@ -2791,6 +2796,12 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         if (!ipc_pipe.maximize_buffer())
             NOTIFY(1, "Failed to maximize pipe buffer: performance may suffer.\n");
     }
+    // Ensure the buffer record will read back as a 64-bit redzone sentinel, even
+    // with 12-byte trace_entry_t records.
+    byte redzone_test[32];
+    DR_ASSERT(sizeof(redzone_test) > instru->sizeof_entry());
+    instru->fill_with_sentinel(redzone_test, instru->sizeof_entry(), REDZONE_SENTINEL);
+    DR_ASSERT(*(int64_t *)redzone_test == REDZONE_SENTINEL);
 
     if (op_offline.get_value() &&
         !func_trace_init(append_marker_seg_base, file_ops_func.write_file,

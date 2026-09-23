@@ -837,9 +837,8 @@ create_buffer(per_thread_t *data)
     /* dr_raw_mem_alloc guarantees to give us zeroed memory, so no need for a memset. */
     /* Set sentinel value in redzone. */
     size_t redzone_size = data->max_buf_size - data->trace_buf_size;
-    for (size_t i = 0; i < redzone_size; i += sizeof(int64_t)) {
-        *(int64_t *)(data->buf_base + data->trace_buf_size + i) = REDZONE_SENTINEL;
-    }
+    instru->fill_with_sentinel(data->buf_base + data->trace_buf_size, redzone_size,
+                               REDZONE_SENTINEL);
     NOTIFY(4, "Created buffer %p-%p; set redzone %p-%p to %d\n", data->buf_base,
            data->buf_base + data->max_buf_size, data->buf_base + data->trace_buf_size,
            data->buf_base + data->trace_buf_size + redzone_size, REDZONE_SENTINEL);
@@ -854,10 +853,8 @@ create_buffer(per_thread_t *data)
         data->reserve_buf = (byte *)dr_raw_mem_alloc(
             data->max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
         if (data->reserve_buf != NULL) {
-            for (size_t i = 0; i < redzone_size; i += sizeof(int64_t)) {
-                *(int64_t *)(data->reserve_buf + data->trace_buf_size + i) =
-                    REDZONE_SENTINEL;
-            }
+            instru->fill_with_sentinel(data->reserve_buf + data->trace_buf_size,
+                                       redzone_size, REDZONE_SENTINEL);
         }
     }
 }
@@ -1424,15 +1421,16 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap, bool at_thread_ex
     }
 
     if (file_ops_func.handoff_buf == NULL) {
-        // If we hit a false positive sentinel and output early, clear it to avoid
-        // doing that again on the same sentinel.
-        if (*(int64_t *)buf_ptr == REDZONE_SENTINEL)
-            *(int64_t *)buf_ptr = 0;
         redzone = data->buf_base + data->trace_buf_size;
         if (buf_ptr > redzone) {
             // Set sentinel value in redzone.
-            for (ssize_t i = 0; i < buf_ptr - redzone; i += sizeof(int64_t)) {
-                *(int64_t *)(redzone + i) = REDZONE_SENTINEL;
+            instru->fill_with_sentinel(redzone, buf_ptr - redzone, REDZONE_SENTINEL);
+        } else {
+            // If we hit a false positive sentinel and output early, clear it to avoid
+            // doing that again on the same sentinel.
+            if (*(int64_t *)buf_ptr == REDZONE_SENTINEL) {
+                *(int64_t *)buf_ptr = 0;
+                ++num_false_sentinels;
             }
         }
     }

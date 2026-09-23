@@ -262,8 +262,13 @@ extern size_t buf_hdr_slots_size;
 
 // We avoid having to memset the actual buffer by picking a sentinel that is very unlikely
 // to be a real raw record. (If it is, we have only an early buffer output, not a
-// correctness issue.)
+// correctness issue.) For offline, this would be a load/store to address 1, which is
+// not likely to happen (we do see prefetches of 0 so we avoid 0).
+// For online, we fill in the first 64 bits of each trace_entry_t with this value,
+// with the rest zeroed, so that's TRACE_TYPE_WRITE with address 0.
 #define REDZONE_SENTINEL 1
+// Racy count of false sentinels we hit.
+extern uint64 num_false_sentinels;
 
 #define MAX_NUM_DELAY_INSTRS 32
 // Really sizeof(trace_entry_t.length)

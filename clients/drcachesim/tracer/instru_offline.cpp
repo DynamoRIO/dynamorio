@@ -298,6 +298,14 @@ offline_instru_t::set_entry_addr(byte *buf_ptr, addr_t addr)
     entry->addr.addr = addr;
 }
 
+void
+offline_instru_t::fill_with_sentinel(byte *start, size_t size, int64 sentinel)
+{
+    for (size_t i = 0; i < size; i += sizeof_entry()) {
+        *(int64 *)(start + i) = sentinel;
+    }
+}
+
 int
 offline_instru_t::append_pid(byte *buf_ptr, process_id_t pid)
 {
