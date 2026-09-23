@@ -37,15 +37,15 @@
 
 #include "selfmod-state-shared.h"
 
-static reg_id_t reg = DR_REG_NULL;
 static bool found_test_store;
 
 static bool
 is_test_add(instr_t *instr)
 {
     if (instr == NULL || instr_get_opcode(instr) != OP_add ||
-        instr_num_dsts(instr) != 1 || instr_num_srcs(instr) != 4)
+        instr_num_dsts(instr) != 1 || instr_num_srcs(instr) != 4) {
         return false;
+    }
 
     const opnd_t dst = instr_get_dst(instr, 0);
     const opnd_t src0 = instr_get_src(instr, 0);
@@ -55,51 +55,76 @@ is_test_add(instr_t *instr)
 
     return opnd_is_reg(dst) && opnd_get_reg(dst) == ADD_DST_DR_REG && opnd_is_reg(src0) &&
         opnd_get_reg(src0) == ADD_SRC_DR_REG && opnd_is_immed_int(src1) &&
-        opnd_get_immed_int(src1) == 7 && opnd_is_immed_int(src2) &&
-        opnd_get_immed_int(src2) == DR_SHIFT_LSL && opnd_is_immed_int(src3) &&
-        opnd_get_immed_int(src3) == 0;
+        opnd_get_immed_int(src1) == SELFMOD_STATE_WRITER_INCREMENT &&
+        opnd_is_immed_int(src2) && opnd_get_immed_int(src2) == DR_SHIFT_LSL &&
+        opnd_is_immed_int(src3) && opnd_get_immed_int(src3) == 0;
 }
 
+/*
+ * Returns true if instr matches the str instruction in selfmod_state_writer():
+ *      nop
+ *      str     STR_SRC_REG, [STR_ADDR_REG]
+ *      add     ADD_DST_REG, ADD_SRC_REG, #(SELFMOD_STATE_WRITER_INCREMENT)
+ *
+ */
 static bool
 is_test_store(instr_t *instr)
 {
     if (instr == NULL || instr_get_opcode(instr) != OP_str ||
-        instr_num_dsts(instr) != 1 || instr_num_srcs(instr) != 1)
+        instr_num_dsts(instr) != 1 || instr_num_srcs(instr) != 1) {
         return false;
+    }
 
     const opnd_t dst = instr_get_dst(instr, 0);
     const opnd_t src = instr_get_src(instr, 0);
-    return opnd_is_base_disp(dst) && opnd_get_base(dst) == STR_ADDR_DR_REG &&
-        opnd_get_index(dst) == DR_REG_NULL && opnd_get_disp(dst) == 0 &&
-        opnd_is_reg(src) && opnd_get_reg(src) == STR_SRC_DR_REG &&
-        is_test_add(instr_get_next_app(instr));
+    if (!(opnd_is_base_disp(dst) && opnd_get_base(dst) == STR_ADDR_DR_REG &&
+          opnd_get_index(dst) == DR_REG_NULL && opnd_get_disp(dst) == 0 &&
+          opnd_is_reg(src) && opnd_get_reg(src) == STR_SRC_DR_REG)) {
+        return false;
+    }
+    /* The str matches, check the surrounding instructions match the sequence in
+     * selfmod_state_writer().
+     */
+    instr_t *prev = instr_get_prev_app(instr);
+    instr_t *next = instr_get_next_app(instr);
+
+    return prev != NULL && instr_is_nop(prev) && is_test_add(next);
 }
 
 static dr_emit_flags_t
 event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                       bool for_trace, bool translating, void *user_data)
 {
-    if (reg != DR_REG_NULL && instr_is_app(instr)) {
-        if (drreg_unreserve_register(drcontext, bb, instr, reg) != DRREG_SUCCESS)
-            CHECK(false, "failed to unreserve register");
-        reg = DR_REG_NULL;
-    }
-
     if (!instr_is_app(instr) || !is_test_store(instr))
         return DR_EMIT_DEFAULT;
 
+    /* Spill and clobber the add src register before the store instruction so that it
+     * does not have its app value when the store faults.
+     */
     drvector_t allowed;
+    reg_id_t reg = DR_REG_NULL;
     drreg_init_and_fill_vector(&allowed, false);
     drreg_set_vector_entry(&allowed, ADD_SRC_DR_REG, true);
-    if (drreg_reserve_register(drcontext, bb, instr, &allowed, &reg) != DRREG_SUCCESS)
+    if (drreg_reserve_register(drcontext, bb, instr, &allowed, &reg) != DRREG_SUCCESS) {
         CHECK(false, "failed to reserve clobber register");
+    }
+    ASSERT(reg == ADD_SRC_DR_REG);
     drvector_delete(&allowed);
 
     /* Insert a meta instruction that clobbers the add src register. */
+    static const uint poison_value = 0x55;
+    ASSERT(TEST_INPUT_VALUE != poison_value);
     instrlist_meta_preinsert(bb, instr,
                              XINST_CREATE_load_int(drcontext,
                                                    opnd_create_reg(ADD_SRC_DR_REG),
-                                                   OPND_CREATE_INT16(0x55)));
+                                                   OPND_CREATE_INT16(poison_value)));
+
+    /* Now restore the app value after the store. */
+    if (drreg_unreserve_register(drcontext, bb, instr_get_next_app(instr), reg) !=
+        DRREG_SUCCESS) {
+        CHECK(false, "failed to unreserve register");
+    }
+
     found_test_store = true;
     return DR_EMIT_DEFAULT;
 }
@@ -109,8 +134,9 @@ event_exit(void)
 {
     CHECK(found_test_store, "failed to find test store");
     if (!drmgr_unregister_bb_insertion_event(event_app_instruction) ||
-        drreg_exit() != DRREG_SUCCESS)
+        drreg_exit() != DRREG_SUCCESS) {
         CHECK(false, "exit failed");
+    }
     drmgr_exit();
 }
 
@@ -118,11 +144,14 @@ DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     drreg_options_t ops = { sizeof(ops), 1 /*max slots needed*/, false };
-    if (!drmgr_init())
+    if (!drmgr_init()) {
         CHECK(false, "drmgr init failed");
-    if (drreg_init(&ops) != DRREG_SUCCESS)
+    }
+    if (drreg_init(&ops) != DRREG_SUCCESS) {
         CHECK(false, "drreg init failed");
+    }
     drmgr_register_exit_event(event_exit);
-    if (!drmgr_register_bb_instrumentation_event(NULL, event_app_instruction, NULL))
+    if (!drmgr_register_bb_instrumentation_event(NULL, event_app_instruction, NULL)) {
         CHECK(false, "bb registration failed");
+    }
 }

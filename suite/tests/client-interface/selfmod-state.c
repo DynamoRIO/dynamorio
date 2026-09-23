@@ -33,7 +33,13 @@
 #ifndef ASM_CODE_ONLY
 
 #    include "tools.h"
+#    include "selfmod-state-shared.h"
 
+/*
+ * Write `value` to `*target` and return `live+SELFMOD_STATE_WRITER_INCREMENT`.
+ * We test that the value of `live` is not corrupted when its register is spilled
+ * by a client across the store to *target.
+ */
 extern uint64
 selfmod_state_writer(uint *target, uint value, uint64 live);
 
@@ -48,11 +54,7 @@ main(int argc, char **argv)
 #        error "Test does not support the target architecture."
 #    endif
 
-#    ifdef X64
-    static const uint64 expected = 0x123456789abc0000ULL;
-#    else
-#        error "Test does not support the target architecture."
-#    endif
+    static const ptr_uint_t expected = TEST_INPUT_VALUE + SELFMOD_STATE_WRITER_INCREMENT;
 
     /* Create a writable/executable page and copy our ret instruction there. */
     uint *code = (uint *)allocate_mem(PAGE_SIZE, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
@@ -64,11 +66,12 @@ main(int argc, char **argv)
     *code = ret;
     tools_clear_icache(code, code + 1);
 
+    /* Call the generated code to make sure it is in the code cache. */
     ((generated_func_t)code)();
 
-    uint64 result = selfmod_state_writer(code, ret, expected);
-    if (result != expected + 7) {
-        print("register state corrupted: " PFX " != " PFX "\n", result, expected + 7);
+    ptr_uint_t result = selfmod_state_writer(code, ret, TEST_INPUT_VALUE);
+    if (result != expected) {
+        print("register state corrupted: " PFX " != " PFX "\n", result, expected);
         return 1;
     }
 
@@ -88,11 +91,22 @@ START_FILE
     DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #    ifdef AARCH64
-        movz    ADD_SRC_REG, #0x1234, lsl 48
-        movk    ADD_SRC_REG, #0x5678, lsl 32
-        movk    ADD_SRC_REG, #0x9abc, lsl 16
+        /* The client looks for this exact sequence of instructions. Any changes here
+         * will need corresponding changes in is_test_store() in the client.
+         */
+        nop
+        /* selfmod_state_writer(STR_ADDR, STR_SRC, ADD_SRC)
+        /* Client clobbers ADD_SRC_REG here.
+         * The address we are writing to is in the read/write/execute page which DR will
+         * have set to read-only to detect writes. The str will fault and DR returns from
+         * the signal handler back to the dispatcher (rather than directly back to fcache
+         * PC). We test that app state is correctly preserved in this situation.
+         */
         str     STR_SRC_REG, [STR_ADDR_REG]
-        add     ADD_DST_REG, ADD_SRC_REG, #7
+        /* Client restores ADD_SRC_REG here, but the fault means the restore isn't
+         * reached.
+         */
+        add     ADD_DST_REG, ADD_SRC_REG, #(SELFMOD_STATE_WRITER_INCREMENT)
         ret
 #    else
 #        error "Test does not support the target architecture."

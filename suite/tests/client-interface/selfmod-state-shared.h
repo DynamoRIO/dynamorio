@@ -33,6 +33,11 @@
 #define SELFMOD_STATE_CONCAT(x, y) (x##y)
 #define MAKE_DR_REG(reg) SELFMOD_STATE_CONCAT(DR_REG_, reg)
 
+/* The number that selfmod_state_writer() adds to its argument.
+ * The value is arbitrary but must fit into an immediate.
+ */
+#define SELFMOD_STATE_WRITER_INCREMENT 7
+
 #ifdef AARCH64
 #    define STR_SRC_REG W1
 #    define STR_SRC_DR_REG MAKE_DR_REG(STR_SRC_REG)
@@ -45,6 +50,12 @@
 
 #    define ADD_SRC_REG X2
 #    define ADD_SRC_DR_REG MAKE_DR_REG(ADD_SRC_REG)
+#else
+#    error "Test does not support the target architecture."
+#endif
+
+#ifdef X64
+#    define TEST_INPUT_VALUE 0x123456789abc0000ULL
 #else
 #    error "Test does not support the target architecture."
 #endif
