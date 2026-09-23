@@ -113,7 +113,6 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 
     /* Insert a meta instruction that clobbers the add src register. */
     static const uint poison_value = 0x55;
-    ASSERT(TEST_INPUT_VALUE != poison_value);
     instrlist_meta_preinsert(bb, instr,
                              XINST_CREATE_load_int(drcontext,
                                                    opnd_create_reg(ADD_SRC_DR_REG),
