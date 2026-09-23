@@ -54,6 +54,7 @@
 #include <linux/vmalloc.h>
 
 #include "configure.h"
+#include "dr_project_wide_defines.h"
 #include "kernel_assert.h"
 
 static void *heap = NULL;
@@ -276,20 +277,21 @@ kernel_is_readable_without_fault(const void *addr, size_t size)
         return true;
     }
 
+    /* Pointer overflow is undefined behavior and may be optimized away,
+     * so we convert the pointer to integer first.
+     */
     unsigned long cur = (unsigned long)addr;
-    unsigned long last;
-    char dummy;
-
     /* Clamp a range that would overflow. */
-    if (cur + size < cur) {
-        last = ULONG_MAX;
-    } else {
-        last = cur + size - 1;
-    }
+    const unsigned long last = cur + size < cur ? ULONG_MAX : cur + size - 1;
+    const unsigned long last_page = ALIGN_BACKWARD(last, PAGE_SIZE);
 
+    /* Probe the first requested byte, then the first byte of each subsequent page. */
+    char dummy;
+    unsigned long page = ALIGN_BACKWARD(cur, PAGE_SIZE);
     while (true) {
         /* copy_from_user_nofault rejects kernel addresses while copy_from_kernel_nofault
          * rejects user addresses, so we split on the boundary the kernel itself uses.
+         * TASK_SIZE_MAX is page-aligned, so a page never straddles the split.
          */
         long res = cur < TASK_SIZE_MAX
             ? copy_from_user_nofault(&dummy, (const void __user *)cur, 1)
@@ -297,14 +299,12 @@ kernel_is_readable_without_fault(const void *addr, size_t size)
         if (res != 0) {
             return false;
         }
-        /* Get the last byte of this page, compare with last then add 1 to get to the
-         * first byte of the next page.  This prevents wrapping.
-         */
-        unsigned long page_last = cur | (PAGE_SIZE - 1);
-        if (page_last >= last) {
+        if (page == last_page) {
             return true;
         }
-        cur = page_last + 1;
+        /* Advance to the first byte of next page. */
+        page += PAGE_SIZE;
+        cur = page;
     }
 }
 
