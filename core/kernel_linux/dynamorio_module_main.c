@@ -77,8 +77,8 @@ dynamorio_module_init(void)
 
     /* Although module initialization is single-threaded, options_init() acquires
      * options_lock through the shared DR code. The write lock records its owner using
-     * d_r_get_thread_id(), which returns the CPU ID in kernel mode. Disabling preemption
-     * prevents migration from breaking lock ownership checks.
+     * d_r_get_thread_id(), which returns the CPU ID plus one in kernel mode. Disabling
+     * preemption prevents migration from breaking lock ownership checks.
      */
     preempt_disable();
     dynamorio_app_init_part_one_options();

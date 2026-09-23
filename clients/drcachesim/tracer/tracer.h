@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * **********************************************************/
 
@@ -79,6 +79,8 @@ extern named_pipe_t ipc_pipe;
 struct per_thread_t {
     byte *seg_base;
     byte *buf_base;
+    size_t trace_buf_size; // Size without the redzone.
+    size_t max_buf_size;   // Allocated size, which includes the redzone.
     uint64 num_refs;
     uint64 num_writeouts; /* Buffer writeout instances. */
     uint64 bytes_written;
@@ -256,9 +258,6 @@ extern uint64
     num_filter_refs_racy; /* racy global memory reference count in warmup mode */
 extern char logsubdir[MAXIMUM_PATH];
 extern char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
-extern size_t trace_buf_size;
-extern size_t redzone_size;
-extern size_t max_buf_size;
 extern size_t buf_hdr_slots_size;
 
 #define MAX_NUM_DELAY_INSTRS 32
