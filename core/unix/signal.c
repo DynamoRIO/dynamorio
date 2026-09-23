@@ -5531,8 +5531,10 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
          * If native_state==true we are in case 1 and don't need to restore the app state
          * but if native_state==false then theoretically we don't know whether we are in
          * case 2 or 3 until handle_modified_code() returns. This is a problem because
-         * if we are restoring state it needs to be done before calling
-         * handle_modified_code() because it might flush the current fragment.
+         * case 3 must restore state, and case 2 must not restore state. If we are
+         * restoring state it needs to be done before calling handle_modified_code()
+         * because it might flush the current fragment, but we don't know whether we need
+         * to until afterwards.
          *
          * In practice however case 2 never happens. Comments in handle_modified_code()
          * describe the case 2 scenario as a possible future optimisation that hasn't
