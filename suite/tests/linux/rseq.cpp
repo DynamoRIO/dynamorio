@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -1233,6 +1233,54 @@ test_rseq_writeback_store(void)
 }
 #endif
 
+#ifdef X86
+// Tests a multi-destination store at the end of an rseq region.
+static void
+test_rseq_cmpxchg(void)
+{
+    volatile struct rseq *reg_rseq = get_my_rseq();
+    __u32 id = RSEQ_CPU_ID_UNINITIALIZED;
+    int dummy;
+    __asm__ __volatile__(
+        /* clang-format off */ /* (avoid indenting next few lines) */
+        RSEQ_ADD_TABLE_ENTRY(cmpxchg, 2f, 3f, 4f)
+        /* clang-format on */
+
+        "6:\n\t"
+        /* Store the entry into the ptr. */
+        "leaq rseq_cs_cmpxchg(%%rip), %%rax\n\t"
+        "movq %%rax, %[rseq_cs]\n\t"
+        /* Test a register input to the sequence. */
+        "movl %[cpu_id], %%eax\n\t"
+
+        /* Restartable sequence ending in cmpxchg. */
+        "2:\n\t"
+        "movl %%eax, %[id]\n\t"
+        "mov $0, %%rax\n\t"
+        "cmpxchg %%esi, %[dummy]\n\t"
+
+        /* Post-commit. */
+        "3:\n\t"
+        "jmp 5f\n\t"
+
+        /* Abort handler. */
+        /* clang-format off */ /* (avoid indenting next few lines) */
+        ".long " STRINGIFY(RSEQ_SIG) "\n\t"
+        "4:\n\t"
+        "jmp 6b\n\t"
+
+        /* Clear the ptr. */
+        "5:\n\t"
+        "movq $0, %[rseq_cs]\n\t"
+        /* clang-format on */
+
+        : [rseq_cs] "=m"(reg_rseq->rseq_cs), [id] "=m"(id), [dummy] "=m"(dummy)
+        : [cpu_id] "m"(reg_rseq->cpu_id)
+        : "rax", "rcx", "memory");
+    assert(id != RSEQ_CPU_ID_UNINITIALIZED);
+}
+#endif
+
 #ifdef RSEQ_TEST_ATTACH
 void *
 rseq_thread_loop(void *arg)
@@ -1450,6 +1498,10 @@ main()
 #ifdef AARCH64
         /* Test nop-ing stores with side effects. */
         test_rseq_writeback_store();
+#endif
+#ifdef X86
+        /* Test committing stores with side effects. */
+        test_rseq_cmpxchg();
 #endif
 #ifdef RSEQ_TEST_ATTACH
         /* Detach while the thread is in its rseq region loop. */
