@@ -1,0 +1,45 @@
+Wally world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Output format:
+<--record#-> <--instr#->: <Wrkld.Tid> <record details>
+------------------------------------------------------------
+           1           0: W0.T.* <marker: version 8>
+           2           0: W0.T.* <marker: filetype 0xbc2>
+           3           0: W0.T.* <marker: cache line size 64>
+           4           0: W0.T.* <marker: chunk instruction count 10000000>
+           5           0: W0.T.* <marker: page size 4096>
+           6           0: W0.T.* <marker: timestamp .*>
+           7           0: W0.T.* <marker: W0.T.* on core .*>
+           8           0: W0.T.* <marker: instruction count 0>
+           9           1: W0.T.* ifetch       4 byte\(s\) @ 0x0000000000401000 48 83 e4 f0          and    \$0xf0, %rsp
+          10           1: W0.T.* read         1 byte\(s\) @ 0x0000000000402019 by PC 0x0000000000401034
+          11           1: W0.T.* <marker: timestamp .*>
+          12           1: W0.T.* <marker: W0.T.* on core .*>
+          13           1: W0.T.* <marker: instruction count 18>
+          14           2: W0.T.* ifetch       5 byte\(s\) @ 0x0000000000401053 b9 05 00 00 00       mov    \$0x00000005, %ecx
+          15           2: W0.T.* <marker: timestamp .*>
+          16           2: W0.T.* <marker: W0.T.* on core .*>
+          17           2: W0.T.* <marker: instruction count 30>
+          18           3: W0.T.* ifetch       8 byte\(s\) @ 0x000000000040108c 48 8d 0c 25 00 30 40 lea    0x00403000, %rcx
+          18           3: W0.T.*                                             00
+          19           3: W0.T.* read         4 byte\(s\) @ 0x0000000000402ffd by PC 0x0000000000401094
+          20           3: W0.T.* <marker: timestamp .*>
+          21           3: W0.T.* <marker: W0.T.* on core .*>
+          22           3: W0.T.* <marker: instruction count 111>
+          23           4: W0.T.* ifetch       7 byte\(s\) @ 0x00000000004010c3 48 c7 c7 2a 00 00 00 mov    \$0x0000002a, %rdi
+          24           4: W0.T.* <marker: timestamp .*>
+          25           4: W0.T.* <marker: W0.T.* on core .*>
+          26           4: W0.T.* <marker: instruction count 122>
+          27           4: W0.T.* <marker: instruction count 122>
+          28           4: W0.T.* <thread W0.T.* exited>
+View tool results:
+              4 : total instructions

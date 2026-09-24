@@ -5254,6 +5254,14 @@ if (BUILD_CLIENTS)
         "-instr_encodings -tool basic_counts" "")
       unset(tool.drcachesim.allasm-repstr-basic-counts_rawtemp) # use preprocessor
 
+      # Test repeated string instruction handling when filtered.
+      torunonly_drcacheoff(repstr-ifilter allasm_repstr
+        "-L0I_filter" "@-tool@view" "")
+      torunonly_drcacheoff(repstr-dfilter allasm_repstr
+        "-L0D_filter" "@-tool@view" "")
+      torunonly_drcacheoff(repstr-idfilter allasm_repstr
+        "-L0I_filter -L0D_filter" "@-tool@view" "")
+
       # Test -record_syscall on SYS_write == #1 with 3 args.
       torunonly_drcacheoff(allasm-record-syscall allasm_repstr
         "-record_syscall 1|3" "@-tool@view" "")

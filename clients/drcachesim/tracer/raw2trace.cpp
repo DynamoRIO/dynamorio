@@ -1818,12 +1818,14 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
     bool interrupted = false;
     bool rseq_aborted = false;
     bool repstr_first_last_supported =
-        get_version(tdata) >= OFFLINE_FILE_VERSION_REPSTR_LOOP &&
-        // Rule out filtering of any kind, including -L0_filter_until_instrs
-        // (since app2app is not part of bbdup).
-        // TODO i#4914: Add filtering support so all offline uses first-last.
-        !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_DFILTERED,
-                 tdata->start_file_type);
+        get_version(tdata) >= OFFLINE_FILE_VERSION_REPSTR_LOOP_ALL ||
+        (get_version(tdata) >= OFFLINE_FILE_VERSION_REPSTR_LOOP &&
+         // For filtering of any kind, including -L0_filter_until_instrs,
+         // all filtered data is present and we need no special handling, whether
+         // rep strings were unrolled with first-last or not (since first-last we
+         // expanded online when filtering).
+         !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_DFILTERED,
+                  tdata->start_file_type));
 
     for (uint i = 0; i < instr_count; ++i) {
         trace_entry_t *buf_start = get_write_buffer(tdata);
@@ -2035,6 +2037,11 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 if (!append_scatter_gather(tdata, instr, &buf, reg_vals,
                                            expect_all_memrefs, consumed_memrefs, orig_pc))
                     return false;
+            } else if (instr->is_rep_string() && repstr_first_last_supported) {
+                if (!append_repstring(tdata, instr, orig_pc, &buf, reg_vals,
+                                      expect_all_memrefs, consumed_memrefs,
+                                      &saved_decode_pc, interrupted, added_encoding))
+                    return false;
             } else if (instrs_are_separate) {
                 // There is only one memref entry (each memref is after a count=0 PC
                 // entry). Full info (type and size) is provided via
@@ -2045,11 +2052,6 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                                        consumed_memrefs, orig_pc))
                         return false;
                 }
-            } else if (instr->is_rep_string() && repstr_first_last_supported) {
-                if (!append_repstring(tdata, instr, orig_pc, &buf, reg_vals,
-                                      expect_all_memrefs, consumed_memrefs,
-                                      &saved_decode_pc, interrupted, added_encoding))
-                    return false;
             } else {
                 log(4, "Walking memrefs: %d srcs, %d dsts\n", instr->num_mem_srcs(),
                     instr->num_mem_dests());
@@ -2275,7 +2277,34 @@ raw2trace_t::append_repstring(raw2trace_thread_data_t *tdata,
                               app_pc *saved_decode_pc, bool interrupted,
                               bool added_encoding)
 {
+    trace_entry_t *buf_start = get_write_buffer(tdata);
     trace_entry_t *buf = *buf_in;
+    bool reached_end_of_memrefs = false;
+    if (TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_DFILTERED,
+                tdata->start_file_type)) {
+        // All the records are present: we just need to read until they stop.
+        // For multi-memref, MEMINFO records will indicate the type and this parameter
+        // will be ignored, so we just need to identify the type for single-memref
+        // operations.
+        bool has_store = instr->num_mem_dests() > 0;
+        while (!reached_end_of_memrefs) {
+            // If we're nearing the size limit, write out the buffer.
+            if ((size_t)(buf - buf_start) + sizeof(*buf) >= WRITE_BUFFER_SIZE) {
+                if (!write(tdata, buf_start, buf, saved_decode_pc, 1))
+                    return false;
+                buf = buf_start;
+            }
+            if (!append_memref(tdata, &buf, instr, /*ignored*/ instr->mem_src_at(0),
+                               has_store, reg_vals, &reached_end_of_memrefs,
+                               expect_all_memrefs, consumed_memrefs, orig_pc))
+                return false;
+        }
+        // Don't leave the buffer full as the rest of the block assumes it has space.
+        if (!write(tdata, buf_start, buf, saved_decode_pc, 1))
+            return false;
+        *buf_in = buf_start;
+        return true;
+    }
     // To support elision (though we don't expect any with these instructions
     // modifying the pointers, just to be safe), it's easier to append the 2 or
     // 4 memrefs and then modify the buffer afterward, instead of peeking ahead
@@ -2284,7 +2313,6 @@ raw2trace_t::append_repstring(raw2trace_thread_data_t *tdata,
     log(5, "Rep string with %d memrefs (loads=%d stores=%d) pc=%p\n", num_memrefs,
         instr->num_mem_srcs(), instr->num_mem_dests(), orig_pc);
     DR_ASSERT(num_memrefs == 1 || num_memrefs == 2);
-    bool reached_end_of_memrefs = false;
     for (int i = 0; i < 2 * num_memrefs; ++i) {
         const instr_summary_t::memref_summary_t *memref;
         bool is_store;
@@ -2370,7 +2398,6 @@ raw2trace_t::append_repstring(raw2trace_thread_data_t *tdata,
     // Unroll the loop.
     start = backward ? (start - size) : (start + size);
     start_2 = backward ? (start_2 - size) : (start_2 + size);
-    trace_entry_t *buf_start = get_write_buffer(tdata);
     while ((backward && start > end) || (!backward && start < end)) {
         // If we're nearing the size limit, write out the buffer.
         if ((size_t)(buf - buf_start) + 3 * sizeof(*buf) >= WRITE_BUFFER_SIZE) {
@@ -2719,9 +2746,12 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
         }
         in_entry = get_next_entry(tdata);
     }
-    if (TESTANY(OFFLINE_FILE_TYPE_DFILTERED, get_file_type(tdata)) &&
-        !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
-                 get_file_type(tdata))) {
+    // For non-repstring, we only expect dfiltered-but-not-ifiltered to come
+    // here with 0-instr-count PC entries. For repstring first-last iter expansion
+    // we come here for ifiltered as well, so look for 0-instr-count for any filtering.
+    if (TESTANY(OFFLINE_FILE_TYPE_DFILTERED | OFFLINE_FILE_TYPE_FILTERED |
+                    OFFLINE_FILE_TYPE_IFILTERED,
+                get_file_type(tdata))) {
         if (in_entry != nullptr &&
             (in_entry->pc.type ==
              OFFLINE_TYPE_PC IF_X64(|| in_entry->pc.type == OFFLINE_TYPE_PC_TOP_BIT))) {
@@ -2729,6 +2759,8 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
             if (in_entry->pc.instr_count != 0) {
                 // All further memrefs for this block must have been filtered out.
                 unread_last_entry(tdata);
+                if (reached_end_of_memrefs != nullptr)
+                    *reached_end_of_memrefs = true;
                 return true;
             }
             // Otherwise, this is a 0-instr-count entry identifying which PC the
@@ -2744,6 +2776,8 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
                 log(4, "Did not yet reach next memref @%p vs instr %p\n", memref_pc,
                     orig_pc);
                 unread_last_entry(tdata);
+                if (reached_end_of_memrefs != nullptr)
+                    *reached_end_of_memrefs = true;
                 return true;
             }
             in_entry = get_next_entry(tdata);

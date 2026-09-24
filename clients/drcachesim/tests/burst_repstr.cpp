@@ -160,7 +160,7 @@ gather_trace(const std::string &tracer_ops, const std::string &out_subdir, char 
 
 void
 verify_trace(void *drcontext, const std::string &trace_dir, char *dst, char *src,
-             int expected_iters, bool expect_fault)
+             int expected_iters, bool expect_fault, bool ifiltered = false)
 {
     scheduler_t scheduler;
     std::vector<scheduler_t::input_workload_t> sched_opt_inputs;
@@ -217,18 +217,27 @@ verify_trace(void *drcontext, const std::string &trace_dir, char *dst, char *src
                           << memref.data.addr << " x" << memref.data.size << " @0x"
                           << memref.data.pc << std::dec << "\n";
             }
+            // Offset from entry_count_at_target to 1st data record.
+            const int data_offs = ifiltered ? 0 : 1;
+            if (ifiltered && memref.data.type == TRACE_TYPE_READ &&
+                memref.data.addr == reinterpret_cast<addr_t>(src)) {
+                // We won't see an instr record so look for the data record.
+                entry_count_at_target = entry_count;
+                found_loop = true;
+            }
             if (entry_count_at_target > 0) {
-                if ((entry_count - entry_count_at_target) % 2 == 1) {
+                if ((entry_count - entry_count_at_target) % 2 == (ifiltered ? 0 : 1)) {
                     assert(memref.data.type == TRACE_TYPE_READ);
                     assert(memref.data.addr ==
                            reinterpret_cast<addr_t>(src) +
-                               (entry_count - 1 - entry_count_at_target) / 2);
+                               (entry_count - data_offs - entry_count_at_target) / 2);
                     ++target_read_count;
-                } else if ((entry_count - entry_count_at_target) % 2 == 0) {
+                } else if ((entry_count - entry_count_at_target) % 2 ==
+                           (ifiltered ? 1 : 0)) {
                     assert(memref.data.type == TRACE_TYPE_WRITE);
                     assert(memref.data.addr ==
                            reinterpret_cast<addr_t>(dst) +
-                               (entry_count - 1 - entry_count_at_target) / 2);
+                               (entry_count - data_offs - entry_count_at_target) / 2);
                     ++target_write_count;
                 }
             }
@@ -278,6 +287,13 @@ test_main(int argc, const char *argv[])
     std::string dir_zero =
         gather_trace("", "burst_repstr_zero", map, map + bytes_success, 0);
 
+    // Gather a trace with a loop that faults after 11 iterations with dfiltering.
+    std::string dir_midloop_dfilter = gather_trace(
+        "-L0D_filter", "burst_repstr_mid_dfilter", dst, src, bytes_before_fault * 2);
+    // Gather a trace with a loop that faults after 11 iterations with ifiltering.
+    std::string dir_midloop_ifilter = gather_trace(
+        "-L0I_filter", "burst_repstr_mid_ifilter", dst, src, bytes_before_fault * 2);
+
     // Check the traces.
     void *drcontext = dr_standalone_init();
     verify_trace(drcontext, dir_start, map + page_size, map, 0, /*expect_fault=*/true);
@@ -287,6 +303,12 @@ test_main(int argc, const char *argv[])
                  /*expect_fault=*/false);
     verify_trace(drcontext, dir_zero, map, map + bytes_success, 0,
                  /*expect_fault=*/false);
+    // With d-filtering, we expect just 1 pair of data records.
+    verify_trace(drcontext, dir_midloop_dfilter, dst, src, 1,
+                 /*expect_fault=*/true);
+    verify_trace(drcontext, dir_midloop_ifilter, dst, src, bytes_before_fault,
+                 /*expect_fault=*/true, /*ifiltered=*/true);
+
     dr_standalone_exit();
 
     std::cerr << "all done\n";
