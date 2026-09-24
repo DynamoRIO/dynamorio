@@ -1240,7 +1240,7 @@ test_rseq_cmpxchg(void)
 {
     volatile struct rseq *reg_rseq = get_my_rseq();
     __u32 id = RSEQ_CPU_ID_UNINITIALIZED;
-    int dummy;
+    int dummy = 0;
     __asm__ __volatile__(
         /* clang-format off */ /* (avoid indenting next few lines) */
         RSEQ_ADD_TABLE_ENTRY(cmpxchg, 2f, 3f, 4f)
@@ -1257,6 +1257,7 @@ test_rseq_cmpxchg(void)
         "2:\n\t"
         "movl %%eax, %[id]\n\t"
         "mov $0, %%rax\n\t"
+        /* It doesn't matter whether the cmpxchg succeeds or not. */
         "cmpxchg %%esi, %[dummy]\n\t"
 
         /* Post-commit. */
@@ -1274,9 +1275,9 @@ test_rseq_cmpxchg(void)
         "movq $0, %[rseq_cs]\n\t"
         /* clang-format on */
 
-        : [rseq_cs] "=m"(reg_rseq->rseq_cs), [id] "=m"(id), [dummy] "=m"(dummy)
+        : [rseq_cs] "=m"(reg_rseq->rseq_cs), [id] "=m"(id), [dummy] "+m"(dummy)
         : [cpu_id] "m"(reg_rseq->cpu_id)
-        : "rax", "rcx", "memory");
+        : "rax", "rsi", "memory");
     assert(id != RSEQ_CPU_ID_UNINITIALIZED);
 }
 #endif
