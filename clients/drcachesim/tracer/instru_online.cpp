@@ -110,6 +110,20 @@ online_instru_t::set_entry_addr(byte *buf_ptr, addr_t addr)
     entry->addr = addr;
 }
 
+void
+online_instru_t::fill_with_sentinel(byte *start, size_t size, ptr_int_t sentinel)
+{
+    for (size_t i = 0; i + sizeof_entry() <= size; i += sizeof_entry()) {
+        // Our records are of type 12-byte (8-byte for 32-bit) trace_entry_t.
+        *(ptr_int_t *)(start + i) = sentinel;
+#ifdef X64
+        *(int *)(start + i + 8) = 0;
+#else
+        *(int *)(start + i + 4) = 0;
+#endif
+    }
+}
+
 int
 online_instru_t::append_pid(byte *buf_ptr, process_id_t pid)
 {

@@ -214,6 +214,11 @@ public:
     virtual void
     set_entry_addr(byte *buf_ptr, addr_t addr) = 0;
 
+    // Fills the first pointer-sized-integer of each record with "sentinel" and the
+    // rest (if any) with 0.
+    virtual void
+    fill_with_sentinel(byte *start, size_t size, ptr_int_t sentinel) = 0;
+
     // All of these return how many bytes to advance the buffer pointer.
 
     virtual int
@@ -349,6 +354,9 @@ public:
     void
     set_entry_addr(byte *buf_ptr, addr_t addr) override;
 
+    void
+    fill_with_sentinel(byte *start, size_t size, ptr_int_t sentinel) override;
+
     int
     append_pid(byte *buf_ptr, process_id_t pid) override;
     int
@@ -439,6 +447,9 @@ public:
     get_entry_addr(void *drcontext, byte *buf_ptr) const override;
     void
     set_entry_addr(byte *buf_ptr, addr_t addr) override;
+
+    void
+    fill_with_sentinel(byte *start, size_t size, ptr_int_t sentinel) override;
 
     int
     append_pid(byte *buf_ptr, process_id_t pid) override;

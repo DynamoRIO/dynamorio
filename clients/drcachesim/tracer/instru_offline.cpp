@@ -298,6 +298,20 @@ offline_instru_t::set_entry_addr(byte *buf_ptr, addr_t addr)
     entry->addr.addr = addr;
 }
 
+void
+offline_instru_t::fill_with_sentinel(byte *start, size_t size, ptr_int_t sentinel)
+{
+    for (size_t i = 0; i < size; i += sizeof_entry()) {
+        // Our records are of type 8-byte offline_entry_t.
+        *(ptr_int_t *)(start + i) = sentinel;
+#ifndef X64
+        // insert_save_addr() relies on the top word already being 0 to avoid
+        // having to write out a top zero word for every 32-bit address.
+        *(ptr_int_t *)(start + i + 4) = 0;
+#endif
+    }
+}
+
 int
 offline_instru_t::append_pid(byte *buf_ptr, process_id_t pid)
 {
@@ -699,6 +713,9 @@ offline_instru_t::insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t 
         }
         reserved = true;
     }
+    // 32-bit relies on the buffer's top words starting out zero (main buffer area memset
+    // to 0, and redzone's top word set to 0 by fill_with_sentinel()) so we don't have to
+    // write a zero into the top word here.
     MINSERT(ilist, where,
             XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, disp),
                                opnd_create_reg(reg_addr)));
