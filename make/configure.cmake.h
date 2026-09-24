@@ -267,8 +267,8 @@
 # elif defined(LINUX)
 #  define HAVE_MEMINFO
 #  ifdef LINUX_KERNEL
-/* The kernel module probes the page tables directly: there is no /proc/self/maps and no
- * all_memory_areas cache.
+/* The kernel module has no /proc/self/maps to parse, so it has no all_memory_areas
+ * cache: memory attributes are queried directly from the kernel page tables.
  */
 #    define HAVE_MEMINFO_QUERY
 #  else

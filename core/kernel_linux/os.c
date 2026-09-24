@@ -316,9 +316,12 @@ os_heap_get_commit_limit(size_t *commit_used, size_t *commit_limit)
     return false;
 }
 
-/* Unlike user space, there is no all_memory_areas cache and no maps file to parse: the
- * probe consults the page tables through the hardware.  It acquires no locks and cannot
- * block, so the plain, "query_os" and "noblock" variants are all the same check.
+/* Unlike user space, there is no all_memory_areas cache and no maps file to parse.  For
+ * now, readability is determined by a fault-safe trial read (see
+ * kernel_is_readable_without_fault()), which acquires no locks and cannot block, so the
+ * plain, "query_os" and "noblock" variants are all the same check.
+ * TODO i#8021: Query memory attributes from the kernel and derive these from that query
+ * instead of a trial read.
  */
 bool
 is_readable_without_exception(const byte *pc, size_t size)
