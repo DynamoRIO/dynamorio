@@ -707,7 +707,7 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist, user_dat
 }
 
 /* Inserts a conditional branch that jumps to skip_label if reg_skip_if_zero's
- * value is zero (or, if "skip_if_not_sentinel", if the value != "sentinel").
+ * value is zero (or, if "skip_if_not_value", if the value != "value").
  * "*reg_tmp" must start out as DR_REG_NULL. It will hold a temp reg that must be passed
  * to any subsequent call here as well as to insert_conditional_skip_target() at
  * the point where skip_label should be inserted.  Additionally, the
@@ -719,8 +719,8 @@ static void
 insert_conditional_skip(void *drcontext, instrlist_t *ilist, instr_t *where,
                         reg_id_t reg_skip_if_zero, reg_id_t *reg_tmp DR_PARAM_INOUT,
                         instr_t *skip_label, bool short_reaches,
-                        reg_id_set_t &app_regs_at_skip, bool skip_if_not_sentinel = false,
-                        int sentinel = 0)
+                        reg_id_set_t &app_regs_at_skip, bool skip_if_not_value = false,
+                        int value = 0)
 {
     // Record the registers that will need barriers at the skip target.
     for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; ++reg) {
@@ -734,12 +734,12 @@ insert_conditional_skip(void *drcontext, instrlist_t *ilist, instr_t *where,
 
 #ifdef X86
     DR_ASSERT(reg_skip_if_zero == DR_REG_XCX);
-    if (skip_if_not_sentinel) {
-        if (sentinel != 0) {
+    if (skip_if_not_value) {
+        if (value != 0) {
             MINSERT(ilist, where,
-                    INSTR_CREATE_lea(drcontext, opnd_create_reg(reg_skip_if_zero),
-                                     OPND_CREATE_MEM_lea(reg_skip_if_zero, DR_REG_NULL, 0,
-                                                         -sentinel)));
+                    INSTR_CREATE_lea(
+                        drcontext, opnd_create_reg(reg_skip_if_zero),
+                        OPND_CREATE_MEM_lea(reg_skip_if_zero, DR_REG_NULL, 0, -value)));
         }
         instr_t *no_skip = INSTR_CREATE_label(drcontext);
         MINSERT(ilist, where, INSTR_CREATE_jecxz(drcontext, opnd_create_instr(no_skip)));
@@ -777,11 +777,11 @@ insert_conditional_skip(void *drcontext, instrlist_t *ilist, instr_t *where,
         instr_t *noskip = INSTR_CREATE_label(drcontext);
         /* XXX: clean call is too long to use cbz to skip. */
         DR_ASSERT(reg_skip_if_zero <= DR_REG_R7); /* cbnz can't take r8+ */
-        if (skip_if_not_sentinel) {
-            if (sentinel != 0) {
+        if (skip_if_not_value) {
+            if (value != 0) {
                 MINSERT(ilist, where,
                         XINST_CREATE_sub(drcontext, opnd_create_reg(reg_skip_if_zero),
-                                         OPND_CREATE_INT(sentinel)));
+                                         OPND_CREATE_INT(value)));
             }
             MINSERT(ilist, where,
                     INSTR_CREATE_cbz(drcontext, opnd_create_instr(noskip),
@@ -809,18 +809,18 @@ insert_conditional_skip(void *drcontext, instrlist_t *ilist, instr_t *where,
         }
         MINSERT(ilist, where,
                 INSTR_CREATE_cmp(drcontext, opnd_create_reg(reg_skip_if_zero),
-                                 OPND_CREATE_INT(skip_if_not_sentinel ? sentinel : 0)));
+                                 OPND_CREATE_INT(skip_if_not_value ? value : 0)));
         MINSERT(ilist, where,
                 instr_set_predicate(
                     XINST_CREATE_jump(drcontext, opnd_create_instr(skip_label)),
-                    skip_if_not_sentinel ? DR_PRED_NE : DR_PRED_EQ));
+                    skip_if_not_value ? DR_PRED_NE : DR_PRED_EQ));
     }
 #elif defined(AARCH64)
-    if (skip_if_not_sentinel) {
-        if (sentinel != 0) {
+    if (skip_if_not_value) {
+        if (value != 0) {
             MINSERT(ilist, where,
                     XINST_CREATE_sub(drcontext, opnd_create_reg(reg_skip_if_zero),
-                                     OPND_CREATE_INT(sentinel)));
+                                     OPND_CREATE_INT(value)));
         }
         MINSERT(ilist, where,
                 INSTR_CREATE_cbnz(drcontext, opnd_create_instr(skip_label),
@@ -934,6 +934,9 @@ insert_mode_comparison(void *drcontext, instrlist_t *ilist, instr_t *where,
  * is reached. If redzone is reached, the clean call will be called.
  * Additionally, for tracing windows, we also check for a mode switch and
  * invoke the clean call if our tracing window is over.
+ * XXX i#8125: Maybe we should add a disassembly listing, or a tool that
+ * generates one, so it's easier to understand what the generated code looks
+ * like with the different modes and options?
  */
 static void
 instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
@@ -981,16 +984,13 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
         // detect a double-change we compare the TLS-stored last window to the
         // current tracing_window. We skip over the other skips of the call,
         // to ensure the call is made.
-        // When the redzone was -1 and the non-redzone 0, we avoided another skip
-        // branch by storing reg_result into the buffer and leveraging the redzone
-        // check below: but with REDZONE_SENTINEL==1 that is too complex.
         if (has_tracing_windows()) {
             insert_mode_comparison(drcontext, ilist, where, reg_result, &tracing_window,
                                    MEMTRACE_TLS_OFFS_WINDOW);
             insert_conditional_skip(drcontext, ilist, where, reg_result, &reg_tmp,
                                     skip2call_windows, short_reaches,
                                     app_regs_at_skip4windows,
-                                    /*skip_if_not_sentinel=*/true, 0);
+                                    /*skip_if_not_value=*/true, 0);
         }
         if (op_L0_filter_until_instrs.get_value()) {
             // Force a clean call when another thread changes tracing mode, so that
@@ -1000,7 +1000,7 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
             insert_conditional_skip(drcontext, ilist, where, reg_result, &reg_tmp,
                                     skip2call_filter, short_reaches,
                                     app_regs_at_skip4filter,
-                                    /*skip_if_not_sentinel=*/true, 0);
+                                    /*skip_if_not_value=*/true, 0);
         }
 #ifdef X86
         MINSERT(ilist, where,
@@ -1028,7 +1028,7 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
     reg_id_set_t app_regs_at_skip_call;
     insert_conditional_skip(drcontext, ilist, where, reg_ptr, &reg_tmp, skip_call,
                             short_reaches, app_regs_at_skip_call,
-                            /*skip_if_not_sentinel=*/true, REDZONE_SENTINEL);
+                            /*skip_if_not_value=*/true, REDZONE_SENTINEL);
 
     insert_conditional_skip_target(drcontext, ilist, where, skip2call_filter, reg_tmp,
                                    app_regs_at_skip4filter);

@@ -1424,16 +1424,25 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap, bool at_thread_ex
 #ifndef X64
         // 32-bit relies on a memset here to avoid an extra store to zero the
         // top word of each load/store record.
+        // 64-bit avoids this, which improves performance and allows for larger
+        // buffers.
         memset(data->buf_base, 0, data->trace_buf_size);
 #endif
         redzone = data->buf_base + data->trace_buf_size;
         if (buf_ptr > redzone) {
-            // Set sentinel value in redzone.
+            // Re-establish sentinel value in the part of the redzone we overwrote
+            // with trace data.
             instru->fill_with_sentinel(redzone, buf_ptr - redzone, REDZONE_SENTINEL);
-        } else {
-            // If we hit a false positive sentinel and output early, clear it to avoid
-            // doing that again on the same sentinel.
+        } else if (buf_ptr < redzone) {
+            // Did we hit a false positive sentinel from some prior trace content?
+            // Our sentinel is not impossible to match with a legitimate record.
+            // We don't look for this on function entry and just return without
+            // any output, as some callers expect prompt output: thread exit, filters
+            // where we output on each syscall, or a case where the caller plans to
+            // add multiple records and if we're near the end we could overflow by
+            // returning early.
             if (*(ptr_int_t *)buf_ptr == REDZONE_SENTINEL) {
+                // Clear it to avoid an early output again on the same sentinel.
                 *(ptr_int_t *)buf_ptr = 0;
                 ++num_false_sentinels;
             }

@@ -78,6 +78,11 @@ extern named_pipe_t ipc_pipe;
 /* Thread private data.  This is all set to 0 at thread init. */
 struct per_thread_t {
     byte *seg_base;
+    // Buffer for recording trace content. For 32-bit offline with its
+    // 8-byte offline_type_t records, we require that the top 4-byte word
+    // is pre-set to 0 so we don't have to zero it; this is done by
+    // memset-ing the main area to 0 and having instru_offline_t::fill_with_sentinel()
+    // set the top word for the redzone to 0.
     byte *buf_base;
     size_t trace_buf_size; // Size without the redzone.
     size_t max_buf_size;   // Allocated size, which includes the redzone.
@@ -262,7 +267,10 @@ extern size_t buf_hdr_slots_size;
 
 // We avoid having to memset the actual buffer by picking a sentinel that is very unlikely
 // to be a real raw record. (If it is, we have only an early buffer output, not a
-// correctness issue.) For x64 offline, this would be a load/store to address 1, which is
+// correctness issue.) We also need a small enough value that we can use it as
+// an immediate to subtract to reach 0 in insert_conditional_skip(), so this should
+// be < 4095 (largest AArch64 SUB immediate).
+// For x64 offline, this would be a load/store to address 1, which is
 // not likely to happen (we do see prefetches of 0 so we avoid 0).
 // For 32-bit this would be a load/store to an address with the 33rd bit set to 1
 // which is impossible.
