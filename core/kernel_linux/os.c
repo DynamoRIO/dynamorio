@@ -418,22 +418,42 @@ os_check_option_compatibility(void)
 #endif
 
     /* Place vmcode via the near-app path in vmm_place_vmcode(), which reserves
-     * the module heap within rel32 reach of kernel text without extra alignment
-     * padding or falling back to os_heap_reserve().
+     * the module heap within rel32 reach of kernel text.
      */
     FORCE_OPTION_VALUE(vm_base_near_app, true);
 
-    /* Use page-sized VMM blocks so placing vmcode in the page-aligned module heap
-     * does not require an extra block for alignment.
+    /* Blocks must be at least page-sized for memory protection and a power of two
+     * for the alignment helpers. Preserve larger valid sizes for experiments.
      */
-    FORCE_OPTION_VALUE(vmm_block_size, PAGE_SIZE);
+    if (DYNAMO_OPTION(vmm_block_size) < PAGE_SIZE ||
+        !IS_POWER_OF_2(DYNAMO_OPTION(vmm_block_size))) {
+        SYSLOG_INTERNAL_WARNING("vmm_block_size must be a power of two and at least "
+                                "PAGE_SIZE; resetting to PAGE_SIZE");
+        dynamo_options.vmm_block_size = PAGE_SIZE;
+        changed_options = true;
+    }
 
-    /* Clamp vm_size to the heap reserved at module load, rounded down to a multiple
-     * of BITMAP_DENSITY blocks: DR's VMM tracks free blocks in groups of that size
-     * and leaves a partial group untracked.
+    /* Larger blocks need an extra block for alignment and at least one complete
+     * bitmap group in the module heap.
      */
-    const size_t max_vm_size = ALIGN_BACKWARD(
-        kernel_get_heap_size(), DYNAMO_OPTION(vmm_block_size) * BITMAP_DENSITY);
+    if (DYNAMO_OPTION(vmm_block_size) > PAGE_SIZE &&
+        DYNAMO_OPTION(vmm_block_size) > kernel_get_heap_size() / (BITMAP_DENSITY + 1)) {
+        SYSLOG_INTERNAL_WARNING("vmm_block_size leaves no complete bitmap group in the "
+                                "module heap; resetting to PAGE_SIZE");
+        dynamo_options.vmm_block_size = PAGE_SIZE;
+        changed_options = true;
+    }
+
+    /* For blocks larger than a page, vmm_place_vmcode() reserves an extra block for
+     * alignment. Subtract that allowance before rounding down to BITMAP_DENSITY
+     * blocks: DR's VMM leaves a partial group untracked.
+     */
+    size_t max_vm_size = kernel_get_heap_size();
+    if (DYNAMO_OPTION(vmm_block_size) > PAGE_SIZE) {
+        max_vm_size -= DYNAMO_OPTION(vmm_block_size);
+    }
+    max_vm_size =
+        ALIGN_BACKWARD(max_vm_size, DYNAMO_OPTION(vmm_block_size) * BITMAP_DENSITY);
     if (DYNAMO_OPTION(vm_size) > max_vm_size) {
         dynamo_options.vm_size = max_vm_size;
         changed_options = true;
