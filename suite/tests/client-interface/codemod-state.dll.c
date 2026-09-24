@@ -35,87 +35,45 @@
 #include "drreg.h"
 #include "client_tools.h"
 
-#include "selfmod-state-shared.h"
-
+static app_pc test_store_pc;
 static bool found_test_store;
-
-static bool
-is_test_add(instr_t *instr)
-{
-    if (instr == NULL || instr_get_opcode(instr) != OP_add ||
-        instr_num_dsts(instr) != 1 || instr_num_srcs(instr) != 4) {
-        return false;
-    }
-
-    const opnd_t dst = instr_get_dst(instr, 0);
-    const opnd_t src0 = instr_get_src(instr, 0);
-    const opnd_t src1 = instr_get_src(instr, 1);
-    const opnd_t src2 = instr_get_src(instr, 2);
-    const opnd_t src3 = instr_get_src(instr, 3);
-
-    return opnd_is_reg(dst) && opnd_get_reg(dst) == ADD_DST_DR_REG && opnd_is_reg(src0) &&
-        opnd_get_reg(src0) == ADD_SRC_DR_REG && opnd_is_immed_int(src1) &&
-        opnd_get_immed_int(src1) == SELFMOD_STATE_WRITER_INCREMENT &&
-        opnd_is_immed_int(src2) && opnd_get_immed_int(src2) == DR_SHIFT_LSL &&
-        opnd_is_immed_int(src3) && opnd_get_immed_int(src3) == 0;
-}
-
-/*
- * Returns true if instr matches the str instruction in selfmod_state_writer():
- *      nop
- *      str     STR_SRC_REG, [STR_ADDR_REG]
- *      add     ADD_DST_REG, ADD_SRC_REG, #(SELFMOD_STATE_WRITER_INCREMENT)
- *
- */
-static bool
-is_test_store(instr_t *instr)
-{
-    if (instr == NULL || instr_get_opcode(instr) != OP_str ||
-        instr_num_dsts(instr) != 1 || instr_num_srcs(instr) != 1) {
-        return false;
-    }
-
-    const opnd_t dst = instr_get_dst(instr, 0);
-    const opnd_t src = instr_get_src(instr, 0);
-    if (!(opnd_is_base_disp(dst) && opnd_get_base(dst) == STR_ADDR_DR_REG &&
-          opnd_get_index(dst) == DR_REG_NULL && opnd_get_disp(dst) == 0 &&
-          opnd_is_reg(src) && opnd_get_reg(src) == STR_SRC_DR_REG)) {
-        return false;
-    }
-    /* The str matches, check the surrounding instructions match the sequence in
-     * selfmod_state_writer().
-     */
-    instr_t *prev = instr_get_prev_app(instr);
-    instr_t *next = instr_get_next_app(instr);
-
-    return prev != NULL && instr_is_nop(prev) && is_test_add(next);
-}
 
 static dr_emit_flags_t
 event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                       bool for_trace, bool translating, void *user_data)
 {
-    if (!instr_is_app(instr) || !is_test_store(instr))
+    if (!instr_is_app(instr) || instr_get_app_pc(instr) != test_store_pc)
         return DR_EMIT_DEFAULT;
+
+    CHECK(instr_get_opcode(instr) == OP_str, "test store has unexpected opcode");
 
     /* Spill and clobber the add src register before the store instruction so that it
      * does not have its app value when the store faults.
      */
+
+    instr_t *add_instr = instr_get_next_app(instr);
+    CHECK(instr_get_opcode(add_instr) == OP_add,
+          "test store is not follwed by the expected add.");
+    CHECK(instr_num_srcs(add_instr) >= 1, "add instr has wrong number of srcs.");
+    opnd_t add_src = instr_get_src(add_instr, 0);
+    CHECK(opnd_is_reg(add_src), "add src 0 is not a register.");
+    reg_id_t clobber_reg = opnd_get_reg(add_src);
+
     drvector_t allowed;
     reg_id_t reg = DR_REG_NULL;
     drreg_init_and_fill_vector(&allowed, false);
-    drreg_set_vector_entry(&allowed, ADD_SRC_DR_REG, true);
+    drreg_set_vector_entry(&allowed, clobber_reg, true);
     if (drreg_reserve_register(drcontext, bb, instr, &allowed, &reg) != DRREG_SUCCESS) {
         CHECK(false, "failed to reserve clobber register");
     }
-    ASSERT(reg == ADD_SRC_DR_REG);
+    ASSERT(reg == clobber_reg);
     drvector_delete(&allowed);
 
     /* Insert a meta instruction that clobbers the add src register. */
     static const uint poison_value = 0x55;
     instrlist_meta_preinsert(bb, instr,
                              XINST_CREATE_load_int(drcontext,
-                                                   opnd_create_reg(ADD_SRC_DR_REG),
+                                                   opnd_create_reg(clobber_reg),
                                                    OPND_CREATE_INT16(poison_value)));
 
     /* Now restore the app value after the store. */
@@ -143,6 +101,12 @@ DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     drreg_options_t ops = { sizeof(ops), 1 /*max slots needed*/, false };
+    module_data_t *module = dr_get_main_module();
+    CHECK(module != NULL, "failed to find main module");
+    test_store_pc = (app_pc)dr_get_proc_address(module->handle, "codemod_state_writer");
+    CHECK(test_store_pc != NULL, "failed to find codemod_state_writer");
+    dr_free_module_data(module);
+
     if (!drmgr_init()) {
         CHECK(false, "drmgr init failed");
     }

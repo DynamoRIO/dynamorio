@@ -30,31 +30,44 @@
  * DAMAGE.
  */
 
+#define CODEMOD_STATE_WRITER_INCREMENT 7
+
 #ifndef ASM_CODE_ONLY
 
 #    include "tools.h"
-#    include "selfmod-state-shared.h"
 
 /*
- * Write `value` to `*target` and return `live+SELFMOD_STATE_WRITER_INCREMENT`.
- * We test that the value of `live` is not corrupted when its register is spilled
- * by a client across the store to *target.
+ * codemod-state.c
+ * Test that the DynamoRIO signal handler restores spilled app state when an app writes to
+ * an rwx code page that DynamoRIO has made read-only for code modification detection.
  */
-extern uint64
-selfmod_state_writer(uint *target, uint value, uint64 live);
+
+/*
+ * Write `value` to `*target` and return `input+CODEMOD_STATE_WRITER_INCREMENT`.
+ * We test that the value of `input` is not corrupted when its register is spilled
+ * by a client across the store to `target`.
+ */
+extern ptr_uint_t
+codemod_state_writer(uint *target, uint value, ptr_uint_t input);
 
 typedef void (*generated_func_t)(void);
 
 int
 main(int argc, char **argv)
 {
+#    ifdef X64
+#        define TEST_INPUT_VALUE 0x123456789abc0000ULL
+#    else
+#        error "Test does not support the target architecture."
+#    endif
+
 #    ifdef AARCH64
     static const uint ret = 0xd65f03c0;
 #    else
 #        error "Test does not support the target architecture."
 #    endif
 
-    static const ptr_uint_t expected = TEST_INPUT_VALUE + SELFMOD_STATE_WRITER_INCREMENT;
+    static const ptr_uint_t expected = TEST_INPUT_VALUE + CODEMOD_STATE_WRITER_INCREMENT;
 
     /* Create a writable/executable page and copy our ret instruction there. */
     uint *code = (uint *)allocate_mem(PAGE_SIZE, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
@@ -69,7 +82,7 @@ main(int argc, char **argv)
     /* Call the generated code to make sure it is in the code cache. */
     ((generated_func_t)code)();
 
-    ptr_uint_t result = selfmod_state_writer(code, ret, TEST_INPUT_VALUE);
+    ptr_uint_t result = codemod_state_writer(code, ret, TEST_INPUT_VALUE);
     if (result != expected) {
         print("register state corrupted: " PFX " != " PFX "\n", result, expected);
         return 1;
@@ -83,30 +96,30 @@ main(int argc, char **argv)
 #else /* ASM_CODE_ONLY */
 
 #    include "asm_defines.asm"
-#    include "client-interface/selfmod-state-shared.h"
 /* clang-format off */
 START_FILE
 
-#define FUNCNAME selfmod_state_writer
-    DECLARE_FUNC(FUNCNAME)
+#define FUNCNAME codemod_state_writer
+    DECLARE_EXPORTED_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #    ifdef AARCH64
-        /* The client looks for this exact sequence of instructions. Any changes here
-         * will need corresponding changes in is_test_store() in the client.
-         */
-        nop
-        /* selfmod_state_writer(STR_ADDR, STR_SRC, ADD_SRC)
-        /* Client clobbers ADD_SRC_REG here.
+        /*
+        * ptr_uint_t
+        * codemod_state_writer(uint *target, uint value, ptr_uint_t input);
+        */
+#       define target x0
+#       define value w1
+#       define input x2
+        /* Client clobbers `input`` here.
          * The address we are writing to is in the read/write/execute page which DR will
          * have set to read-only to detect writes. The str will fault and DR returns from
          * the signal handler back to the dispatcher (rather than directly back to fcache
          * PC). We test that app state is correctly preserved in this situation.
          */
-        str     STR_SRC_REG, [STR_ADDR_REG]
-        /* Client restores ADD_SRC_REG here, but the fault means the restore isn't
-         * reached.
+        str     value, [target]
+        /* Client restores `input` here, but the fault means the restore isn't reached.
          */
-        add     ADD_DST_REG, ADD_SRC_REG, #(SELFMOD_STATE_WRITER_INCREMENT)
+        add     x0, input, #(CODEMOD_STATE_WRITER_INCREMENT)
         ret
 #    else
 #        error "Test does not support the target architecture."

@@ -3179,9 +3179,9 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   use_DynamoRIO_extension(client.drreg-cross.dll drutil)
 
   if (AARCH64 AND UNIX AND NOT APPLE)
-    tobuild_ci(client.selfmod-state client-interface/selfmod-state.c "" "" "")
-    use_DynamoRIO_extension(client.selfmod-state.dll drmgr)
-    use_DynamoRIO_extension(client.selfmod-state.dll drreg)
+    tobuild_ci(client.codemod-state client-interface/codemod-state.c "" "" "")
+    use_DynamoRIO_extension(client.codemod-state.dll drmgr)
+    use_DynamoRIO_extension(client.codemod-state.dll drreg)
   endif ()
 
   tobuild_ci(client.drx-test client-interface/drx-test.c "" "" "")
