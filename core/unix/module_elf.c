@@ -428,7 +428,9 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                 LOG(GLOBAL, LOG_INTERP | LOG_VMAREAS, 2,
                     "adding synthetic segment " PFX "-" PFX "\n", max_end + load_delta,
                     base + view_size);
-                ASSERT_CURIOSITY(soname != NULL && strstr(soname, "vdso") != NULL);
+                ASSERT_CURIOSITY(soname != NULL &&
+                                 (strstr(soname, "vdso") != NULL ||
+                                  strstr(soname, "linux-gate.so") != NULL));
                 module_add_segment_data(out_data, elf_hdr->e_phnum, max_end + load_delta,
                                         base + view_size - (max_end + load_delta),
                                         map_prot, last_seg_align, false /*!shared*/,
