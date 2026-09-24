@@ -50,6 +50,9 @@ DR_API file_t our_stderr = 2;
 app_pc vsyscall_syscall_end_pc = NULL;
 app_pc vsyscall_sysenter_return_pc = NULL;
 
+static bool heap_already_reserved = false;
+static int num_online_processors = 0;
+
 #define ASSERT_NOT_PORTED(x) assert_not_ported(__FILE__, __LINE__, __func__)
 
 static void
@@ -246,8 +249,6 @@ os_page_size(void)
     return kernel_get_page_size();
 }
 
-static bool heap_already_reserved = false;
-
 void *
 os_heap_reserve_in_region(void *start, void *end, size_t size,
                           heap_error_code_t *error_code, bool executable)
@@ -361,8 +362,6 @@ remove_from_all_memory_areas(app_pc start, app_pc end)
     /* No-op in kernel mode. */
     return true;
 }
-
-static int num_online_processors = 0;
 
 int
 get_num_processors(void)
