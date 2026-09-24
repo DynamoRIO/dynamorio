@@ -48,7 +48,7 @@ MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("DynamoRIO dynamic instrumentation engine");
 MODULE_AUTHOR("DynamoRIO developers");
 
-static ulong dr_heap_size = 257 * 1024 * 1024;
+static ulong dr_heap_size = 256 * 1024 * 1024;
 module_param(dr_heap_size, ulong, 0444);
 MODULE_PARM_DESC(dr_heap_size, "DynamoRIO module heap size in bytes (read-only)");
 
@@ -75,14 +75,23 @@ dynamorio_module_init(void)
         goto fail;
     }
 
-    /* Although module initialization is single-threaded, options_init() acquires
-     * options_lock through the shared DR code. The write lock records its owner using
-     * d_r_get_thread_id(), which returns the CPU ID plus one in kernel mode. Disabling
-     * preemption prevents migration from breaking lock ownership checks.
+    /* Although module initialization is single-threaded, dynamorio_app_init() acquires
+     * locks (options_lock, heap and vmarea locks, etc.) through the shared DR code. Those
+     * locks record their owner using d_r_get_thread_id(), which returns the CPU ID plus
+     * one in kernel mode. Disabling preemption prevents migration from breaking lock
+     * ownership checks.
      */
     preempt_disable();
-    dynamorio_app_init_part_one_options();
+    ret = dynamorio_app_init();
     preempt_enable();
+    if (ret != 0) {
+        /* DR reports failure as FAILURE (1), but the kernel only treats a negative return
+         * value as error: a positive return value would leave the module loaded.
+         */
+        pr_err("dynamorio_app_init() failed: %d\n", ret);
+        ret = -EINVAL;
+        goto fail;
+    }
 
     pr_info("Module started\n");
     return 0;
@@ -95,6 +104,7 @@ fail:
 static void __exit
 dynamorio_module_exit(void)
 {
+    /* TODO i#8021: Call dynamorio_app_exit() here when it's ported. */
     kernel_module_exit();
     pr_info("Module exited\n");
 }
