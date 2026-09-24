@@ -194,6 +194,9 @@ kernel_module_init(size_t dr_heap_size)
     }
 
     heap_size = dr_heap_size;
+    /* PAGE_KERNEL_EXEC makes the heap RWX because it backs both DR's vmcode and vmheap.
+     * TODO i#8124: Allocate two separate regions instead for fine-grained W^X protection.
+     */
     heap = vmalloc_node_range_ptr(heap_size, PAGE_SIZE, MODULES_VADDR, MODULES_END,
                                   GFP_KERNEL, PAGE_KERNEL_EXEC, VM_FLUSH_RESET_PERMS,
                                   NUMA_NO_NODE, __builtin_return_address(0));

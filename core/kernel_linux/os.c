@@ -258,8 +258,8 @@ os_heap_reserve_in_region(void *start, void *end, size_t size,
      * Therefore, only one reservation can succeed. We verify that the region satisfies
      * DR's requested range rather than making a new allocation within it.
      *
-     * `executable` is currently ignored because we only have a single RWX heap. TODO
-     * i#8124: Split into a +x code region and an NX data region, then route on
+     * `executable` is currently ignored because we only have a single RWX heap.
+     * TODO i#8124: Split into a +x code region and an NX data region, then route on
      * `executable`.
      */
     *error_code = HEAP_ERROR_CANT_RESERVE_IN_REGION;
