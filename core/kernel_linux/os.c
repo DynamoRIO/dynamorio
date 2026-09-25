@@ -91,7 +91,10 @@ d_r_os_init(void)
     os_state_ready = true;
 }
 
-/* Callers must keep preemption disabled for the entire use of the pointer. */
+/* This is CPU-local active execution state, not persistent application-thread state.
+ * Callers must keep preemption disabled for the entire use of the pointer.
+ * Takeover must separately handle persistent thread state and nested execution.
+ */
 local_state_extended_t *
 get_local_state_extended(void)
 {
