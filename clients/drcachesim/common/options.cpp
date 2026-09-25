@@ -443,7 +443,9 @@ droption_t<bytesize_t> op_exit_after_tracing(
     "Use -max_global_trace_refs instead to avoid terminating the process.");
 
 droption_t<bytesize_t>
-    op_main_buf_records(DROPTION_SCOPE_CLIENT, "main_buf_records", 4096,
+    // A larger buffer provides better performance, but we limit the larger default
+    // to just the main thread to better scale to thousands of threads.
+    op_main_buf_records(DROPTION_SCOPE_CLIENT, "main_buf_records", 32768,
                         "Capacity in records of the main thread's trace buffer",
                         "The capacity of the main (initial) thread's output buffer, as a "
                         "count of 8-byte records.");
