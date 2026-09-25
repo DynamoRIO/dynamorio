@@ -472,12 +472,12 @@ close_thread_file(void *drcontext)
     }
 
 #ifdef HAS_SNAPPY
-    if (op_offline.get_value() && snappy_enabled()) {
+    if (op_offline.get_value() && file_ops_func.handoff_buf == NULL && snappy_enabled()) {
         free_compression_file_data(drcontext, data);
     }
 #endif
 #ifdef HAS_ZLIB
-    if (op_offline.get_value() &&
+    if (op_offline.get_value() && file_ops_func.handoff_buf == NULL &&
         (op_raw_compress.get_value() == "zlib" ||
          op_raw_compress.get_value() == "gzip")) {
         // Flush remaining data.
@@ -500,7 +500,8 @@ close_thread_file(void *drcontext)
     }
 #endif
 #ifdef HAS_LZ4
-    if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
+    if (op_offline.get_value() && file_ops_func.handoff_buf == NULL &&
+        op_raw_compress.get_value() == "lz4") {
         // Flush remaining data.
         size_t res =
             LZ4F_compressEnd(data->lzcxt, data->buf_lz4, data->buf_lz4_size, nullptr);
@@ -584,7 +585,7 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
             close_thread_file(drcontext);
         data->file = new_file;
 #ifdef HAS_SNAPPY
-        if (snappy_enabled()) {
+        if (snappy_enabled() && file_ops_func.handoff_buf == NULL) {
             // We use placement new for better isolation.
             void *placement = dr_custom_alloc(
                 nullptr, static_cast<dr_alloc_flags_t>(0), sizeof(*data->snappy_writer),
@@ -596,14 +597,16 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
         }
 #endif
 #ifdef HAS_ZLIB
-        if (op_offline.get_value() && op_raw_compress.get_value() == "zlib") {
+        if (op_offline.get_value() && file_ops_func.handoff_buf == NULL &&
+            op_raw_compress.get_value() == "zlib") {
             memset(&data->zstream, 0, sizeof(data->zstream));
             data->zstream.zalloc = zlib_redirect_malloc;
             data->zstream.zfree = zlib_redirect_free;
             data->zstream.opaque = drcontext;
             int res = deflateInit(&data->zstream, Z_BEST_SPEED);
             DR_ASSERT(res == Z_OK);
-        } else if (op_offline.get_value() && op_raw_compress.get_value() == "gzip") {
+        } else if (op_offline.get_value() && file_ops_func.handoff_buf == NULL &&
+                   op_raw_compress.get_value() == "gzip") {
             memset(&data->zstream, 0, sizeof(data->zstream));
             data->zstream.zalloc = zlib_redirect_malloc;
             data->zstream.zfree = zlib_redirect_free;
@@ -619,7 +622,8 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
         }
 #endif
 #ifdef HAS_LZ4
-        if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
+        if (op_offline.get_value() && file_ops_func.handoff_buf == NULL &&
+            op_raw_compress.get_value() == "lz4") {
 #    ifdef HAS_LZ4_CUSTOM_MEM
             /* Unlike the legacy entry point, this returns the context itself
              * (NULL on failure) rather than an error code.
