@@ -629,6 +629,8 @@ add_drmemtrace(drmemtrace_nomain STATIC OFF ON)
 # This static library links with the DR static library and has dr_client_main:
 add_drmemtrace(drmemtrace_drstatic STATIC ON OFF)
 append_property_list(TARGET drmemtrace_static COMPILE_DEFINITIONS "DRMEMTRACE_STATIC")
+append_property_list(TARGET drmemtrace_nomain COMPILE_DEFINITIONS "DRMEMTRACE_STATIC")
+append_property_list(TARGET drmemtrace_drstatic COMPILE_DEFINITIONS "DRMEMTRACE_STATIC")
 # We export drmemtrace.h to the same place as the analysis tool headers
 # for simplicity, rather than sticking it into ext/include or sthg.
 install_client_nonDR_header(drmemtrace tracer/drmemtrace.h)
