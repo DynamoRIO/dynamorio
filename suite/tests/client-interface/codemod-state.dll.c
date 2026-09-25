@@ -53,7 +53,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 
     instr_t *add_instr = instr_get_next_app(instr);
     CHECK(instr_get_opcode(add_instr) == OP_add,
-          "test store is not follwed by the expected add.");
+          "test store is not followed by the expected add.");
     CHECK(instr_num_srcs(add_instr) >= 1, "add instr has wrong number of srcs.");
     opnd_t add_src = instr_get_src(add_instr, 0);
     CHECK(opnd_is_reg(add_src), "add src 0 is not a register.");
