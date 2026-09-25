@@ -110,7 +110,8 @@ GLOBAL_LABEL(FUNCNAME:)
 #       define target x0
 #       define value w1
 #       define input x2
-        /* Client clobbers `input`` here.
+        /* Client temporarily clobbers `input` here. This simulates a client spilling an
+         * app register to use as scratch.
          * The address we are writing to is in the read/write/execute page which DR will
          * have set to read-only to detect writes. The str will fault and DR returns from
          * the signal handler back to the dispatcher (rather than directly back to fcache
