@@ -1,5 +1,6 @@
 /* *******************************************************************************
  * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * Copyright (c) 2025 Foundation of Research and Technology, Hellas.
@@ -10222,6 +10223,11 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
     while (memquery_iterator_next(iter)) {
         bool image = false;
         size_t size = iter->vm_end - iter->vm_start;
+#    ifdef LINUX
+        bool validate_shared_elf = DYNAMO_OPTION(validate_shared_elf_modules) &&
+            iter->may_alloc && iter->offset == 0 && iter->inode != 0 && iter->is_shared &&
+            !TESTANY(MEMPROT_EXEC, iter->prot);
+#    endif
         /* i#479, hide private module and match Windows's behavior */
         bool skip = dynamo_vm_area_overlap(iter->vm_start, iter->vm_end) &&
             !is_in_dynamo_dll(iter->vm_start) /* our own text section is ok */
@@ -10295,7 +10301,14 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
             image = true;
             DODEBUG({ map_type = "ELF SO"; });
         } else if (TESTANY(MEMPROT_READ, iter->prot) &&
-                   module_is_header(iter->vm_start, size)) {
+                   module_is_header(iter->vm_start, size)
+#    ifdef LINUX
+                   && (!validate_shared_elf ||
+                       module_validate_shared_elf_mapping(
+                           iter->vm_start, size, iter->device_major, iter->device_minor,
+                           iter->inode))
+#    endif
+        ) {
             DEBUG_DECLARE(size_t image_size = size;)
             app_pc mod_base, mod_first_end, mod_max_end;
             char *exec_match;
