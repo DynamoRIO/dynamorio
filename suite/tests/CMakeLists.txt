@@ -3178,6 +3178,12 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   use_DynamoRIO_extension(client.drreg-cross.dll drreg)
   use_DynamoRIO_extension(client.drreg-cross.dll drutil)
 
+  if (AARCH64 AND UNIX AND NOT APPLE)
+    tobuild_ci(client.codemod-state client-interface/codemod-state.c "" "" "")
+    use_DynamoRIO_extension(client.codemod-state.dll drmgr)
+    use_DynamoRIO_extension(client.codemod-state.dll drreg)
+  endif ()
+
   tobuild_ci(client.drx-test client-interface/drx-test.c "" "" "")
   use_DynamoRIO_extension(client.drx-test.dll drx)
 
@@ -6787,9 +6793,8 @@ if (AARCH64)
 
   # Test that stolen register mangling does not interfere with selfmod mangling.
   # The -steal_reg <N> option must be kept in sync with ADDR_REG in selfmod.c.
-  # TODO i7585: Fix stolen reg corruption bug and enable this test.
-  #torunonly(security-common.selfmod-stolen_reg security-common.selfmod-coherent-icache
-  #  security-common/selfmod.c "-steal_reg 9 -hw_cache_consistency -sandbox_writes" "")
+  torunonly(security-common.selfmod-stolen_reg security-common.selfmod-coherent-icache
+    security-common/selfmod.c "-steal_reg 9 -hw_cache_consistency -sandbox_writes" "")
 endif ()
 
 if (X64 AND NOT AARCH64 AND NOT RISCV64) # XXX i#1569: get working on AArch64

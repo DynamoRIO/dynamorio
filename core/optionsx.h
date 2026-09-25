@@ -2381,8 +2381,7 @@ DYNAMIC_OPTION_DEFAULT(bool, allow_detach, true, "allow detaching from process")
 PC_OPTION_INTERNAL(bool, noasynch, "disable asynchronous event interceptions")
 #endif
 
-/* TODO i7585: Default to on for AArch64 when we have tested it more. */
-#if defined(X86) /* || defined(AARCH64) */
+#if defined(X86) || defined(AARCH64)
 #    define HW_CACHE_CONSISTENCY_DEFAULT true
 #else
 #    define HW_CACHE_CONSISTENCY_DEFAULT false
