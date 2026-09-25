@@ -10974,7 +10974,7 @@ handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc, app_pc instr
      * flushing outside the requested region (entire vm_area_t). If we could tell
      * we could return NULL instead (which is a special flag that says redo the
      * write instead of going to d_r_dispatch) if f wasn't flushed.
-     * XXX - Redoing the write would be more efficient than going back to
+     * XXX i#7585 - Redoing the write would be more efficient than going back to
      * d_r_dispatch and should be the common case.
      * Note that check_for_modified_code() in unix/signal.c assumes that this function
      * returns instr_app_pc even if f wasn't flushed. If we implement this optimisation
