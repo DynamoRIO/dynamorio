@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -243,7 +243,10 @@ test_main(int argc, const char *argv[])
     static int iter_start = outer_iters / 3;
     static int iter_stop = iter_start + 4;
 
-    if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;-offline'"))
+    // Set the main buffer to 4K as our output is tuned to that for the count
+    // of writes.
+    if (!my_setenv("DYNAMORIO_OPTIONS",
+                   "-stderr_mask 0xc -client_lib ';;-offline -main_buf_records 4K'"))
         std::cerr << "failed to set env var!\n";
 
     std::cerr << "replace all file functions\n";

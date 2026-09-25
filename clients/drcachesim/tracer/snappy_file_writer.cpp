@@ -51,50 +51,60 @@ snappy_file_writer_t::write_file_header()
 }
 
 ssize_t
-snappy_file_writer_t::compress_and_write(const void *buf, size_t count)
+snappy_file_writer_t::compress_and_write(const void *buf_start, size_t total_count)
 {
-    if (count > sizeof(compressed_buf_))
-        return -1;
-    size_t compressed_count;
+    // The framing format imposes maximum sizes, so we have to split up large buffers.
+    const char *buf = static_cast<const char *>(buf_start);
     size_t crc_size = include_checksums_ ? checksum_size_ : 0;
-    // We only support single-output-buffer inputs.
-    if (snappy::MaxCompressedLength(count) + header_size_ + crc_size >
-        sizeof(compressed_buf_))
-        return -1;
-    snappy::RawCompress(static_cast<const char *>(buf), count,
-                        compressed_buf_ + header_size_ + crc_size, &compressed_count);
-    if (compressed_count + header_size_ + crc_size > sizeof(compressed_buf_))
-        return -1;
-    uint32_t checksum = 0;
-    if (include_checksums_)
-        checksum = mask_crc32(static_cast<const char *>(buf), count);
-    if (compressed_count >= count) {
-        // Leave it uncompressed.
-        size_t data_size = count + crc_size;
-        char header[8];
-        header[0] = include_checksums_ ? UNCOMPRESSED_DATA : UNCOMPRESSED_DATA_NO_CRC;
-        memcpy(header + 1, &data_size, 3);
-        size_t header_size = 4 + crc_size;
+    size_t count = total_count;
+    size_t emitted = 0;
+    while (emitted < total_count) {
+        while (snappy::MaxCompressedLength(count) + header_size_ + crc_size >
+               sizeof(compressed_buf_)) {
+            count /= 2;
+        }
+        size_t compressed_count;
+        snappy::RawCompress(buf, count, compressed_buf_ + header_size_ + crc_size,
+                            &compressed_count);
+        if (compressed_count + header_size_ + crc_size > sizeof(compressed_buf_))
+            return -1;
+        uint32_t checksum = 0;
         if (include_checksums_)
-            memcpy(header + 4, &checksum, crc_size);
-        ssize_t wrote = write_func_(fd_, header, header_size);
-        if (wrote < static_cast<ssize_t>(header_size))
-            return wrote;
-        return write_func_(fd_, buf, count);
-    } else {
-        size_t data_size = compressed_count + crc_size;
-        compressed_buf_[0] =
-            include_checksums_ ? COMPRESSED_DATA : COMPRESSED_DATA_NO_CRC;
-        memcpy(compressed_buf_ + 1, &data_size, 3);
-        if (include_checksums_)
-            memcpy(compressed_buf_ + 4, &checksum, crc_size);
-        ssize_t wrote =
-            write_func_(fd_, compressed_buf_, compressed_count + header_size_ + crc_size);
-        if (wrote <= 0)
-            return wrote;
-        // The caller wants the count of uncompressed data written.
-        return count;
+            checksum = mask_crc32(static_cast<const char *>(buf), count);
+        if (compressed_count >= count) {
+            // Leave it uncompressed.
+            size_t data_size = count + crc_size;
+            char header[8];
+            header[0] = include_checksums_ ? UNCOMPRESSED_DATA : UNCOMPRESSED_DATA_NO_CRC;
+            memcpy(header + 1, &data_size, 3);
+            size_t header_size = 4 + crc_size;
+            if (include_checksums_)
+                memcpy(header + 4, &checksum, crc_size);
+            ssize_t wrote = write_func_(fd_, header, header_size);
+            if (wrote < static_cast<ssize_t>(header_size))
+                return wrote;
+            wrote = write_func_(fd_, buf, count);
+            if (wrote < static_cast<ssize_t>(count))
+                return wrote;
+        } else {
+            size_t data_size = compressed_count + crc_size;
+            compressed_buf_[0] =
+                include_checksums_ ? COMPRESSED_DATA : COMPRESSED_DATA_NO_CRC;
+            memcpy(compressed_buf_ + 1, &data_size, 3);
+            if (include_checksums_)
+                memcpy(compressed_buf_ + 4, &checksum, crc_size);
+            ssize_t wrote = write_func_(fd_, compressed_buf_,
+                                        compressed_count + header_size_ + crc_size);
+            if (wrote <= 0)
+                return wrote;
+        }
+        emitted += count;
+        buf += count;
+        if (emitted + count > total_count)
+            count = total_count - emitted;
     }
+    // The caller wants the count of uncompressed data written.
+    return emitted;
 }
 
 } // namespace drmemtrace

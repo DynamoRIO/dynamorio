@@ -299,6 +299,10 @@ Further non-compatibility-affecting changes include:
    block has been lifted.
  - Added the -raw_compress_level option to drmemtrace to allow specifying the
    compression level for raw offline trace files when using lz4 compression.
+ - Increased the default drmemtrace buffer size for the main (initial) thread
+   by 8x. This also decreased the granularity of checking for the -trace_for_instrs
+   and -exit_after_instrs flags; the old granularity can be reproduced by setting
+   "-main_buf_records 4K".
 
 **************************************************
 <hr>
