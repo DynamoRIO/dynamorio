@@ -5560,6 +5560,9 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
         next_pc =
             handle_modified_code(dcontext, instr_cache_pc, translated_pc, target, f);
 
+        /* Confirm that we only see case 1 or case 3. */
+        ASSERT((native_state && next_pc == NULL) || (!native_state && next_pc != NULL));
+
         if (!native_state) {
             /* going to exit from middle of fragment (at the write) so will mess up
              * trace building
@@ -5571,11 +5574,9 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
         }
 
         if (next_pc == NULL) {
-            ASSERT(native_state);
             /* re-execute the write -- just have main_signal_handler return */
             return true;
         } else {
-            ASSERT(!native_state);
             /* Do not resume execution in cache, go back to d_r_dispatch. */
             transfer_from_sig_handler_to_fcache_return(
                 dcontext, uc, NULL, SIGSEGV, next_pc,
