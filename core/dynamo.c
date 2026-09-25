@@ -558,13 +558,13 @@ dynamorio_app_init_part_two_finalize(void)
         d_r_decode_init();
         proc_init();
         modules_init(); /* before vm_areas_init() */
+        d_r_os_init();
 #ifdef LINUX_KERNEL
         /* TODO i#8021: Remove this early return as the remainder of part two is ported.
          * Move it further down for each incremental step.
          */
         return SUCCESS;
 #endif
-        d_r_os_init();
         config_heap_init(); /* after heap_init */
 
         /* Setup for handling faults in loader_init() */

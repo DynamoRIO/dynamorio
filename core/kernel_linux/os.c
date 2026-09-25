@@ -52,6 +52,7 @@ app_pc vsyscall_sysenter_return_pc = NULL;
 
 static bool heap_already_reserved = false;
 static int num_online_processors = 0;
+static bool os_state_ready = false;
 
 #define ASSERT_NOT_PORTED(x) assert_not_ported(__FILE__, __LINE__, __func__)
 
@@ -64,6 +65,46 @@ assert_not_ported(const char *file, int line, const char *func)
 #else
     os_terminate(NULL, 0);
 #endif
+}
+
+void
+d_r_os_init(void)
+{
+    size_t size, alignment;
+    kernel_get_cpu_local_state_layout(&size, &alignment);
+    /* Make sure the size and alignment of our cpu local storage meet the requirements of
+     * DR's local_state_extended_t.
+     */
+    if (size < sizeof(local_state_extended_t) ||
+        alignment % __alignof__(local_state_extended_t) != 0) {
+        print_file(STDERR,
+                   "DynamoRIO per-CPU storage has incompatible size or alignment: "
+                   "size=" SZFMT ", alignment=" SZFMT "; required size=" SZFMT
+                   ", alignment=" SZFMT "\n",
+                   size, alignment, sizeof(local_state_extended_t),
+                   __alignof__(local_state_extended_t));
+        /* TODO i#8141: Make os_terminate() fail module loading cleanly. It currently
+         * panics even before takeover.
+         */
+        os_terminate(NULL, 0);
+    }
+    os_state_ready = true;
+}
+
+/* Callers must keep preemption disabled for the entire use of the pointer. */
+local_state_extended_t *
+get_local_state_extended(void)
+{
+    ASSERT(os_state_ready);
+    return (local_state_extended_t *)kernel_get_cpu_local_state();
+}
+
+/* Callers must keep preemption disabled for the entire use of the pointer. */
+local_state_t *
+get_local_state(void)
+{
+    ASSERT(os_state_ready);
+    return (local_state_t *)kernel_get_cpu_local_state();
 }
 
 ushort
@@ -110,8 +151,15 @@ get_sys_thread_id(void)
 dcontext_t *
 get_thread_private_dcontext(void)
 {
-    /* TODO i#8021: Return per-CPU dcontext after CPU takeover. */
-    return NULL;
+    if (!os_state_ready)
+        return NULL;
+    return get_local_state()->spill_space.dcontext;
+}
+
+void
+set_thread_private_dcontext(dcontext_t *dcontext)
+{
+    get_local_state()->spill_space.dcontext = dcontext;
 }
 
 bool
