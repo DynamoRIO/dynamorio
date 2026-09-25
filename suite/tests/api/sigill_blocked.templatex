@@ -3,9 +3,9 @@ busy_thread starting \(tid=[0-9]+\)
 starting sig_thread
 sig_thread blocked signals
 pre-DR start
-stopping busy_thread
-busy_thread exiting
+checking busy_thread signal mask
 sending SIGUSR1 to sig_thread
 sig_thread received SIGUSR1
 pre-DR stop
+busy_thread exiting
 all done
