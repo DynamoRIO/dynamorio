@@ -1,4 +1,5 @@
 Hit delay threshold: enabling tracing.
+.*
 Hit -max_global_trace_refs: disabling tracing.
 .*
      Total Number Of iterations   :  3
