@@ -372,8 +372,10 @@ static const LZ4F_CustomMem lz4_custom_mem = { lz4_redirect_malloc, lz4_redirect
 static void
 free_compression_file_data(void *drcontext, per_thread_t *data)
 {
+    if (!op_offline.get_value() || file_ops_func.handoff_buf != NULL)
+        return;
 #ifdef HAS_SNAPPY
-    if (op_offline.get_value() && snappy_enabled()) {
+    if (snappy_enabled()) {
         data->snappy_writer->~snappy_file_writer_t();
         dr_custom_free(nullptr, static_cast<dr_alloc_flags_t>(0), data->snappy_writer,
                        sizeof(*data->snappy_writer));
@@ -381,14 +383,12 @@ free_compression_file_data(void *drcontext, per_thread_t *data)
     }
 #endif
 #ifdef HAS_ZLIB
-    if (op_offline.get_value() &&
-        (op_raw_compress.get_value() == "zlib" ||
-         op_raw_compress.get_value() == "gzip")) {
+    if (op_raw_compress.get_value() == "zlib" || op_raw_compress.get_value() == "gzip") {
         deflateEnd(&data->zstream);
     }
 #endif
 #ifdef HAS_LZ4
-    if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
+    if (op_raw_compress.get_value() == "lz4") {
         size_t res = LZ4F_freeCompressionContext(data->lzcxt);
         DR_ASSERT(!LZ4F_isError(res));
         data->lzcxt = nullptr;
@@ -400,16 +400,16 @@ free_compression_file_data(void *drcontext, per_thread_t *data)
 static void
 exit_compression(void *drcontext, per_thread_t *data)
 {
+    if (!op_offline.get_value() || file_ops_func.handoff_buf != NULL)
+        return;
 #ifdef HAS_ZLIB
-    if (op_offline.get_value() &&
-        (op_raw_compress.get_value() == "zlib" ||
-         op_raw_compress.get_value() == "gzip")) {
+    if (op_raw_compress.get_value() == "zlib" || op_raw_compress.get_value() == "gzip") {
         dr_raw_mem_free(data->buf_compressed, data->max_buf_size);
         data->buf_compressed = nullptr;
     }
 #endif
 #ifdef HAS_LZ4
-    if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
+    if (op_raw_compress.get_value() == "lz4") {
         dr_raw_mem_free(data->buf_lz4, data->buf_lz4_size);
         data->buf_lz4 = nullptr;
     }
@@ -1501,7 +1501,7 @@ init_thread_io(void *drcontext)
 
     NOTIFY(2, "T" TIDFMT " in init_thread_io.\n", dr_get_thread_id(drcontext));
 #ifdef HAS_ZLIB
-    if (op_offline.get_value() &&
+    if (op_offline.get_value() && file_ops_func.handoff_buf == NULL &&
         (op_raw_compress.get_value() == "zlib" ||
          op_raw_compress.get_value() == "gzip")) {
         data->buf_compressed = static_cast<byte *>(dr_raw_mem_alloc(
@@ -1509,7 +1509,8 @@ init_thread_io(void *drcontext)
     }
 #endif
 #ifdef HAS_LZ4
-    if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
+    if (op_offline.get_value() && file_ops_func.handoff_buf == NULL &&
+        op_raw_compress.get_value() == "lz4") {
         data->buf_lz4_size = LZ4F_compressBound(data->max_buf_size, &lz4_ops);
         DR_ASSERT(data->buf_lz4_size >= LZ4F_HEADER_SIZE_MAX);
         data->buf_lz4 = static_cast<byte *>(dr_raw_mem_alloc(
