@@ -91,6 +91,14 @@ d_r_os_init(void)
     os_state_ready = true;
 }
 
+void
+os_loader_init_prologue(void)
+{
+    /* Linux has already loaded and relocated this module.
+     * No OS-specific setup is needed until kernel client loading is supported.
+     */
+}
+
 /* This is CPU-local active execution state, not persistent application-thread state.
  * Callers must keep preemption disabled for the entire use of the pointer.
  * Takeover must separately handle persistent thread state and nested execution.
