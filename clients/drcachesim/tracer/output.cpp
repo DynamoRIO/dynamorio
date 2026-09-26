@@ -372,8 +372,10 @@ static const LZ4F_CustomMem lz4_custom_mem = { lz4_redirect_malloc, lz4_redirect
 static void
 free_compression_file_data(void *drcontext, per_thread_t *data)
 {
+    if (!op_offline.get_value() || file_ops_func.handoff_buf != NULL)
+        return;
 #ifdef HAS_SNAPPY
-    if (op_offline.get_value() && snappy_enabled()) {
+    if (snappy_enabled()) {
         data->snappy_writer->~snappy_file_writer_t();
         dr_custom_free(nullptr, static_cast<dr_alloc_flags_t>(0), data->snappy_writer,
                        sizeof(*data->snappy_writer));
@@ -381,14 +383,12 @@ free_compression_file_data(void *drcontext, per_thread_t *data)
     }
 #endif
 #ifdef HAS_ZLIB
-    if (op_offline.get_value() &&
-        (op_raw_compress.get_value() == "zlib" ||
-         op_raw_compress.get_value() == "gzip")) {
+    if (op_raw_compress.get_value() == "zlib" || op_raw_compress.get_value() == "gzip") {
         deflateEnd(&data->zstream);
     }
 #endif
 #ifdef HAS_LZ4
-    if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
+    if (op_raw_compress.get_value() == "lz4") {
         size_t res = LZ4F_freeCompressionContext(data->lzcxt);
         DR_ASSERT(!LZ4F_isError(res));
         data->lzcxt = nullptr;
@@ -400,16 +400,16 @@ free_compression_file_data(void *drcontext, per_thread_t *data)
 static void
 exit_compression(void *drcontext, per_thread_t *data)
 {
+    if (!op_offline.get_value() || file_ops_func.handoff_buf != NULL)
+        return;
 #ifdef HAS_ZLIB
-    if (op_offline.get_value() &&
-        (op_raw_compress.get_value() == "zlib" ||
-         op_raw_compress.get_value() == "gzip")) {
+    if (op_raw_compress.get_value() == "zlib" || op_raw_compress.get_value() == "gzip") {
         dr_raw_mem_free(data->buf_compressed, data->max_buf_size);
         data->buf_compressed = nullptr;
     }
 #endif
 #ifdef HAS_LZ4
-    if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
+    if (op_raw_compress.get_value() == "lz4") {
         dr_raw_mem_free(data->buf_lz4, data->buf_lz4_size);
         data->buf_lz4 = nullptr;
     }
@@ -472,12 +472,12 @@ close_thread_file(void *drcontext)
     }
 
 #ifdef HAS_SNAPPY
-    if (op_offline.get_value() && snappy_enabled()) {
+    if (op_offline.get_value() && file_ops_func.handoff_buf == NULL && snappy_enabled()) {
         free_compression_file_data(drcontext, data);
     }
 #endif
 #ifdef HAS_ZLIB
-    if (op_offline.get_value() &&
+    if (op_offline.get_value() && file_ops_func.handoff_buf == NULL &&
         (op_raw_compress.get_value() == "zlib" ||
          op_raw_compress.get_value() == "gzip")) {
         // Flush remaining data.
@@ -500,7 +500,8 @@ close_thread_file(void *drcontext)
     }
 #endif
 #ifdef HAS_LZ4
-    if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
+    if (op_offline.get_value() && file_ops_func.handoff_buf == NULL &&
+        op_raw_compress.get_value() == "lz4") {
         // Flush remaining data.
         size_t res =
             LZ4F_compressEnd(data->lzcxt, data->buf_lz4, data->buf_lz4_size, nullptr);
@@ -584,7 +585,7 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
             close_thread_file(drcontext);
         data->file = new_file;
 #ifdef HAS_SNAPPY
-        if (snappy_enabled()) {
+        if (snappy_enabled() && file_ops_func.handoff_buf == NULL) {
             // We use placement new for better isolation.
             void *placement = dr_custom_alloc(
                 nullptr, static_cast<dr_alloc_flags_t>(0), sizeof(*data->snappy_writer),
@@ -596,14 +597,16 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
         }
 #endif
 #ifdef HAS_ZLIB
-        if (op_offline.get_value() && op_raw_compress.get_value() == "zlib") {
+        if (op_offline.get_value() && file_ops_func.handoff_buf == NULL &&
+            op_raw_compress.get_value() == "zlib") {
             memset(&data->zstream, 0, sizeof(data->zstream));
             data->zstream.zalloc = zlib_redirect_malloc;
             data->zstream.zfree = zlib_redirect_free;
             data->zstream.opaque = drcontext;
             int res = deflateInit(&data->zstream, Z_BEST_SPEED);
             DR_ASSERT(res == Z_OK);
-        } else if (op_offline.get_value() && op_raw_compress.get_value() == "gzip") {
+        } else if (op_offline.get_value() && file_ops_func.handoff_buf == NULL &&
+                   op_raw_compress.get_value() == "gzip") {
             memset(&data->zstream, 0, sizeof(data->zstream));
             data->zstream.zalloc = zlib_redirect_malloc;
             data->zstream.zfree = zlib_redirect_free;
@@ -619,7 +622,8 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
         }
 #endif
 #ifdef HAS_LZ4
-        if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
+        if (op_offline.get_value() && file_ops_func.handoff_buf == NULL &&
+            op_raw_compress.get_value() == "lz4") {
 #    ifdef HAS_LZ4_CUSTOM_MEM
             /* Unlike the legacy entry point, this returns the context itself
              * (NULL on failure) rather than an error code.
@@ -1497,7 +1501,7 @@ init_thread_io(void *drcontext)
 
     NOTIFY(2, "T" TIDFMT " in init_thread_io.\n", dr_get_thread_id(drcontext));
 #ifdef HAS_ZLIB
-    if (op_offline.get_value() &&
+    if (op_offline.get_value() && file_ops_func.handoff_buf == NULL &&
         (op_raw_compress.get_value() == "zlib" ||
          op_raw_compress.get_value() == "gzip")) {
         data->buf_compressed = static_cast<byte *>(dr_raw_mem_alloc(
@@ -1505,7 +1509,8 @@ init_thread_io(void *drcontext)
     }
 #endif
 #ifdef HAS_LZ4
-    if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
+    if (op_offline.get_value() && file_ops_func.handoff_buf == NULL &&
+        op_raw_compress.get_value() == "lz4") {
         data->buf_lz4_size = LZ4F_compressBound(data->max_buf_size, &lz4_ops);
         DR_ASSERT(data->buf_lz4_size >= LZ4F_HEADER_SIZE_MAX);
         data->buf_lz4 = static_cast<byte *>(dr_raw_mem_alloc(
