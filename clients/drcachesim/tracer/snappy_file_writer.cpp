@@ -67,10 +67,10 @@ snappy_file_writer_t::compress_and_write(const void *buf_start, size_t total_cou
         snappy::RawCompress(buf, count, compressed_buf_ + header_size_ + crc_size,
                             &compressed_count);
         if (compressed_count + header_size_ + crc_size > sizeof(compressed_buf_))
-            return -1;
+            return emitted;
         uint32_t checksum = 0;
         if (include_checksums_)
-            checksum = mask_crc32(static_cast<const char *>(buf), count);
+            checksum = mask_crc32(buf, count);
         if (compressed_count >= count) {
             // Leave it uncompressed.
             size_t data_size = count + crc_size;
@@ -82,10 +82,10 @@ snappy_file_writer_t::compress_and_write(const void *buf_start, size_t total_cou
                 memcpy(header + 4, &checksum, crc_size);
             ssize_t wrote = write_func_(fd_, header, header_size);
             if (wrote < static_cast<ssize_t>(header_size))
-                return wrote;
+                return wrote + emitted;
             wrote = write_func_(fd_, buf, count);
             if (wrote < static_cast<ssize_t>(count))
-                return wrote;
+                return wrote + emitted;
         } else {
             size_t data_size = compressed_count + crc_size;
             compressed_buf_[0] =
@@ -96,7 +96,7 @@ snappy_file_writer_t::compress_and_write(const void *buf_start, size_t total_cou
             ssize_t wrote = write_func_(fd_, compressed_buf_,
                                         compressed_count + header_size_ + crc_size);
             if (wrote <= 0)
-                return wrote;
+                return wrote + emitted;
         }
         emitted += count;
         buf += count;
