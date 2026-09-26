@@ -4045,7 +4045,8 @@ if (BUILD_CLIENTS)
     endif ()
 
     torunonly_drcachesim(delay-simple ${ci_shared_app}
-      "-trace_after_instrs 20000 -exit_after_tracing 10000" "")
+      # We shrink the buffer size for a more accurate exit.
+      "-trace_after_instrs 20000 -exit_after_tracing 10000 -main_buf_records 1024" "")
 
     # We use a many-threaded test with a small max and test that we only see
     # 1 thread, testing the thread ignore logic.  The max should be small enough
@@ -4687,7 +4688,7 @@ if (BUILD_CLIENTS)
     endif ()
     # Test split-file windows.
     torunonly_drcacheoff(windows-split ${ci_shared_app}
-      "-trace_after_instrs 20K -trace_for_instrs 10K -retrace_every_instrs 30K"
+      "-trace_after_instrs 20K -trace_for_instrs 10K -retrace_every_instrs 30K -main_buf_records 4K"
       "@-tool@basic_counts" "")
     # The first postcmd did window #0.  There should be at least 2 more windows.
     set(tool.drcacheoff.windows-split_postcmd2
@@ -4700,7 +4701,8 @@ if (BUILD_CLIENTS)
     # of a tracing window.
     if (X64 AND LINUX)
       torunonly_drcacheoff(windows-memdump ${ci_shared_app}
-        "-trace_after_instrs 20K -trace_for_instrs 10K -retrace_every_instrs 30K -memdump_on_window"
+        # The test assumes a smaller buffer size as it expects 3 windows.
+        "-trace_after_instrs 20K -trace_for_instrs 10K -retrace_every_instrs 30K -memdump_on_window -main_buf_records 4K"
         "@-tool@basic_counts" "")
     # The first postcmd did window #0.  There should be at least 2 more windows.
     set(tool.drcacheoff.windows-memdump_postcmd2
@@ -4713,7 +4715,7 @@ if (BUILD_CLIENTS)
 
     # Offline version of this test.
     torunonly_drcacheoff(irregular-windows-simple ${ci_shared_app}
-      "-trace_instr_intervals_file ${config_files_dir}/instr_intervals_example.csv"
+      "-trace_instr_intervals_file ${config_files_dir}/instr_intervals_example.csv  -main_buf_records 4K"
       "@-tool@basic_counts" "")
     # The first postcmd did window #0.  There should be 2 more windows.
     set(tool.drcacheoff.irregular-windows-simple_postcmd2

@@ -1617,7 +1617,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         if (prev == buf_ptr_load) {
             // We didn't actually insert any instrumentation (likely due to
             // elision), so we do not need the buffer load.
-            NOTIFY(3, "Removing unused buf ptr load\n");
+            NOTIFY(5, "Removing unused buf ptr load\n");
             instrlist_remove(bb, buf_ptr_load);
             instr_destroy(drcontext, buf_ptr_load);
             buf_ptr_load = nullptr;

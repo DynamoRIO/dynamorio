@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -78,9 +78,9 @@ public:
     write_file_header();
 
     // Returns the count of uncompressed data written (i.e., returning anything
-    // less than "count" indicates an error).
+    // less than "total_count" indicates an error).
     ssize_t
-    compress_and_write(const void *buf, size_t count);
+    compress_and_write(const void *buf_start, size_t total_count);
 
 private:
     file_t fd_;
