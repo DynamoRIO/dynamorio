@@ -598,7 +598,7 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
                 }
                 /* XXX: We've observed the kernel leaving out the AVX flag in signal
                  * contexts for DR's suspend signals, even when app threads have used AVX
-                 * (https://github.com/DynamoRIO/dynamorio/pull/5791#issuecomment-1358789851).
+                 * (github.com/DynamoRIO/dynamorio/pull/5791#issuecomment-1358789851).
                  * Mark the SIMD components we copy from mc so sigreturn restores them
                  * on detach.  We still do not understand the kernel's local laziness.
                  * i#7996: XCR0 can also include components absent from this frame, so
@@ -606,9 +606,10 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
                  */
                 xstate->xstate_hdr.xstate_bv |= XCR0_SSE | XCR0_AVX;
 #ifdef X64
-                if (ZMM_ENABLED())
+                if (ZMM_ENABLED()) {
                     xstate->xstate_hdr.xstate_bv |=
                         XCR0_OPMASK | XCR0_ZMM_HI256 | XCR0_HI16_ZMM;
+                }
 #endif
             }
         }
