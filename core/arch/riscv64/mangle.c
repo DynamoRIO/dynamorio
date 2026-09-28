@@ -227,33 +227,36 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                               opnd_create_reg(DR_REG_SP),
                               opnd_create_immed_int(dstack_offs, OPSZ_12b)));
         memopnd = opnd_create_base_disp(DR_REG_A0, REG_NULL, 0, 0,
-                                        reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_8));
+                                        reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_1));
         /* ma:   mask agnostic
          * ta:   tail agnostic
          * sew:  selected element width
          * lmul: vector register group multiplier
          *
-         *           ma            ta         sew=8       lmul=8 */
-        vtypei = (0b1 << 7) | (0b1 << 6) | (0b000 << 3) | 0b011;
-        /* For the following vector instructions, set the element width to 8b, and use 8
-         * registers as a group (lmul=8).
+         *           ma            ta         sew=8       lmul=1 */
+        vtypei = (0b1 << 7) | (0b1 << 6) | (0b000 << 3) | 0b000;
+        /* For the following vector instructions, set the element width to 8b, and use 1
+         * register as a group (lmul=1).
          */
         PRE(ilist, instr,
             INSTR_CREATE_vsetvli(dcontext, opnd_create_reg(DR_REG_A1),
                                  opnd_create_reg(DR_REG_ZERO),
                                  opnd_create_immed_uint(vtypei, OPSZ_11b)));
-        /* Uses lmul=8 to copy 8 registers at a time. */
-        for (int reg = DR_REG_VR0; reg <= DR_REG_VR31; reg += 8) {
+        /* Copies one register at a time into the low vlenb bytes of its dr_simd_t slot,
+         * so the mcontext layout (VREG_OFFSET(reg) == &simd[reg - VR0]) holds for any
+         * VLEN <= 256 bits, not just VLEN == 256.
+         */
+        for (int reg = DR_REG_VR0; reg <= DR_REG_VR31; reg++) {
             PRE(ilist, instr,
                 INSTR_CREATE_vse8_v(dcontext, memopnd, opnd_create_reg(reg),
                                     opnd_create_immed_int(1, OPSZ_1b) /* mask disabled */,
                                     opnd_create_immed_int(0, OPSZ_3b) /* nfields = 1 */));
-            /* If it's the last vector register group, no need to increase the offset. */
-            if (reg != DR_REG_VR24) {
+            /* If it's the last vector register, no need to increase the offset. */
+            if (reg != DR_REG_VR31) {
                 PRE(ilist, instr,
                     INSTR_CREATE_addi(
                         dcontext, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A0),
-                        opnd_create_immed_int(8 * sizeof(dr_simd_t), OPSZ_12b)));
+                        opnd_create_immed_int(sizeof(dr_simd_t), OPSZ_12b)));
             }
         }
     }
@@ -298,33 +301,36 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
                               opnd_create_reg(DR_REG_SP),
                               opnd_create_immed_int(current_offs, OPSZ_12b)));
         memopnd = opnd_create_base_disp(DR_REG_A0, REG_NULL, 0, 0,
-                                        reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_8));
+                                        reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_1));
         /* ma:   mask agnostic
          * ta:   tail agnostic
          * sew:  selected element width
          * lmul: vector register group multiplier
          *
-         *           ma            ta         sew=8       lmul=8 */
-        vtypei = (0b1 << 7) | (0b1 << 6) | (0b000 << 3) | 0b011;
-        /* For the following vector instructions, set the element width to 8b, and use 8
-         * registers as a group (lmul=8).
+         *           ma            ta         sew=8       lmul=1 */
+        vtypei = (0b1 << 7) | (0b1 << 6) | (0b000 << 3) | 0b000;
+        /* For the following vector instructions, set the element width to 8b, and use 1
+         * register as a group (lmul=1).
          */
         PRE(ilist, instr,
             INSTR_CREATE_vsetvli(dcontext, opnd_create_reg(DR_REG_A1),
                                  opnd_create_reg(DR_REG_ZERO),
                                  opnd_create_immed_uint(vtypei, OPSZ_11b)));
-        /* Uses lmul=8 to copy 8 registers at a time. */
-        for (int reg = DR_REG_VR0; reg <= DR_REG_VR31; reg += 8) {
+        /* Copies one register at a time from the low vlenb bytes of its dr_simd_t slot,
+         * so the mcontext layout (VREG_OFFSET(reg) == &simd[reg - VR0]) holds for any
+         * VLEN <= 256 bits, not just VLEN == 256.
+         */
+        for (int reg = DR_REG_VR0; reg <= DR_REG_VR31; reg++) {
             PRE(ilist, instr,
                 INSTR_CREATE_vle8_v(dcontext, opnd_create_reg(reg), memopnd,
                                     opnd_create_immed_int(1, OPSZ_1b) /* mask disabled */,
                                     opnd_create_immed_int(0, OPSZ_3b) /* nfields = 1 */));
-            /* If it's the last vector register group, no need to increase the offset. */
-            if (reg != DR_REG_VR24) {
+            /* If it's the last vector register, no need to increase the offset. */
+            if (reg != DR_REG_VR31) {
                 PRE(ilist, instr,
                     INSTR_CREATE_addi(
                         dcontext, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A0),
-                        opnd_create_immed_int(8 * sizeof(dr_simd_t), OPSZ_12b)));
+                        opnd_create_immed_int(sizeof(dr_simd_t), OPSZ_12b)));
             }
         }
     }
