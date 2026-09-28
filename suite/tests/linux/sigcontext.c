@@ -81,8 +81,8 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
         /* i#7996: Enabled CPU features need not all be available in this frame.
          * In particular, claiming absent AMX tile data makes sigreturn fail.
          */
-        assert((saved_xstate->xstate_hdr.xstate_bv &
-                ~saved_xstate->fpstate.sw_reserved.xstate_bv) == 0);
+        assert(!TESTANY(~saved_xstate->fpstate.sw_reserved.xstate_bv,
+                        saved_xstate->xstate_hdr.xstate_bv));
     }
     switch (sig) {
     case SIGUSR1: {
