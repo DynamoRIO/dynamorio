@@ -66,6 +66,8 @@ kernel_get_cpu_local_state_layout(size_t *size, size_t *alignment);
 /* Returns the current CPU's buffer as an ordinary pointer. The caller must keep
  * preemption disabled for the entire duration of access through the returned pointer.
  * Storage is initially zero and remains allocated until module unload.
+ * This function never returns NULL: the module loader allocates dr_cpu_local_storage
+ * before module initialization, and fails the module load if it cannot allocate.
  */
 void *
 kernel_get_cpu_local_state(void);
