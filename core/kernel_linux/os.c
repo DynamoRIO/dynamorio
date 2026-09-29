@@ -74,6 +74,7 @@ d_r_os_init(void)
     kernel_get_cpu_local_state_layout(&size, &alignment);
     /* Make sure the size and alignment of our cpu local storage meet the requirements of
      * DR's local_state_extended_t.
+     * TODO i#8021: Check against os_local_state_t once it is added for client TLS.
      */
     if (size < sizeof(local_state_extended_t) ||
         alignment % __alignof__(local_state_extended_t) != 0) {
