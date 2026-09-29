@@ -189,13 +189,6 @@ if (X86)
   string(APPEND dynamorio_module_kbuild_ccflags " \\\n  -mfunction-return=keep")
 endif ()
 
-set(dynamorio_module_kbuild_asflags "asflags-y += \\\n  $(dr_flags) \\")
-string(APPEND dynamorio_module_kbuild_asflags "\n  -Xassembler -mmnemonic=intel \\")
-string(APPEND dynamorio_module_kbuild_asflags "\n  -Xassembler -msyntax=intel \\")
-string(APPEND dynamorio_module_kbuild_asflags "\n  -Xassembler -mnaked-reg \\")
-string(APPEND dynamorio_module_kbuild_asflags "\n  -Xassembler --noexecstack \\")
-string(APPEND dynamorio_module_kbuild_asflags "\n  -Xassembler --64")
-
 set(dynamorio_module_ko "${CMAKE_CURRENT_BINARY_DIR}/${dynamorio_module_name}.ko")
 set(dynamorio_module_kbuildfile "${CMAKE_CURRENT_BINARY_DIR}/Kbuild")
 

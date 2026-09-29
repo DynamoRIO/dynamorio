@@ -40,7 +40,20 @@ obj-m += @dynamorio_module_name@.o
 @dynamorio_module_name@-y := $(dr_objs) core/kernel_linux/stubs.o
 @dynamorio_module_kbuild_flags@
 @dynamorio_module_kbuild_ccflags@
-@dynamorio_module_kbuild_asflags@
+
+asflags-y += $(dr_flags) -Xassembler --noexecstack
+ifdef CONFIG_AS_IS_LLVM
+# LLVM's integrated assembler (used for kernels built with LLVM=1) does not
+# accept the GNU as options below. -masm=intel selects Intel syntax, which it
+# parses without register prefixes.
+asflags-y += -masm=intel
+else
+asflags-y += \
+  -Xassembler -mmnemonic=intel \
+  -Xassembler -msyntax=intel \
+  -Xassembler -mnaked-reg \
+  -Xassembler --64
+endif
 
 # Disable objtool checks for all objects in this directory. DynamoRIO assembly (x86.asm)
 # and low-level code contain custom return sequences, stack switches, and trampolines
