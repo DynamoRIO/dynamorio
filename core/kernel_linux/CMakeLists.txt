@@ -175,12 +175,10 @@ set(dynamorio_module_kbuild_flags "dr_flags := \\\n  ${dynamorio_module_flags}")
 # Kbuild.in generates core/arch/x86/x86.S from x86.asm.
 list(APPEND dynamorio_module_objs "core/arch/x86/x86.o")
 
-set(generated_stubs_c "${CMAKE_CURRENT_BINARY_DIR}/core/kernel_linux/stubs.c")
-list(APPEND dynamorio_module_objs "core/kernel_linux/stubs.o")
-
+# Kbuild.in adds the generated core/kernel_linux/stubs.o, which is derived from
+# these objects.
 string(REPLACE ";" " \\\n  " dynamorio_module_objs "${dynamorio_module_objs}")
-set(dynamorio_module_kbuild_objs
-  "${dynamorio_module_name}-y := \\\n  ${dynamorio_module_objs}")
+set(dynamorio_module_kbuild_objs "dr_objs := \\\n  ${dynamorio_module_objs}")
 
 set(dynamorio_module_kbuild_ccflags "ccflags-y += \\\n  $(dr_flags) \\")
 string(APPEND dynamorio_module_kbuild_ccflags "\n  -Wframe-larger-than=4096")
@@ -207,42 +205,9 @@ configure_file(
   @ONLY
 )
 
-# When Module.symvers is present (e.g. built kernel or distro headers), extract undefined
-# symbols and generate weak stubs to allow loading during development. The stubs are not
-# expected to be called: each stub simply calls BUG(), so a runtime call would fail loudly
-# with a kernel oops.
-# When Module.symvers is absent (e.g. unbuilt kernel tree with make modules_prepare),
-# skip stub generation and rely on KBUILD_MODPOST_WARN=1 for compile-only testing.
-set(extra_module_build_commands "")
-if (EXISTS "${KERNEL_DIR}/Module.symvers")
-  set(extra_module_build_commands
-    # Phase 2: Extract undefined symbols from composite .o and generate weak stubs
-    COMMAND ${CMAKE_COMMAND}
-      -DMODULE_OBJECT=${CMAKE_CURRENT_BINARY_DIR}/${dynamorio_module_name}.o
-      -DKERNEL_DIR=${KERNEL_DIR}
-      -DOUTPUT_FILE=${generated_stubs_c}
-      -DNM_PROGRAM=${CMAKE_NM}
-      -P "${CMAKE_CURRENT_SOURCE_DIR}/generate_stubs.cmake"
-    # Phase 3: Compile stubs.o and link final dynamorio_module.ko
-    COMMAND ${MAKE_PROGRAM} -C ${KERNEL_DIR} M=${CMAKE_CURRENT_BINARY_DIR} modules
-  )
-endif ()
-
 # Always invoke kbuild and let it decide what needs rebuilding.
 add_custom_target(dynamorio_module ALL
-  # TODO i#8021: Turn off KBUILD_MODPOST_WARN and remove stubs.c generation once all
-  # kernel symbols are fully implemented.
-  # Phase 0: Reset stubs.c to empty so Phase 1 builds without stale stubs
-  COMMAND ${CMAKE_COMMAND} -E rm -f "${generated_stubs_c}"
-  COMMAND ${CMAKE_COMMAND} -E touch "${generated_stubs_c}"
-  # Phase 1: Compile all source files into component .o files and composite .o
-  COMMAND ${MAKE_PROGRAM} -C ${KERNEL_DIR} M=${CMAKE_CURRENT_BINARY_DIR}
-    KBUILD_MODPOST_WARN=1 modules
-  # If the kernel tree's Module.symvers exists, stubs.c is populated with stubs for
-  # missing symbols and then compiled into the final module in Phases 2 and 3. Otherwise
-  # the build stops here, producing a module with unresolved symbols that cannot be
-  # loaded. See comments for extra_module_build_commands above.
-  ${extra_module_build_commands}
+  COMMAND ${MAKE_PROGRAM} -C ${KERNEL_DIR} M=${CMAKE_CURRENT_BINARY_DIR} modules
   # Ensure generated inputs are ready before kbuild runs.
   DEPENDS
     ${dynamorio_module_kbuildfile}

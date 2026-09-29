@@ -37,6 +37,7 @@
 
 obj-m += @dynamorio_module_name@.o
 @dynamorio_module_kbuild_objs@
+@dynamorio_module_name@-y := $(dr_objs) core/kernel_linux/stubs.o
 @dynamorio_module_kbuild_flags@
 @dynamorio_module_kbuild_ccflags@
 @dynamorio_module_kbuild_asflags@
@@ -60,3 +61,51 @@ $(obj)/core/arch/x86/x86.S: $(src)/core/arch/x86/x86.asm FORCE \
 
 targets += core/arch/x86/x86.S
 clean-files += core/arch/x86/x86.S
+
+# TODO i#8021: Remove the stubs and KBUILD_MODPOST_WARN once all kernel symbols
+# are fully implemented.
+#
+# When Module.symvers is present (e.g. a built kernel or distro headers),
+# stubs.c gets weak stubs for symbols that are referenced but neither defined by
+# the module nor exported by the kernel, so that the module can be loaded during
+# development. The stubs are not expected to be called: each one simply calls
+# BUG(), so a runtime call would fail loudly with a kernel oops. stubs.c is
+# derived from the other objects rather than from the linked module, so the
+# module builds in a single pass.
+#
+# When Module.symvers is absent (e.g. an unbuilt kernel tree prepared with
+# `make modules_prepare`), kernel exports can't be told apart from missing
+# symbols, so stubs.c is left empty and modpost's unresolved symbol errors are
+# turned into warnings for compile-only testing. scripts/Makefile.modpost
+# includes this file before it reads KBUILD_MODPOST_WARN.
+dr_symvers := $(wildcard $(objtree)/Module.symvers)
+dr_stub_objs := $(addprefix $(obj)/,$(dr_objs))
+
+ifneq ($(dr_symvers),)
+quiet_cmd_dr_stubs = GEN     $@
+      cmd_dr_stubs = \
+  export LC_ALL=C; \
+  $(NM) -u $(dr_stub_objs) > $@.nm; \
+  awk '$$1 == "U" { print $$2 }' $@.nm | sort -u > $@.undef; \
+  $(NM) --defined-only $(dr_stub_objs) > $@.nm; \
+  { awk 'NF == 3 && $$2 ~ /[A-Z]/ { print $$3 }' $@.nm; \
+    cut -f2 $(dr_symvers); \
+    echo __this_module; } | sort -u > $@.def; \
+  { echo '/* Auto-generated weak stubs for unported DynamoRIO symbols */'; \
+    echo '\#include <linux/bug.h>'; \
+    echo; \
+    comm -23 $@.undef $@.def | \
+      sed 's/.*/void __attribute__((weak)) &(void) { BUG(); }/'; } > $@; \
+  rm -f $@.nm $@.undef $@.def
+else
+KBUILD_MODPOST_WARN := 1
+quiet_cmd_dr_stubs = GEN     $@
+      cmd_dr_stubs = \
+  echo '/* No stubs: $(objtree)/Module.symvers not found */' > $@
+endif
+
+$(obj)/core/kernel_linux/stubs.c: $(dr_stub_objs) $(dr_symvers) FORCE \
+  ; $(call if_changed,dr_stubs)
+
+targets += core/kernel_linux/stubs.c
+clean-files += core/kernel_linux/stubs.c
