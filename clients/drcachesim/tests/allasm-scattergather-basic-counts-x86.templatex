@@ -4,13 +4,12 @@ Hello world!
 Basic counts tool results:
 Total counts:
 #ifdef __AVX512F__
-         170 total \(fetched\) instructions
-         170 total unique \(fetched\) instructions
+         170 total instructions
+         170 total unique instructions
 #else
-         111 total \(fetched\) instructions
-         111 total unique \(fetched\) instructions
+         111 total instructions
+         111 total unique instructions
 #endif
-           0 total non-fetched instructions
            0 total prefetches
 #ifdef __AVX512F__
           52 total data loads
@@ -26,13 +25,12 @@ Total counts:
 .*
 Thread .* counts:
 #ifdef __AVX512F__
-         170 \(fetched\) instructions
-         170 unique \(fetched\) instructions
+         170 instructions
+         170 unique instructions
 #else
-         111 \(fetched\) instructions
-         111 unique \(fetched\) instructions
+         111 instructions
+         111 unique instructions
 #endif
-           0 non-fetched instructions
            0 prefetches
 #ifdef __AVX512F__
           52 data loads

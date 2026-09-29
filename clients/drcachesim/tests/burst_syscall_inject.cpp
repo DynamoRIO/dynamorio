@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -651,9 +651,11 @@ write_system_call_template_with_repstr(void *dr_context)
         test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYS_gettid));
     instr_t *rep_movs = INSTR_CREATE_rep_movs_1(GLOBAL_DCONTEXT);
     for (int i = 0; i < REP_MOVS_COUNT; ++i) {
-        write_instr_entry(dr_context, writer, rep_movs,
-                          reinterpret_cast<app_pc>(PC_SYSCALL_GETTID),
-                          i == 0 ? TRACE_TYPE_INSTR : TRACE_TYPE_INSTR_NO_FETCH);
+        if (i == 0) {
+            write_instr_entry(dr_context, writer, rep_movs,
+                              reinterpret_cast<app_pc>(PC_SYSCALL_GETTID),
+                              TRACE_TYPE_INSTR_STRING_LOOP);
+        }
         write_trace_entry(writer,
                           test_util::make_memref(READ_MEMADDR_GETTID, TRACE_TYPE_READ,
                                                  opnd_size_in_bytes(OPSZ_PTR)));
@@ -714,8 +716,8 @@ test_template_with_repstr(void *dr_context)
     }
     int distinct_instrs_in_tmpl = SYSCALL_INSTR_COUNT + DEFAULT_INSTR_COUNT;
     if (!(template_counts.instrs == distinct_instrs_in_tmpl &&
-          template_counts.instrs_nofetch == REP_MOVS_COUNT - 1 &&
-          template_counts.encodings == REP_MOVS_COUNT + SYSCALL_INSTR_COUNT &&
+          template_counts.instrs_nofetch == 0 &&
+          template_counts.encodings == SYSCALL_INSTR_COUNT + DEFAULT_INSTR_COUNT &&
           template_counts.loads == REP_MOVS_COUNT &&
           template_counts.stores == REP_MOVS_COUNT)) {
         std::cerr << "Unexpected counts in system call trace template with repstr ("
@@ -735,7 +737,7 @@ test_template_with_repstr(void *dr_context)
     basic_counts_t::counters_t final_trace_counts;
     get_tool_results(trace_dir, final_trace_counts, syscall_stats);
     if (final_trace_counts.kernel_instrs < distinct_instrs_in_tmpl ||
-        final_trace_counts.kernel_nofetch_instrs != REP_MOVS_COUNT - 1) {
+        final_trace_counts.kernel_nofetch_instrs != 0) {
         std::cerr << "Unexpected counts in the final trace with repstr (#instr="
                   << final_trace_counts.kernel_instrs
                   << ",#nofetch_instr=" << final_trace_counts.kernel_nofetch_instrs

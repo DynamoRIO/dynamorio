@@ -287,10 +287,7 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf_i
     // potentially customize some properties of the trace. E.g. the start address for the
     // kernel code section.
     for (const auto &entry : trace_template->entries) {
-        if (type_is_instr(static_cast<trace_type_t>(entry.type)) ||
-            // We want to write out at each repstr instance so that we do not accumulate
-            // too many buffered entries.
-            entry.type == TRACE_TYPE_INSTR_NO_FETCH) {
+        if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
             // If this is the last instruction and an indirect branch, and there was a
             // branch target marker just before it, set it to the fallthrough pc of
             // the syscall instruction for which we're injecting the trace. This is
@@ -330,11 +327,12 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf_i
         } else if (entry.type == TRACE_TYPE_MARKER &&
                    entry.size == TRACE_MARKER_TYPE_BRANCH_TARGET) {
             buf_last_branch_target_marker = buf;
-        }
-        size_t size = buf - buf_base;
-        if ((uint)size >= WRITE_BUFFER_SIZE) {
-            tdata->error = "Too many accumulated entries";
-            return false;
+        } else if (static_cast<size_t>(buf - buf_base) >= WRITE_BUFFER_SIZE) {
+            if (!write(tdata, buf_base, buf, &saved_decode_pc, 1)) {
+                return false;
+            }
+            buf = buf_base;
+            buf_last_branch_target_marker = nullptr;
         }
         *buf = entry;
         ++buf;
@@ -1977,6 +1975,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 trace_entry.addr);
             buf++;
         } else {
+            bool skip_fetch = false;
             if (!skip_icache && record_encoding_emitted(tdata, decode_pc)) {
                 if (!append_encoding(tdata, decode_pc, instr->length(), buf, buf_start))
                     return false;
@@ -1987,18 +1986,20 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             // we don't need encodings.
             buf->type = instr->type();
             if (buf->type == TRACE_TYPE_INSTR_MAYBE_FETCH) {
+                tdata->error = "Should never see MAYBE_FETCH record.";
+                return false;
+            }
+            if (buf->type == TRACE_TYPE_INSTR_STRING_LOOP) {
+                // Handle a legacy trace with an instr fetch per iteration.
                 // We want it to look like the original rep string, with just one instr
                 // fetch for the whole loop, instead of the drutil-expanded loop.
                 // We fix up the maybe-fetch here so our offline file doesn't have to
                 // rely on our own reader.
                 if (!was_prev_instr_rep_string(tdata) || repstr_first_last_supported) {
                     set_prev_instr_rep_string(tdata, true);
-                    buf->type = TRACE_TYPE_INSTR;
                 } else {
-                    log(3, "Skipping instr fetch for " PFX "\n", (ptr_uint_t)decode_pc);
-                    // We still include the instr to make it easier for core simulators
-                    // (i#2051).
-                    buf->type = TRACE_TYPE_INSTR_NO_FETCH;
+                    log(4, "Skipping instr fetch for " PFX "\n", (ptr_uint_t)decode_pc);
+                    skip_fetch = true;
                 }
             } else
                 set_prev_instr_rep_string(tdata, false);
@@ -2006,10 +2007,12 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 set_last_pc_fallthrough_if_syscall(tdata, orig_pc + instr->length());
             else
                 set_last_pc_fallthrough_if_syscall(tdata, 0);
-            buf->size = (ushort)(skip_icache ? 0 : instr->length());
-            buf->addr = (addr_t)orig_pc;
-            ++buf;
-            log(4, "Appended instr fetch for original %p\n", orig_pc);
+            if (!skip_fetch) {
+                buf->size = (ushort)(skip_icache ? 0 : instr->length());
+                buf->addr = (addr_t)orig_pc;
+                ++buf;
+                log(4, "Appended instr fetch for original %p\n", orig_pc);
+            }
         }
         decode_pc = pc;
         if (tdata->rseq_past_end_) {
@@ -2337,7 +2340,7 @@ raw2trace_t::append_repstring(raw2trace_thread_data_t *tdata,
             // instead a loop that was about to start but was interrupted by
             // a signal or exception. Replace it with a marker.
             buf = *buf_in - 1;
-            DR_ASSERT(buf->type == TRACE_TYPE_INSTR);
+            DR_ASSERT(buf->type == TRACE_TYPE_INSTR_STRING_LOOP);
             if (added_encoding) {
                 rollback_last_encoding(tdata);
                 --buf;
@@ -2376,16 +2379,7 @@ raw2trace_t::append_repstring(raw2trace_thread_data_t *tdata,
             buf = buf_start;
         }
         log(4, "  Adding rep string memref %p\n", start);
-        // We assume we never need an encoding record as no-fetch won't count
-        // toward chunk limits.
-        // XXX i#4915: Remove these non-fetched entries.
-        // We'd have to also remove from the expanded path for online and filtered:
-        // for filtered via a post-unexpanded-repstr clean call applying filtering;
-        // for online via the reader removing the expanded-repstr nofetch records.
-        buf->type = static_cast<unsigned short>(TRACE_TYPE_INSTR_NO_FETCH);
-        buf->size = instr->length();
-        buf->addr = reinterpret_cast<addr_t>(orig_pc);
-        ++buf;
+        // We no longer emit TRACE_TYPE_INSTR_NO_FETCH: just the loads and stores.
         buf->type = static_cast<unsigned short>(
             instr->num_mem_srcs() > 0 ? TRACE_TYPE_READ : TRACE_TYPE_WRITE);
         buf->size = static_cast<unsigned short>(size);

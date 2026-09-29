@@ -160,13 +160,23 @@ reader_t::process_input_entry()
         last_encoding_.size += static_cast<unsigned char>(input_entry_->size);
         break;
     case TRACE_TYPE_INSTR_MAYBE_FETCH:
+    case TRACE_TYPE_INSTR_STRING_LOOP:
         // While offline traces can convert rep string per-iter instrs into
         // no-fetch entries, online can't w/o extra work, so we do the work
         // here:
-        if (prev_instr_addr_ == input_entry_->addr)
-            input_entry_->type = TRACE_TYPE_INSTR_NO_FETCH;
-        else
-            input_entry_->type = TRACE_TYPE_INSTR;
+        if (prev_instr_addr_ == input_entry_->addr) {
+            if (version_ < TRACE_ENTRY_VERSION_NO_UNFETCHED_INSTRUCTIONS)
+                input_entry_->type = TRACE_TYPE_INSTR_NO_FETCH;
+            else {
+                // Just omit.
+                // XXX i#4948: Avoid the cost of generating and sending these now
+                // that offline traces never generate them and we discard for
+                // the final trace for online.
+                last_encoding_.size = 0;
+                break;
+            }
+        } else
+            input_entry_->type = TRACE_TYPE_INSTR_STRING_LOOP;
         ANNOTATE_FALLTHROUGH;
     case TRACE_TYPE_INSTR:
     case TRACE_TYPE_INSTR_DIRECT_JUMP:

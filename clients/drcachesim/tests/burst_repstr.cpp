@@ -184,8 +184,7 @@ verify_trace(void *drcontext, const std::string &trace_dir, char *dst, char *src
         if (status == scheduler_t::STATUS_EOF)
             break;
         assert(status == scheduler_t::STATUS_OK);
-        if (type_is_instr(memref.instr.type) ||
-            memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
+        if (type_is_instr(memref.instr.type)) {
             if (verbose) {
                 std::cerr << "#" << entry_count << ": ";
                 disassemble_with_info(drcontext,
@@ -198,8 +197,6 @@ verify_trace(void *drcontext, const std::string &trace_dir, char *dst, char *src
                     found_loop = true;
                 } else
                     entry_count_at_target = 0;
-            } else if (entry_count_at_target > 0) {
-                assert((entry_count - entry_count_at_target) % 3 == 0);
             }
         } else if (memref.marker.type == TRACE_TYPE_MARKER) {
             if (verbose) {
@@ -221,22 +218,18 @@ verify_trace(void *drcontext, const std::string &trace_dir, char *dst, char *src
                           << memref.data.pc << std::dec << "\n";
             }
             if (entry_count_at_target > 0) {
-                if ((entry_count - entry_count_at_target) % 3 == 1) {
+                if ((entry_count - entry_count_at_target) % 2 == 1) {
                     assert(memref.data.type == TRACE_TYPE_READ);
                     assert(memref.data.addr ==
                            reinterpret_cast<addr_t>(src) +
-                               (entry_count - entry_count_at_target) / 3);
+                               (entry_count - 1 - entry_count_at_target) / 2);
                     ++target_read_count;
-                } else if ((entry_count - entry_count_at_target) % 3 == 2) {
+                } else if ((entry_count - entry_count_at_target) % 2 == 0) {
                     assert(memref.data.type == TRACE_TYPE_WRITE);
                     assert(memref.data.addr ==
                            reinterpret_cast<addr_t>(dst) +
-                               (entry_count - entry_count_at_target) / 3);
+                               (entry_count - 1 - entry_count_at_target) / 2);
                     ++target_write_count;
-                } else {
-                    // %3==0 is the non-fetched instr which won't come here.
-                    // We assert on this above.
-                    assert(false);
                 }
             }
         }

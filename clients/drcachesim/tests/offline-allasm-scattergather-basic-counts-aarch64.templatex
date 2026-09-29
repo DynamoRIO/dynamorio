@@ -2,13 +2,12 @@ Hello, world!
 Basic counts tool results:
 Total counts:
 #ifdef __ARM_FEATURE_SVE2
-         997 total \(fetched\) instructions
-         361 total unique \(fetched\) instructions
+         997 total instructions
+         361 total unique instructions
 #else
-         958 total \(fetched\) instructions
-         346 total unique \(fetched\) instructions
+         958 total instructions
+         346 total unique instructions
 #endif
-           0 total non-fetched instructions
            0 total prefetches
 #ifdef __ARM_FEATURE_SVE2
 #if (__ARM_FEATURE_SVE_BITS == 128)
@@ -58,14 +57,13 @@ Total counts:
 .*
 Thread .* counts:
 #ifdef __ARM_FEATURE_SVE2
-         997 \(fetched\) instructions
-         361 unique \(fetched\) instructions
+         997 instructions
+         361 unique instructions
 #else
-         958 \(fetched\) instructions
-         346 unique \(fetched\) instructions
+         958 instructions
+         346 unique instructions
 #endif
 
-           0 non-fetched instructions
            0 prefetches
 #ifdef __ARM_FEATURE_SVE2
 #if (__ARM_FEATURE_SVE_BITS == 128)

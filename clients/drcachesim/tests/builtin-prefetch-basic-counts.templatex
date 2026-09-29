@@ -2,9 +2,8 @@ Hello, world!
 ---- <application exited with code 0> ----
 Basic counts tool results:
 Total counts:
-     .* total \(fetched\) instructions
-     .* total unique \(fetched\) instructions
-     .* total non-fetched instructions
+     .* total instructions
+     .* total unique instructions
 #if defined(X86) && !defined(X64)
            0 total prefetches
 #else
@@ -18,9 +17,8 @@ Total counts:
      .* total timestamp \+ cpuid markers
 .*
 Thread .* counts:
-     .* \(fetched\) instructions
-     .* unique \(fetched\) instructions
-     .* non-fetched instructions
+     .* instructions
+     .* unique instructions
 #if defined(X86) && !defined(X64)
            0 prefetches
 #else

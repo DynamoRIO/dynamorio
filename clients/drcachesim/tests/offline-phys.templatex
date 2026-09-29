@@ -12,7 +12,7 @@ Adios world!
 Output format:
 <--record#-> <--instr#->: <Wrkld.Tid> <record details>
 ------------------------------------------------------------
-           1           0: +[0-9WT\.]+ <marker: version 7>
+           1           0: +[0-9WT\.]+ <marker:version 8>
            2           0: +[0-9WT\.]+ <marker: filetype 0xe42>
            3           0: +[0-9WT\.]+ <marker: cache line size [0-9]+>
            4           0: +[0-9WT\.]+ <marker: chunk instruction count [0-9]+>
