@@ -169,9 +169,9 @@ reader_t::process_input_entry()
                 input_entry_->type = TRACE_TYPE_INSTR_NO_FETCH;
             else {
                 // Just omit.
-                // XXX i#4948: Avoid the cost of generating and sending these now
-                // that offline traces never generate them and we discard for
-                // the final trace for online.
+                // XXX i#4948: Avoid the cost of generating and sending these for online
+                // now that we just discard them, and now that offline traces never
+                // generate them in the first place.
                 last_encoding_.size = 0;
                 break;
             }

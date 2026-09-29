@@ -1976,20 +1976,13 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             buf++;
         } else {
             bool skip_fetch = false;
-            if (!skip_icache && record_encoding_emitted(tdata, decode_pc)) {
-                if (!append_encoding(tdata, decode_pc, instr->length(), buf, buf_start))
-                    return false;
-                added_encoding = true;
-            }
-
             // XXX i#1729: make bundles via lazy accum until hit memref/end, if
             // we don't need encodings.
-            buf->type = instr->type();
-            if (buf->type == TRACE_TYPE_INSTR_MAYBE_FETCH) {
-                tdata->error = "Should never see MAYBE_FETCH record.";
+            if (instr->type() == TRACE_TYPE_INSTR_MAYBE_FETCH) {
+                tdata->error = "Should never see MAYBE_FETCH records.";
                 return false;
             }
-            if (buf->type == TRACE_TYPE_INSTR_STRING_LOOP) {
+            if (instr->type() == TRACE_TYPE_INSTR_STRING_LOOP) {
                 // Handle a legacy trace with an instr fetch per iteration.
                 // We want it to look like the original rep string, with just one instr
                 // fetch for the whole loop, instead of the drutil-expanded loop.
@@ -2008,6 +2001,13 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             else
                 set_last_pc_fallthrough_if_syscall(tdata, 0);
             if (!skip_fetch) {
+                if (!skip_icache && record_encoding_emitted(tdata, decode_pc)) {
+                    if (!append_encoding(tdata, decode_pc, instr->length(), buf,
+                                         buf_start))
+                        return false;
+                    added_encoding = true;
+                }
+                buf->type = instr->type();
                 buf->size = (ushort)(skip_icache ? 0 : instr->length());
                 buf->addr = (addr_t)orig_pc;
                 ++buf;
