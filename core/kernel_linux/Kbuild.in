@@ -37,6 +37,7 @@
 
 obj-m += @dynamorio_module_name@.o
 @dynamorio_module_kbuild_objs@
+@dynamorio_module_kbuild_flags@
 @dynamorio_module_kbuild_ccflags@
 @dynamorio_module_kbuild_asflags@
 
@@ -44,3 +45,18 @@ obj-m += @dynamorio_module_name@.o
 # and low-level code contain custom return sequences, stack switches, and trampolines
 # that do not adhere to kernel objtool/SLS conventions.
 OBJECT_FILES_NON_STANDARD := y
+
+# Preprocess x86.asm into x86.S. This replicates the preprocessing logic from
+# make/cpp2asm_support.cmake and make/CMake_asm.cmake, which cannot be used with
+# Kbuild. The sed patterns use bracket expressions so that configure_file() does
+# not substitute them.
+quiet_cmd_dr_cpp2asm = CPP2ASM $@
+      cmd_dr_cpp2asm = \
+  $(CPP) -Wp,-MMD,$(depfile) -P -x c $(dr_flags) -DCPP2ASM -o $@ $< && \
+  sed -i -e 's/@[N]@/\n/g' -e 's/@[P]@/\#/g' -e 's/\#\#//g' $@
+
+$(obj)/core/arch/x86/x86.S: $(src)/core/arch/x86/x86.asm FORCE \
+  ; $(call if_changed_dep,dr_cpp2asm)
+
+targets += core/arch/x86/x86.S
+clean-files += core/arch/x86/x86.S
