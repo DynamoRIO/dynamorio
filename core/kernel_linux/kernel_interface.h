@@ -57,6 +57,21 @@ kernel_get_cpu_id(void);
 int
 kernel_get_online_processor_count(void);
 
+/* Reports the per-CPU buffer capacity and alignment in bytes. Both output pointers
+ * must be non-NULL. Does not require preemption to be disabled.
+ */
+void
+kernel_get_cpu_local_state_layout(size_t *size, size_t *alignment);
+
+/* Returns the current CPU's buffer as an ordinary pointer. The caller must keep
+ * preemption disabled for the entire duration of access through the returned pointer.
+ * Storage is initially zero and remains allocated until module unload.
+ * This function never returns NULL: the module loader allocates dr_cpu_local_storage
+ * before module initialization, and fails the module load if it cannot allocate.
+ */
+void *
+kernel_get_cpu_local_state(void);
+
 size_t
 kernel_get_page_size(void);
 

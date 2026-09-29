@@ -45,6 +45,7 @@
 #include <linux/ktime.h>
 #include <linux/limits.h>
 #include <linux/panic.h>
+#include <linux/percpu.h>
 #include <linux/printk.h>
 #include <linux/preempt.h>
 #include <linux/smp.h>
@@ -72,6 +73,18 @@ static void *(*vmalloc_node_range_ptr)(unsigned long size, unsigned long align,
 
 static void *kernel_image_start = NULL;
 static void *kernel_image_end = NULL;
+
+/* Holds DR's per-CPU TLS, including future client TLS slots; d_r_os_init() checks the
+ * size. It must be static per-CPU data for gs:[disp32] access from generated code, and
+ * it shares the kernel's 8 KiB PERCPU_MODULE_RESERVE, so keep it small.
+ * The module loader copies this zero-initialized buffer to every possible CPU
+ * and releases the storage on unload.
+ */
+struct dr_cpu_local_storage {
+    u8 data[1024];
+};
+
+static DEFINE_PER_CPU_ALIGNED(struct dr_cpu_local_storage, dr_cpu_local_storage);
 
 static size_t
 get_symbol_size(unsigned long address)
@@ -243,6 +256,23 @@ int
 kernel_get_online_processor_count(void)
 {
     return num_online_cpus();
+}
+
+void
+kernel_get_cpu_local_state_layout(size_t *size, size_t *alignment)
+{
+    *size = sizeof(dr_cpu_local_storage);
+    /* DEFINE_PER_CPU_ALIGNED aligns the variable to the cache line, which is stronger
+     * than the type's 1-byte alignment in this case.
+     */
+    *alignment = __alignof__(dr_cpu_local_storage);
+}
+
+void *
+kernel_get_cpu_local_state(void)
+{
+    KERNEL_ASSERT(!preemptible());
+    return this_cpu_ptr(&dr_cpu_local_storage)->data;
 }
 
 size_t
