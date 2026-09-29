@@ -160,51 +160,20 @@ set(dynamorio_module_defines
   DR_DO_NOT_DEFINE_MAX_MIN
 )
 
-# Flags for Kbuild, relative to the Kbuild tree ($(src)), and for preprocessing
-# x86.asm in CMake, which uses the same tree.
-set(dynamorio_module_kbuild_flags "")
-set(dynamorio_module_cpp_flags "")
+# Flags shared by C and assembly sources (including the x86.asm preprocessing
+# in Kbuild.in), relative to the Kbuild tree ($(src)).
+set(dynamorio_module_flags "")
 foreach (dir ${dynamorio_module_include_dirs})
-  list(APPEND dynamorio_module_kbuild_flags "-I$(src)/${dir}")
-  list(APPEND dynamorio_module_cpp_flags "-I${CMAKE_CURRENT_BINARY_DIR}/${dir}")
+  list(APPEND dynamorio_module_flags "-I$(src)/${dir}")
 endforeach ()
 foreach (define ${dynamorio_module_defines})
-  list(APPEND dynamorio_module_kbuild_flags "-D${define}")
-  list(APPEND dynamorio_module_cpp_flags "-D${define}")
+  list(APPEND dynamorio_module_flags "-D${define}")
 endforeach ()
-list(APPEND dynamorio_module_cpp_flags -DCPP2ASM)
+string(REPLACE ";" " \\\n  " dynamorio_module_flags "${dynamorio_module_flags}")
+set(dynamorio_module_kbuild_flags "dr_flags := \\\n  ${dynamorio_module_flags}")
 
-set(x86_asm_stem "core/arch/x86/x86")
-set(x86_asm_src "${PROJECT_SOURCE_DIR}/${x86_asm_stem}.asm")
-set(x86_gen_s "${CMAKE_CURRENT_BINARY_DIR}/${x86_asm_stem}.S")
-
-set(x86_asm_deps
-  "${x86_asm_src}"
-  "${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake"
-  "${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm"
-  "${PROJECT_SOURCE_DIR}/core/arch/x86/x86_asm_defines.asm"
-  "${PROJECT_SOURCE_DIR}/core/unix/os_asm_defines.asm"
-  "${PROJECT_BINARY_DIR}/configure.h"
-)
-
-# Preprocess x86.asm into x86.S.
-# Note: This replicates the preprocessing logic from cpp2asm_support.cmake because
-# cpp2asm_support.cmake cannot be used directly with kbuild.
-add_custom_command(
-  OUTPUT "${x86_gen_s}"
-  DEPENDS ${x86_asm_deps}
-  COMMAND ${CMAKE_C_COMPILER} -E -P -x c
-    ${dynamorio_module_cpp_flags}
-    "${x86_asm_src}"
-    -o "${x86_gen_s}"
-  COMMAND ${CMAKE_COMMAND}
-    -Dfile=${x86_gen_s}
-    -P "${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake"
-  COMMENT "Preprocessing ${x86_asm_stem}.asm -> .S"
-  VERBATIM
-)
-
-list(APPEND dynamorio_module_objs "${x86_asm_stem}.o")
+# Kbuild.in generates core/arch/x86/x86.S from x86.asm.
+list(APPEND dynamorio_module_objs "core/arch/x86/x86.o")
 
 set(generated_stubs_c "${CMAKE_CURRENT_BINARY_DIR}/core/kernel_linux/stubs.c")
 list(APPEND dynamorio_module_objs "core/kernel_linux/stubs.o")
@@ -213,13 +182,7 @@ string(REPLACE ";" " \\\n  " dynamorio_module_objs "${dynamorio_module_objs}")
 set(dynamorio_module_kbuild_objs
   "${dynamorio_module_name}-y := \\\n  ${dynamorio_module_objs}")
 
-set(dynamorio_module_kbuild_ccflags "ccflags-y += \\")
-set(dynamorio_module_kbuild_asflags "asflags-y += \\")
-foreach (flag ${dynamorio_module_kbuild_flags})
-  string(APPEND dynamorio_module_kbuild_ccflags "\n  ${flag} \\")
-  string(APPEND dynamorio_module_kbuild_asflags "\n  ${flag} \\")
-endforeach ()
-
+set(dynamorio_module_kbuild_ccflags "ccflags-y += \\\n  $(dr_flags) \\")
 string(APPEND dynamorio_module_kbuild_ccflags "\n  -Wframe-larger-than=4096")
 if (X86)
   # Disable compiler-generated return thunks (__x86_return_thunk) since objtool
@@ -228,6 +191,7 @@ if (X86)
   string(APPEND dynamorio_module_kbuild_ccflags " \\\n  -mfunction-return=keep")
 endif ()
 
+set(dynamorio_module_kbuild_asflags "asflags-y += \\\n  $(dr_flags) \\")
 string(APPEND dynamorio_module_kbuild_asflags "\n  -Xassembler -mmnemonic=intel \\")
 string(APPEND dynamorio_module_kbuild_asflags "\n  -Xassembler -msyntax=intel \\")
 string(APPEND dynamorio_module_kbuild_asflags "\n  -Xassembler -mnaked-reg \\")
@@ -281,7 +245,6 @@ add_custom_target(dynamorio_module ALL
   ${extra_module_build_commands}
   # Ensure generated inputs are ready before kbuild runs.
   DEPENDS
-    ${x86_gen_s}
     ${dynamorio_module_kbuildfile}
     generate_syslog # Generates event_strings.h.
   BYPRODUCTS ${dynamorio_module_ko}
