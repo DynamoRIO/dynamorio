@@ -532,6 +532,35 @@ remove_callback(callback_list_t *vec, void (*func)(void), bool unprotect)
     return found;
 }
 
+/* NOINLINE to keep these large buffers off the stack in the common path.
+ * The kernel module build enforces a small per-function stack frame limit.
+ */
+static NOINLINE void
+report_client_lib_load_error(const char *path)
+{
+    char msg[MAXIMUM_PATH * 4];
+    char err[MAXIMUM_PATH * 2];
+    shared_library_error(err, BUFFER_SIZE_ELEMENTS(err));
+    snprintf(msg, BUFFER_SIZE_ELEMENTS(msg),
+             ".\n\tError opening instrumentation library %s:\n\t%s", path, err);
+    NULL_TERMINATE_BUFFER(msg);
+
+    /* PR 232490 - malformed library names or incorrect
+     * permissions shouldn't blow up an app in release builds as
+     * they may happen at customer sites with a third party
+     * client.
+     */
+    /* PR 408318: 32-vs-64 errors should NOT be fatal to continue
+     * in debug build across execve chains.  Xref i#147.
+     * XXX: w/ -private_loader, err always equals "error in private loader"
+     * and so we never match here!
+     */
+    IF_UNIX(if (strstr(err, "wrong ELF class") == NULL))
+    CLIENT_ASSERT(false, msg);
+    SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 4, get_application_name(),
+           get_application_pid(), path, msg);
+}
+
 /* This should only be called prior to instrument_init(),
  * since no readers of the client_libs array use synch
  * and since this routine assumes .data is writable.
@@ -565,27 +594,7 @@ add_client_lib(const char *path, const char *id_str, const char *options)
     client_lib =
         load_shared_library(path, IF_X64_ELSE(DYNAMO_OPTION(reachable_client), true));
     if (client_lib == NULL) {
-        char msg[MAXIMUM_PATH * 4];
-        char err[MAXIMUM_PATH * 2];
-        shared_library_error(err, BUFFER_SIZE_ELEMENTS(err));
-        snprintf(msg, BUFFER_SIZE_ELEMENTS(msg),
-                 ".\n\tError opening instrumentation library %s:\n\t%s", path, err);
-        NULL_TERMINATE_BUFFER(msg);
-
-        /* PR 232490 - malformed library names or incorrect
-         * permissions shouldn't blow up an app in release builds as
-         * they may happen at customer sites with a third party
-         * client.
-         */
-        /* PR 408318: 32-vs-64 errors should NOT be fatal to continue
-         * in debug build across execve chains.  Xref i#147.
-         * XXX: w/ -private_loader, err always equals "error in private loader"
-         * and so we never match here!
-         */
-        IF_UNIX(if (strstr(err, "wrong ELF class") == NULL))
-        CLIENT_ASSERT(false, msg);
-        SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 4, get_application_name(),
-               get_application_pid(), path, msg);
+        report_client_lib_load_error(path);
     } else {
         /* PR 250952: version check */
         int *uses_dr_version =
