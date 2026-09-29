@@ -86,7 +86,9 @@ DECLARE_NEVERPROT_VAR(app_pc d_r_debug_register[DEBUG_REGISTERS_NB], { 0 });
 static void
 get_cache_sizes_amd(uint max_ext_val)
 {
-    uint cpuid_res_local[4]; /* eax, ebx, ecx, and edx registers (in that order) */
+    uint cpuid_res_local[4] = {
+        0
+    }; /* eax, ebx, ecx, and edx registers (in that order) */
 
     if (max_ext_val >= 0x80000005) {
         our_cpuid((int *)cpuid_res_local, 0x80000005, 0);
@@ -104,7 +106,7 @@ static void
 get_cache_sizes_intel(uint max_val)
 {
     /* declare as uint so compiler won't complain when we write GP regs to the array */
-    uint cache_codes[4];
+    uint cache_codes[4] = { 0 };
     int i;
 
     if (max_val < 2)
@@ -169,7 +171,7 @@ get_cache_sizes_intel(uint max_val)
 static void
 get_xstate_area_offsets(bool has_kmask, bool has_zmm_hi256, bool has_hi16_zmm)
 {
-    int cpuid_res_local[4]; /* eax, ebx, ecx, and edx registers (in that order) */
+    int cpuid_res_local[4] = { 0 }; /* eax, ebx, ecx, and edx registers (in that order) */
     DOLOG(1, LOG_TOP, {
         if (has_kmask || has_zmm_hi256 || has_hi16_zmm) {
             LOG(GLOBAL, LOG_TOP, 1, "\tExtended xstate area offsets:\n",
@@ -207,7 +209,7 @@ get_processor_specific_info(void)
      */
     uint res_eax, res_ebx = 0, res_ecx = 0, res_edx = 0;
     uint max_val, max_ext_val;
-    int cpuid_res_local[4]; /* eax, ebx, ecx, and edx registers (in that order) */
+    int cpuid_res_local[4] = { 0 }; /* eax, ebx, ecx, and edx registers (in that order) */
 
     /* First check for existence of the cpuid instruction
      * by attempting to modify bit 21 of eflags
