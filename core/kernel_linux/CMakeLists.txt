@@ -36,9 +36,7 @@
 set(dynamorio_module_name dynamorio_module)
 
 # Single source of truth for module sources. Add new files here only.
-# This list drives both CMake's own rebuild-staleness tracking (DEPENDS
-# below) and the generated Kbuild Makefile's object list, so the two can't
-# drift out of sync as the module grows.
+# This list drives the generated Kbuild Makefile's object list.
 #
 # Note: No source file may be named "${dynamorio_module_name}.c" because
 # Kbuild composite targets cannot share a name with a component object file.
@@ -115,28 +113,45 @@ set(dynamorio_module_objs "")
 foreach (src ${dynamorio_module_sources})
   get_filename_component(abs_src "${CMAKE_CURRENT_SOURCE_DIR}/${src}" ABSOLUTE)
   file(RELATIVE_PATH rel_src "${PROJECT_SOURCE_DIR}" "${abs_src}")
-  set(mirrored_src "${CMAKE_CURRENT_BINARY_DIR}/${rel_src}")
-  get_filename_component(mirrored_dir "${mirrored_src}" DIRECTORY)
-  file(MAKE_DIRECTORY "${mirrored_dir}")
-  file(CREATE_LINK "${abs_src}" "${mirrored_src}" SYMBOLIC)
   string(REGEX REPLACE "\\.c$" ".o" rel_obj "${rel_src}")
   list(APPEND dynamorio_module_objs "${rel_obj}")
 endforeach ()
 
-get_filename_component(core_dir "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
+# Kbuild writes its outputs next to the sources, so the module is built in a
+# tree in the build directory that mirrors common/ and core/ with per-file
+# symlinks and has the generated headers at its root. Kbuild only refers to
+# paths within this tree, which keeps it relocatable.
+file(GLOB_RECURSE dynamorio_module_tree_files
+  RELATIVE "${PROJECT_SOURCE_DIR}"
+  CONFIGURE_DEPENDS
+  "${PROJECT_SOURCE_DIR}/common/*"
+  "${PROJECT_SOURCE_DIR}/core/*"
+)
+foreach (file ${dynamorio_module_tree_files})
+  get_filename_component(mirrored_dir "${CMAKE_CURRENT_BINARY_DIR}/${file}" DIRECTORY)
+  file(MAKE_DIRECTORY "${mirrored_dir}")
+  file(CREATE_LINK "${PROJECT_SOURCE_DIR}/${file}" "${CMAKE_CURRENT_BINARY_DIR}/${file}"
+    SYMBOLIC)
+endforeach ()
+foreach (header configure.h configure_defines.h event_strings.h)
+  file(CREATE_LINK "${PROJECT_BINARY_DIR}/${header}"
+    "${CMAKE_CURRENT_BINARY_DIR}/${header}" SYMBOLIC)
+endforeach ()
+
+# Include directories, relative to the root of the mirrored tree.
 set(dynamorio_module_include_dirs
-  "${CMAKE_BINARY_DIR}"
-  "${PROJECT_SOURCE_DIR}/common"
-  "${core_dir}"
-  "${core_dir}/include"
-  "${core_dir}/kernel_linux"
-  "${core_dir}/arch"
-  "${core_dir}/arch/x86"
-  "${core_dir}/drlibc"
-  "${core_dir}/ir"
-  "${core_dir}/ir/x86"
-  "${core_dir}/lib"
-  "${core_dir}/unix"
+  .
+  common
+  core
+  core/include
+  core/kernel_linux
+  core/arch
+  core/arch/x86
+  core/drlibc
+  core/ir
+  core/ir/x86
+  core/lib
+  core/unix
 )
 
 set(dynamorio_module_defines
@@ -145,15 +160,19 @@ set(dynamorio_module_defines
   DR_DO_NOT_DEFINE_MAX_MIN
 )
 
-set(dynamorio_module_common_flags "")
+# Flags for Kbuild, relative to the Kbuild tree ($(src)), and for preprocessing
+# x86.asm in CMake, which uses the same tree.
+set(dynamorio_module_kbuild_flags "")
+set(dynamorio_module_cpp_flags "")
 foreach (dir ${dynamorio_module_include_dirs})
-  list(APPEND dynamorio_module_common_flags "-I${dir}")
+  list(APPEND dynamorio_module_kbuild_flags "-I$(src)/${dir}")
+  list(APPEND dynamorio_module_cpp_flags "-I${CMAKE_CURRENT_BINARY_DIR}/${dir}")
 endforeach ()
 foreach (define ${dynamorio_module_defines})
-  list(APPEND dynamorio_module_common_flags "-D${define}")
+  list(APPEND dynamorio_module_kbuild_flags "-D${define}")
+  list(APPEND dynamorio_module_cpp_flags "-D${define}")
 endforeach ()
-
-set(dynamorio_module_cpp_flags ${dynamorio_module_common_flags} -DCPP2ASM)
+list(APPEND dynamorio_module_cpp_flags -DCPP2ASM)
 
 set(x86_asm_stem "core/arch/x86/x86")
 set(x86_asm_src "${PROJECT_SOURCE_DIR}/${x86_asm_stem}.asm")
@@ -196,7 +215,7 @@ set(dynamorio_module_kbuild_objs
 
 set(dynamorio_module_kbuild_ccflags "ccflags-y += \\")
 set(dynamorio_module_kbuild_asflags "asflags-y += \\")
-foreach (flag ${dynamorio_module_common_flags})
+foreach (flag ${dynamorio_module_kbuild_flags})
   string(APPEND dynamorio_module_kbuild_ccflags "\n  ${flag} \\")
   string(APPEND dynamorio_module_kbuild_asflags "\n  ${flag} \\")
 endforeach ()
