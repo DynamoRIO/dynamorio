@@ -74,11 +74,14 @@ static void *(*vmalloc_node_range_ptr)(unsigned long size, unsigned long align,
 static void *kernel_image_start = NULL;
 static void *kernel_image_end = NULL;
 
-/* The module loader copies this zero-initialized buffer to every possible CPU
+/* Holds DR's per-CPU TLS, including future client TLS slots; d_r_os_init() checks the
+ * size. It must be static per-CPU data for gs:[disp32] access from generated code, and
+ * it shares the kernel's 8 KiB PERCPU_MODULE_RESERVE, so keep it small.
+ * The module loader copies this zero-initialized buffer to every possible CPU
  * and releases the storage on unload.
  */
 struct dr_cpu_local_storage {
-    u8 data[4096];
+    u8 data[1024];
 };
 
 static DEFINE_PER_CPU_ALIGNED(struct dr_cpu_local_storage, dr_cpu_local_storage);
