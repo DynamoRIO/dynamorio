@@ -2745,7 +2745,6 @@ if (UNIX)
   tobuild_ci(client.partial_module_map client-interface/partial_module_map.c "" "" "")
 endif ()
 if (LINUX AND X86)
-  # XXX i#1833: enable the 32-bit gs code in mbr_instrumentation_segment.c once it works.
   tobuild_ci(client.mbr_instrumentation_segment
     client-interface/mbr_instrumentation_segment.c "" "" "")
   use_DynamoRIO_extension(client.mbr_instrumentation_segment.dll drsyms)
@@ -6187,6 +6186,9 @@ if (UNIX)
 
   if (LINUX AND X86 AND X64)
     tobuild(linux.arch_prctl_gs linux/arch_prctl_gs.c)
+  endif ()
+  if (LINUX AND X86)
+    tobuild(linux.segment_push_pop linux/segment_push_pop.c)
   endif ()
   tobuild(linux.infinite linux/infinite.c)
   tobuild(linux.longjmp linux/longjmp.c)

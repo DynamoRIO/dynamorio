@@ -1731,6 +1731,17 @@ decode_cti(void *drcontext, byte *pc, instr_t *instr)
         instr_set_rip_rel_pos(instr, rip_rel_pos);
         return (start_pc + sz);
     }
+    /* i#1833: The push and pop of fs and gs are mangled as well, and a pop starts its
+     * own bb like a mov_seg update.  They are rare enough that we do a full decode on
+     * an opcode match.  (Forms with prefixes were fully decoded above.)
+     */
+    if (INTERNAL_OPTION(mangle_app_seg) && byte0 == 0x0f &&
+        (byte1 == 0xa0 || byte1 == 0xa1 || byte1 == 0xa8 || byte1 == 0xa9)) {
+        if (decode(dcontext, start_pc, instr) == NULL)
+            return NULL;
+        else
+            return (start_pc + sz);
+    }
 #endif
 
     /* i#698: we must intercept floating point instruction pointer saves.

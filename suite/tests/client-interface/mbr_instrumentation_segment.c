@@ -87,10 +87,8 @@ main(int argc, const char *argv[])
         syscall(SYS_set_thread_area, &u_info);
     }
 
-    /* XXX i#1833: the following code with gs doesn't run properly with DynamoRIO
-     * when it will, enable the following code for gs segment test.
-     */
-#    if ENABLE_ONCE_1833_IS_FIXED
+    int old_gs, new_gs, pushed_gs;
+    __asm__ volatile("mov     %%gs, %0\n" : "=r"(old_gs));
     __asm__ volatile("push    %%gs\n"
                      "mov     %0, %%gs\n"
                      "call    *%%gs:0x10\n"
@@ -98,9 +96,19 @@ main(int argc, const char *argv[])
                      "call    *%%gs:(%%eax)\n"
                      "pop     %%gs\n"
                      :
-                     : "m"(val)
-                     : "eax");
-#    endif
+                     : "r"(val)
+                     : "eax", "ecx", "edx", "memory");
+    __asm__ volatile("mov     %%gs, %0\n"
+                     "push    %%gs\n"
+                     "pop     %1\n"
+                     : "=r"(new_gs), "=r"(pushed_gs));
+    /* A 32-bit push of a segment register may write only the low 16 bits of the
+     * stack slot, so we compare only those.
+     */
+    if (new_gs != old_gs || (pushed_gs & 0xffff) != old_gs) {
+        printf("gs selector 0x%x, pushed 0x%x, expected 0x%x\n", new_gs,
+               pushed_gs & 0xffff, old_gs);
+    }
     __asm__ volatile("mov     %0, %%fs\n"
                      "call    *%%fs:0x10\n"
                      "mov     $0x10, %%eax\n"
@@ -120,6 +128,21 @@ main(int argc, const char *argv[])
                      "mov     $0x10, %rax\n"
                      "call    *%fs:(%rax)\n");
     arch_prctl(ARCH_SET_FS, (unsigned long)old_fs);
+
+    unsigned long gs_sel, gs_base, pushed_gs, new_gs_sel, new_gs_base;
+    __asm__ volatile("mov     %%gs, %0\n" : "=r"(gs_sel));
+    arch_prctl(ARCH_GET_GS, (unsigned long)&gs_base);
+    __asm__ volatile("push    %%gs\n"
+                     "pop     %0\n"
+                     "push    %%gs\n"
+                     "pop     %%gs\n"
+                     "mov     %%gs, %1\n"
+                     : "=r"(pushed_gs), "=r"(new_gs_sel));
+    arch_prctl(ARCH_GET_GS, (unsigned long)&new_gs_base);
+    if (pushed_gs != gs_sel || new_gs_sel != gs_sel || new_gs_base != gs_base) {
+        printf("gs selector 0x%lx base 0x%lx, pushed 0x%lx, after pop 0x%lx base 0x%lx\n",
+               gs_sel, gs_base, pushed_gs, new_gs_sel, new_gs_base);
+    }
 
     arch_prctl(ARCH_GET_GS, (unsigned long)&old_gs);
     arch_prctl(ARCH_SET_GS, (unsigned long)funcs);
