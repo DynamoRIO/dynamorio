@@ -36,27 +36,29 @@
 # Must match obj-m in Kbuild.
 set(dynamorio_module_name dynamorio_module)
 
-# Kbuild in this directory lists the module's sources and flags and generates
-# the rest of its inputs. It expects a tree containing common/, core/, and the
-# generated headers. Kbuild writes its outputs next to the sources, so build in
-# a tree in the build directory that mirrors common/ and core/ with per-file
-# symlinks.
+# Kbuild in this directory lists the module's sources and flags and generates the rest of
+# its inputs. It expects a tree containing common/, core/, and the generated headers.
+# Kbuild writes its outputs next to the sources, so build in a tree in the build directory
+# that mirrors common/ and core/ with per-file symlinks.
 file(GLOB_RECURSE dynamorio_module_tree_files
   RELATIVE "${PROJECT_SOURCE_DIR}"
   CONFIGURE_DEPENDS
   "${PROJECT_SOURCE_DIR}/common/*"
   "${PROJECT_SOURCE_DIR}/core/*"
 )
+
 foreach (file ${dynamorio_module_tree_files})
   get_filename_component(mirrored_dir "${CMAKE_CURRENT_BINARY_DIR}/${file}" DIRECTORY)
   file(MAKE_DIRECTORY "${mirrored_dir}")
   file(CREATE_LINK "${PROJECT_SOURCE_DIR}/${file}" "${CMAKE_CURRENT_BINARY_DIR}/${file}"
     SYMBOLIC)
 endforeach ()
+
 foreach (header configure.h configure_defines.h event_strings.h)
   file(CREATE_LINK "${PROJECT_BINARY_DIR}/${header}"
     "${CMAKE_CURRENT_BINARY_DIR}/${header}" SYMBOLIC)
 endforeach ()
+
 file(CREATE_LINK "${CMAKE_CURRENT_SOURCE_DIR}/Kbuild" "${CMAKE_CURRENT_BINARY_DIR}/Kbuild"
   SYMBOLIC)
 

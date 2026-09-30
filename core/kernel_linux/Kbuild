@@ -110,8 +110,7 @@ dr_objs := \
 # stubs.c is generated from the other objects; see below.
 dynamorio_module-y := $(dr_objs) core/kernel_linux/stubs.o
 
-# Flags shared by C and assembly sources, including the x86.asm preprocessing
-# below.
+# Flags shared by C and assembly sources, including the x86.asm preprocessing below.
 dr_flags := \
   -I$(src) \
   -I$(src)/common \
@@ -157,8 +156,7 @@ endif
 OBJECT_FILES_NON_STANDARD := y
 
 # Preprocess x86.asm into x86.S. This replicates the preprocessing logic from
-# make/cpp2asm_support.cmake and make/CMake_asm.cmake, which cannot be used with
-# Kbuild.
+# make/cpp2asm_support.cmake and make/CMake_asm.cmake, which cannot be used with Kbuild.
 quiet_cmd_dr_cpp2asm = CPP2ASM $@
       cmd_dr_cpp2asm = \
   $(CPP) -Wp,-MMD,$(depfile) -P -x c $(dr_flags) -DCPP2ASM -o $@ $< && \
