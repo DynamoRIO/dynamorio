@@ -44,6 +44,7 @@
 #include <linux/kprobes.h>
 #include <linux/ktime.h>
 #include <linux/limits.h>
+#include <linux/module.h>
 #include <linux/panic.h>
 #include <linux/percpu.h>
 #include <linux/printk.h>
@@ -292,6 +293,18 @@ void *
 kernel_get_image_end(void)
 {
     return kernel_image_end;
+}
+
+void *
+kernel_get_module_text_start(void)
+{
+    return THIS_MODULE->mem[MOD_TEXT].base;
+}
+
+void *
+kernel_get_module_text_end(void)
+{
+    return THIS_MODULE->mem[MOD_TEXT].base + THIS_MODULE->mem[MOD_TEXT].size;
 }
 
 /* Returns whether the |size| bytes at |addr| can be read without faulting.  Probes one
