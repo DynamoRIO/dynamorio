@@ -33,94 +33,14 @@
 # invocation, so this shells out to `make` against KERNEL_DIR and
 # MAKE_PROGRAM, both validated and cached by the parent CMakeLists.txt.
 
+# Must match obj-m in Kbuild.
 set(dynamorio_module_name dynamorio_module)
 
-# Single source of truth for module sources. Add new files here only.
-# This list drives the generated Kbuild Makefile's object list.
-#
-# Note: No source file may be named "${dynamorio_module_name}.c" because
-# Kbuild composite targets cannot share a name with a component object file.
-set(dynamorio_module_sources
-  dynamorio_module_main.c
-  kernel_interface.c
-  os.c
-
-  # core/
-  ../buildmark.c
-  ../config.c
-  ../dispatch.c
-  ../dynamo.c
-  ../emit.c
-  ../fcache.c
-  ../fragment.c
-  ../hashtable.c
-  ../heap.c
-  ../io.c
-  ../link.c
-  ../loader_shared.c
-  ../module_list.c
-  ../moduledb.c
-  ../monitor.c
-  ../nudge.c
-  ../options.c
-  ../perscache.c
-  ../stats.c
-  ../string.c
-  ../synch.c
-  ../translate.c
-  ../utils.c
-  ../vmareas.c
-
-  # core/ir/
-  ../ir/decode_shared.c
-  ../ir/disassemble_shared.c
-  ../ir/encode_shared.c
-  ../ir/instr_shared.c
-  ../ir/instrlist.c
-  ../ir/ir_utils_shared.c
-  ../ir/opnd_shared.c
-
-  # core/ir/x86/
-  ../ir/x86/decode.c
-  ../ir/x86/decode_fast.c
-  ../ir/x86/decode_table.c
-  ../ir/x86/disassemble.c
-  ../ir/x86/encode.c
-  ../ir/x86/instr.c
-  ../ir/x86/ir_utils.c
-  ../ir/x86/opnd.c
-
-  # core/arch/
-  ../arch/arch.c
-  ../arch/clean_call_opt_shared.c
-  ../arch/emit_utils_shared.c
-  ../arch/interp.c
-  ../arch/mangle_shared.c
-  ../arch/proc_shared.c
-
-  # core/arch/x86/
-  ../arch/x86/clean_call_opt.c
-  ../arch/x86/emit_utils.c
-  ../arch/x86/mangle.c
-  ../arch/x86/proc.c
-
-  # core/lib/
-  ../lib/instrument.c
-  ../lib/module_api.c
-)
-
-set(dynamorio_module_objs "")
-foreach (src ${dynamorio_module_sources})
-  get_filename_component(abs_src "${CMAKE_CURRENT_SOURCE_DIR}/${src}" ABSOLUTE)
-  file(RELATIVE_PATH rel_src "${PROJECT_SOURCE_DIR}" "${abs_src}")
-  string(REGEX REPLACE "\\.c$" ".o" rel_obj "${rel_src}")
-  list(APPEND dynamorio_module_objs "${rel_obj}")
-endforeach ()
-
-# Kbuild writes its outputs next to the sources, so the module is built in a
-# tree in the build directory that mirrors common/ and core/ with per-file
-# symlinks and has the generated headers at its root. Kbuild only refers to
-# paths within this tree, which keeps it relocatable.
+# Kbuild in this directory lists the module's sources and flags and generates
+# the rest of its inputs. It expects a tree containing common/, core/, and the
+# generated headers. Kbuild writes its outputs next to the sources, so build in
+# a tree in the build directory that mirrors common/ and core/ with per-file
+# symlinks.
 file(GLOB_RECURSE dynamorio_module_tree_files
   RELATIVE "${PROJECT_SOURCE_DIR}"
   CONFIGURE_DEPENDS
@@ -137,73 +57,16 @@ foreach (header configure.h configure_defines.h event_strings.h)
   file(CREATE_LINK "${PROJECT_BINARY_DIR}/${header}"
     "${CMAKE_CURRENT_BINARY_DIR}/${header}" SYMBOLIC)
 endforeach ()
-
-# Include directories, relative to the root of the mirrored tree.
-set(dynamorio_module_include_dirs
-  .
-  common
-  core
-  core/include
-  core/kernel_linux
-  core/arch
-  core/arch/x86
-  core/drlibc
-  core/ir
-  core/ir/x86
-  core/lib
-  core/unix
-)
-
-set(dynamorio_module_defines
-  LINUX_KERNEL
-  DYNAMORIO_INTERNAL
-  DR_DO_NOT_DEFINE_MAX_MIN
-)
-
-# Flags shared by C and assembly sources (including the x86.asm preprocessing
-# in Kbuild.in), relative to the Kbuild tree ($(src)).
-set(dynamorio_module_flags "")
-foreach (dir ${dynamorio_module_include_dirs})
-  list(APPEND dynamorio_module_flags "-I$(src)/${dir}")
-endforeach ()
-foreach (define ${dynamorio_module_defines})
-  list(APPEND dynamorio_module_flags "-D${define}")
-endforeach ()
-string(REPLACE ";" " \\\n  " dynamorio_module_flags "${dynamorio_module_flags}")
-set(dynamorio_module_kbuild_flags "dr_flags := \\\n  ${dynamorio_module_flags}")
-
-# Kbuild.in generates core/arch/x86/x86.S from x86.asm.
-list(APPEND dynamorio_module_objs "core/arch/x86/x86.o")
-
-# Kbuild.in adds the generated core/kernel_linux/stubs.o, which is derived from
-# these objects.
-string(REPLACE ";" " \\\n  " dynamorio_module_objs "${dynamorio_module_objs}")
-set(dynamorio_module_kbuild_objs "dr_objs := \\\n  ${dynamorio_module_objs}")
-
-set(dynamorio_module_kbuild_ccflags "ccflags-y += \\\n  $(dr_flags) \\")
-string(APPEND dynamorio_module_kbuild_ccflags "\n  -Wframe-larger-than=4096")
-if (X86)
-  # Disable compiler-generated return thunks (__x86_return_thunk) since objtool
-  # is disabled for the module and won't generate the .return_sites section needed
-  # for runtime patching.
-  string(APPEND dynamorio_module_kbuild_ccflags " \\\n  -mfunction-return=keep")
-endif ()
+file(CREATE_LINK "${CMAKE_CURRENT_SOURCE_DIR}/Kbuild" "${CMAKE_CURRENT_BINARY_DIR}/Kbuild"
+  SYMBOLIC)
 
 set(dynamorio_module_ko "${CMAKE_CURRENT_BINARY_DIR}/${dynamorio_module_name}.ko")
-set(dynamorio_module_kbuildfile "${CMAKE_CURRENT_BINARY_DIR}/Kbuild")
-
-configure_file(
-  ${CMAKE_CURRENT_SOURCE_DIR}/Kbuild.in
-  ${dynamorio_module_kbuildfile}
-  @ONLY
-)
 
 # Always invoke kbuild and let it decide what needs rebuilding.
 add_custom_target(dynamorio_module ALL
   COMMAND ${MAKE_PROGRAM} -C ${KERNEL_DIR} M=${CMAKE_CURRENT_BINARY_DIR} modules
   # Ensure generated inputs are ready before kbuild runs.
   DEPENDS
-    ${dynamorio_module_kbuildfile}
     generate_syslog # Generates event_strings.h.
   BYPRODUCTS ${dynamorio_module_ko}
   COMMENT "Building DynamoRIO Linux kernel module (${dynamorio_module_name}.ko) against \
