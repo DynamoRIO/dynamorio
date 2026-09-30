@@ -201,7 +201,7 @@ quiet_cmd_dr_stubs = GEN     $@
     echo '\#include <linux/bug.h>'; \
     echo; \
     comm -23 $@.undef $@.def | \
-      sed 's/.*/void __attribute__((weak)) &(void) { BUG(); }/'; } > $@; \
+      sed 's/.*/void &(void); void __attribute__((weak)) &(void) { BUG(); }/'; } > $@; \
   rm -f $@.nm $@.undef $@.def
 else
 KBUILD_MODPOST_WARN := 1
