@@ -295,6 +295,12 @@ kernel_get_image_end(void)
     return kernel_image_end;
 }
 
+char *
+kernel_get_module_name(void)
+{
+    return THIS_MODULE->name;
+}
+
 void *
 kernel_get_module_text_start(void)
 {

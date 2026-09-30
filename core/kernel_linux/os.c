@@ -235,6 +235,12 @@ get_application_short_name(void)
     return get_application_name();
 }
 
+char *
+get_dynamorio_library_path(void)
+{
+    return kernel_get_module_name();
+}
+
 /* Module regions are allocated separately, so these cover only MOD_TEXT.  That is
  * sufficient as the kernel module only uses them to locate DR's code (printing its base,
  * pc checks), not as an image base or to cover DR's data.

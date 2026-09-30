@@ -81,6 +81,9 @@ kernel_get_image_start(void);
 void *
 kernel_get_image_end(void);
 
+char *
+kernel_get_module_name(void);
+
 void *
 kernel_get_module_text_start(void);
 
