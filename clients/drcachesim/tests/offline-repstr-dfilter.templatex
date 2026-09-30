@@ -10,15 +10,15 @@ Adios world!
 Adios world!
 Adios world!
 .*
-          20          13: W0.T.* ifetch       2 byte\(s\) @ 0x0000000000401034 f3 a4                rep movsb
-          21          13: W0.T.* read         1 byte\(s\) @ 0x0000000000402019 by PC 0x0000000000401034
-          22          14: W0.T.* ifetch       7 byte\(s\) @ 0x0000000000401036 48 c7 c7 02 00 00 00 mov    \$0x00000002, %rdi
+          20          13: *W0.T.* ifetch       2 byte\(s\) @ 0x0000000000401034 f3 a4                rep movsb
+          21          13: *W0.T.* read         1 byte\(s\) @ 0x0000000000402019 by PC 0x0000000000401034
+          22          14: *W0.T.* ifetch       7 byte\(s\) @ 0x0000000000401036 48 c7 c7 02 00 00 00 mov    \$0x00000002, %rdi
 .*
-          57          32: W0.T.* ifetch       3 byte\(s\) @ 0x0000000000401094 8b 41 fd             mov    -0x03\(%rcx\), %eax
-          58          32: W0.T.* read         4 byte\(s\) @ 0x0000000000402ffd by PC 0x0000000000401094
-          59          33: W0.T.* ifetch       3 byte\(s\) @ 0x0000000000401097 8b 41 ff             mov    -0x01\(%rcx\), %eax
+          57          32: *W0.T.* ifetch       3 byte\(s\) @ 0x0000000000401094 8b 41 fd             mov    -0x03\(%rcx\), %eax
+          58          32: *W0.T.* read         4 byte\(s\) @ 0x0000000000402ffd by PC 0x0000000000401094
+          59          33: *W0.T.* ifetch       3 byte\(s\) @ 0x0000000000401097 8b 41 ff             mov    -0x01\(%rcx\), %eax
 .*
-         217         122: W0.T.* <marker: system call 231>
-         218         122: W0.T.* <thread W0.T.* exited>
+         217         122: *W0.T.* <marker: system call 231>
+         218         122: *W0.T.* <thread W0.T.* exited>
 View tool results:
             122 : total instructions

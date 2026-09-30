@@ -330,18 +330,18 @@ filter_repstr_callee(int num_memrefs, int opsize)
         meminfo = *record++;
         DR_ASSERT(meminfo.extended.type == OFFLINE_TYPE_EXTENDED &&
                   meminfo.extended.ext == OFFLINE_EXT_TYPE_MEMINFO);
-    }
+    } else
+        meminfo.combined_value = 0;
     offline_entry_t start = *record++;
     offline_entry_t end, pc2, meminfo2, start2, end2;
+    // Clear to be safe.
+    pc2.combined_value = 0;
+    meminfo2.combined_value = 0;
+    start2.combined_value = 0;
+    end2.combined_value = 0;
     if (num_memrefs == 1) {
         record += records_per - 1; // Skip redundant pc+meminfo.
         end = *record++;
-        // Clear the others just to be safe.
-        meminfo.combined_value = 0;
-        pc2.combined_value = 0;
-        meminfo2.combined_value = 0;
-        start2.combined_value = 0;
-        end2.combined_value = 0;
     } else {
         pc2 = *record++;
         DR_ASSERT(pc2.pc.type ==
@@ -363,8 +363,8 @@ filter_repstr_callee(int num_memrefs, int opsize)
     ptr_int_t *dcache = reinterpret_cast<ptr_int_t *>(data->l0_dcache);
 
     bool backward = end.combined_value < start.combined_value;
-    addr_t addr = start.combined_value;
-    addr_t addr2 = start2.combined_value;
+    addr_t addr = static_cast<addr_t>(start.combined_value);
+    addr_t addr2 = static_cast<addr_t>(start2.combined_value);
     while ((backward && addr > end.combined_value) ||
            (!backward && addr < end.combined_value)) {
         DR_ASSERT(num_memrefs == 1 || (backward && addr2 > end2.combined_value) ||
