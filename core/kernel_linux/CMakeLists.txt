@@ -41,6 +41,9 @@ set(dynamorio_module_name dynamorio_module)
 #
 # Note: No source file may be named "${dynamorio_module_name}.c" because
 # Kbuild composite targets cannot share a name with a component object file.
+#
+# TODO i#8021: Reuse the source file lists in core/CMakeLists.txt to generate
+# the object file list instead of maintaining a separate source list here.
 set(dynamorio_module_sources
   dynamorio_module_main.c
   kernel_interface.c
@@ -128,12 +131,14 @@ file(GLOB_RECURSE dynamorio_module_tree_files
   "${PROJECT_SOURCE_DIR}/common/*"
   "${PROJECT_SOURCE_DIR}/core/*"
 )
+
 foreach (file ${dynamorio_module_tree_files})
   get_filename_component(mirrored_dir "${CMAKE_CURRENT_BINARY_DIR}/${file}" DIRECTORY)
   file(MAKE_DIRECTORY "${mirrored_dir}")
   file(CREATE_LINK "${PROJECT_SOURCE_DIR}/${file}" "${CMAKE_CURRENT_BINARY_DIR}/${file}"
     SYMBOLIC)
 endforeach ()
+
 foreach (header configure.h configure_defines.h event_strings.h)
   file(CREATE_LINK "${PROJECT_BINARY_DIR}/${header}"
     "${CMAKE_CURRENT_BINARY_DIR}/${header}" SYMBOLIC)
@@ -145,6 +150,7 @@ list(APPEND dynamorio_module_objs "core/arch/x86/x86.o")
 # Kbuild adds the generated core/kernel_linux/stubs.o, which is derived from
 # these objects.
 string(REPLACE ";" " \\\n  " dynamorio_module_objs "${dynamorio_module_objs}")
+
 # Only the object list is generated; any build system can supply this input to Kbuild.
 # file(GENERATE) preserves the timestamp when the list is unchanged.
 set(dynamorio_module_kbuild_sources "${CMAKE_CURRENT_BINARY_DIR}/Kbuild.sources")
