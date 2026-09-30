@@ -99,6 +99,9 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext);
 #ifdef PTRACE_TAKEOVER_SUPPORTED
 bool
 os_unmask_suspend_signal_via_ptrace(thread_id_t skip_tid);
+
+void
+os_clear_pre_unmask_sigmasks(void);
 #endif
 
 bool
