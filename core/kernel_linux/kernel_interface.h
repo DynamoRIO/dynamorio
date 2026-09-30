@@ -81,6 +81,12 @@ kernel_get_image_start(void);
 void *
 kernel_get_image_end(void);
 
+void *
+kernel_get_module_text_start(void);
+
+void *
+kernel_get_module_text_end(void);
+
 /* Returns whether the |size| bytes at |addr| can be read without faulting.  Handles both
  * kernel and user addresses.  Acquires no locks and never sleeps, so it is safe to call
  * in any context.  A zero |size| returns true.

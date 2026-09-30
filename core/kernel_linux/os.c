@@ -235,6 +235,22 @@ get_application_short_name(void)
     return get_application_name();
 }
 
+/* Module regions are allocated separately, so these cover only MOD_TEXT.  That is
+ * sufficient as the kernel module only uses them to locate DR's code (printing its base,
+ * pc checks), not as an image base or to cover DR's data.
+ */
+app_pc
+get_dynamorio_dll_start(void)
+{
+    return (app_pc)kernel_get_module_text_start();
+}
+
+app_pc
+get_dynamorio_dll_end(void)
+{
+    return (app_pc)kernel_get_module_text_end();
+}
+
 /* The kernel port has no OS-specific module-list state, matching core/unix/module.c. */
 void
 os_modules_init(void)
