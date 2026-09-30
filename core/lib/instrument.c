@@ -48,6 +48,7 @@
 #include "instrlist.h"
 #include "decode.h"
 #include "disassemble.h"
+#include "dr_project_wide_defines.h"
 #include "dr_tools.h"
 #include "ir_utils.h"
 #include "../fragment.h"
@@ -541,8 +542,8 @@ report_client_lib_load_error(const char *path)
     char msg[MAXIMUM_PATH * 4];
     char err[MAXIMUM_PATH * 2];
     shared_library_error(err, BUFFER_SIZE_ELEMENTS(err));
-    snprintf(msg, BUFFER_SIZE_ELEMENTS(msg),
-             ".\n\tError opening instrumentation library %s:\n\t%s", path, err);
+    d_r_snprintf(msg, BUFFER_SIZE_ELEMENTS(msg),
+                 ".\n\tError opening instrumentation library %s:\n\t%s", path, err);
     NULL_TERMINATE_BUFFER(msg);
 
     /* PR 232490 - malformed library names or incorrect
@@ -555,7 +556,7 @@ report_client_lib_load_error(const char *path)
      * XXX: w/ -private_loader, err always equals "error in private loader"
      * and so we never match here!
      */
-    IF_UNIX(if (strstr(err, "wrong ELF class") == NULL))
+    IF_UNIX(if (d_r_strstr(err, "wrong ELF class") == NULL))
     CLIENT_ASSERT(false, msg);
     SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 4, get_application_name(),
            get_application_pid(), path, msg);
