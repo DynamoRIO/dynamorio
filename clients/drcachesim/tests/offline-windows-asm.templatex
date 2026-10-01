@@ -25,9 +25,8 @@ Adios world!
 Hit tracing window #6 limit: disabling tracing.
 Basic counts tool results:
 Total counts:
-          56 total \(fetched\) instructions
-          24 total unique \(fetched\) instructions
-           4 total non-fetched instructions
+          56 total instructions
+          24 total unique instructions
            0 total prefetches
            7 total data loads
            5 total data stores
@@ -51,9 +50,8 @@ Total counts:
           24 total encodings
 Total windows: 8
 Window #0:
-           7 window \(fetched\) instructions
-           7 window unique \(fetched\) instructions
-           4 window non-fetched instructions
+           7 window instructions
+           7 window unique instructions
            0 window prefetches
            5 window data loads
            5 window data stores
@@ -75,9 +73,8 @@ Window #0:
            7 window other markers
            7 window encodings
 Window #1:
-           9 window \(fetched\) instructions
-           9 window unique \(fetched\) instructions
-           0 window non-fetched instructions
+           9 window instructions
+           9 window unique instructions
            0 window prefetches
            2 window data loads
            0 window data stores
@@ -99,9 +96,8 @@ Window #1:
            1 window other markers
            9 window encodings
 Window #2:
-           8 window \(fetched\) instructions
-           8 window unique \(fetched\) instructions
-           0 window non-fetched instructions
+           8 window instructions
+           8 window unique instructions
            0 window prefetches
            0 window data loads
            0 window data stores
@@ -123,9 +119,8 @@ Window #2:
            1 window other markers
            3 window encodings
 Window #3:
-           8 window \(fetched\) instructions
-           8 window unique \(fetched\) instructions
-           0 window non-fetched instructions
+           8 window instructions
+           8 window unique instructions
            0 window prefetches
            0 window data loads
            0 window data stores
@@ -147,9 +142,8 @@ Window #3:
            1 window other markers
            0 window encodings
 Window #4:
-           8 window \(fetched\) instructions
-           8 window unique \(fetched\) instructions
-           0 window non-fetched instructions
+           8 window instructions
+           8 window unique instructions
            0 window prefetches
            0 window data loads
            0 window data stores
@@ -171,9 +165,8 @@ Window #4:
            1 window other markers
            0 window encodings
 Window #5:
-           8 window \(fetched\) instructions
-           8 window unique \(fetched\) instructions
-           0 window non-fetched instructions
+           8 window instructions
+           8 window unique instructions
            0 window prefetches
            0 window data loads
            0 window data stores
@@ -195,9 +188,8 @@ Window #5:
            1 window other markers
            0 window encodings
 Window #6:
-           8 window \(fetched\) instructions
-           8 window unique \(fetched\) instructions
-           0 window non-fetched instructions
+           8 window instructions
+           8 window unique instructions
            0 window prefetches
            0 window data loads
            0 window data stores
@@ -219,9 +211,8 @@ Window #6:
            1 window other markers
            5 window encodings
 Window #7:
-           0 window \(fetched\) instructions
-           0 window unique \(fetched\) instructions
-           0 window non-fetched instructions
+           0 window instructions
+           0 window unique instructions
            0 window prefetches
            0 window data loads
            0 window data stores
@@ -243,9 +234,8 @@ Window #7:
            1 window other markers
            0 window encodings
 Thread [0-9]* counts:
-           7 \(fetched\) instructions
-           7 unique \(fetched\) instructions
-           4 non-fetched instructions
+           7 instructions
+           7 unique instructions
            0 prefetches
            5 data loads
            5 data stores

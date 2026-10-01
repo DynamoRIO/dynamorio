@@ -10,7 +10,7 @@ Trace invariant checks passed
 Output format:
 <--record#-> <--instr#->: <Wrkld.Tid> <record details>
 ------------------------------------------------------------
-           1           0:       W0.T1 <marker: version 7>
+           1           0:       W0.T1 <marker: version 8>
 #ifdef X86
 # ifdef X64
            2           0:       W0.T1 <marker: filetype 0x4240>

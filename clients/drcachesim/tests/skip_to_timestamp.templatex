@@ -1,12 +1,12 @@
 Basic counts tool results:
 Total counts:
-       21363 total \(fetched\) instructions
+       21363 total instructions
 .*
            2 total threads
 .*
 Thread 872805 counts:
-       21301 \(fetched\) instructions
+       21301 instructions
 .*
 Thread 872905 counts:
-          62 \(fetched\) instructions
+          62 instructions
 .*

@@ -805,7 +805,7 @@ run_chunk_tests(void *drcontext)
 
 #ifdef X86
 bool
-run_unfetched_rep_string_test(void *drcontext)
+run_legacy_unfetched_rep_string_test(void *drcontext)
 {
     static constexpr addr_t BASE_ADDR = 0x123450;
     const memref_tid_t tid = 1;
@@ -1004,7 +1004,7 @@ test_main(int argc, const char *argv[])
     void *drcontext = dr_standalone_init();
     if (run_limit_tests(drcontext) && run_chunk_tests(drcontext) &&
 #ifdef X86
-        run_unfetched_rep_string_test(drcontext) &&
+        run_legacy_unfetched_rep_string_test(drcontext) &&
 #endif
 #ifdef AARCH64
         run_vector_length_test(drcontext) &&

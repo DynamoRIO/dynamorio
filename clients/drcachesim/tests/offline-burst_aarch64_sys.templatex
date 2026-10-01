@@ -6,9 +6,8 @@ DC ZVA memref count: [0-9]*
 All DC ZVA memrefs are cache-line shaped stores!
 Basic counts tool results:
 Total counts:
-     .* total \(fetched\) instructions
-     .* total unique \(fetched\) instructions
-           0 total non-fetched instructions
+     .* total instructions
+     .* total unique instructions
      .* total prefetches
      .* total data loads
      .* total data stores
@@ -18,9 +17,8 @@ Total counts:
      .* total timestamp \+ cpuid markers
 .*
 Thread .* counts:
-     .* \(fetched\) instructions
-     .* unique \(fetched\) instructions
-           0 non-fetched instructions
+     .* instructions
+     .* unique instructions
      .* prefetches
      .* data loads
      .* data stores
