@@ -4479,14 +4479,19 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist, bool s2ro, uint flag
     insert_mov_immed_ptrsz(dcontext, (ptr_int_t)start_pc, opnd_create_reg(app_ptr_reg),
                            ilist, instr, NULL, NULL);
 
-    const ptr_uint_t num_iterations = app_size / (AARCH64_INSTR_SIZE * 2);
-    insert_mov_immed_ptrsz(dcontext, num_iterations, opnd_create_reg(loop_counter_reg),
-                           ilist, instr, NULL, NULL);
+    const bool loop_needed = app_size > AARCH64_INSTR_SIZE * 3;
+
+    if (loop_needed) {
+        const ptr_uint_t num_iterations = app_size / (AARCH64_INSTR_SIZE * 2);
+        insert_mov_immed_ptrsz(dcontext, num_iterations,
+                               opnd_create_reg(loop_counter_reg), ilist, instr, NULL,
+                               NULL);
+    }
 
     ASSERT(app_size % AARCH64_INSTR_SIZE == 0);
 
     if (app_size > AARCH64_INSTR_SIZE) {
-        instr_t *loop = INSTR_CREATE_label(dcontext);
+        instr_t *loop = NULL;
         /* bb has at least 2 instruction, loop over them and compare them two at a time.
          * If there are an off number of instructions the last one is handled separately
          * after the loop.
@@ -4500,7 +4505,10 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist, bool s2ro, uint flag
          *  cbnz    loop
          *
          */
-        PRE(ilist, instr, loop);
+        if (loop_needed) {
+            loop = INSTR_CREATE_label(dcontext);
+            PRE(ilist, instr, loop);
+        }
         PRE(ilist, instr,
             INSTR_CREATE_ldr_imm(
                 dcontext, opnd_create_reg(copy64_reg), opnd_create_reg(copy_ptr_reg),
@@ -4524,13 +4532,15 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist, bool s2ro, uint flag
         PRE(ilist, instr,
             INSTR_CREATE_cbnz(dcontext, opnd_create_instr(exit),
                               opnd_create_reg(scratch)));
-        PRE(ilist, instr,
-            INSTR_CREATE_sub(dcontext, opnd_create_reg(loop_counter_reg),
-                             opnd_create_reg(loop_counter_reg), OPND_CREATE_INT(1)));
+        if (loop_needed) {
+            PRE(ilist, instr,
+                INSTR_CREATE_sub(dcontext, opnd_create_reg(loop_counter_reg),
+                                 opnd_create_reg(loop_counter_reg), OPND_CREATE_INT(1)));
 
-        PRE(ilist, instr,
-            INSTR_CREATE_cbnz(dcontext, opnd_create_instr(loop),
-                              opnd_create_reg(loop_counter_reg)));
+            PRE(ilist, instr,
+                INSTR_CREATE_cbnz(dcontext, opnd_create_instr(loop),
+                                  opnd_create_reg(loop_counter_reg)));
+        }
     }
 
     if ((app_size / AARCH64_INSTR_SIZE) % 2 == 1) {
