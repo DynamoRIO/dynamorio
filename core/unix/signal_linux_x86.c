@@ -50,6 +50,8 @@
 #endif
 
 #include "arch.h"
+#include "arch_exports.h"
+#include "proc.h"
 
 /* We have to dynamically size kernel_xstate_t to account for kernel changes
  * over time.
