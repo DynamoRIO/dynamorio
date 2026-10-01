@@ -2768,11 +2768,9 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
             // had their address records ommitted, in which case we just return here.
             app_pc memref_pc =
                 modmap_().get_orig_pc(in_entry->pc.modidx, in_entry->pc.modoffs);
-            if (memref_pc < orig_pc) {
-                tdata->error = "Bypassed dfilter memref";
-                return false;
-            }
-            if (memref_pc > orig_pc) {
+            // This next PC could be larger in this same block, or smaller or larger
+            // in the next block; if not equal in any way, return.
+            if (memref_pc != orig_pc) {
                 log(4, "Did not yet reach next memref @%p vs instr %p\n", memref_pc,
                     orig_pc);
                 unread_last_entry(tdata);
