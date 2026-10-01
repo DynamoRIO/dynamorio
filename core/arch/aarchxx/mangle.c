@@ -898,8 +898,6 @@ static void
 mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                   instr_t *next_instr, bool instr_to_be_removed);
 
-#ifndef AARCH64
-
 /* i#1662 optimization: we try to pick the same scratch register during
  * mangling to provide more opportunities for optimization,
  * xref insert_save_to_tls_if_necessary().
@@ -907,7 +905,8 @@ mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
  * Returns the prev reg restore instruction.
  */
 static instr_t *
-find_prior_scratch_reg_restore(dcontext_t *dcontext, instr_t *instr, reg_id_t *prior_reg)
+find_prior_scratch_reg_restore(dcontext_t *dcontext, instr_t *instr, reg_id_t *prior_reg,
+                               int *prior_offs)
 {
     instr_t *prev = instr_get_prev(instr);
     bool tls, spill;
@@ -924,7 +923,8 @@ find_prior_scratch_reg_restore(dcontext_t *dcontext, instr_t *instr, reg_id_t *p
            instr_is_label(prev) && instr_is_our_mangling(prev))
         prev = instr_get_prev(prev);
     if (prev != NULL &&
-        instr_is_DR_reg_spill_or_restore(dcontext, prev, &tls, &spill, prior_reg, NULL)) {
+        instr_is_DR_reg_spill_or_restore(dcontext, prev, &tls, &spill, prior_reg,
+                                         prior_offs)) {
         if (tls && !spill && *prior_reg >= SCRATCH_REG0 && *prior_reg <= SCRATCH_REG_LAST)
             return prev;
     }
@@ -932,26 +932,23 @@ find_prior_scratch_reg_restore(dcontext_t *dcontext, instr_t *instr, reg_id_t *p
     return NULL;
 }
 
-#endif /* !AARCH64 */
-
 /* optimized spill: only if not immediately spilled already */
 static void
 insert_save_to_tls_if_necessary(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                                 reg_id_t reg, ushort slot)
 {
-#ifdef AARCH64
-    /* XXX i#1569: not yet optimized */
-    PRE(ilist, where, instr_create_save_to_tls(dcontext, reg, slot));
-#else
     instr_t *prev;
     reg_id_t prior_reg;
+    int prior_offs;
     DEBUG_DECLARE(bool tls;)
     DEBUG_DECLARE(bool spill;)
 
     /* this routine is only called for non-mbr mangling */
     STATS_INC(non_mbr_spills);
-    prev = find_prior_scratch_reg_restore(dcontext, where, &prior_reg);
-    if (INTERNAL_OPTION(opt_mangle) > 0 && prev != NULL && prior_reg == reg) {
+    prev = find_prior_scratch_reg_restore(dcontext, where, &prior_reg, &prior_offs);
+    /* The restore and spill must use the same slot to share the saved value. */
+    if (INTERNAL_OPTION(opt_mangle) > 0 && prev != NULL && prior_reg == reg &&
+        prior_offs == os_tls_offset(slot)) {
         /* XXX: This looks only for dr_reg_stolen. */
         ASSERT(instr_is_DR_reg_spill_or_restore(dcontext, prev, &tls, &spill, &prior_reg,
                                                 NULL) &&
@@ -963,7 +960,6 @@ insert_save_to_tls_if_necessary(dcontext_t *dcontext, instrlist_t *ilist, instr_
     } else {
         PRE(ilist, where, instr_create_save_to_tls(dcontext, reg, slot));
     }
-#endif
 }
 
 #ifndef AARCH64
@@ -1871,8 +1867,7 @@ pick_scratch_reg(dcontext_t *dcontext, instr_t *instr, reg_id_t do_not_pick_a,
     if (should_restore != NULL)
         *should_restore = true;
 
-#ifndef AARCH64 /* XXX i#1569: not yet optimized */
-    if (find_prior_scratch_reg_restore(dcontext, instr, &reg) != NULL &&
+    if (find_prior_scratch_reg_restore(dcontext, instr, &reg, NULL) != NULL &&
         reg != REG_NULL && !instr_uses_reg(instr, reg) &&
         !reg_overlap(reg, do_not_pick_a) && !reg_overlap(reg, do_not_pick_b) &&
         !reg_overlap(reg, do_not_pick_c) &&
@@ -1888,7 +1883,6 @@ pick_scratch_reg(dcontext_t *dcontext, instr_t *instr, reg_id_t do_not_pick_a,
             LOG(THREAD, LOG_INTERP, 4, "use last scratch reg %s\n", reg_names[reg]);
         });
     } else
-#endif
         reg = REG_NULL;
 
     if (reg == REG_NULL) {
