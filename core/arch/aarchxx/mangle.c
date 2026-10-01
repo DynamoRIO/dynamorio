@@ -2182,6 +2182,66 @@ restore_tls_base_to_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t
     ASSERT(instr_is_our_mangling(move));
 }
 
+static bool
+is_mov_register(instr_t *instr, DR_PARAM_OUT opnd_t *src_out,
+                DR_PARAM_OUT opnd_t *dst_out)
+{
+    int opcode = instr_get_opcode(instr);
+    if (opcode == IF_X64_ELSE(OP_orr, OP_mov)) {
+        opnd_t src0 = instr_get_src(instr, 0);
+        opnd_t dst = instr_get_dst(instr, 0);
+#ifdef AARCH64
+        /* Check for one of:
+         * orr  dst, src, xzr
+         * orr  dst, xzr, src, lsl #0
+         * orr  dst, src, #0
+         */
+        const bool src0_is_zero =
+            (opnd_is_reg(src0) &&
+             (opnd_get_reg(src0) == DR_REG_XZR || opnd_get_reg(src0) == DR_REG_WZR));
+
+        opnd_t src1 = instr_get_src(instr, 1);
+        const bool src1_is_zero =
+            (opnd_is_reg(src1) &&
+             (opnd_get_reg(src1) == DR_REG_XZR || opnd_get_reg(src1) == DR_REG_WZR)) ||
+            (opnd_is_immed_int(src1) && opnd_get_immed_int(src1) == 0);
+
+        const bool src1_is_unshifted =
+            instr_num_srcs(instr) < 4 || opnd_get_immed_int(instr_get_src(instr, 3)) == 0;
+
+        if (opnd_is_reg(src1) && src0_is_zero && src1_is_unshifted) {
+            *src_out = src1;
+            *dst_out = dst;
+            return true;
+        }
+#endif
+
+        if (opnd_is_reg(src0) IF_AARCH64(&&src1_is_zero)) {
+            *src_out = src0;
+            *dst_out = dst;
+            return true;
+        }
+#ifdef AARCH64
+    } else if (opcode == OP_movz) {
+        ASSERT(instr_num_srcs(instr) == 3);
+        opnd_t src = instr_get_src(instr, 0);
+        if (opnd_is_immed_int(src) && opnd_get_immed_int(src) == 0) {
+            /* Treat movz rd, #0 like mov rd, wzr */
+            opnd_t dst = instr_get_dst(instr, 0);
+            ASSERT(opnd_is_reg(dst));
+
+            *src_out =
+                opnd_create_reg(reg_resize_to_opsz(DR_REG_XZR, opnd_get_size(dst)));
+            *dst_out = dst;
+            return true;
+        }
+    }
+#else
+    }
+#endif
+    return false;
+}
+
 /* Mangle simple dr_reg_stolen access.
  * dr_reg_stolen in gpr_list is handled in mangle_gpr_list_{read/write}.
  *
@@ -2202,39 +2262,104 @@ mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      */
     ASSERT(!instr_is_meta(instr) && instr_uses_reg(instr, dr_reg_stolen));
 
-#ifndef AARCH64 /* XXX i#1569: recognise "move" on AArch64 */
-    /* optimization, convert simple mov to ldr/str:
-     * - "mov r0  -> r10"  ==> "str r0 -> [r10_slot]"
-     * - "mov r10 -> r0"   ==> "ldr [r10_slot] -> r0"
+    /* Optimization, convert simple mov to ldr/str:
+     * AArch32:
+     * - "mov r0  -> stolen_reg"  ==> "str r0 -> [stolen_reg_slot]"
+     * - "mov stolen_reg -> r0"   ==> "ldr [stolen_reg_slot] -> r0"
+     * AArch64:
+     * - "orr  x0, xzr  -> stolen_reg"  ==> "str  x0 -> [stolen_reg_slot]"
+     * - "orr  stolen_reg, xzr  -> x0"  ==> "ldr  [stolen_reg_slot] -> x0"
+     * - "orr  w0, wzr  -> stolen_reg"  ==> "stp  w0, wzr -> [stolen_reg_slot]"
+     * - "orr  stolen_reg, wzr  -> w0"  ==> "ldr  [stolen_reg_slot] -> w0"
+     * - "orr  stolen_reg32, wzr -> stolen_reg"  ==> "str  wzr -> [stolen_reg_slot + 4]"
+     * - "movz #0 -> stolen_reg"        ==>  "str xzr -> [stolen_reg_slot]"
      */
-    if (instr_get_opcode(instr) == OP_mov && opnd_is_reg(instr_get_src(instr, 0))) {
+    opnd_t src;
+    opnd_t dst;
+    if (is_mov_register(instr, &src, &dst)) {
         opnd_t opnd;
-        ASSERT(instr_num_srcs(instr) == 1 && instr_num_dsts(instr) == 1);
+        ASSERT(instr_num_srcs(instr) IF_AARCH64_ELSE(>, ==) 1 &&
+               instr_num_dsts(instr) == 1);
         ASSERT(opnd_is_reg(instr_get_dst(instr, 0)));
-        /* mov rx -> rx, do nothing */
-        if (opnd_same(instr_get_src(instr, 0), instr_get_dst(instr, 0)))
+        /* mov stolen_reg -> stolen_reg */
+        if (opnd_same(src, dst)) {
+#ifdef AARCH64
+            if (reg_get_size(opnd_get_reg(src)) == OPSZ_4) {
+                /* 32-bit mov zeroes the upper 32-bits.
+                 * str xzr -> [stolen_reg_slot + 4]
+                 */
+                instr_remove_srcs(dcontext, instr, 1, instr_num_srcs(instr));
+                instr_set_opcode(instr, OP_str);
+                instr_set_src(instr, 0, opnd_create_reg(DR_REG_WZR));
+                instr_set_dst(instr, 0,
+                              opnd_create_sized_tls_slot(
+                                  os_tls_offset(TLS_REG_STOLEN_SLOT) + 4, OPSZ_4));
+            }
+#endif
             return;
+        }
         /* this optimization changes the original instr, so it is only applied
          * if instr_to_be_removed is false
          */
         if (!instr_to_be_removed) {
             opnd = opnd_create_tls_slot(os_tls_offset(TLS_REG_STOLEN_SLOT));
-            if (opnd_get_reg(instr_get_src(instr, 0)) == dr_reg_stolen) {
-                /* mov r10 -> rx, convert to a ldr */
+            if (opnd_get_reg(src) ==
+                dr_reg_stolen IF_AARCH64(
+                    || opnd_get_reg(src) == reg_64_to_32(dr_reg_stolen))) {
+                /* mov stolen_reg -> rx, convert to a ldr */
+#ifdef AARCH64
+                opnd_set_size(&opnd, opnd_get_size(src));
+                instr_remove_srcs(dcontext, instr, 1, instr_num_srcs(instr));
+#endif
+
                 instr_set_opcode(instr, OP_ldr);
                 instr_set_src(instr, 0, opnd);
                 return;
-            } else {
-                ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == dr_reg_stolen);
-                /* mov rx -> r10, convert to a str */
+            }
+#ifdef AARCH64
+            else if (opnd_get_reg(dst) == reg_64_to_32(dr_reg_stolen)) {
+                /* The destination is a 32-bit register so we need to zero the upper
+                 * 32-bits of the stolen_reg_slot.
+                 */
+                if (opnd_get_reg(src) == DR_REG_WZR) {
+                    /* The whole register is being zeroed so we can just turn this into a
+                     * 64-bit str.
+                     * str xzr -> [stolen_reg_slot]
+                     */
+                    instr_remove_srcs(dcontext, instr, 1, instr_num_srcs(instr));
+                    instr_set_opcode(instr, OP_str);
+                    instr_set_src(instr, 0, opnd_create_reg(DR_REG_XZR));
+                    instr_set_dst(instr, 0, opnd);
+                } else {
+                    /* Zero the upper bits by turning it into a stp where the second
+                     * register is wzr.
+                     * stp  src, wzr, -> [stolen_reg_slot]
+                     */
+                    if (instr_num_srcs(instr) > 2) {
+                        instr_remove_srcs(dcontext, instr, 2, instr_num_srcs(instr));
+                    }
+                    instr_set_opcode(instr, OP_stp);
+                    instr_set_src(instr, 0, src);
+                    instr_set_src(instr, 1, opnd_create_reg(DR_REG_WZR));
+                    instr_set_dst(instr, 0, opnd);
+                }
+                return;
+            }
+#endif
+            else {
+                ASSERT(opnd_get_reg(dst) == dr_reg_stolen);
+                /* mov rx -> stolen_reg, convert to a str */
+#ifdef AARCH64
+                instr_remove_srcs(dcontext, instr, 1, instr_num_srcs(instr));
+#endif
                 instr_set_opcode(instr, OP_str);
+                instr_set_src(instr, 0, src);
                 instr_set_dst(instr, 0, opnd);
                 return;
             }
             ASSERT_NOT_REACHED();
         }
     }
-#endif
 
     /* move stolen reg value into tmp reg for app instr execution */
     tmp = pick_scratch_reg(dcontext, instr, DR_REG_NULL, DR_REG_NULL, DR_REG_NULL, false,
