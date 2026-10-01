@@ -106,9 +106,7 @@ public:
                      void *drcontext)
         : raw2trace_t(nullptr, input, output, {}, INVALID_FILE, nullptr, nullptr,
                       drcontext,
-                      // The sequences are small so we print everything for easier
-                      // debugging and viewing of what's going on.
-                      /*verbosity=*/4)
+                      /*verbosity=*/0)
     {
         module_mapper_ = std::unique_ptr<module_mapper_t>(
             new test_module_mapper_t(&instrs, drcontext));
@@ -120,9 +118,7 @@ public:
                      std::unique_ptr<record_reader_t> syscall_template_file)
         : raw2trace_t(nullptr, input, output, {}, INVALID_FILE, nullptr, nullptr,
                       drcontext,
-                      // The sequences are small so we print everything for easier
-                      // debugging and viewing of what's going on.
-                      /*verbosity=*/4,
+                      /*verbosity=*/0,
                       // Reusing the default values, as we need to set the
                       // syscall_template_file arg later.
                       /*worker_count=*/-1, /*alt_module_dir=*/"",
@@ -139,9 +135,7 @@ public:
                      void *drcontext, uint64_t chunk_instr_count = 10 * 1000 * 1000)
         : raw2trace_t(nullptr, input, {}, output, INVALID_FILE, nullptr, nullptr,
                       drcontext,
-                      // The sequences are small so we print everything for easier
-                      // debugging and viewing of what's going on.
-                      /*verbosity=*/4, /*worker_count=*/-1,
+                      /*verbosity=*/0, /*worker_count=*/-1,
                       /*alt_module_dir=*/"", chunk_instr_count)
     {
         module_mapper_ = std::unique_ptr<module_mapper_t>(
@@ -154,9 +148,7 @@ public:
                      void *drcontext)
         : raw2trace_t(nullptr, input, output, {}, INVALID_FILE, nullptr, nullptr,
                       drcontext,
-                      // The sequences are small so we print everything for easier
-                      // debugging and viewing of what's going on.
-                      4)
+                      /*verbosity=*/0)
     {
         module_mapper_ =
             std::unique_ptr<module_mapper_t>(new test_multi_module_mapper_t(modules));
