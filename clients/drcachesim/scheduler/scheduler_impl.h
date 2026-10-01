@@ -1261,6 +1261,14 @@ protected:
     bool
     ready_queue_empty(output_ordinal_t output);
 
+    // Called when "output" has no ready input of its own.  To limit lock contention,
+    // only every options_.steal_attempt_period-th consecutive call (starting with the
+    // first) tries to take a ready input from another output's ready queue.  On
+    // success, makes that input current and returns STATUS_STOLE; otherwise, returns
+    // STATUS_IDLE.
+    stream_status_t
+    try_steal(output_ordinal_t output);
+
     // If input->unscheduled is true and input->blocked_time is 0, input
     // is placed on the unscheduled_priority_ queue instead.
     // The caller cannot hold the input's lock: this routine will acquire it.
@@ -1282,6 +1290,8 @@ protected:
     // for_output can be INVALID_OUTPUT_ORDINAL, which will ignore bindings.
     // If from_output != for_output (including for_output == INVALID_OUTPUT_ORDINAL)
     // this is a migration and only migration-ready inputs will be picked.
+    // Returns STATUS_IDLE if only blocked inputs remain; counting an idle is up to
+    // the caller.
     stream_status_t
     pop_from_ready_queue(output_ordinal_t from_output, output_ordinal_t for_output,
                          input_info_t *&new_input);

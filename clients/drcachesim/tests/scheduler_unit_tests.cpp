@@ -2851,11 +2851,11 @@ test_synthetic_with_bindings_time(bool time_deps)
     // We should *not* see cores stealing inputs that can't run on them: so we
     // should see tail idle time.  We should see allowed steals with no migration
     // threshold.
-    assert(sched_as_string[0] == ".DD.D.EE.E.FF.FD.DD.E.EE.F.FF.EE.E.FF.F.");
-    assert(sched_as_string[1] == ".GG.G.HH.HG.GG.H.HH.HH.H.DD.D.__________");
-    assert(sched_as_string[2] == ".AA.A.BB.BA.AA.B.BB.BB.B._______________");
-    assert(sched_as_string[3] == ".II.II.II.II.I.GG.G.____________________");
-    assert(sched_as_string[4] == ".CC.CC.CC.CC.C.AA.A.____________________");
+    assert(sched_as_string[0] == ".DD.D.EE.E.FF.FD.DD.E.EE.F.FF.EE.E._");
+    assert(sched_as_string[1] == ".GG.G.HH.HG.GG.H.HH.HH.H.DD.D.FF.F.");
+    assert(sched_as_string[2] == ".AA.A.BB.BA.AA.B.BB.BB.B.__________");
+    assert(sched_as_string[3] == ".II.II.II.II.I.GG.G._______________");
+    assert(sched_as_string[4] == ".CC.CC.CC.CC.C.AA.A._______________");
 }
 
 static void
@@ -9325,6 +9325,108 @@ test_steal_period()
 }
 
 static void
+test_steal_when_only_blocked()
+{
+    std::cerr << "\n----------------\nTesting steal when only blocked\n";
+    static constexpr int NUM_OUTPUTS = 2;
+    static constexpr memref_tid_t TID_BASE = 100;
+    static constexpr memref_tid_t TID_A = TID_BASE + 0;
+    static constexpr memref_tid_t TID_B = TID_BASE + 1;
+    static constexpr memref_tid_t TID_C = TID_BASE + 2;
+    static constexpr memref_tid_t TID_D = TID_BASE + 3;
+    static constexpr memref_tid_t TID_E = TID_BASE + 4;
+    static constexpr uint64_t TIMESTAMP_START = 10;
+    static constexpr uint64_t BLOCK_THRESHOLD = 20;
+    static constexpr uint64_t BLOCK_LATENCY = 40;
+    // We set up a round-robin assignment with A, C, and E on output #0 and B and D
+    // on #1.  A runs for a long time, so C and E wait behind it.  On #1, B blocks
+    // and D runs and exits, leaving only the blocked B in #1's queue.
+    // With steal_when_only_blocked, #1 steals C instead of idling; once C exits, #1
+    // again holds only B and steals E.  Without it, #1 idles until B unblocks.
+    auto make_input = [](memref_tid_t tid, uint64_t timestamp, int num_instrs,
+                         bool blocks) {
+        std::vector<trace_entry_t> refs = {
+            test_util::make_thread(tid),
+            test_util::make_pid(1),
+            test_util::make_version(TRACE_ENTRY_VERSION),
+            test_util::make_timestamp(timestamp),
+            test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+            test_util::make_instr(10),
+        };
+        if (blocks) {
+            refs.push_back(test_util::make_timestamp(timestamp + 1));
+            refs.push_back(test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 42));
+            refs.push_back(
+                test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
+            refs.push_back(test_util::make_timestamp(timestamp + 1 + BLOCK_LATENCY));
+        }
+        for (int i = 1; i < num_instrs; ++i)
+            refs.push_back(test_util::make_instr(10));
+        refs.push_back(test_util::make_exit(tid));
+        return refs;
+    };
+    std::vector<std::vector<trace_entry_t>> refs = {
+        make_input(TID_A, TIMESTAMP_START, 30, /*blocks=*/false),
+        make_input(TID_B, TIMESTAMP_START + 10, 2, /*blocks=*/true),
+        make_input(TID_C, TIMESTAMP_START + 20, 3, /*blocks=*/false),
+        make_input(TID_D, TIMESTAMP_START + 30, 1, /*blocks=*/false),
+        make_input(TID_E, TIMESTAMP_START + 40, 3, /*blocks=*/false),
+    };
+    for (bool steal_when_only_blocked : { false, true }) {
+        std::vector<scheduler_t::input_reader_t> readers;
+        for (size_t i = 0; i < refs.size(); ++i) {
+            readers.emplace_back(
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(refs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                TID_BASE + static_cast<memref_tid_t>(i));
+        }
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/3);
+        sched_ops.exit_if_fraction_inputs_left = 0.;
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
+        sched_ops.blocking_switch_threshold = BLOCK_THRESHOLD;
+        sched_ops.block_time_multiplier = 1.;
+        sched_ops.time_units_per_us = 1.;
+        sched_ops.migration_threshold_us = 0;
+        // We leave steal_attempt_period at its default, so the second steal also
+        // tests that each transition to having no ready input steals right away.
+        sched_ops.steal_when_only_blocked = steal_when_only_blocked;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        // We let the scheduler compute time from instructions plus idles, so the
+        // length of #1's wait for B also checks that steals are not counted as idles.
+        std::vector<std::string> sched_as_string = run_lockstep_simulation(
+            scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/false);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        double steals = scheduler.get_stream(1)->get_schedule_statistic(
+            memtrace_stream_t::SCHED_STAT_RUNQUEUE_STEALS);
+        if (steal_when_only_blocked) {
+            assert(sched_as_string[0] ==
+                   "...AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA._____________________________");
+            assert(sched_as_string[1] ==
+                   "...B.......D....CCC....EEE._________________________________B.");
+            assert(steals == 2);
+        } else {
+            assert(sched_as_string[0] ==
+                   "...AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA....CCC....EEE._______");
+            assert(sched_as_string[1] ==
+                   "...B.......D._______________________________________B.");
+            assert(steals == 0);
+        }
+    }
+}
+
+static void
 test_exit_early()
 {
     std::cerr << "\n----------------\nTesting exiting early\n";
@@ -10477,6 +10579,7 @@ test_main(int argc, const char *argv[])
     test_rebalancing();
     test_initial_migrate();
     test_steal_period();
+    test_steal_when_only_blocked();
     test_exit_early();
     test_marker_updates();
     test_options_match();
