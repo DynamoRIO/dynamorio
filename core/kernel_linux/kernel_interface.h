@@ -100,6 +100,9 @@ kernel_is_readable_without_fault(const void *addr, size_t size);
 unsigned int
 kernel_query_time_seconds(void);
 
+unsigned long long
+kernel_query_time_nanos(void);
+
 __attribute__((format(gnu_printf, 1, 2))) void
 kernel_printk(const char *fmt, ...);
 

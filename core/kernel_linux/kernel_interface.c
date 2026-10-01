@@ -366,6 +366,12 @@ kernel_query_time_seconds(void)
     return (unsigned int)ktime_get_real_seconds();
 }
 
+unsigned long long
+kernel_query_time_nanos(void)
+{
+    return ktime_get_real_fast_ns();
+}
+
 void
 kernel_printk(const char *fmt, ...)
 {

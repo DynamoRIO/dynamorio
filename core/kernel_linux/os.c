@@ -469,6 +469,18 @@ query_time_seconds(void)
     return kernel_query_time_seconds() + UTC_TO_EPOCH_SECONDS;
 }
 
+uint64
+query_time_millis(void)
+{
+    return kernel_query_time_nanos() / 1000000 + UTC_TO_EPOCH_SECONDS * 1000;
+}
+
+uint64
+query_time_micros(void)
+{
+    return kernel_query_time_nanos() / 1000 + UTC_TO_EPOCH_SECONDS * 1000000;
+}
+
 uint
 os_random_seed(void)
 {
