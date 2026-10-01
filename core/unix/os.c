@@ -5927,7 +5927,9 @@ dr_invoke_syscall_as_app(void *drcontext, int sysnum, int arg_count, ...)
     } else {
         res = dynamorio_syscall(sysnum, arg_count, args[0], args[1], args[2], args[3],
                                 args[4], args[5]);
+        MCXT_SYSCALL_RES(mc) = res;
         post_system_call(dcontext);
+        res = MCXT_SYSCALL_RES(mc);
     }
     dcontext->client_data->skip_client_syscall_events = false;
     /* Restore app registers. */
