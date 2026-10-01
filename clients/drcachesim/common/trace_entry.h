@@ -119,7 +119,7 @@ typedef enum {
     /**
      * The trace completely omits #TRACE_TYPE_INSTR_NO_FETCH records. Repeated string
      * instructions consist of a single instruction record of the new type
-     * #TRACE_TYPE_INSTR_STRING_LOOP followed by consecutive memory access records
+     * #TRACE_TYPE_INSTR_REPEATED followed by consecutive memory access records
      * with no further instruction fetch record for any subsequent iteration.
      */
     TRACE_ENTRY_VERSION_NO_UNFETCHED_INSTRUCTIONS = 8,
@@ -306,7 +306,7 @@ typedef enum {
      * #TRACE_ENTRY_VERSION_NO_UNFETCHED_INSTRUCTIONS onward) to make it easier
      * to handle their potentially very long sequences of load/store records.
      */
-    TRACE_TYPE_INSTR_STRING_LOOP,
+    TRACE_TYPE_INSTR_REPEATED,
 
     // Update trace_type_names[] when adding here.
 } trace_type_t;
@@ -875,7 +875,7 @@ type_is_instr(const trace_type_t type)
 {
     return (type >= TRACE_TYPE_INSTR && type <= TRACE_TYPE_INSTR_RETURN) ||
         type == TRACE_TYPE_INSTR_SYSENTER || type == TRACE_TYPE_INSTR_TAKEN_JUMP ||
-        type == TRACE_TYPE_INSTR_UNTAKEN_JUMP || type == TRACE_TYPE_INSTR_STRING_LOOP;
+        type == TRACE_TYPE_INSTR_UNTAKEN_JUMP || type == TRACE_TYPE_INSTR_REPEATED;
 }
 
 /**

@@ -327,12 +327,13 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf_i
         } else if (entry.type == TRACE_TYPE_MARKER &&
                    entry.size == TRACE_MARKER_TYPE_BRANCH_TARGET) {
             buf_last_branch_target_marker = buf;
-        } else if (static_cast<size_t>(buf - buf_base) >= WRITE_BUFFER_SIZE) {
+        }
+        if (static_cast<size_t>(buf + 1 - buf_base) >= WRITE_BUFFER_SIZE) {
             if (!write(tdata, buf_base, buf, &saved_decode_pc, 1)) {
                 return false;
             }
             buf = buf_base;
-            buf_last_branch_target_marker = nullptr;
+            DR_ASSERT(buf_last_branch_target_marker == nullptr);
         }
         *buf = entry;
         ++buf;
@@ -1817,7 +1818,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
     int consumed_memrefs = 0;
     bool interrupted = false;
     bool rseq_aborted = false;
-    bool repstr_first_last_supported =
+    bool repstr_only_first_last =
         get_version(tdata) >= OFFLINE_FILE_VERSION_REPSTR_LOOP_ALL ||
         (get_version(tdata) >= OFFLINE_FILE_VERSION_REPSTR_LOOP &&
          // For filtering of any kind, including -L0_filter_until_instrs,
@@ -1826,7 +1827,6 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
          // expanded online when filtering).
          !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_DFILTERED,
                   tdata->start_file_type));
-
     for (uint i = 0; i < instr_count; ++i) {
         trace_entry_t *buf_start = get_write_buffer(tdata);
         trace_entry_t *buf = buf_start;
@@ -1952,7 +1952,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         // Interrupting a rep string instruction is different: it can
         // partially complete its loop.
         bool partial_interrupt =
-            interrupted && instr->is_rep_string() && repstr_first_last_supported;
+            interrupted && instr->is_rep_string() && repstr_only_first_last;
         bool added_encoding = false;
         if (interrupted && !partial_interrupt) {
             // Insert the TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION marker to
@@ -1984,13 +1984,13 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 tdata->error = "Should never see MAYBE_FETCH records.";
                 return false;
             }
-            if (instr->type() == TRACE_TYPE_INSTR_STRING_LOOP) {
+            if (instr->type() == TRACE_TYPE_INSTR_REPEATED) {
                 // Handle a legacy trace with an instr fetch per iteration.
                 // We want it to look like the original rep string, with just one instr
                 // fetch for the whole loop, instead of the drutil-expanded loop.
                 // We fix up the maybe-fetch here so our offline file doesn't have to
                 // rely on our own reader.
-                if (!was_prev_instr_rep_string(tdata) || repstr_first_last_supported) {
+                if (!was_prev_instr_rep_string(tdata) || repstr_only_first_last) {
                     set_prev_instr_rep_string(tdata, true);
                 } else {
                     log(4, "Skipping instr fetch for " PFX "\n", (ptr_uint_t)decode_pc);
@@ -2368,7 +2368,7 @@ raw2trace_t::append_repstring(raw2trace_thread_data_t *tdata,
             // instead a loop that was about to start but was interrupted by
             // a signal or exception. Replace it with a marker.
             buf = *buf_in - 1;
-            DR_ASSERT(buf->type == TRACE_TYPE_INSTR_STRING_LOOP);
+            DR_ASSERT(buf->type == TRACE_TYPE_INSTR_REPEATED);
             if (added_encoding) {
                 rollback_last_encoding(tdata);
                 --buf;

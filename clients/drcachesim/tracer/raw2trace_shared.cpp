@@ -639,7 +639,7 @@ ir_utils_t::instr_to_instr_type(instr_t *instr, bool repstr_expanded)
         return TRACE_TYPE_INSTR_SYSENTER;
 #endif
     if (instr_is_rep_string_op(instr) || (repstr_expanded && instr_is_string_op(instr)))
-        return TRACE_TYPE_INSTR_STRING_LOOP;
+        return TRACE_TYPE_INSTR_REPEATED;
     return TRACE_TYPE_INSTR;
 }
 

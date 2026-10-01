@@ -3698,7 +3698,7 @@ test_asynchronous_signal(void *drcontext)
             check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
             // The rep_stos instruction.
             check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-            check_entry(entries, idx, TRACE_TYPE_INSTR_STRING_LOOP, -1, offs_rep_stos) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1, offs_rep_stos) &&
             check_entry(entries, idx, TRACE_TYPE_WRITE, -1) &&
             check_entry(entries, idx, TRACE_TYPE_WRITE, -1) &&
             // The last rep_stos instruction and the write record are removed because of
@@ -5436,45 +5436,45 @@ test_repstr_firstlast(void *drcontext)
               check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
               // Entries for "rep stos" variants.
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_STRING_LOOP, -1,
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1,
                           offs_repsto_zero) &&
               // There should be no memref records for zero iters.
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_STRING_LOOP, -1, offs_repsto1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1, offs_repsto1) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR + 1) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR + 2) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR + 3) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_STRING_LOOP, -1, offs_repsto4) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1, offs_repsto4) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_STRING_LOOP, -1, offs_repsto8) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1, offs_repsto8) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 8, START_ADDR) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 8, START_ADDR + 8) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_STRING_LOOP, -1,
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1,
                           offs_repsto_back1) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR - 1) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR - 2) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR - 3) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_STRING_LOOP, -1,
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1,
                           offs_repsto_back4) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_STRING_LOOP, -1,
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1,
                           offs_repsto_back8) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 8, START_ADDR) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 8, START_ADDR - 8) &&
               // Entries for "rep movs" variants.
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_STRING_LOOP, -1,
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1,
                           offs_repmov_zero) &&
               // There should be no memref records for zero iters.
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_STRING_LOOP, -1, offs_repmov1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1, offs_repmov1) &&
               check_entry(entries, idx, TRACE_TYPE_READ, 1, START_ADDR) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR2) &&
               check_entry(entries, idx, TRACE_TYPE_READ, 1, START_ADDR + 1) &&
@@ -5484,17 +5484,17 @@ test_repstr_firstlast(void *drcontext)
               check_entry(entries, idx, TRACE_TYPE_READ, 1, START_ADDR + 3) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR2 + 3) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_STRING_LOOP, -1, offs_repmov4) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1, offs_repmov4) &&
               check_entry(entries, idx, TRACE_TYPE_READ, 4, START_ADDR) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR2) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_STRING_LOOP, -1, offs_repmov8) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1, offs_repmov8) &&
               check_entry(entries, idx, TRACE_TYPE_READ, 8, START_ADDR) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 8, START_ADDR2) &&
               check_entry(entries, idx, TRACE_TYPE_READ, 8, START_ADDR + 8) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 8, START_ADDR2 + 8) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_STRING_LOOP, -1,
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1,
                           offs_repmov_back1) &&
               check_entry(entries, idx, TRACE_TYPE_READ, 1, START_ADDR) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR2) &&
@@ -5505,13 +5505,13 @@ test_repstr_firstlast(void *drcontext)
               check_entry(entries, idx, TRACE_TYPE_READ, 1, START_ADDR - 3) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR2 - 3) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_STRING_LOOP, -1,
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1,
                           offs_repcmp_back4) &&
               check_entry(entries, idx, TRACE_TYPE_READ, 4, START_ADDR) &&
               // Note the 2nd load.
               check_entry(entries, idx, TRACE_TYPE_READ, 4, START_ADDR2) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_STRING_LOOP, -1,
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1,
                           offs_repmov_back8) &&
               check_entry(entries, idx, TRACE_TYPE_READ, 8, START_ADDR) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 8, START_ADDR2) &&
@@ -5574,7 +5574,7 @@ test_repstr_firstlast(void *drcontext)
                           TIME_VALUE) &&
               check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_STRING_LOOP, -1, offs_repsto) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1, offs_repsto) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR + 4) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR + 8) &&
@@ -5636,7 +5636,7 @@ test_repstr_firstlast(void *drcontext)
                           TIME_VALUE) &&
               check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_STRING_LOOP, -1, offs_repsto) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1, offs_repsto) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR + 4) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR + 8) &&
@@ -5776,7 +5776,7 @@ test_repstr_firstlast(void *drcontext)
                           TIME_VALUE) &&
               check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_STRING_LOOP, -1, offs_repsto) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1, offs_repsto) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR + 4) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR + 8) &&
@@ -5784,7 +5784,7 @@ test_repstr_firstlast(void *drcontext)
                           TRACE_MARKER_TYPE_FILTER_ENDPOINT) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
               check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_nop2) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_STRING_LOOP, -1, offs_repsto) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1, offs_repsto) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR + 4) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR + 8) &&

@@ -111,7 +111,7 @@ ir2trace_t::convert(DR_PARAM_IN drir_t *drir,
             } else if (instr_get_opcode(instr) == OP_sysenter) {
                 entry_type = TRACE_TYPE_INSTR_SYSENTER;
             } else if (instr_is_rep_string_op(instr)) {
-                entry_type = TRACE_TYPE_INSTR_STRING_LOOP;
+                entry_type = TRACE_TYPE_INSTR_REPEATED;
             }
         } else {
             VPRINT(1, "Trying to convert an invalid instruction.\n");

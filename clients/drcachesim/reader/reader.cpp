@@ -160,7 +160,7 @@ reader_t::process_input_entry()
         last_encoding_.size += static_cast<unsigned char>(input_entry_->size);
         break;
     case TRACE_TYPE_INSTR_MAYBE_FETCH:
-    case TRACE_TYPE_INSTR_STRING_LOOP:
+    case TRACE_TYPE_INSTR_REPEATED:
         // While offline traces can convert rep string per-iter instrs into
         // no-fetch entries, online can't w/o extra work, so we do the work
         // here:
@@ -168,7 +168,8 @@ reader_t::process_input_entry()
             if (version_ < TRACE_ENTRY_VERSION_NO_UNFETCHED_INSTRUCTIONS)
                 input_entry_->type = TRACE_TYPE_INSTR_NO_FETCH;
             else {
-                // Just omit.
+                // Just omit. Clear the encoding size as for online we keep getting
+                // a new ecoding on each iteration (when encodings are enabled).
                 // XXX i#4948: Avoid the cost of generating and sending these for online
                 // now that we just discard them, and now that offline traces never
                 // generate them in the first place.
@@ -176,7 +177,7 @@ reader_t::process_input_entry()
                 break;
             }
         } else
-            input_entry_->type = TRACE_TYPE_INSTR_STRING_LOOP;
+            input_entry_->type = TRACE_TYPE_INSTR_REPEATED;
         ANNOTATE_FALLTHROUGH;
     case TRACE_TYPE_INSTR:
     case TRACE_TYPE_INSTR_DIRECT_JUMP:
