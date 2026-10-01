@@ -619,6 +619,12 @@ our_getenv(const char *name)
     return (char *)kernel_getenv(name);
 }
 
+void
+mem_stats_snapshot()
+{
+    /* No-op as in core/unix/os.c. */
+}
+
 /* Diagnostics are not supported in kernel mode, as is also the case in
  * core/unix/diagnost.c.
  */
