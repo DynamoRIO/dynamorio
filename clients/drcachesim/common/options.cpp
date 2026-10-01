@@ -406,8 +406,9 @@ droption_t<bytesize_t> op_trace_for_instrs(
     "instructions are traced.  Unlike -exit_after_tracing, which kills the "
     "application (and counts data as well as instructions), the application "
     "continues executing.  This can be combined with -retrace_every_instrs. "
-    "The actual trace period may vary slightly from this number due to optimizations "
-    "that reduce the overhead of instruction counting.");
+    "The actual instruction count traced has a granularity of the buffer size, "
+    "so shrink -main_buf_records and -trace_buf_records to increase the accuracy "
+    "(but at a possible performance cost.");
 
 droption_t<bytesize_t> op_retrace_every_instrs(
     DROPTION_SCOPE_CLIENT, "retrace_every_instrs", 0,
@@ -418,7 +419,9 @@ droption_t<bytesize_t> op_retrace_every_instrs(
     "process repeats itself.  This can be combined with -trace_after_instrs for an "
     "initial period of non-tracing.  Each tracing window is delimited by "
     "TRACE_MARKER_TYPE_WINDOW_ID markers.  For -offline traces, each window is placed "
-    "into its own separate set of output files, unless -no_split_windows is set.");
+    "into its own separate set of output files, unless -no_split_windows is set. "
+    "The actual trace period may vary slightly from this number due to optimizations "
+    "that reduce the overhead of instruction counting.");
 
 droption_t<std::string> op_trace_instr_intervals_file(
     DROPTION_SCOPE_CLIENT, "trace_instr_intervals_file", "",
@@ -439,11 +442,15 @@ droption_t<bytesize_t> op_exit_after_tracing(
     DROPTION_SCOPE_CLIENT, "exit_after_tracing", 0,
     "Exit the process after tracing N references",
     "If non-zero, after tracing the specified number of references, the process is "
-    "exited with an exit code of 0.  The reference count is approximate. "
+    "exited with an exit code of 0.  The reference count is approximate with a "
+    "granularity of the buffer size, so shrink -main_buf_records and -trace_buf_records "
+    "to increase the accuracy (but at a possible performance cost). "
     "Use -max_global_trace_refs instead to avoid terminating the process.");
 
 droption_t<bytesize_t>
-    op_main_buf_records(DROPTION_SCOPE_CLIENT, "main_buf_records", 4096,
+    // A larger buffer provides better performance, but we limit the larger default
+    // to just the main thread to better scale to thousands of threads.
+    op_main_buf_records(DROPTION_SCOPE_CLIENT, "main_buf_records", 32768,
                         "Capacity in records of the main thread's trace buffer",
                         "The capacity of the main (initial) thread's output buffer, as a "
                         "count of 8-byte records.");

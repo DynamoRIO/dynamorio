@@ -266,7 +266,14 @@
 #  define HAVE_SIGALTSTACK
 # elif defined(LINUX)
 #  define HAVE_MEMINFO
-#  define HAVE_MEMINFO_MAPS
+#  ifdef LINUX_KERNEL
+/* The kernel module has no /proc/self/maps to parse, so it has no all_memory_areas
+ * cache: memory attributes are queried directly from the kernel page tables.
+ */
+#    define HAVE_MEMINFO_QUERY
+#  else
+#    define HAVE_MEMINFO_MAPS
+#  endif
 #  define HAVE_TLS
 #  define HAVE_SIGALTSTACK
 # else

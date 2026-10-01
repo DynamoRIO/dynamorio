@@ -37,7 +37,7 @@
  * management code (dynamorio_module_main.c).
  */
 
-void
-dynamorio_app_init_part_one_options(void);
+int
+dynamorio_app_init(void);
 
 #endif /* _DR_INTERFACE_H_ */

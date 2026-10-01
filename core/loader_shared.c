@@ -641,7 +641,8 @@ privload_load(const char *filename, privmod_t *dependent, bool client)
         ASSERT_CURIOSITY(privload_recurse_cnt < 20); /* win7 dbghelp gets to 12 */
     });
 
-    LOG(GLOBAL, LOG_LOADER, 2, "%s: loading %s\n", __FUNCTION__, filename);
+    LOG(GLOBAL, LOG_LOADER, 2, "%s: loading %s (depth %d)\n", __FUNCTION__, filename,
+        privload_recurse_cnt);
 
     map = privload_map_and_relocate(filename, &size, client ? MODLOAD_REACHABLE : 0);
     if (map == NULL) {
@@ -694,6 +695,7 @@ privload_load(const char *filename, privmod_t *dependent, bool client)
     }
     if (privmod->is_client)
         instrument_client_lib_loaded(privmod->base, privmod->base + privmod->size);
+    DOCHECK(1, { privload_recurse_cnt--; });
     return privmod;
 }
 

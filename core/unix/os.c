@@ -5298,8 +5298,19 @@ make_unwritable(byte *pc, size_t size)
          */
         IF_NO_MEMQUERY(memcache_initialized() &&)
 #endif
-            get_memory_info(pc, NULL, NULL, &prot))
+            get_memory_info(pc, NULL, NULL, &prot)) {
         prot &= ~PROT_WRITE;
+#if defined(LINUX) && defined(AARCH64)
+        /* Linux internally maps -wx permissions to rwx. Older kernels do this for --x as
+         * well but recent kernels (>= 5.13) running on hardware that supports FEAT_EPAN
+         * do not, so we need to explicitly add PROT_READ to preserve DR's ability to
+         * decode instructions from this page.
+         */
+        if (TESTANY(PROT_EXEC, prot)) {
+            prot |= PROT_READ;
+        }
+#endif
+    }
 
     ASSERT(start_page == pc && ALIGN_FORWARD(size, PAGE_SIZE) == size);
     /* inc stats before making unwritable, in case messing w/ data segment */
@@ -8902,6 +8913,8 @@ static void
 process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
              uint flags _IF_DEBUG(const char *map_type))
 {
+    if (size == 0)
+        return;
     bool image = false;
     uint memprot = osprot_to_memprot(prot);
 #ifdef ANDROID

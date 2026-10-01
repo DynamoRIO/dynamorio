@@ -50,6 +50,8 @@
 #endif
 
 #include "arch.h"
+#include "arch_exports.h"
+#include "proc.h"
 
 /* We have to dynamically size kernel_xstate_t to account for kernel changes
  * over time.
@@ -193,9 +195,8 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
     /* The app's xmm registers may be saved away in priv_mcontext_t, in which
      * case we need to copy those values instead of using what was in
      * the physical xmm registers.
-     * Because of this, we can't just execute "xsave".  We still need to
-     * execute xgetbv though.  Xsave is very expensive so not worth doing
-     * when xgetbv is all we need, so we avoid it unless there are extra fields.
+     * Because of this, we can't just execute "xsave".  We update the state
+     * component bits along with the register values below.
      */
     int i;
     sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
@@ -260,14 +261,15 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
 #endif
     }
     if (YMM_ENABLED()) {
-        /* all ymm regs are in our mcontext.  the only other thing
-         * in xstate is the xgetbv.
+        /* i#7996: XCR0 can enable components not allocated in this signal frame
+         * (e.g., AMX tile data).  Preserve the existing component bits and mark
+         * only the state we write: x87 in save_fpstate() and SIMD below.
          */
-        uint bv_high, bv_low;
-        dr_xgetbv(&bv_high, &bv_low);
-        LOG(THREAD, LOG_ASYNCH, 3, "setting xstate_bv from 0x%016lx to 0x%08x%08x\n",
-            xstate->xstate_hdr.xstate_bv, bv_high, bv_low);
-        xstate->xstate_hdr.xstate_bv = (((uint64)bv_high) << 32) | bv_low;
+        xstate->xstate_hdr.xstate_bv |= XCR0_FP | XCR0_SSE | XCR0_AVX;
+#ifdef X64
+        if (ZMM_ENABLED())
+            xstate->xstate_hdr.xstate_bv |= XCR0_OPMASK | XCR0_ZMM_HI256 | XCR0_HI16_ZMM;
+#endif
     }
     for (i = 0; i < proc_num_simd_sse_avx_saved(); i++) {
         /* we assume no padding */
@@ -596,23 +598,21 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
                     memcpy(&xstate->ymmh.ymmh_space[i * 4], &mc->simd[i].u32[4],
                            YMMH_REG_SIZE);
                 }
-            }
-            /* XXX: We've observed the kernel leaving out the AVX flag in signal
-             * contexts for DR's suspend signals, even when all app threads have used AVX
-             * instructions already
-             * (https://github.com/DynamoRIO/dynamorio/pull/5791#issuecomment-1358789851).
-             * We ensure we're setting the full state to avoid problems on detach,
-             * although we do not fully understand how the kernel can have this local
-             * laziness in AVX state.
-             */
-            uint bv_high, bv_low;
-            dr_xgetbv(&bv_high, &bv_low);
-            uint64 real_val = (((uint64)bv_high) << 32) | bv_low;
-            if (xstate->xstate_hdr.xstate_bv != real_val) {
-                LOG(THREAD_GET, LOG_ASYNCH, 3,
-                    "%s: setting xstate_bv from 0x%016lx to 0x%016lx\n", __FUNCTION__,
-                    xstate->xstate_hdr.xstate_bv, real_val);
-                xstate->xstate_hdr.xstate_bv = real_val;
+                /* XXX: We've observed the kernel leaving out the AVX flag in signal
+                 * contexts for DR's suspend signals, even when app threads have used AVX
+                 * (github.com/DynamoRIO/dynamorio/pull/5791#issuecomment-1358789851).
+                 * Mark the SIMD components we copy from mc so sigreturn restores them
+                 * on detach.  We still do not understand the kernel's local laziness.
+                 * i#7996: XCR0 can also include components absent from this frame, so
+                 * preserve unrelated state bits instead of replacing the whole bitmap.
+                 */
+                xstate->xstate_hdr.xstate_bv |= XCR0_SSE | XCR0_AVX;
+#ifdef X64
+                if (ZMM_ENABLED()) {
+                    xstate->xstate_hdr.xstate_bv |=
+                        XCR0_OPMASK | XCR0_ZMM_HI256 | XCR0_HI16_ZMM;
+                }
+#endif
             }
         }
 #ifdef X64

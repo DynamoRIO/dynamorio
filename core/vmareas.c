@@ -927,9 +927,9 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, uint vm_flags, uint f
     ASSERT_VMAREA_VECTOR_PROTECTED(v, WRITE);
     LOG(GLOBAL, LOG_VMAREAS, 4, "in add_vm_area%s " PFX " " PFX " %s\n",
         (v == executable_areas ? " executable_areas"
-                               : (v == IF_LINUX_ELSE(all_memory_areas, NULL)
-                                      ? " all_memory_areas"
-                                      : (v == dynamo_areas ? " dynamo_areas" : ""))),
+             : v == dynamo_areas
+             ? " dynamo_areas"
+             : IF_MEMQUERY_ELSE("", v == all_memory_areas ? " all_memory_areas" : "")),
         start, end, comment);
     /* N.B.: new area could span multiple existing areas! */
     for (i = 0; i < v->length; i++) {
@@ -10974,8 +10974,12 @@ handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc, app_pc instr
      * flushing outside the requested region (entire vm_area_t). If we could tell
      * we could return NULL instead (which is a special flag that says redo the
      * write instead of going to d_r_dispatch) if f wasn't flushed.
-     * XXX - Redoing the write would be more efficient then going back to
-     * d_r_dispatch and should be the common case. */
+     * XXX i#7585 - Redoing the write would be more efficient than going back to
+     * d_r_dispatch and should be the common case.
+     * Note that check_for_modified_code() in unix/signal.c assumes that this function
+     * returns instr_app_pc even if f wasn't flushed. If we implement this optimisation
+     * check_for_modified_code() will need to be reworked.
+     */
     flush_fragments_in_region_finish(dcontext, false /*don't keep initexit_lock*/);
     if (DYNAMO_OPTION(opt_jit) && !TESTANY(MEMPROT_WRITE, prot) &&
         is_jit_managed_area(flush_start))

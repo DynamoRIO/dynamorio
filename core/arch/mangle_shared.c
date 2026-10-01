@@ -1553,53 +1553,64 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
  * Returns whether it destroyed "instr".
  */
 static bool
-mangle_rseq_nop_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
+mangle_rseq_nop_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                      bool is_final_instr)
 {
     ASSERT(instr_writes_memory(instr));
     RSTATS_INC(num_rseq_stores_elided);
-    /* XXX i#2350: We want to turn just the store portion of the instr into a nop
-     * and keep any register side effects.  That is complex, however.  For now we
-     * only support simple stores and aarchxx writebacks.
+    /* For the final instr (committing store) we can simply remove it; side
+     * effects on register don't matter as we're restoring those on the 2nd
+     * execution and they can't affect the 1st execution as we're at the end.
      */
+    if (!is_final_instr) {
+        /* XXX i#2350: For a mid-rseq-region store, we want to turn just the store portion
+         * of the instr into a nop and keep any register side effects as they could affect
+         * control flow.  That is complex, however.  For now we only support simple stores
+         * and aarchxx writebacks.  Usually only simple stores are in the middle in any
+         * case.
+         */
 #    ifdef AARCHXX
-    /* Handle writeback via pre-index or post-index addressing. */
-    opnd_t memop = instr_get_dst(instr, 0);
-    if (opnd_is_base_disp(memop) && instr_num_dsts(instr) == 2 &&
-        instr_num_srcs(instr) == 3 && opnd_is_reg(instr_get_src(instr, 0)) &&
-        opnd_is_reg(instr_get_src(instr, 1)) &&
-        opnd_is_immed_int(instr_get_src(instr, 2)) &&
-        opnd_is_reg(instr_get_dst(instr, 1)) && opnd_is_base_disp(memop) &&
-        opnd_get_index(memop) == DR_REG_NULL && opnd_get_scale(memop) == DR_REG_NULL) {
-        /* We need to mangle this instruction in case it uses the stolen register.
-         * We can't adjust next_instr backward as that will re-trigger rseq mangling:
-         * we want to hit the stolen reg mangling checked after rseq.
-         * Thus we re-use "instr".
-         */
-        int increment = (int)opnd_get_immed_int(instr_get_src(instr, 2));
-        instr_t *add = INSTR_XL8(XINST_CREATE_add(dcontext, instr_get_dst(instr, 1),
-                                                  OPND_CREATE_INT(increment)),
-                                 get_app_instr_xl8(instr));
-        LOG(THREAD, LOG_INTERP, 3,
-            "mangle: turning writeback store inside rseq region to add @" PFX "\n",
-            get_app_instr_xl8(instr));
-        /* XXX: This is kind of hacky.  Should we provide a variant of instr_clone()?
-         * Or should we directly call mangle_special_registers() here to avoid all
-         * this?
-         */
-        instr_free(dcontext, instr);
-        add->next = instr->next;
-        add->prev = instr->prev;
-        memcpy(instr, add, sizeof(*instr));
-        instr_init(dcontext, add);
-        instr_destroy(dcontext, add);
-        return false;
-    }
+        /* Handle writeback via pre-index or post-index addressing. */
+        opnd_t memop = instr_get_dst(instr, 0);
+        if (opnd_is_base_disp(memop) && instr_num_dsts(instr) == 2 &&
+            instr_num_srcs(instr) == 3 && opnd_is_reg(instr_get_src(instr, 0)) &&
+            opnd_is_reg(instr_get_src(instr, 1)) &&
+            opnd_is_immed_int(instr_get_src(instr, 2)) &&
+            opnd_is_reg(instr_get_dst(instr, 1)) && opnd_is_base_disp(memop) &&
+            opnd_get_index(memop) == DR_REG_NULL &&
+            opnd_get_scale(memop) == DR_REG_NULL) {
+            /* We need to mangle this instruction in case it uses the stolen register.
+             * We can't adjust next_instr backward as that will re-trigger rseq mangling:
+             * we want to hit the stolen reg mangling checked after rseq.
+             * Thus we re-use "instr".
+             */
+            int increment = (int)opnd_get_immed_int(instr_get_src(instr, 2));
+            instr_t *add = INSTR_XL8(XINST_CREATE_add(dcontext, instr_get_dst(instr, 1),
+                                                      OPND_CREATE_INT(increment)),
+                                     get_app_instr_xl8(instr));
+            LOG(THREAD, LOG_INTERP, 3,
+                "mangle: turning writeback store inside rseq region to add @" PFX "\n",
+                get_app_instr_xl8(instr));
+            /* XXX: This is kind of hacky.  Should we provide a variant of instr_clone()?
+             * Or should we directly call mangle_special_registers() here to avoid all
+             * this?
+             */
+            instr_free(dcontext, instr);
+            add->next = instr->next;
+            add->prev = instr->prev;
+            memcpy(instr, add, sizeof(*instr));
+            instr_init(dcontext, add);
+            instr_destroy(dcontext, add);
+            return false;
+        }
 #    endif
-    if (instr_num_dsts(instr) > 1) {
-        REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),
-                                    get_application_pid(),
-                                    "Store inside rseq region has multiple destinations");
-        ASSERT_NOT_REACHED();
+        if (instr_num_dsts(instr) > 1) {
+            REPORT_FATAL_ERROR_AND_EXIT(
+                RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),
+                get_application_pid(),
+                "Store inside rseq region has multiple destinations");
+            ASSERT_NOT_REACHED();
+        }
     }
     LOG(THREAD, LOG_INTERP, 3, "mangle: removing store inside rseq region @" PFX "\n",
         get_app_instr_xl8(instr));
@@ -1696,8 +1707,10 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         restore_tls_or_dc(dcontext, ilist, first, scratch_reg, TLS_REG0_SLOT,
                           REG0_OFFSET);
     }
+    bool is_final_instr = false;
     int len = instr_length(dcontext, instr);
     if (pc + len >= end) {
+        is_final_instr = true;
         ilist->flags |= INSTR_RSEQ_ENDPOINT;
         /* We should already have this flag set by the bb builder. */
         ASSERT(TESTANY(FRAG_HAS_RSEQ_ENDPOINT, *flags));
@@ -1758,7 +1771,7 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      * order (*after* the mangling above of the end of the region) to avoid issues
      * with accessing "instr" after we delete it.
      */
-    return mangle_rseq_nop_store(dcontext, ilist, instr);
+    return mangle_rseq_nop_store(dcontext, ilist, instr, is_final_instr);
 }
 
 static void

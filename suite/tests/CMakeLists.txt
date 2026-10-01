@@ -3178,6 +3178,12 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   use_DynamoRIO_extension(client.drreg-cross.dll drreg)
   use_DynamoRIO_extension(client.drreg-cross.dll drutil)
 
+  if (AARCH64 AND UNIX AND NOT APPLE)
+    tobuild_ci(client.codemod-state client-interface/codemod-state.c "" "" "")
+    use_DynamoRIO_extension(client.codemod-state.dll drmgr)
+    use_DynamoRIO_extension(client.codemod-state.dll drreg)
+  endif ()
+
   tobuild_ci(client.drx-test client-interface/drx-test.c "" "" "")
   use_DynamoRIO_extension(client.drx-test.dll drx)
 
@@ -4042,7 +4048,8 @@ if (BUILD_CLIENTS)
     endif ()
 
     torunonly_drcachesim(delay-simple ${ci_shared_app}
-      "-trace_after_instrs 20000 -exit_after_tracing 10000" "")
+      # We shrink the buffer size for a more accurate exit.
+      "-trace_after_instrs 20000 -exit_after_tracing 10000 -main_buf_records 1024" "")
 
     # We use a many-threaded test with a small max and test that we only see
     # 1 thread, testing the thread ignore logic.  The max should be small enough
@@ -4684,7 +4691,7 @@ if (BUILD_CLIENTS)
     endif ()
     # Test split-file windows.
     torunonly_drcacheoff(windows-split ${ci_shared_app}
-      "-trace_after_instrs 20K -trace_for_instrs 10K -retrace_every_instrs 30K"
+      "-trace_after_instrs 20K -trace_for_instrs 10K -retrace_every_instrs 30K -main_buf_records 4K"
       "@-tool@basic_counts" "")
     # The first postcmd did window #0.  There should be at least 2 more windows.
     set(tool.drcacheoff.windows-split_postcmd2
@@ -4697,7 +4704,8 @@ if (BUILD_CLIENTS)
     # of a tracing window.
     if (X64 AND LINUX)
       torunonly_drcacheoff(windows-memdump ${ci_shared_app}
-        "-trace_after_instrs 20K -trace_for_instrs 10K -retrace_every_instrs 30K -memdump_on_window"
+        # The test assumes a smaller buffer size as it expects 3 windows.
+        "-trace_after_instrs 20K -trace_for_instrs 10K -retrace_every_instrs 30K -memdump_on_window -main_buf_records 4K"
         "@-tool@basic_counts" "")
     # The first postcmd did window #0.  There should be at least 2 more windows.
     set(tool.drcacheoff.windows-memdump_postcmd2
@@ -4710,7 +4718,7 @@ if (BUILD_CLIENTS)
 
     # Offline version of this test.
     torunonly_drcacheoff(irregular-windows-simple ${ci_shared_app}
-      "-trace_instr_intervals_file ${config_files_dir}/instr_intervals_example.csv"
+      "-trace_instr_intervals_file ${config_files_dir}/instr_intervals_example.csv  -main_buf_records 4K"
       "@-tool@basic_counts" "")
     # The first postcmd did window #0.  There should be 2 more windows.
     set(tool.drcacheoff.irregular-windows-simple_postcmd2
@@ -6790,9 +6798,8 @@ if (AARCH64)
 
   # Test that stolen register mangling does not interfere with selfmod mangling.
   # The -steal_reg <N> option must be kept in sync with ADDR_REG in selfmod.c.
-  # TODO i7585: Fix stolen reg corruption bug and enable this test.
-  #torunonly(security-common.selfmod-stolen_reg security-common.selfmod-coherent-icache
-  #  security-common/selfmod.c "-steal_reg 9 -hw_cache_consistency -sandbox_writes" "")
+  torunonly(security-common.selfmod-stolen_reg security-common.selfmod-coherent-icache
+    security-common/selfmod.c "-steal_reg 9 -hw_cache_consistency -sandbox_writes" "")
 endif ()
 
 if (X64 AND NOT AARCH64 AND NOT RISCV64) # XXX i#1569: get working on AArch64

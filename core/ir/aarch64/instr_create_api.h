@@ -575,6 +575,7 @@
     instr_create_1dst_4src((dc), OP_ands, (rd), (rn),                                \
                            opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_SHIFTED), \
                            opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))
+
 #define INSTR_CREATE_b(dc, pc) instr_create_0dst_1src((dc), OP_b, (pc))
 /** \endcond disabled_until_i4106_is_fixed */
 /**

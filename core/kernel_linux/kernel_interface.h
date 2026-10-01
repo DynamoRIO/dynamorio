@@ -42,6 +42,9 @@ kernel_module_init(size_t dr_heap_size);
 void
 kernel_module_exit(void);
 
+size_t
+kernel_get_heap_size(void);
+
 void *
 kernel_allocate_heap(size_t size);
 
@@ -54,13 +57,41 @@ kernel_get_cpu_id(void);
 int
 kernel_get_online_processor_count(void);
 
+/* Reports the per-CPU buffer capacity and alignment in bytes. Both output pointers
+ * must be non-NULL. Does not require preemption to be disabled.
+ */
+void
+kernel_get_cpu_local_state_layout(size_t *size, size_t *alignment);
+
+/* Returns the current CPU's buffer as an ordinary pointer. The caller must keep
+ * preemption disabled for the entire duration of access through the returned pointer.
+ * Storage is initially zero and remains allocated until module unload.
+ * This function never returns NULL: the module loader allocates dr_cpu_local_storage
+ * before module initialization, and fails the module load if it cannot allocate.
+ */
+void *
+kernel_get_cpu_local_state(void);
+
 size_t
 kernel_get_page_size(void);
+
+void *
+kernel_get_image_start(void);
+
+void *
+kernel_get_image_end(void);
+
+/* Returns whether the |size| bytes at |addr| can be read without faulting.  Handles both
+ * kernel and user addresses.  Acquires no locks and never sleeps, so it is safe to call
+ * in any context.  A zero |size| returns true.
+ */
+bool
+kernel_is_readable_without_fault(const void *addr, size_t size);
 
 unsigned int
 kernel_query_time_seconds(void);
 
-__attribute__((format(gnu_printf, 1, 2))) void
+__attribute__((format(__printf__, 1, 2))) void
 kernel_printk(const char *fmt, ...);
 
 __attribute__((noreturn)) void
