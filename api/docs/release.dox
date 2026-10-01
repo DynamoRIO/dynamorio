@@ -215,7 +215,7 @@ compatibility changes:
    is no longer present in offline or online traces with the new drmemtrace
    trace version #dynamorio::drmemtrace::TRACE_ENTRY_VERSION_NO_UNFETCHED_INSTRUCTIONS.
    Instead, a repeated string loop will start with an instruction fetch of the new type
-   #dynamorio::drmemtrace::TRACE_TYPE_INSTR_STRING_LOOP, followed by consecutive
+   #dynamorio::drmemtrace::TRACE_TYPE_INSTR_REPEATED, followed by consecutive
    load and store records.
 
 Further non-compatibility-affecting changes include:

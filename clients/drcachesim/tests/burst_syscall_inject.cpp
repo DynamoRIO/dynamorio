@@ -654,7 +654,7 @@ write_system_call_template_with_repstr(void *dr_context)
         if (i == 0) {
             write_instr_entry(dr_context, writer, rep_movs,
                               reinterpret_cast<app_pc>(PC_SYSCALL_GETTID),
-                              TRACE_TYPE_INSTR_STRING_LOOP);
+                              TRACE_TYPE_INSTR_REPEATED);
         }
         write_trace_entry(writer,
                           test_util::make_memref(READ_MEMADDR_GETTID, TRACE_TYPE_READ,

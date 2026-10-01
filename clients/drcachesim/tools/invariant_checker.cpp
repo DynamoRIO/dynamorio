@@ -1575,12 +1575,18 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             "Indirect target should be 0 for non-indirect-branches");
         }
     }
-    report_if_false(shard, memref.instr.type != TRACE_TYPE_INSTR_MAYBE_FETCH,
-                    "Maybe-fetch records should never appear in final traces");
-    if (shard->trace_version_ >= TRACE_ENTRY_VERSION_NO_UNFETCHED_INSTRUCTIONS) {
+    if (memref.instr.type == TRACE_TYPE_INSTR_MAYBE_FETCH &&
+        !shard->reported_maybe_fetch_) {
+        report_if_false(shard, false,
+                        "Maybe-fetch records should never appear in final traces");
+        shard->reported_maybe_fetch_ = true;
+    }
+    if (shard->trace_version_ >= TRACE_ENTRY_VERSION_NO_UNFETCHED_INSTRUCTIONS &&
+        memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH && !shard->reported_no_fetch_) {
         report_if_false(
-            shard, memref.instr.type != TRACE_TYPE_INSTR_NO_FETCH,
+            shard, false,
             "No-fetch records should never appear in final non-legacy traces");
+        shard->reported_no_fetch_ = true;
     }
 
 #ifdef UNIX

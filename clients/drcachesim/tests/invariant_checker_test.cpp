@@ -5966,6 +5966,25 @@ check_repstring(void)
                          "Failed to catch maybe-fetch instruction"))
             return false;
     }
+    // Incorrect: consecutive same-pc repeated instrs is a discontinuity.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr_type(TRACE_TYPE_INSTR, TID_A, 1),
+            gen_instr_type(TRACE_TYPE_INSTR_REPEATED, TID_A, 2),
+            gen_instr_type(TRACE_TYPE_INSTR_REPEATED, TID_A, 2),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "Non-explicit control flow has no marker",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/6, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/3 },
+                         "Failed to mark consecutive same-pc repeated instructions"))
+            return false;
+    }
     return true;
 }
 
