@@ -1,5 +1,6 @@
 /* *******************************************************************************
  * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -1618,8 +1619,9 @@ OPTION_DEFAULT(uint_size, vm_size,
                 * region so Windows can support a 2G size.
                 */
                IF_X64_ELSE(IF_WINDOWS_ELSE(512, 1024UL), 128) * 1024 * 1024,
-               "capacity of virtual memory region reserved (maximum supported is "
-               "512MB for 32-bit and 2GB for 64-bit) for code and reachable heap")
+               "capacity of virtual memory region reserved for code and reachable heap. "
+               "Maximum: 512MB for 32-bit, 2GB for x86-64 and RISC-V64, "
+               "64GB for AArch64 (2GB with -heap_in_lower_4GB)")
 OPTION_DEFAULT(uint_size, vmheap_size, IF_X64_ELSE(8192ULL, 128) * 1024 * 1024,
                /* XXX: default value is currently not good enough for 32-bit sqlserver,
                 * for which we need more than 256MB.
