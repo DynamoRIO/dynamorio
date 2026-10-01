@@ -10187,6 +10187,47 @@ add_to_memcache(byte *region_start, byte *region_end, void *user_data)
 }
 #endif
 
+/* Returns whether the mapping in iter looks like the start of a loaded module. */
+static bool
+is_loaded_module_header(memquery_iter_t *iter, size_t size)
+{
+    if (!TESTANY(MEMPROT_READ, iter->prot) || !module_is_header(iter->vm_start, size))
+        return false;
+#ifdef LINUX
+    /* i#8117: An app may mmap an ELF file as data (a flat mapping).  DR sizes a
+     * module from its program headers, so a flat mapping could cover unrelated
+     * memory (e.g., JIT code).
+     */
+    if (!DYNAMO_OPTION(validate_shared_elf_modules))
+        return true;
+
+    /* Standard loaders map modules privately.
+     * XXX i#8117: Private flat mappings have the same problem, but validating
+     * private mappings would also reject loaded modules that have no executable
+     * segment or whose code was remapped (e.g., onto huge pages).
+     */
+    if (!iter->is_shared)
+        return true;
+
+    /* Validation finds the file's executable mappings by device and inode and
+     * compares their file offsets with the program headers, so this must be a file
+     * mapped from offset 0.  An executable flat mapping could match itself: it maps
+     * file offset N at base + N, which is usually where the program headers place
+     * the code.
+     */
+    if (iter->inode == 0 || iter->offset != 0 || TESTANY(MEMPROT_EXEC, iter->prot))
+        return true;
+
+    if (!iter->may_alloc)
+        return true;
+
+    return module_validate_shared_elf_mapping(iter->vm_start, size, iter->device_major,
+                                              iter->device_minor, iter->inode);
+#else
+    return true;
+#endif
+}
+
 int
 os_walk_address_space(memquery_iter_t *iter, bool add_modules)
 {
@@ -10221,11 +10262,6 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
     while (memquery_iterator_next(iter)) {
         bool image = false;
         size_t size = iter->vm_end - iter->vm_start;
-#    ifdef LINUX
-        bool validate_shared_elf = DYNAMO_OPTION(validate_shared_elf_modules) &&
-            iter->may_alloc && iter->offset == 0 && iter->inode != 0 && iter->is_shared &&
-            !TESTANY(MEMPROT_EXEC, iter->prot);
-#    endif
         /* i#479, hide private module and match Windows's behavior */
         bool skip = dynamo_vm_area_overlap(iter->vm_start, iter->vm_end) &&
             !is_in_dynamo_dll(iter->vm_start) /* our own text section is ok */
@@ -10298,15 +10334,7 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
             /* we already added the whole image region when we hit the first map for it */
             image = true;
             DODEBUG({ map_type = "ELF SO"; });
-        } else if (TESTANY(MEMPROT_READ, iter->prot) &&
-                   module_is_header(iter->vm_start, size)
-#    ifdef LINUX
-                   && (!validate_shared_elf ||
-                       module_validate_shared_elf_mapping(
-                           iter->vm_start, size, iter->device_major, iter->device_minor,
-                           iter->inode))
-#    endif
-        ) {
+        } else if (is_loaded_module_header(iter, size)) {
             DEBUG_DECLARE(size_t image_size = size;)
             app_pc mod_base, mod_first_end, mod_max_end;
             char *exec_match;
