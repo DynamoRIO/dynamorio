@@ -315,8 +315,10 @@ filter_repstr_callee(int num_memrefs, int opsize)
     offline_entry_t *record = next_record;
 #ifdef DEBUG
     if (op_verbose.get_value() >= 5) {
-        for (int i = 0; i < 10; ++i) {
-            NOTIFY(5, "%s: %d: 0x%p\n", __FUNCTION__, i, record->combined_value);
+        for (int i = 0; i < num_memrefs * 2 * records_per; ++i) {
+            NOTIFY(5, "%s: %d: 0x" HEX64_FORMAT_STRING " @ +%zd\n", __FUNCTION__, i,
+                   record->combined_value,
+                   reinterpret_cast<byte *>(record) - data->buf_base);
             ++record;
         }
         record = next_record;
@@ -365,6 +367,17 @@ filter_repstr_callee(int num_memrefs, int opsize)
     bool backward = end.combined_value < start.combined_value;
     addr_t addr = static_cast<addr_t>(start.combined_value);
     addr_t addr2 = static_cast<addr_t>(start2.combined_value);
+    DR_ASSERT((backward && addr >= end.combined_value) ||
+              (!backward && addr <= end.combined_value));
+    uint64 iters = backward ? (addr - end.combined_value) : (end.combined_value - addr);
+    static constexpr uint64 SUSPICIOUSLY_LARGE = 32ULL * 1024 * 1024 * 1024;
+    if (iters > SUSPICIOUSLY_LARGE) {
+        // Help catch bugs.
+        NOTIFY(1,
+               "Suspiciously large rep string loop from %p to 0x" HEX64_FORMAT_STRING
+               " backward=%d\n",
+               addr, end.combined_value, backward);
+    }
     while ((backward && addr > end.combined_value) ||
            (!backward && addr < end.combined_value)) {
         DR_ASSERT(num_memrefs == 1 || (backward && addr2 > end2.combined_value) ||
@@ -377,7 +390,12 @@ filter_repstr_callee(int num_memrefs, int opsize)
         }
         if (reinterpret_cast<byte *>(next_record) >=
             data->buf_base + data->trace_buf_size) {
-            process_and_output_buffer(drcontext, false);
+            BUF_PTR(data->seg_base) = reinterpret_cast<byte *>(next_record);
+            NOTIFY(4, "Rep string hit buffer end @%p: outputting\n", next_record);
+            process_and_output_buffer(drcontext, /*skip_size_cap=*/false);
+            // Roll back the buffer header (otherwise its markers will break raw2trace
+            // out of not only its repstring synthesis loop but the outer bb loop).
+            BUF_PTR(data->seg_base) = data->buf_base;
             next_record = reinterpret_cast<offline_entry_t *>(BUF_PTR(data->seg_base));
         }
         if (backward) {
@@ -389,6 +407,14 @@ filter_repstr_callee(int num_memrefs, int opsize)
         }
     }
 
+#ifndef X64
+    // If we didn't cover the start/end pair, zero out the rest to meet
+    // the top bit assumptions for 32-bit.
+    if (reinterpret_cast<byte *>(next_record) < buf_ptr) {
+        memset(reinterpret_cast<byte *>(next_record), 0,
+               buf_ptr - reinterpret_cast<byte *>(next_record));
+    }
+#endif
     BUF_PTR(data->seg_base) = reinterpret_cast<byte *>(next_record);
 }
 

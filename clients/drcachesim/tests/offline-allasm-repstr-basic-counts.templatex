@@ -11,10 +11,10 @@ Adios world!
 Adios world!
 Basic counts tool results:
 Total counts:
-         122 total instructions
-          50 total unique instructions
+         127 total instructions
+          55 total unique instructions
            0 total prefetches
-          12 total data loads
+        4012 total data loads
           10 total data stores
            0 total icache flushes
            0 total dcache flushes
@@ -33,7 +33,7 @@ Total counts:
           13 total blocking system call markers
            0 total skipped memref markers
            5 total other markers
-          50 total encodings
+          55 total encodings
 Thread [0-9]* counts:
-         122 instructions
+         127 instructions
 .*

@@ -105,6 +105,14 @@ repeat:
         mov      eax, 1           // SYS_write
         syscall
 
+        // Test a longer loop, longer than the buffer size we pass for
+        // our filter tests on this app.
+        mov      ecx, 4000
+        and      rsp, -4096
+        mov      rsi, rsp
+        cld
+        rep      lodsb
+
         // Exit.
         mov      rdi, 0           // exit code
         mov      eax, 231         // SYS_exit_group

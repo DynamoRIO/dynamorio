@@ -55,11 +55,6 @@ Output format:
           40           3: *W0.T.* <marker: timestamp .*>
           41           3: *W0.T.* <marker: *W0.T.* on core .*>
           42           3: *W0.T.* <marker: instruction count 111>
-          43           4: *W0.T.* ifetch       7 byte\(s\) @ 0x00000000004010c3 48 c7 c7 2a 00 00 00 mov    \$0x0000002a, %rdi
-          44           4: *W0.T.* <marker: timestamp .*>
-          45           4: *W0.T.* <marker: *W0.T.* on core .*>
-          46           4: *W0.T.* <marker: instruction count 122>
-          47           4: *W0.T.* <marker: instruction count 122>
-          48           4: *W0.T.* <thread W0.T.* exited>
+.*
 View tool results:
               4 : total instructions
