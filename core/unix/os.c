@@ -10196,12 +10196,8 @@ is_loaded_module_header(memquery_iter_t *iter, size_t size)
 #ifdef LINUX
     /* i#8117: An app may mmap an ELF file as data (a flat mapping).  DR sizes a
      * module from its program headers, so a flat mapping could cover unrelated
-     * memory (e.g., JIT code).
-     */
-    if (!DYNAMO_OPTION(validate_shared_elf_modules))
-        return true;
-
-    /* Standard loaders map modules privately.
+     * memory (e.g., JIT code).  Standard loaders map modules privately, so we
+     * validate only shared mappings.
      * XXX i#8117: Private flat mappings have the same problem, but validating
      * private mappings would also reject loaded modules that have no executable
      * segment or whose code was remapped (e.g., onto huge pages).
