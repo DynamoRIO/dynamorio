@@ -106,9 +106,7 @@ public:
                      void *drcontext)
         : raw2trace_t(nullptr, input, output, {}, INVALID_FILE, nullptr, nullptr,
                       drcontext,
-                      // The sequences are small so we print everything for easier
-                      // debugging and viewing of what's going on.
-                      /*verbosity=*/4)
+                      /*verbosity=*/0)
     {
         module_mapper_ = std::unique_ptr<module_mapper_t>(
             new test_module_mapper_t(&instrs, drcontext));
@@ -120,9 +118,7 @@ public:
                      std::unique_ptr<record_reader_t> syscall_template_file)
         : raw2trace_t(nullptr, input, output, {}, INVALID_FILE, nullptr, nullptr,
                       drcontext,
-                      // The sequences are small so we print everything for easier
-                      // debugging and viewing of what's going on.
-                      /*verbosity=*/4,
+                      /*verbosity=*/0,
                       // Reusing the default values, as we need to set the
                       // syscall_template_file arg later.
                       /*worker_count=*/-1, /*alt_module_dir=*/"",
@@ -139,9 +135,7 @@ public:
                      void *drcontext, uint64_t chunk_instr_count = 10 * 1000 * 1000)
         : raw2trace_t(nullptr, input, {}, output, INVALID_FILE, nullptr, nullptr,
                       drcontext,
-                      // The sequences are small so we print everything for easier
-                      // debugging and viewing of what's going on.
-                      /*verbosity=*/4, /*worker_count=*/-1,
+                      /*verbosity=*/0, /*worker_count=*/-1,
                       /*alt_module_dir=*/"", chunk_instr_count)
     {
         module_mapper_ = std::unique_ptr<module_mapper_t>(
@@ -154,9 +148,7 @@ public:
                      void *drcontext)
         : raw2trace_t(nullptr, input, output, {}, INVALID_FILE, nullptr, nullptr,
                       drcontext,
-                      // The sequences are small so we print everything for easier
-                      // debugging and viewing of what's going on.
-                      4)
+                      /*verbosity=*/0)
     {
         module_mapper_ =
             std::unique_ptr<module_mapper_t>(new test_multi_module_mapper_t(modules));
@@ -361,12 +353,15 @@ populate_all_stats(raw2trace_test_t &raw2trace, std::vector<uint64_t> *stats)
 }
 
 // Takes ownership of ilist and destroys it.
+// Pass true for verbose to see the output list; we omit by default to shrink
+// the regression test log size.
 bool
 run_raw2trace(void *drcontext, const std::vector<offline_entry_t> raw, instrlist_t *ilist,
               std::vector<trace_entry_t> &entries, std::vector<uint64_t> *stats = nullptr,
               int chunk_instr_count = 0,
               const std::vector<test_multi_module_mapper_t::bounds_t> &modules = {},
-              std::unique_ptr<record_reader_t> syscall_tmpl = nullptr)
+              std::unique_ptr<record_reader_t> syscall_tmpl = nullptr,
+              bool verbose = false)
 {
     // We need an istream so we use istringstream.
     std::ostringstream raw_out;
@@ -445,11 +440,13 @@ run_raw2trace(void *drcontext, const std::vector<offline_entry_t> raw, instrlist
         entries.push_back(*reinterpret_cast<trace_entry_t *>(start));
         start += sizeof(trace_entry_t);
     }
-    int idx = 0;
-    for (const auto &entry : entries) {
-        std::cerr << idx << " type: " << entry.type << " size: " << entry.size
-                  << " val: " << entry.addr << "\n";
-        ++idx;
+    if (verbose) {
+        int idx = 0;
+        for (const auto &entry : entries) {
+            std::cerr << idx << " type: " << entry.type << " size: " << entry.size
+                      << " val: " << entry.addr << "\n";
+            ++idx;
+        }
     }
     return true;
 }
