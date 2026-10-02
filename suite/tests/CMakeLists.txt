@@ -4173,7 +4173,7 @@ if (BUILD_CLIENTS)
     endif ()
 
     set(syscall_file
-      "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/mock_syscall_sequences.x64")
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/mock_syscall_sequences.x64.zip")
 
     if (X86 AND X64) # We only bother with a sample trace for x86_64.
       # We test with a fixed trace file so we can test exact numeric results.
@@ -4467,6 +4467,9 @@ if (BUILD_CLIENTS)
       torunonly_drcacheoff(simple-dyn-inject-invariants ${ci_shared_app} ""
         # We pass a small instr count to test multiple chunks in a zipfile.
         "@-chunk_instr_count@1000@-sched_syscall_file@${syscall_file}@-tool@invariant_checker" "")
+      torunonly_drcacheoff(simple-static-inject-invariants ${ci_shared_app} ""
+        # We pass a small instr count to test multiple chunks in a zipfile.
+        "@-chunk_instr_count@1000@-syscall_template_file@${syscall_file}@-tool@invariant_checker" "")
     endif()
 
     if (UNIX)
@@ -5048,7 +5051,7 @@ if (BUILD_CLIENTS)
         set(tool.drcacheoff.burst_maps_nodr ON)
         torunonly_drcacheoff(burst_maps tool.drcacheoff.burst_maps "" "" "")
       endif ()
-      if (LINUX)
+      if (LINUX AND ZLIB_FOUND)
         set(tool.drcacheoff.burst_syscall_inject_nodr ON)
         torunonly_drcacheoff(burst_syscall_inject tool.drcacheoff.burst_syscall_inject ""
           "@-tool@invariant_checker@-syscall_template_file@drmemtrace.tool.drcacheoff.burst_syscall_inject.*.dir/raw/syscall_trace_template"

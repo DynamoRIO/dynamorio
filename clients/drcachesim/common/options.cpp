@@ -1251,9 +1251,8 @@ droption_t<std::string> op_syscall_template_file(
     DROPTION_SCOPE_FRONTEND, "syscall_template_file", "",
     "Path to the file that contains system call trace templates.",
     "Path to the file that contains system call trace templates. "
-    "If set, system call traces will be injected from the file "
-    "into the resulting trace. This is still experimental so the template file "
-    "format may change without backward compatibility.");
+    "If set, during post-processing system call traces will be injected from the file "
+    "into the resulting trace. Use -sched_syscall_file for dynamic injection.");
 
 // Record filter options.
 droption_t<uint64_t> op_filter_stop_timestamp(

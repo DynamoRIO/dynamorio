@@ -381,7 +381,7 @@ reader_t::process_input_entry()
         // sequentially, or core-sharded record_filter operation.
         // We just keep going past the header.
         VPRINT(
-            this, 2,
+            this, 3,
             "Assuming header is part of concatenated or on-disk-core-sharded traces\n");
         // We do not complain about the version changing, to support multiple
         // kernel templates of different versions in the same file.
@@ -391,7 +391,7 @@ reader_t::process_input_entry()
         // We support core-sharded-on-disk traces where an originally-thread-sharded
         // input ends but the core-sharded new trace continues.
         VPRINT(
-            this, 2,
+            this, 3,
             "Assuming footer is part of concatenated or on-disk-core-sharded traces\n");
         break;
     default:

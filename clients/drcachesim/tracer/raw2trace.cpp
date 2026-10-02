@@ -1251,9 +1251,15 @@ raw2trace_t::read_syscall_template_file()
     bool first_entry_for_syscall = false;
     // This object works for the eof check with any type of record_reader_t.
     dynamorio::drmemtrace::record_file_reader_t<std::ifstream> record_reader_end;
+    int version = 0;
     while (*syscall_template_file_reader_ != record_reader_end) {
         trace_entry_t entry = **syscall_template_file_reader_;
         ++(*syscall_template_file_reader_);
+        if (entry.type == TRACE_TYPE_HEADER)
+            version = entry.addr;
+        // Ignore entries for older versions.
+        if (version != TRACE_ENTRY_VERSION)
+            continue;
         // Track encodings for system call template instructions. We do not need the
         // returned entry memref count, but only the encoding locations that we will
         // query using get_decode_pc later.
@@ -1298,6 +1304,14 @@ raw2trace_t::read_syscall_template_file()
         syscall_trace_templates_[last_syscall_num].entries.push_back(entry);
         first_entry_for_syscall = false;
     }
+    if (syscall_trace_templates_.empty()) {
+        // This can happen with the default or zlib reader trying to read
+        // a zipfile: that reader just returns EOF and no error; so convert
+        // any requested file with no records found into an error.
+        return "Failed to find any system call trace template for version " +
+            std::to_string(TRACE_ENTRY_VERSION);
+    }
+    VPRINT(2, "Read %zu system call templates\n", syscall_trace_templates_.size());
     return "";
 }
 

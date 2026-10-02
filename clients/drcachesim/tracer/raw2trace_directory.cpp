@@ -69,6 +69,7 @@
 #    include "compressed_file_reader.h"
 #    ifdef HAS_ZIP
 #        include "common/zipfile_ostream.h"
+#        include "zipfile_file_reader.h"
 #    endif
 #endif
 #ifdef HAS_SNAPPY
@@ -368,12 +369,20 @@ raw2trace_directory_t::open_syscall_template_file(
 {
     if (syscall_template_file.empty())
         return "";
-    // XXX i#6495: Provide support for system call trace templates in zipfile format
-    // with each individual system call template in a separate component, which may be
-    // easier to inspect or modify manually.
-    syscall_template_file_reader_ =
-        std::unique_ptr<dynamorio::drmemtrace::record_reader_t>(
-            new default_record_file_reader_t(syscall_template_file, /*verbosity=*/0));
+    if (ends_with(syscall_template_file, ".zip")) {
+#ifdef HAS_ZIP
+        syscall_template_file_reader_ =
+            std::unique_ptr<dynamorio::drmemtrace::record_reader_t>(
+                new zipfile_record_file_reader_t(syscall_template_file, /*verbosity=*/0));
+#else
+        return "Rebuild with zipfile support to open .zip syscall template files";
+#endif
+    }
+    if (!syscall_template_file_reader_) {
+        syscall_template_file_reader_ =
+            std::unique_ptr<dynamorio::drmemtrace::record_reader_t>(
+                new default_record_file_reader_t(syscall_template_file, /*verbosity=*/0));
+    }
     if (!syscall_template_file_reader_ || !syscall_template_file_reader_->init()) {
         return "Failed to open syscall template file " +
             std::string(syscall_template_file);
