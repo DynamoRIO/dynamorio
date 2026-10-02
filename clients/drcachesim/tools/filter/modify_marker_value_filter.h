@@ -67,7 +67,7 @@ public:
         // Support updating the version in the header.
         const auto &it = marker_to_value_map_.find(TRACE_MARKER_TYPE_VERSION);
         if (it != marker_to_value_map_.end()) {
-            new_version_ = it->second;
+            new_version_ = static_cast<int>(it->second);
         }
     }
 

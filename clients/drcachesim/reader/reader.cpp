@@ -89,7 +89,9 @@ reader_t::operator++()
             // We support complete traces being packaged in archives and then read
             // sequentially.  We just keep going past the header.
             VPRINT(this, 2, "Assuming header is part of concatenated traces\n");
-            if (input_entry_->addr != version_) {
+            if (version_ == 0) {
+                version_ = input_entry_->addr;
+            } else if (input_entry_->addr != version_) {
                 ERRMSG("Header mismatch: new header version %" PRIu64 " != %" PRIu64 "\n",
                        input_entry_->addr, version_);
                 assert_release_too(false);
@@ -371,7 +373,7 @@ reader_t::process_input_entry()
                 version_ = cur_ref_.marker.marker_value;
             } else if (cur_ref_.marker.marker_value != version_) {
                 ERRMSG("Version mismatch: header %" PRIu64 " != marker %" PRIu64 "\n",
-                       input_entry_->addr, version_);
+                       version_, input_entry_->addr);
                 assert_release_too(false);
             }
         } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
@@ -399,7 +401,9 @@ reader_t::process_input_entry()
         VPRINT(
             this, 2,
             "Assuming header is part of concatenated or on-disk-core-sharded traces\n");
-        if (input_entry_->addr != version_) {
+        if (version_ == 0) {
+            version_ = input_entry_->addr;
+        } else if (input_entry_->addr != version_) {
             ERRMSG("Header mismatch: new header version %" PRIu64 " != %" PRIu64 "\n",
                    input_entry_->addr, version_);
             assert_release_too(false);

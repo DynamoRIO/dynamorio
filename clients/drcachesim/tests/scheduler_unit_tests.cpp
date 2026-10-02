@@ -510,8 +510,10 @@ test_parallel_with_syscall_injection()
     std::cerr << "\n----------------\nTesting parallel with syscall injection\n";
     constexpr int SYSCALL_BASE = 10;
     std::vector<trace_entry_t> input_sequence = {
+        test_util::make_header(TRACE_ENTRY_VERSION),
         test_util::make_thread(1),
         test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
         test_util::make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
         test_util::make_timestamp(10),
         test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
