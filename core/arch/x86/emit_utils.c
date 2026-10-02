@@ -187,7 +187,7 @@ patchable_exit_cti_align_offs(dcontext_t *dcontext, instr_t *inst, cache_pc pc)
 }
 
 /* Emits to a writable address.  tls_disp is a full segment displacement, not a
- * local_state_t slot.  Keep in sync with instr_raw_is_tls_spill().
+ * local_state_t slot.  Keep in sync with insert_tls_spill_or_restore().
  */
 static byte *
 insert_tls_spill_or_restore(byte *pc, uint flags, bool spill, reg_id_t reg, int tls_disp,

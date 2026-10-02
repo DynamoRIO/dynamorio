@@ -119,9 +119,9 @@ void *stub32_heap;
 #    define SEPARATE_STUB_HEAP(flags) stub_heap
 #endif
 
-/* We save 1 byte per stub by not aligning to 16/24 bytes, since
- * infrequently executed and infrequently accessed (heap free list
- * adds to start so doesn't walk list).
+/* Use the regular direct-stub size without rounding up for alignment.
+ * These stubs are infrequently executed and accessed; the heap free list
+ * inserts at the front without walking the list.
  */
 #define SEPARATE_STUB_ALLOC_SIZE(flags) (DIRECT_EXIT_STUB_SIZE(flags)) /* 15x24 */
 
