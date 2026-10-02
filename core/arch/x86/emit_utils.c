@@ -3158,7 +3158,7 @@ unit_test_tls_emit(dcontext_t *dcontext)
     dr_set_isa_mode(dcontext, DR_ISA_IA32, &old_mode);
     /* Both native 32-bit and mixed-mode builds use the same compact layout. */
     for (int mode = 0; mode < IF_X64_ELSE(2, 1); ++mode) {
-        uint flags = mode == 0 ? FRAG_32_BIT : 0;
+        uint flags = IF_X64_ELSE(mode == 0 ? FRAG_32_BIT : 0, 0);
         dr_set_isa_mode(dcontext, mode == 0 ? DR_ISA_IA32 : DR_ISA_AMD64, NULL);
         for (uint d = 0; d < BUFFER_SIZE_ELEMENTS(disps); ++d) {
             for (int addr16 = 0; addr16 < 2; ++addr16) {
