@@ -123,7 +123,7 @@ void *stub32_heap;
  * These stubs are infrequently executed and accessed; the heap free list
  * inserts at the front without walking the list.
  */
-#define SEPARATE_STUB_ALLOC_SIZE(flags) (DIRECT_EXIT_STUB_SIZE(flags)) /* 15x24 */
+#define SEPARATE_STUB_ALLOC_SIZE(flags) (DIRECT_EXIT_STUB_SIZE(flags)) /* 15x23/24 */
 
 /* Coarse stubs must be hot-patchable, so we avoid having their last
  * 4 bytes cross cache lines.
@@ -897,8 +897,8 @@ local_exit_stub_size(dcontext_t *dcontext, app_pc target, uint fragment_flags)
          /* entrance stubs are always separated */
          TESTANY(FRAG_COARSE_GRAIN, fragment_flags)) &&
         /* We only separate direct stubs of the regular size.  The indirect
-         * check must be explicit: on x64 the regular direct and indirect
-         * stub sizes can be equal (i#8165), so the size comparison below
+         * check must be explicit: in x64 kernel builds the regular direct and
+         * indirect stub sizes can be equal (i#8165), so the size comparison below
          * cannot distinguish them.
          */
         !is_indirect_branch_lookup_routine(dcontext, (cache_pc)target) &&

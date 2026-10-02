@@ -60,7 +60,7 @@
 
 /*
 direct branch exit_stub:
-   5x9  mov   %xax, xax_offs(&dcontext) or tls
+   5x8  mov   %xax, xax_offs(&dcontext) or tls (9 bytes for x64 kernel)
    <we used to support PROFILE_LINKCOUNT with a counter inc here but no more>
    5x10 mov   &linkstub, %xax
     5   jmp   target addr
@@ -186,8 +186,25 @@ patchable_exit_cti_align_offs(dcontext_t *dcontext, instr_t *inst, cache_pc pc)
                                   CTI_PATCH_SIZE, PAD_JMPS_ALIGNMENT);
 }
 
+#ifdef X64
+/* Use a sign-extended disp32.  addr32 moffs would zero-extend a negative
+ * displacement before adding the segment base.
+ */
+static byte *
+insert_tls_spill_or_restore64(byte *pc, bool spill, reg_id_t reg, int tls_disp)
+{
+    *pc++ = TLS_SEG_OPCODE;
+    *pc++ = REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG;
+    *pc++ = spill ? MOV_REG2MEM_OPCODE : MOV_MEM2REG_OPCODE;
+    *pc++ = MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), 4 /*rm*/);
+    *pc++ = SIB_DISP32;
+    *((int *)pc) = tls_disp;
+    return pc + 4;
+}
+#endif
+
 /* Emits to a writable address.  tls_disp is a full segment displacement, not a
- * local_state_t slot.  Keep in sync with insert_tls_spill_or_restore().
+ * local_state_t slot.  Keep in sync with instr_raw_is_tls_spill().
  */
 static byte *
 insert_tls_spill_or_restore(byte *pc, uint flags, bool spill, reg_id_t reg, int tls_disp,
@@ -195,18 +212,21 @@ insert_tls_spill_or_restore(byte *pc, uint flags, bool spill, reg_id_t reg, int 
 {
 #ifdef X64
     if (!FRAG_IS_32(flags)) {
-        /* Use a sign-extended disp32, including for RAX.  addr32 moffs would
-         * zero-extend a negative displacement before adding the segment base.
-         * A fixed size also keeps stub and fragment prefix offsets independent
-         * of the TLS layout.
-         */
-        *pc++ = TLS_SEG_OPCODE;
-        *pc++ = REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG;
-        *pc++ = spill ? MOV_REG2MEM_OPCODE : MOV_MEM2REG_OPCODE;
-        *pc++ = MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), 4 /*rm*/);
-        *pc++ = SIB_DISP32;
-        *((int *)pc) = tls_disp;
-        return pc + 4;
+#    ifndef LINUX_KERNEL
+        if (reg == REG_XAX) {
+            /* Preserve the compact user-space form.  Select by build so stub
+             * and prefix sizes remain independent of the TLS layout.
+             */
+            ASSERT(tls_disp >= 0);
+            *pc++ = ADDR_PREFIX_OPCODE;
+            *pc++ = TLS_SEG_OPCODE;
+            *pc++ = REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG;
+            *pc++ = spill ? MOV_XAX2MEM_OPCODE : MOV_MEM2XAX_OPCODE;
+            *((int *)pc) = tls_disp;
+            return pc + 4;
+        }
+#    endif
+        return insert_tls_spill_or_restore64(pc, spill, reg, tls_disp);
     }
 #endif
     /* Preserve the compact 32-bit stub layout.  addr16 requires a displacement
@@ -3155,6 +3175,26 @@ unit_test_tls_emit(dcontext_t *dcontext)
     coarse_info_t info;
     memset(&info, 0, sizeof(info));
     instr_init(dcontext, &instr);
+#    if defined(X64) && !defined(LINUX_KERNEL)
+    /* Preserve the user-space RAX instruction bytes and direct-stub size. */
+    EXPECT(SIZE64_MOV_XAX_TO_TLS, 8);
+    EXPECT(DIRECT_EXIT_STUB_SIZE64, 23);
+    byte expected[] = { ADDR_PREFIX_OPCODE,
+                        TLS_SEG_OPCODE,
+                        REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG,
+                        MOV_XAX2MEM_OPCODE,
+                        0x34,
+                        0x12,
+                        0,
+                        0 };
+    for (int spill = 0; spill < 2; ++spill) {
+        expected[3] = spill ? MOV_XAX2MEM_OPCODE : MOV_MEM2XAX_OPCODE;
+        byte *end =
+            insert_tls_spill_or_restore(buf, 0, spill != 0, REG_XAX, 0x1234, false);
+        EXPECT(end - buf, sizeof(expected));
+        EXPECT(memcmp(buf, expected, sizeof(expected)), 0);
+    }
+#    endif
     dr_set_isa_mode(dcontext, DR_ISA_IA32, &old_mode);
     /* Both native 32-bit and mixed-mode builds use the same compact layout. */
     for (int mode = 0; mode < IF_X64_ELSE(2, 1); ++mode) {
@@ -3166,6 +3206,13 @@ unit_test_tls_emit(dcontext_t *dcontext)
                     !CHECK_TRUNCATE_TYPE_ushort(disps[d]))
                     continue;
                 for (uint r = 0; r < BUFFER_SIZE_ELEMENTS(regs); ++r) {
+#    if defined(X64) && !defined(LINUX_KERNEL)
+                    /* User-space RAX moffs uses an unsigned address.  Exercise
+                     * signed kernel RAX displacements separately below.
+                     */
+                    if (mode != 0 && regs[r] == REG_XAX && disps[d] < 0)
+                        continue;
+#    endif
                     for (int spill = 0; spill < 2; ++spill) {
                         byte *end = insert_tls_spill_or_restore(
                             buf, flags, spill != 0, regs[r], disps[d], addr16 != 0);
@@ -3180,6 +3227,9 @@ unit_test_tls_emit(dcontext_t *dcontext)
                         EXPECT(opnd_get_disp(mem), disps[d]);
                         EXPECT(opnd_get_segment(mem), SEG_TLS);
                         EXPECT(opnd_is_abs_base_disp(mem), true);
+                        /* Decoding small moffs addresses normalizes them to
+                         * base-disp operands without the short-address flag.
+                         */
                         if (mode != 0)
                             EXPECT(opnd_is_disp_short_addr(mem), false);
                         EXPECT(opnd_get_size(mem), (mode == 0 ? OPSZ_4 : OPSZ_8));
@@ -3248,6 +3298,32 @@ unit_test_tls_emit(dcontext_t *dcontext)
             }
         }
     }
+#    ifdef X64
+    /* Exercise the production kernel RAX emitter from the user-space test. */
+    dr_set_isa_mode(dcontext, DR_ISA_AMD64, NULL);
+    for (uint d = 0; d < BUFFER_SIZE_ELEMENTS(disps); ++d) {
+        for (int spill = 0; spill < 2; ++spill) {
+            byte *end = insert_tls_spill_or_restore64(buf, spill != 0, REG_XAX, disps[d]);
+            EXPECT(end - buf, 9);
+            EXPECT(buf[0], TLS_SEG_OPCODE);
+            EXPECT(buf[2], (spill ? MOV_REG2MEM_OPCODE : MOV_MEM2REG_OPCODE));
+            instr_reset(dcontext, &instr);
+            EXPECT(decode(dcontext, buf, &instr), end);
+            opnd_t mem = spill ? instr_get_dst(&instr, 0) : instr_get_src(&instr, 0);
+            EXPECT(opnd_get_disp(mem), disps[d]);
+            EXPECT(opnd_get_segment(mem), SEG_TLS);
+            EXPECT(opnd_is_disp_short_addr(mem), false);
+            EXPECT(opnd_get_size(mem), OPSZ_8);
+        }
+    }
+    insert_tls_spill_or_restore64(buf, true, REG_XAX,
+                                  os_tls_offset(DIRECT_STUB_SPILL_SLOT));
+    EXPECT(instr_raw_is_tls_spill(buf, REG_XAX, DIRECT_STUB_SPILL_SLOT), true);
+    EXPECT(instr_raw_is_tls_spill(buf, REG_XAX, DIRECT_STUB_SPILL_SLOT + 1), false);
+    insert_tls_spill_or_restore64(buf, false, REG_XAX,
+                                  os_tls_offset(DIRECT_STUB_SPILL_SLOT));
+    EXPECT(instr_raw_is_tls_spill(buf, REG_XAX, DIRECT_STUB_SPILL_SLOT), false);
+#    endif
     dr_set_isa_mode(dcontext, old_mode, NULL);
     instr_free(dcontext, &instr);
     print_file(STDERR, "done testing TLS emission\n");

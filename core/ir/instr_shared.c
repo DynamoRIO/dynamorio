@@ -4062,6 +4062,11 @@ instr_raw_is_tls_spill(byte *pc, reg_id_t reg, ushort offs)
 {
 #    ifdef X86
 #        ifdef X64
+    /* Match the compact user-space RAX addr32 moffs form. */
+    if (reg == REG_XAX && *pc == ADDR_PREFIX_OPCODE && *(pc + 1) == TLS_SEG_OPCODE &&
+        *(pc + 2) == (REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG) &&
+        *(pc + 3) == MOV_XAX2MEM_OPCODE && *((int *)(pc + 4)) == os_tls_offset(offs))
+        return true;
     /* Match the sign-extended disp32 form for all registers, including RAX. */
     if (*pc == TLS_SEG_OPCODE &&
         *(pc + 1) == (REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG) &&
