@@ -2257,7 +2257,8 @@ unit_test_tls_translate(dcontext_t *dcontext)
     EXPECT(walk.reg_spilled[r], false);
     instr_destroy(dcontext, spill);
     instr_destroy(dcontext, restore);
-#    ifdef UNIX
+#    if defined(UNIX) && !defined(MACOS64)
+    /* macOS x64 shares GS with the app instead of saving separate FS/GS bases. */
     instr_t *seg_load = instr_create_restore_from_tls(dcontext, REG_XAX,
                                                       os_get_app_tls_base_offset(SEG_FS));
     instr_set_our_mangling(seg_load, true);
