@@ -5797,14 +5797,14 @@ test_repstr_firstlast(void *drcontext)
         std::cerr << "\n===============\nTesting start-filtered repstr\n";
         instrlist_t *ilist = instrlist_create(drcontext);
         instr_t *nop = XINST_CREATE_nop(drcontext);
-        instr_t *nop2 = XINST_CREATE_nop(drcontext);
         instr_t *repsto = INSTR_CREATE_rep_stos_4(drcontext);
+        instr_t *repsto2 = INSTR_CREATE_rep_stos_4(drcontext);
         instrlist_append(ilist, nop);
-        instrlist_append(ilist, nop2);
         instrlist_append(ilist, repsto);
+        instrlist_append(ilist, repsto2);
         size_t offs_nop = 0;
-        size_t offs_nop2 = offs_nop + instr_length(drcontext, nop);
-        size_t offs_repsto = offs_nop2 + instr_length(drcontext, nop2);
+        size_t offs_repsto = offs_nop + instr_length(drcontext, nop);
+        size_t offs_repsto2 = offs_repsto + instr_length(drcontext, repsto);
 
         std::vector<offline_entry_t> raw;
         // This is a filtered trace that transitions to unfiltered.
@@ -5824,11 +5824,8 @@ test_repstr_firstlast(void *drcontext)
         raw.push_back(make_memref(START_ADDR + 8));
         // Check again after the endpoint marker.
         raw.push_back(make_marker(TRACE_MARKER_TYPE_FILTER_ENDPOINT, 0));
-        // We can't point at offs_repsto again as raw2trace will use
-        // a nofetch entry since the prior instr was a repstr (as part
-        // of its code to handle TRACE_TYPE_INSTR_MAYBE_FETCH).
-        // In real code there would be other code in between.
-        raw.push_back(make_block(offs_nop2, 2));
+        // Test back-to-back rep string.
+        raw.push_back(make_block(offs_repsto2, 1));
         raw.push_back(make_memref(START_ADDR));
         raw.push_back(make_memref(START_ADDR + 4));
         raw.push_back(make_memref(START_ADDR + 8));
@@ -5861,8 +5858,7 @@ test_repstr_firstlast(void *drcontext)
               check_entry(entries, idx, TRACE_TYPE_MARKER,
                           TRACE_MARKER_TYPE_FILTER_ENDPOINT) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_nop2) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1, offs_repsto) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1, offs_repsto2) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR + 4) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR + 8) &&
