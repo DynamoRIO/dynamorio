@@ -67,6 +67,10 @@ void
 unit_test_atomic_ops(void);
 void
 unit_test_jit_fragment_tree(void);
+#ifdef X86
+void
+unit_test_tls_emit(dcontext_t *dc);
+#endif
 
 int
 main(int argc, char **argv, char **envp)
@@ -86,6 +90,9 @@ main(int argc, char **argv, char **envp)
 #endif
     unit_test_utils();
     unit_test_opnd_shared();
+#ifdef X86
+    unit_test_tls_emit(dc);
+#endif
     unit_test_options();
     unit_test_vmareas();
 #ifdef WINDOWS

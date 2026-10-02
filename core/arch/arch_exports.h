@@ -912,7 +912,7 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 
 /* Merge w/ _LENGTH enum below? */
 /* not ifdef X64 to simplify code */
-#    define SIZE64_MOV_XAX_TO_TLS 8
+#    define SIZE64_MOV_XAX_TO_TLS 9
 #    define SIZE64_MOV_XBX_TO_TLS 9
 #    define SIZE64_MOV_PTR_IMM_TO_XAX 10
 #    define SIZE64_MOV_PTR_IMM_TO_TLS (12 * 2) /* high and low 32 bits separately */

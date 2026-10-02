@@ -4061,32 +4061,36 @@ bool
 instr_raw_is_tls_spill(byte *pc, reg_id_t reg, ushort offs)
 {
 #    ifdef X86
-    ASSERT_NOT_IMPLEMENTED(reg != REG_XAX);
 #        ifdef X64
-    /* match insert_jmp_to_ibl */
+    /* Match the sign-extended disp32 form for all registers, including RAX. */
     if (*pc == TLS_SEG_OPCODE &&
         *(pc + 1) == (REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG) &&
         *(pc + 2) == MOV_REG2MEM_OPCODE &&
         /* 0x1c for ebx, 0x0c for ecx, 0x04 for eax */
         *(pc + 3) == MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), 4 /*rm*/) &&
-        *(pc + 4) == 0x25 && *((uint *)(pc + 5)) == (uint)os_tls_offset(offs))
+        *(pc + 4) == SIB_DISP32 && *((int *)(pc + 5)) == os_tls_offset(offs))
         return true;
     /* we also check for 32-bit.  we could take in flags and only check for one
      * version, but we're not worried about false positives.
      */
 #        endif
-    /* looking for:   67 64 89 1e e4 0e    addr16 mov    %ebx -> %fs:0xee4   */
-    /* ASSUMPTION: when addr16 prefix is used, prefix order is fixed */
+    /* The 32-bit RAX form uses moffs instead of ModRM. */
+    if (reg == REG_XAX) {
+        return (*pc == ADDR_PREFIX_OPCODE && *(pc + 1) == TLS_SEG_OPCODE &&
+                *(pc + 2) == MOV_XAX2MEM_OPCODE &&
+                *((ushort *)(pc + 3)) == os_tls_offset(offs)) ||
+            (*pc == TLS_SEG_OPCODE && *(pc + 1) == MOV_XAX2MEM_OPCODE &&
+             *((int *)(pc + 2)) == os_tls_offset(offs));
+    }
+    /* addr16 mov %ebx -> %fs:0xee4; prefix order is fixed. */
     return (*pc == ADDR_PREFIX_OPCODE && *(pc + 1) == TLS_SEG_OPCODE &&
             *(pc + 2) == MOV_REG2MEM_OPCODE &&
-            /* 0x1e for ebx, 0x0e for ecx, 0x06 for eax */
             *(pc + 3) == MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), 6 /*rm*/) &&
             *((ushort *)(pc + 4)) == os_tls_offset(offs)) ||
-        /* PR 209709: allow for no addr16 prefix */
+        /* Without addr16 the absolute disp32 uses rm=5, and follows ModRM. */
         (*pc == TLS_SEG_OPCODE && *(pc + 1) == MOV_REG2MEM_OPCODE &&
-         /* 0x1e for ebx, 0x0e for ecx, 0x06 for eax */
-         *(pc + 2) == MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), 6 /*rm*/) &&
-         *((uint *)(pc + 4)) == os_tls_offset(offs));
+         *(pc + 2) == MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), 5 /*rm*/) &&
+         *((int *)(pc + 3)) == os_tls_offset(offs));
 #    elif defined(AARCHXX)
     /* TODO i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
