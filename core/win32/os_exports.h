@@ -126,11 +126,11 @@ enum {
 
 /* even INLINE_FORCED isn't inlining this into d_r_get_thread_id() in debug build (i#655)
  */
-#define d_r_get_tls(/*ushort*/ tls_offs) \
+#define d_r_get_tls(/*int*/ tls_offs) \
     ((void *)IF_X64_ELSE(__readgsqword, __readfsdword)(tls_offs))
 
 static inline void
-d_r_set_tls(ushort tls_offs, void *value)
+d_r_set_tls(int tls_offs, void *value)
 {
     IF_X64_ELSE(__writegsqword, __writefsdword)(tls_offs, (ptr_uint_t)value);
 }

@@ -249,12 +249,13 @@ get_thread_private_dcontext(void);
 void
 set_thread_private_dcontext(dcontext_t *dcontext);
 
-/* converts a local_state_t offset to a segment offset */
-ushort
+/* Converts a local-state slot offset to a signed segment displacement. */
+int
 os_tls_offset(ushort tls_offs);
 
+/* Converts a signed segment displacement back to a local-state slot offset. */
 ushort
-os_local_state_offset(ushort seg_offs);
+os_local_state_offset(int seg_offs);
 
 struct _local_state_t;          /* in arch_exports.h */
 struct _local_state_extended_t; /* in arch_exports.h */

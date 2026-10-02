@@ -1976,7 +1976,7 @@ is_thread_tls_allocated(void)
 #endif
 
 /* converts a local_state_t offset to a segment offset */
-ushort
+int
 os_tls_offset(ushort tls_offs)
 {
     /* no ushort truncation issues b/c TLS_LOCAL_STATE_OFFSET is 0 */
@@ -1987,7 +1987,7 @@ os_tls_offset(ushort tls_offs)
 
 /* converts a segment offset to a local_state_t offset */
 ushort
-os_local_state_offset(ushort seg_offs)
+os_local_state_offset(int seg_offs)
 {
     /* no ushort truncation issues b/c TLS_LOCAL_STATE_OFFSET is 0 */
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());
@@ -2150,7 +2150,7 @@ os_get_app_tls_reg_offset(reg_id_t reg)
 #endif
 
 void *
-d_r_get_tls(ushort tls_offs)
+d_r_get_tls(int tls_offs)
 {
     void *val = 0;
     READ_TLS_SLOT(tls_offs, val);
@@ -2158,7 +2158,7 @@ d_r_get_tls(ushort tls_offs)
 }
 
 void
-d_r_set_tls(ushort tls_offs, void *value)
+d_r_set_tls(int tls_offs, void *value)
 {
     WRITE_TLS_SLOT(tls_offs, value);
 }
