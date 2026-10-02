@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2024-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2024-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -64,6 +64,11 @@ public:
                 marker_to_value_map_[marker_type] = new_value;
             }
         }
+        // Support updating the version in the header.
+        const auto &it = marker_to_value_map_.find(TRACE_MARKER_TYPE_VERSION);
+        if (it != marker_to_value_map_.end()) {
+            new_version_ = it->second;
+        }
     }
 
     void *
@@ -79,7 +84,13 @@ public:
         record_filter_t::record_filter_info_t &record_filter_info) override
     {
         trace_type_t entry_type = static_cast<trace_type_t>(entry.type);
-        // Output any trace_entry_t that's not a marker.
+
+        // Change the header version if we're changing the corresponding marker.
+        if (entry_type == TRACE_TYPE_HEADER && new_version_ > -1) {
+            entry.addr = new_version_;
+        }
+
+        // Output any trace_entry_t that's not a marker or header.
         if (entry_type != TRACE_TYPE_MARKER)
             return true;
 
@@ -104,6 +115,7 @@ public:
 
 private:
     std::unordered_map<trace_marker_type_t, uint64_t> marker_to_value_map_;
+    int new_version_ = -1;
 };
 
 } // namespace drmemtrace
