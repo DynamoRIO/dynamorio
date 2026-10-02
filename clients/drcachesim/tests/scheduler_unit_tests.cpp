@@ -330,7 +330,7 @@ test_serial()
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(std::move(readers));
     if (scheduler.init(sched_inputs, 1,
-                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
+                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/0)) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
     auto *stream = scheduler.get_stream(0);
@@ -384,7 +384,7 @@ test_parallel()
     }
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS,
-                       scheduler_t::make_scheduler_parallel_options(/*verbosity=*/4)) !=
+                       scheduler_t::make_scheduler_parallel_options(/*verbosity=*/0)) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
     std::unordered_map<memref_tid_t, int> tid2stream;
@@ -534,7 +534,7 @@ test_parallel_with_syscall_injection()
     auto syscall_reader_end =
         std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t());
     scheduler_t::scheduler_options_t sched_ops =
-        scheduler_t::make_scheduler_parallel_options(/*verbosity=*/4);
+        scheduler_t::make_scheduler_parallel_options(/*verbosity=*/0);
     sched_ops.kernel_syscall_reader = std::move(syscall_reader);
     sched_ops.kernel_syscall_reader_end = std::move(syscall_reader_end);
 
@@ -749,7 +749,7 @@ test_legacy_fields()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/4);
+                                                   /*verbosity=*/0);
         // Use a round-robin layout for simpler deterministic testing.
         sched_ops.random_initial_layout = -1;
         // Simulate binary compatibility with a legacy struct.
@@ -839,7 +839,7 @@ test_regions_bare()
                        scheduler_t::scheduler_options_t(
                            scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
                            scheduler_t::SCHEDULER_DEFAULTS,
-                           /*verbosity=*/4)) != scheduler_t::STATUS_SUCCESS)
+                           /*verbosity=*/0)) != scheduler_t::STATUS_SUCCESS)
         assert(false);
     int ordinal = 0;
     auto *stream = scheduler.get_stream(0);
@@ -928,7 +928,7 @@ test_regions_bare_no_marker()
                        scheduler_t::scheduler_options_t(
                            scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
                            scheduler_t::SCHEDULER_DEFAULTS,
-                           /*verbosity=*/4)) != scheduler_t::STATUS_SUCCESS)
+                           /*verbosity=*/0)) != scheduler_t::STATUS_SUCCESS)
         assert(false);
     int ordinal = 0;
     auto *stream = scheduler.get_stream(0);
@@ -1001,7 +1001,7 @@ test_regions_timestamps()
     sched_inputs.emplace_back(std::move(readers));
     sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
     if (scheduler.init(sched_inputs, 1,
-                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
+                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/0)) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
     int ordinal = 0;
@@ -1097,7 +1097,7 @@ test_regions_start()
     sched_inputs.emplace_back(std::move(readers));
     sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
     if (scheduler.init(sched_inputs, 1,
-                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/5)) !=
+                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/0)) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
     int ordinal = 0;
@@ -1162,7 +1162,7 @@ test_regions_too_far()
     sched_inputs.emplace_back(std::move(readers));
     sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
     auto status = scheduler.init(
-        sched_inputs, 1, scheduler_t::make_scheduler_serial_options(/*verbosity=*/4));
+        sched_inputs, 1, scheduler_t::make_scheduler_serial_options(/*verbosity=*/0));
     assert(status == scheduler_t::STATUS_ERROR_RANGE_INVALID);
 }
 
@@ -1210,7 +1210,7 @@ test_regions_core_sharded()
     sched_inputs.emplace_back(std::move(readers));
     sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
     if (scheduler.init(sched_inputs, 1,
-                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/5)) !=
+                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/0)) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
     int ordinal = 0;
@@ -1299,7 +1299,7 @@ test_regions_by_shard()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_CONSISTENT_OUTPUT,
                                                scheduler_t::DEPENDENCY_IGNORE,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/1);
+                                               /*verbosity=*/0);
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
         scheduler_t::STATUS_SUCCESS)
@@ -1385,7 +1385,7 @@ test_only_threads()
         sched_inputs.emplace_back(std::move(readers));
         sched_inputs[0].only_threads.insert(TID_B);
         if (scheduler.init(sched_inputs, 1,
-                           scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
+                           scheduler_t::make_scheduler_serial_options(/*verbosity=*/0)) !=
             scheduler_t::STATUS_SUCCESS)
             assert(false);
         auto *stream = scheduler.get_stream(0);
@@ -1407,7 +1407,7 @@ test_only_threads()
         sched_inputs.emplace_back(std::move(readers));
         sched_inputs[0].only_threads = { TID_A, TID_B + 1, TID_C };
         if (scheduler.init(sched_inputs, 1,
-                           scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
+                           scheduler_t::make_scheduler_serial_options(/*verbosity=*/0)) !=
             scheduler_t::STATUS_ERROR_INVALID_PARAMETER)
             assert(false);
     }
@@ -1420,7 +1420,7 @@ test_only_threads()
         sched_inputs[0].only_shards = { 0, 2 };
         if (scheduler.init(sched_inputs, 1,
                            scheduler_t::make_scheduler_parallel_options(
-                               /*verbosity=*/4)) != scheduler_t::STATUS_SUCCESS)
+                               /*verbosity=*/0)) != scheduler_t::STATUS_SUCCESS)
             assert(false);
         auto *stream = scheduler.get_stream(0);
         memref_t memref;
@@ -1438,7 +1438,7 @@ test_only_threads()
         sched_inputs.emplace_back(std::move(readers));
         sched_inputs[0].only_shards = { 1, 3 };
         if (scheduler.init(sched_inputs, 1,
-                           scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
+                           scheduler_t::make_scheduler_serial_options(/*verbosity=*/0)) !=
             scheduler_t::STATUS_ERROR_INVALID_PARAMETER)
             assert(false);
     }
@@ -1450,7 +1450,7 @@ test_only_threads()
         sched_inputs.emplace_back(std::move(readers));
         sched_inputs[0].only_shards = { 0, -1, 2 };
         if (scheduler.init(sched_inputs, 1,
-                           scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
+                           scheduler_t::make_scheduler_serial_options(/*verbosity=*/0)) !=
             scheduler_t::STATUS_ERROR_INVALID_PARAMETER)
             assert(false);
     }
@@ -1489,7 +1489,7 @@ test_only_threads()
         sched_inputs[0].only_shards = { 0, 2 };
         if (scheduler.init(sched_inputs, 1,
                            scheduler_t::make_scheduler_parallel_options(
-                               /*verbosity=*/4)) != scheduler_t::STATUS_SUCCESS)
+                               /*verbosity=*/0)) != scheduler_t::STATUS_SUCCESS)
             assert(false);
         auto *stream = scheduler.get_stream(0);
         memref_t memref;
@@ -1534,7 +1534,7 @@ test_real_file_queries_and_filters(const char *testdir)
     sched_inputs[1].only_threads.insert(TID_2_A);
     sched_inputs[1].only_threads.insert(TID_2_B);
     if (scheduler.init(sched_inputs, 1,
-                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/1)) !=
+                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/0)) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
     auto *stream = scheduler.get_stream(0);
@@ -1650,7 +1650,7 @@ test_synthetic()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         // Use a round-robin layout for simpler deterministic testing.
         sched_ops.random_initial_layout = -1;
         sched_ops.quantum_duration_instrs = QUANTUM_DURATION;
@@ -1729,7 +1729,7 @@ test_synthetic()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         // Use a round-robin layout for simpler deterministic testing.
         sched_ops.random_initial_layout = -1;
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
@@ -1868,7 +1868,7 @@ test_synthetic_with_syscall_seq()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/4);
+                                                   /*verbosity=*/0);
         // Use a round-robin layout for simpler deterministic testing.
         sched_ops.random_initial_layout = -1;
         sched_ops.quantum_duration_instrs = QUANTUM_DURATION;
@@ -1986,7 +1986,7 @@ test_synthetic_with_syscall_seq()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/4);
+                                                   /*verbosity=*/0);
         // Use a round-robin layout for simpler deterministic testing.
         sched_ops.random_initial_layout = -1;
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
@@ -2060,7 +2060,7 @@ test_synthetic_time_quanta()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/4);
+                                                   /*verbosity=*/0);
         // Use a round-robin layout for simpler deterministic testing.
         sched_ops.random_initial_layout = -1;
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
@@ -2185,7 +2185,7 @@ test_synthetic_time_quanta()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/4);
+                                                   /*verbosity=*/0);
         zipfile_istream_t infile(record_fname);
         sched_ops.schedule_replay_istream = &infile;
         if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
@@ -2276,7 +2276,7 @@ test_synthetic_time_quanta_with_kernel()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/4);
+                                                   /*verbosity=*/0);
         // Use a round-robin layout for simpler deterministic testing.
         sched_ops.random_initial_layout = -1;
         // Uses same values as test_synthetic_time_quanta().
@@ -2552,7 +2552,7 @@ test_synthetic_time_quanta_with_kernel()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/4);
+                                                   /*verbosity=*/0);
         zipfile_istream_t infile(record_fname);
         sched_ops.schedule_replay_istream = &infile;
         if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
@@ -2633,7 +2633,7 @@ test_synthetic_with_timestamps()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+                                               /*verbosity=*/0);
     // Use a round-robin layout for simpler deterministic testing.
     sched_ops.random_initial_layout = -1;
     sched_ops.quantum_duration_instrs = 3;
@@ -2740,7 +2740,7 @@ test_synthetic_with_priorities()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+                                               /*verbosity=*/0);
     // Use a round-robin layout for simpler deterministic testing.
     sched_ops.random_initial_layout = -1;
     sched_ops.quantum_duration_instrs = 3;
@@ -2831,7 +2831,7 @@ test_synthetic_with_bindings_time(bool time_deps)
         // binding lists, which fails the schedule string checks below.
         time_deps ? scheduler_t::DEPENDENCY_TIMESTAMPS : scheduler_t::DEPENDENCY_IGNORE,
         scheduler_t::SCHEDULER_DEFAULTS,
-        /*verbosity=*/3);
+        /*verbosity=*/0);
     // Use a round-robin layout for simpler deterministic testing.
     sched_ops.random_initial_layout = -1;
     sched_ops.quantum_duration_instrs = 3;
@@ -2902,7 +2902,7 @@ test_synthetic_with_bindings_more_out()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_IGNORE,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+                                               /*verbosity=*/0);
     sched_ops.quantum_duration_instrs = 3;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
@@ -2974,7 +2974,7 @@ test_synthetic_with_bindings_weighted()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+                                               /*verbosity=*/0);
     // Use a round-robin layout for simpler deterministic testing.
     sched_ops.random_initial_layout = -1;
     sched_ops.quantum_duration_instrs = 3;
@@ -3027,7 +3027,7 @@ test_synthetic_with_bindings_invalid()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         scheduler_t scheduler;
         assert(scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) ==
                scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
@@ -3049,7 +3049,7 @@ test_synthetic_with_bindings_invalid()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         scheduler_t scheduler;
         assert(scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) ==
                scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
@@ -3108,7 +3108,7 @@ test_synthetic_with_bindings_overrides()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_IGNORE,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+                                               /*verbosity=*/0);
     sched_ops.quantum_duration_instrs = 3;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
@@ -3225,7 +3225,7 @@ test_synthetic_with_syscalls_multiple()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+                                               /*verbosity=*/0);
     // Use a round-robin layout for simpler deterministic testing.
     sched_ops.random_initial_layout = -1;
     sched_ops.quantum_duration_us = 3;
@@ -3343,7 +3343,7 @@ test_synthetic_with_syscalls_single()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/4);
+                                               /*verbosity=*/0);
     sched_ops.quantum_duration_us = 3;
     // We use our mock's time==instruction count for a deterministic result.
     sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
@@ -3466,7 +3466,7 @@ test_synthetic_with_syscalls_precise()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+                                               /*verbosity=*/0);
     sched_ops.blocking_switch_threshold = BLOCK_THRESHOLD;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, 1, std::move(sched_ops)) !=
@@ -3572,7 +3572,7 @@ test_synthetic_with_syscalls_latencies()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+                                               /*verbosity=*/0);
     // We use a mock time for a deterministic result.
     sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
     sched_ops.time_units_per_us = 1.;
@@ -3686,7 +3686,7 @@ test_synthetic_with_syscalls_idle()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+                                               /*verbosity=*/0);
     sched_ops.quantum_duration_us = 3;
     // We use a mock time for a deterministic result.
     sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
@@ -3750,7 +3750,7 @@ test_synthetic_multi_threaded(const char *testdir)
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/2);
+                                               /*verbosity=*/0);
     static constexpr int NUM_OUTPUTS = 4;
     static constexpr int QUANTUM_DURATION = 2000;
     sched_ops.quantum_duration_instrs = QUANTUM_DURATION;
@@ -3816,7 +3816,7 @@ test_synthetic_with_output_limit()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/2);
+                                               /*verbosity=*/0);
     // Use a round-robin layout for simpler deterministic testing.
     sched_ops.random_initial_layout = -1;
     // Run everything.
@@ -3879,7 +3879,7 @@ test_speculation()
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(std::move(readers));
     scheduler_t::scheduler_options_t sched_ops =
-        scheduler_t::make_scheduler_serial_options(/*verbosity=*/4);
+        scheduler_t::make_scheduler_serial_options(/*verbosity=*/0);
     sched_ops.flags = static_cast<scheduler_t::scheduler_flags_t>(
         static_cast<int>(sched_ops.flags) |
         static_cast<int>(scheduler_t::SCHEDULER_SPECULATE_NOPS));
@@ -4068,7 +4068,7 @@ test_replay()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         // Use a round-robin layout for simpler deterministic testing.
         sched_ops.random_initial_layout = -1;
         sched_ops.quantum_duration_instrs = QUANTUM_INSTRS;
@@ -4117,7 +4117,7 @@ test_replay()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/2);
+                                                   /*verbosity=*/0);
         zipfile_istream_t infile(record_fname);
         sched_ops.schedule_replay_istream = &infile;
 
@@ -4200,7 +4200,7 @@ test_replay_multi_threaded(const char *testdir)
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/1);
+                                                   /*verbosity=*/0);
         zipfile_ostream_t outfile(record_fname);
         sched_ops.schedule_record_ostream = &outfile;
         static constexpr int QUANTUM_DURATION = 2000;
@@ -4239,7 +4239,7 @@ test_replay_multi_threaded(const char *testdir)
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/1);
+                                                   /*verbosity=*/0);
         zipfile_istream_t infile(record_fname);
         sched_ops.schedule_replay_istream = &infile;
         if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
@@ -4414,7 +4414,7 @@ test_replay_timestamps()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/4);
+                                               /*verbosity=*/0);
     zipfile_istream_t infile(record_fname);
     sched_ops.schedule_replay_istream = &infile;
     scheduler_t scheduler;
@@ -4529,7 +4529,7 @@ test_replay_noeof()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/4);
+                                               /*verbosity=*/0);
     zipfile_istream_t infile(record_fname);
     sched_ops.schedule_replay_istream = &infile;
     scheduler_t scheduler;
@@ -4600,7 +4600,7 @@ test_replay_skip()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/4);
+                                                   /*verbosity=*/0);
         zipfile_ostream_t outfile(record_fname);
         sched_ops.schedule_record_ostream = &outfile;
         if (scheduler.init(sched_inputs, 1, std::move(sched_ops)) !=
@@ -4638,7 +4638,7 @@ test_replay_skip()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/4);
+                                                   /*verbosity=*/0);
         zipfile_istream_t infile(record_fname);
         sched_ops.schedule_replay_istream = &infile;
         if (scheduler.init(sched_inputs, 1, std::move(sched_ops)) !=
@@ -4791,7 +4791,7 @@ test_replay_limit()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/2);
+                                                   /*verbosity=*/0);
         zipfile_ostream_t outfile(record_fname);
         sched_ops.schedule_record_ostream = &outfile;
         if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
@@ -4839,7 +4839,7 @@ test_replay_limit()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/2);
+                                                   /*verbosity=*/0);
         zipfile_istream_t infile(record_fname);
         sched_ops.schedule_replay_istream = &infile;
         if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
@@ -4889,7 +4889,7 @@ test_replay_limit()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/2);
+                                                   /*verbosity=*/0);
         zipfile_ostream_t outfile(record_fname);
         sched_ops.schedule_record_ostream = &outfile;
         sched_ops.quantum_duration_instrs = NUM_INSTRS / 10;
@@ -5011,7 +5011,7 @@ test_replay_as_traced()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_RECORDED_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+                                               /*verbosity=*/0);
     zipfile_istream_t infile(cpu_fname);
     sched_ops.replay_as_traced_istream = &infile;
     scheduler_t scheduler;
@@ -5109,7 +5109,7 @@ test_replay_as_traced_i6107_workaround()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_RECORDED_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/2);
+                                                   /*verbosity=*/0);
         zipfile_istream_t infile(cpu_fname);
         sched_ops.replay_as_traced_istream = &infile;
         scheduler_t scheduler;
@@ -5183,7 +5183,7 @@ test_replay_as_traced_i6107_workaround()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_RECORDED_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/2);
+                                                   /*verbosity=*/0);
         zipfile_istream_t infile(cpu_fname);
         sched_ops.replay_as_traced_istream = &infile;
         scheduler_t scheduler;
@@ -5284,7 +5284,7 @@ test_replay_as_traced_dup_start()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_RECORDED_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/4);
+                                               /*verbosity=*/0);
     zipfile_istream_t infile(cpu_fname);
     sched_ops.replay_as_traced_istream = &infile;
     scheduler_t scheduler;
@@ -5421,7 +5421,7 @@ test_replay_as_traced_sort()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_RECORDED_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/4);
+                                               /*verbosity=*/0);
     zipfile_istream_t infile(cpu_fname);
     sched_ops.replay_as_traced_istream = &infile;
     scheduler_t scheduler;
@@ -5460,7 +5460,7 @@ test_replay_as_traced_from_file(const char *testdir)
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_RECORDED_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/2);
+                                               /*verbosity=*/0);
     std::cerr << "Reading cpu file " << cpu_file << "\n";
     zipfile_istream_t infile(cpu_file);
     sched_ops.replay_as_traced_istream = &infile;
@@ -5533,7 +5533,7 @@ test_replay_wrong_inputs()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         sched_ops.quantum_duration_instrs = QUANTUM_INSTRS;
         sched_ops.migration_threshold_us = 0;
         zipfile_ostream_t outfile(record_fname);
@@ -5575,7 +5575,7 @@ test_replay_wrong_inputs()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/2);
+                                                   /*verbosity=*/0);
         zipfile_istream_t infile(record_fname);
         sched_ops.schedule_replay_istream = &infile;
 
@@ -5698,7 +5698,7 @@ test_times_of_interest()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         zipfile_istream_t infile(cpu_fname);
         sched_ops.replay_as_traced_istream = &infile;
         scheduler_t scheduler;
@@ -5722,7 +5722,7 @@ test_times_of_interest()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         zipfile_istream_t infile(cpu_fname);
         sched_ops.replay_as_traced_istream = &infile;
         scheduler_t scheduler;
@@ -5827,7 +5827,7 @@ test_inactive()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/4);
+                                                   /*verbosity=*/0);
         // Use a round-robin layout for simpler deterministic testing.
         sched_ops.random_initial_layout = -1;
         sched_ops.quantum_duration_instrs = 2;
@@ -5946,7 +5946,7 @@ test_inactive()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/4);
+                                                   /*verbosity=*/0);
         zipfile_istream_t infile(record_fname);
         sched_ops.schedule_replay_istream = &infile;
         if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
@@ -6068,7 +6068,7 @@ test_direct_switch_base()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         sched_ops.quantum_duration_us = QUANTUM_DURATION;
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
@@ -6118,7 +6118,7 @@ test_direct_switch_base()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         sched_ops.quantum_duration_us = QUANTUM_DURATION;
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
@@ -6329,7 +6329,7 @@ test_direct_switch_fallback()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         // Use a round-robin layout for simpler deterministic testing.
         sched_ops.random_initial_layout = -1;
         sched_ops.quantum_duration_us = QUANTUM_DURATION;
@@ -6394,7 +6394,7 @@ test_direct_switch_fallback()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         // Use a round-robin layout for simpler deterministic testing.
         sched_ops.random_initial_layout = -1;
         sched_ops.quantum_duration_us = QUANTUM_DURATION;
@@ -6594,7 +6594,7 @@ test_unscheduled_base()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         sched_ops.quantum_duration_us = QUANTUM_DURATION;
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
@@ -6641,7 +6641,7 @@ test_unscheduled_base()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         sched_ops.quantum_duration_us = QUANTUM_DURATION;
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
@@ -6798,7 +6798,7 @@ test_unscheduled_fallback()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         sched_ops.quantum_duration_us = QUANTUM_DURATION;
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
@@ -6847,7 +6847,7 @@ test_unscheduled_fallback()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         sched_ops.quantum_duration_us = QUANTUM_DURATION;
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
@@ -6896,7 +6896,7 @@ test_unscheduled_fallback()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         sched_ops.quantum_duration_us = QUANTUM_DURATION;
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
@@ -6990,7 +6990,7 @@ test_unscheduled_initially()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.time_units_per_us = 1.;
         sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
@@ -7030,7 +7030,7 @@ test_unscheduled_initially()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.time_units_per_us = 1.;
         sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
@@ -7070,7 +7070,7 @@ test_unscheduled_initially()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.time_units_per_us = 1.;
@@ -7166,7 +7166,7 @@ test_unscheduled_initially_roi()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/4);
+                                                   /*verbosity=*/0);
         zipfile_ostream_t outfile(record_fname);
         sched_ops.schedule_record_ostream = &outfile;
         scheduler_t scheduler;
@@ -7209,7 +7209,7 @@ test_unscheduled_initially_roi()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/4);
+                                                   /*verbosity=*/0);
         zipfile_istream_t infile(record_fname);
         sched_ops.schedule_replay_istream = &infile;
         scheduler_t scheduler;
@@ -7306,7 +7306,7 @@ test_unscheduled_initially_rebalance()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+                                               /*verbosity=*/0);
     // Use a round-robin layout for simpler deterministic testing.
     sched_ops.random_initial_layout = -1;
     sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
@@ -7381,7 +7381,7 @@ test_unscheduled_small_timeout()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.time_units_per_us = 1.;
@@ -7442,7 +7442,7 @@ test_unscheduled_no_alternative()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.time_units_per_us = 1.;
@@ -7475,7 +7475,7 @@ test_unscheduled_no_alternative()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.time_units_per_us = 1.;
@@ -7538,7 +7538,7 @@ test_unscheduled_latency()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.blocking_switch_threshold = BLOCK_THRESHOLD;
         sched_ops.time_units_per_us = 1.;
@@ -7569,7 +7569,7 @@ test_unscheduled_latency()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         sched_ops.ignore_low_latency_unsched = true;
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.blocking_switch_threshold = BLOCK_THRESHOLD;
@@ -7854,7 +7854,7 @@ test_kernel_switch_sequences()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         // Use a round-robin layout for simpler deterministic testing.
         sched_ops.random_initial_layout = -1;
         sched_ops.quantum_duration_instrs = INSTR_QUANTUM;
@@ -7950,7 +7950,7 @@ test_kernel_switch_sequences()
             record_scheduler_t::MAP_TO_ANY_OUTPUT,
             record_scheduler_t::DEPENDENCY_TIMESTAMPS,
             record_scheduler_t::SCHEDULER_DEFAULTS,
-            /*verbosity=*/3);
+            /*verbosity=*/0);
         // Use a round-robin layout for simpler deterministic testing.
         sched_ops.random_initial_layout = -1;
         sched_ops.quantum_duration_instrs = INSTR_QUANTUM;
@@ -8275,7 +8275,7 @@ test_kernel_syscall_sequences()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         // Use a round-robin layout for simpler deterministic testing.
         sched_ops.random_initial_layout = -1;
         sched_ops.quantum_duration_instrs = INSTR_QUANTUM;
@@ -8508,7 +8508,7 @@ test_random_schedule()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         sched_ops.randomize_next_input = true;
         sched_ops.quantum_duration_instrs = QUANTUM_DURATION;
         scheduler_t scheduler;
@@ -8628,7 +8628,7 @@ test_record_scheduler()
     record_scheduler_t::scheduler_options_t sched_ops(
         record_scheduler_t::MAP_TO_ANY_OUTPUT, record_scheduler_t::DEPENDENCY_IGNORE,
         record_scheduler_t::SCHEDULER_DEFAULTS,
-        /*verbosity=*/4);
+        /*verbosity=*/0);
     sched_ops.quantum_duration_instrs = 2;
     sched_ops.block_time_multiplier = 0.001; // Do not stay blocked.
     sched_ops.blocking_switch_threshold = BLOCK_THRESHOLD;
@@ -8776,7 +8776,7 @@ test_record_scheduler_i7574()
     record_scheduler_t::scheduler_options_t sched_ops(
         record_scheduler_t::MAP_TO_ANY_OUTPUT, record_scheduler_t::DEPENDENCY_IGNORE,
         record_scheduler_t::SCHEDULER_DEFAULTS,
-        /*verbosity=*/4);
+        /*verbosity=*/0);
     sched_ops.quantum_duration_instrs = 2;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
         record_scheduler_t::STATUS_SUCCESS)
@@ -8956,7 +8956,7 @@ test_rebalancing()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+                                               /*verbosity=*/0);
     // We use our mock's time==instruction count for a deterministic result.
     sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
     sched_ops.time_units_per_us = 1.;
@@ -9061,7 +9061,7 @@ test_initial_migrate()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+                                               /*verbosity=*/0);
     // Use a round-robin layout for simpler deterministic testing.
     sched_ops.random_initial_layout = -1;
     scheduler_t scheduler;
@@ -9117,7 +9117,7 @@ set_up_steal_period_options(std::vector<trace_entry_t> refs_A, memref_tid_t TID_
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+                                               /*verbosity=*/0);
     // Run everything.
     sched_ops.exit_if_fraction_inputs_left = 0.;
     // Use a round-robin layout for simpler deterministic testing.
@@ -9372,7 +9372,7 @@ test_exit_early()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/2);
+                                                   /*verbosity=*/0);
         // Use a round-robin layout for simpler deterministic testing.
         sched_ops.random_initial_layout = -1;
         // We use our mock's time==instruction count for a deterministic result.
@@ -9414,7 +9414,7 @@ test_exit_early()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/2);
+                                                   /*verbosity=*/0);
         // Use a round-robin layout for simpler deterministic testing.
         sched_ops.random_initial_layout = -1;
         // We use our mock's time==instruction count for a deterministic result.
@@ -9449,7 +9449,7 @@ test_dynamic_marker_updates()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_IGNORE,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/2);
+                                               /*verbosity=*/0);
     static constexpr int NUM_INPUTS = 5;
     static constexpr int NUM_OUTPUTS = 3;
     // We need at least enough instrs to cover INSTRS_PER_US==time_units_per_us.
@@ -9560,7 +9560,7 @@ test_static_marker_updates()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_CONSISTENT_OUTPUT,
                                                scheduler_t::DEPENDENCY_IGNORE,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/2);
+                                               /*verbosity=*/0);
     static constexpr int NUM_INPUTS = 2;
     static constexpr int NUM_OUTPUTS = 2;
     const int NUM_INSTRS = 12;
@@ -9794,7 +9794,7 @@ test_noise_generator()
     // for the noise generator.
     scheduler_t::scheduler_options_t sched_ops(
         scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
-        scheduler_t::SCHEDULER_DEFAULTS, /*verbose=*/4);
+        scheduler_t::SCHEDULER_DEFAULTS, /*verbosity=*/0);
     // This is the default quantum_unit, but we specify it anyway in case it changes in
     // the future.
     sched_ops.quantum_unit = scheduler_t::QUANTUM_INSTRUCTIONS;
@@ -9869,7 +9869,7 @@ test_random_layout()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         // The first 3rd have no randomness; the next 3rd enable random layout
         // with a constant seed; the final 3rd use a different seed each time.
         if (iter >= NUM_ITERS * 2 / 3) {
@@ -10018,7 +10018,7 @@ test_canonicalize()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         sched_ops.canonicalize_addresses = true;
         scheduler_t scheduler;
         if (scheduler.init(sched_inputs, /*outputs=*/1, std::move(sched_ops)) !=
@@ -10088,7 +10088,7 @@ test_canonicalize()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         sched_ops.canonicalize_addresses = false;
         scheduler_t scheduler;
         if (scheduler.init(sched_inputs, /*outputs=*/1, std::move(sched_ops)) !=
@@ -10178,7 +10178,7 @@ test_whole_system_invalid_options()
         scheduler_t scheduler;
         scheduler_t::scheduler_options_t sched_ops(
             scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
-            scheduler_t::SCHEDULER_DEFAULTS, /*verbosity=*/1);
+            scheduler_t::SCHEDULER_DEFAULTS, /*verbosity=*/0);
         scheduler_t::scheduler_status_t status =
             scheduler.init(sched_inputs, 1, std::move(sched_ops));
         assert(status == scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
@@ -10190,7 +10190,7 @@ test_whole_system_invalid_options()
         scheduler_t scheduler;
         scheduler_t::scheduler_options_t sched_ops(
             scheduler_t::MAP_TO_CONSISTENT_OUTPUT, scheduler_t::DEPENDENCY_TIMESTAMPS,
-            scheduler_t::SCHEDULER_DEFAULTS, /*verbosity=*/1);
+            scheduler_t::SCHEDULER_DEFAULTS, /*verbosity=*/0);
         scheduler_t::scheduler_status_t status =
             scheduler.init(sched_inputs, 1, std::move(sched_ops));
         assert(status == scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
@@ -10202,7 +10202,7 @@ test_whole_system_invalid_options()
         scheduler_t scheduler;
         scheduler_t::scheduler_options_t sched_ops(
             scheduler_t::MAP_TO_CONSISTENT_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
-            scheduler_t::SCHEDULER_DEFAULTS, /*verbosity=*/1);
+            scheduler_t::SCHEDULER_DEFAULTS, /*verbosity=*/0);
         scheduler_t::scheduler_status_t status =
             scheduler.init(sched_inputs, 1, std::move(sched_ops));
         assert(status == scheduler_t::STATUS_SUCCESS);
@@ -10213,7 +10213,7 @@ test_whole_system_invalid_options()
         std::vector<scheduler_t::input_workload_t> sched_inputs = make_workload(refs);
         scheduler_t scheduler;
         scheduler_t::scheduler_options_t sched_ops =
-            scheduler_t::make_scheduler_parallel_options(/*verbosity=*/1);
+            scheduler_t::make_scheduler_parallel_options(/*verbosity=*/0);
         scheduler_t::scheduler_status_t status =
             scheduler.init(sched_inputs, 1, std::move(sched_ops));
         assert(status == scheduler_t::STATUS_SUCCESS);
@@ -10226,7 +10226,7 @@ test_whole_system_invalid_options()
         scheduler_t scheduler;
         scheduler_t::scheduler_options_t sched_ops(
             scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
-            scheduler_t::SCHEDULER_DEFAULTS, /*verbosity=*/1);
+            scheduler_t::SCHEDULER_DEFAULTS, /*verbosity=*/0);
         sched_ops.read_inputs_in_init = false;
         scheduler_t::scheduler_status_t status =
             scheduler.init(sched_inputs, 1, std::move(sched_ops));
@@ -10371,7 +10371,7 @@ test_hardware_event_kernel_regions_tmpl()
     typename SchedType::scheduler_options_t sched_ops(SchedType::MAP_TO_CONSISTENT_OUTPUT,
                                                       SchedType::DEPENDENCY_IGNORE,
                                                       SchedType::SCHEDULER_DEFAULTS,
-                                                      /*verbosity=*/3);
+                                                      /*verbosity=*/0);
     SchedType scheduler;
     if (scheduler.init(sched_inputs, /*outputs=*/1, std::move(sched_ops)) !=
         SchedType::STATUS_SUCCESS) {

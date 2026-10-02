@@ -2037,7 +2037,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 if (!append_scatter_gather(tdata, instr, &buf, reg_vals,
                                            expect_all_memrefs, consumed_memrefs, orig_pc))
                     return false;
-            } else if (instr->is_rep_string() && repstr_first_last_supported) {
+            } else if (instr->is_rep_string() && repstr_only_first_last) {
                 if (!append_repstring(tdata, instr, orig_pc, &buf, reg_vals,
                                       expect_all_memrefs, consumed_memrefs,
                                       &saved_decode_pc, interrupted, added_encoding))
