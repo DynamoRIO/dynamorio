@@ -4056,7 +4056,7 @@ instr_create_restore_dynamo_stack(dcontext_t *dcontext)
     return instr_create_restore_from_dcontext(dcontext, REG_XSP, DSTACK_OFFSET);
 }
 
-/* make sure to keep in sync w/ emit_utils.c's insert_spill_or_restore() */
+/* make sure to keep in sync w/ emit_utils.c's insert_tls_spill_or_restore() */
 bool
 instr_raw_is_tls_spill(byte *pc, reg_id_t reg, ushort offs)
 {
