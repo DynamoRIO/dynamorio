@@ -30,6 +30,13 @@
  * DAMAGE.
  */
 
+/* This is a version of allasm_repstr.asm that has longer loops. It is
+ * separated out because we have tests that use allasm_resptr and expect
+ * to be able to dump its entire contents without spewing thousands of lines,
+ * and to avoid updating all the test templates that break when we modify
+ * the test. This longer version is for hitting more corner cases of
+ * repeated string handling.
+ */
 /* This is a statically-linked app. */
 .text
 .globl _start
@@ -104,6 +111,14 @@ repeat:
         mov      rdx, 13          // sizeof(hello_str)
         mov      eax, 1           // SYS_write
         syscall
+
+        // Test a longer loop, longer than the buffer size we pass for
+        // our filter tests on this app.
+        mov      ecx, 4000
+        and      rsp, -4096
+        mov      rsi, rsp
+        cld
+        rep      lodsb
 
         // Exit.
         mov      rdi, 0           // exit code

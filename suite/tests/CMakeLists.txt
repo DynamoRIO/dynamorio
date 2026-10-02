@@ -3286,6 +3286,10 @@ if (X86 OR AARCH64)
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_repstr.asm
         "-early_inject" "")
       append_pure_asm_app_link_flags(allasm_repstr)
+      add_exe(allasm_repstr_long
+        ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_repstr_long.asm
+        "-early_inject" "")
+      append_pure_asm_app_link_flags(allasm_repstr_long)
       # i#7769: Test instruction counting excludes REP emulation overhead.
       add_exe(allasm_instcount
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_instcount.asm
@@ -4679,9 +4683,6 @@ if (BUILD_CLIENTS)
       "-no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
       "@-tool@invariant_checker" "")
     if (X86 AND X64 AND UNIX)
-      # XXX i#4914: It is a pain to updating other tests using allasm_repstr when we
-      # add repstr coverage for testing new repstr features. Maybe this window test
-      # should have its own app.
       torunonly_drcacheoff(windows-asm allasm_repstr
         "-no_split_windows -trace_after_instrs 3 -trace_for_instrs 4 -retrace_every_instrs 4"
         "@-tool@basic_counts" "")
@@ -5256,12 +5257,12 @@ if (BUILD_CLIENTS)
 
       # Test repeated string instruction handling when filtered.
       # Pass a small buffer size to test the filter buffer writeout path
-      # on the 4K-iter lods loop in allasm_repstr.
-      torunonly_drcacheoff(repstr-ifilter allasm_repstr
+      # on the 4K-iter lods loop in allasm_repstr_long.
+      torunonly_drcacheoff(repstr-ifilter allasm_repstr_long
         "-L0I_filter -main_buf_records 128" "@-tool@view" "")
-      torunonly_drcacheoff(repstr-dfilter allasm_repstr
+      torunonly_drcacheoff(repstr-dfilter allasm_repstr_long
         "-L0D_filter -main_buf_records 128" "@-tool@view" "")
-      torunonly_drcacheoff(repstr-idfilter allasm_repstr
+      torunonly_drcacheoff(repstr-idfilter allasm_repstr_long
         "-L0I_filter -L0D_filter -main_buf_records 128" "@-tool@view" "")
 
       # Test -record_syscall on SYS_write == #1 with 3 args.
