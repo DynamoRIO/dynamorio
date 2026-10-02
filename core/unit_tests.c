@@ -70,6 +70,8 @@ unit_test_jit_fragment_tree(void);
 #ifdef X86
 void
 unit_test_tls_emit(dcontext_t *dc);
+void
+unit_test_tls_translate(dcontext_t *dc);
 #endif
 
 int
@@ -92,6 +94,7 @@ main(int argc, char **argv, char **envp)
     unit_test_opnd_shared();
 #ifdef X86
     unit_test_tls_emit(dc);
+    unit_test_tls_translate(dc);
 #endif
     unit_test_options();
     unit_test_vmareas();

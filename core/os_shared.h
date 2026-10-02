@@ -253,7 +253,24 @@ set_thread_private_dcontext(dcontext_t *dcontext);
 int
 os_tls_offset(ushort tls_offs);
 
-/* Converts a signed segment displacement back to a local-state slot offset. */
+/* Checks a signed segment displacement before narrowing to a local-state offset.
+ * Widen before subtracting: the two signed displacements can differ by more than
+ * INT_MAX, even though valid local-state offsets fit in a ushort.
+ */
+static inline bool
+os_tls_offset_to_local_state(int seg_offs, int tls_base, ushort *local_offs)
+{
+    int64 offs = (int64)seg_offs - tls_base;
+    if (offs < 0 || offs > USHRT_MAX)
+        return false;
+    *local_offs = (ushort)offs;
+    return true;
+}
+
+/* Converts a signed segment displacement back to a local-state slot offset.
+ * The caller must supply a displacement whose local-state offset fits in ushort.
+ * Use os_tls_offset_to_local_state() when that precondition is not established.
+ */
 ushort
 os_local_state_offset(int seg_offs);
 

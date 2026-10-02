@@ -1996,10 +1996,14 @@ os_tls_offset(ushort tls_offs)
 ushort
 os_local_state_offset(int seg_offs)
 {
-    /* no ushort truncation issues b/c TLS_LOCAL_STATE_OFFSET is 0 */
+    ushort offs = 0;
+    bool valid;
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());
     ASSERT(TLS_LOCAL_STATE_OFFSET == 0);
-    return (seg_offs - TLS_LOCAL_STATE_OFFSET IF_X86(IF_MACOS64(-tls_get_dr_offs())));
+    valid = os_tls_offset_to_local_state(seg_offs, os_tls_offset(0), &offs);
+    if (!valid)
+        ASSERT_NOT_REACHED();
+    return offs;
 }
 
 /* XXX: Will return NULL if called before os_thread_init(), which sets

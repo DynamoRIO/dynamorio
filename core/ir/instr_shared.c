@@ -4246,7 +4246,7 @@ instr_check_mcontext_spill_restore(dcontext_t *dcontext, instr_t *instr, bool *s
 
 static bool
 instr_is_reg_spill_or_restore_ex(void *drcontext, instr_t *instr, bool DR_only, bool *tls,
-                                 bool *spill, reg_id_t *reg, uint *offs_out)
+                                 bool *spill, reg_id_t *reg, int *offs_out)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     int check_disp = 0; /* init to satisfy some compilers */
@@ -4297,13 +4297,18 @@ bool
 instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls, bool *spill,
                               reg_id_t *reg, uint *offs)
 {
-    return instr_is_reg_spill_or_restore_ex(drcontext, instr, false, tls, spill, reg,
-                                            offs);
+    int signed_offs;
+    bool found = instr_is_reg_spill_or_restore_ex(drcontext, instr, false, tls, spill,
+                                                  reg, &signed_offs);
+    /* Preserve the public uint API's displacement bits, including negative offsets. */
+    if (found && offs != NULL)
+        *offs = (uint)signed_offs;
+    return found;
 }
 
 bool
 instr_is_DR_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls, bool *spill,
-                                 reg_id_t *reg, uint *offs)
+                                 reg_id_t *reg, int *offs)
 {
     return instr_is_reg_spill_or_restore_ex(drcontext, instr, true, tls, spill, reg,
                                             offs);
