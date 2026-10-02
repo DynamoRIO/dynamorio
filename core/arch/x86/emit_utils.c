@@ -3192,17 +3192,17 @@ unit_test_tls_emit(dcontext_t *dcontext)
                             uint offs;
                             bool tls, is_spill;
                             reg_id_t spilled_reg;
-                            EXPECT(instr_is_reg_spill_or_restore(
-                                       dcontext, &instr, &tls, &is_spill, &spilled_reg,
-                                       &offs),
+                            EXPECT(instr_is_reg_spill_or_restore(dcontext, &instr, &tls,
+                                                                 &is_spill, &spilled_reg,
+                                                                 &offs),
                                    true);
                             EXPECT(tls, true);
                             EXPECT(is_spill, (spill != 0));
                             EXPECT(offs, (uint)disps[d]);
                             EXPECT(spilled_reg, opnd_get_reg(reg));
-                            EXPECT(opnd_get_disp(dr_raw_tls_opnd(
-                                       dcontext, SEG_TLS, offs)),
-                                   disps[d]);
+                            EXPECT(
+                                opnd_get_disp(dr_raw_tls_opnd(dcontext, SEG_TLS, offs)),
+                                disps[d]);
                         }
                     }
                 }

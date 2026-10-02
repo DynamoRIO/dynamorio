@@ -644,7 +644,7 @@ translate_restore_spilled_registers(dcontext_t *tdcontext, translate_walk_t *wal
             if (walk->reg_tls[r]) {
                 ushort offs;
                 if (!os_tls_offset_to_local_state(walk->reg_spill_offs[r], tls_base,
-                                                   &offs) ||
+                                                  &offs) ||
                     offs > sizeof(tdcontext->local_state->spill_space) - sizeof(reg_t))
                     return false;
                 value = *(reg_t *)(((byte *)&tdcontext->local_state->spill_space) + offs);
@@ -702,8 +702,8 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, instr_t *i
             }
             if (!instr_is_tls_restore(inst, REG_NULL, MANGLE_RIPREL_SPILL_SLOT)) {
                 bool spill;
-                if (instr_is_DR_reg_spill_or_restore(tdcontext, inst, NULL, &spill,
-                                                     NULL, NULL)) {
+                if (instr_is_DR_reg_spill_or_restore(tdcontext, inst, NULL, &spill, NULL,
+                                                     NULL)) {
                     ASSERT_NOT_IMPLEMENTED(!spill);
                 } else {
                     /* Rip-rel mangling can restore an arbitrary register from its
@@ -2258,8 +2258,8 @@ unit_test_tls_translate(dcontext_t *dcontext)
     instr_destroy(dcontext, spill);
     instr_destroy(dcontext, restore);
 #    ifdef UNIX
-    instr_t *seg_load = instr_create_restore_from_tls(
-        dcontext, REG_XAX, os_get_app_tls_base_offset(SEG_FS));
+    instr_t *seg_load = instr_create_restore_from_tls(dcontext, REG_XAX,
+                                                      os_get_app_tls_base_offset(SEG_FS));
     instr_set_our_mangling(seg_load, true);
     EXPECT(instr_is_seg_ref_load(dcontext, seg_load), true);
     instr_destroy(dcontext, seg_load);
