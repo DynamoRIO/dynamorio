@@ -660,9 +660,8 @@ entrance_stub_target_tag(cache_pc stub, coarse_info_t *info)
     app_pc tag;
     /* find the immed that is put into tls: at end of pre-jmp instr */
 #if defined(X86) && defined(X64)
-    /* To identify whether 32-bit: we could look up the coarse_info_t
-     * this is part of but that's expensive so we check whether the
-     * tls offset has 2 high byte 0's (we always use addr16 for 32-bit).
+    /* Identify the mode from the instruction layout, independently of the
+     * TLS displacement: 32-bit starts with addr16, 64-bit with the segment.
      * 32-bit:
      *   67 64 c7 06 e0 0e 02 99 4e 7d  addr16 mov $0x7d4e9902 -> %fs:0x0ee0
      * 64-bit is split into high and low dwords:
@@ -670,14 +669,14 @@ entrance_stub_target_tag(cache_pc stub, coarse_info_t *info)
      *   65 c7 04 25 24 16 00 00 00 00 00 00  mov $0x00000000 -> %gs:0x1624
      * both are followed by a direct jmp.
      */
-    if (*((ushort *)(jmp - 6)) == 0) { /* 64-bit has 2 0's for high 2 bytes of tls offs */
+    if (*stub == TLS_SEG_OPCODE) {
         ptr_uint_t high32 = (ptr_uint_t) * ((uint *)(jmp - 4));
         ptr_uint_t low32 =
             (ptr_uint_t) * ((uint *)(jmp - (SIZE64_MOV_PTR_IMM_TO_TLS / 2) - 4));
         tag = (cache_pc)((high32 << 32) | low32);
     } else { /* else fall-through to 32-bit case */
 #endif
-        tag = *((cache_pc *)(jmp - 4));
+        tag = (app_pc)(ptr_uint_t) * ((uint *)(jmp - 4));
 #if defined(X86) && defined(X64)
     }
 #endif

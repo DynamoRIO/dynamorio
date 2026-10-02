@@ -78,11 +78,11 @@ typedef struct _translate_walk_t {
     byte *start_cache;
     byte *end_cache;
     /* PR 263407: Track registers spilled since the last cti, for
-     * restoring indirect branch and rip-rel spills. UINT_MAX means
-     * nothing recorded, otherwise holds offset of spill in local
-     * spill space.
+     * restoring indirect branch and rip-rel spills. Keep validity separate from
+     * the signed displacement: every int value, including -1, can be a TLS offset.
      */
-    uint reg_spill_offs[REG_SPILL_NUM];
+    int reg_spill_offs[REG_SPILL_NUM];
+    bool reg_spilled[REG_SPILL_NUM];
     bool reg_tls[REG_SPILL_NUM];
     /* PR 267260: Track our own mangle-inserted pushes and pops, for
      * restoring state in the middle of our indirect branch mangling.
@@ -109,8 +109,6 @@ translate_walk_init(translate_walk_t *walk, byte *start_cache, byte *end_cache,
     walk->mc = mc;
     walk->start_cache = start_cache;
     walk->end_cache = end_cache;
-    for (int r = 0; r < REG_SPILL_NUM; r++)
-        walk->reg_spill_offs[r] = UINT_MAX;
 }
 
 #ifdef UNIX
@@ -149,9 +147,9 @@ instr_is_seg_ref_load(dcontext_t *dcontext, instr_t *inst)
         return false;
     /* Look for the load of either segment base */
     if (instr_is_tls_restore(inst, REG_NULL /*don't care*/,
-                             os_tls_offset(os_get_app_tls_base_offset(SEG_FS))) ||
+                             os_get_app_tls_base_offset(SEG_FS)) ||
         instr_is_tls_restore(inst, REG_NULL /*don't care*/,
-                             os_tls_offset(os_get_app_tls_base_offset(SEG_GS))))
+                             os_get_app_tls_base_offset(SEG_GS)))
         return true;
     /* Look for the lea */
     if (instr_get_opcode(inst) == OP_lea) {
@@ -308,8 +306,8 @@ translate_walk_track_pre_instr(dcontext_t *tdcontext, instr_t *inst,
             /* we should have seen a restore for every spill, unless at
              * fragment-ending jump to ibl, which shouldn't come here
              */
-            ASSERT(walk->reg_spill_offs[r] == UINT_MAX);
-            walk->reg_spill_offs[r] = UINT_MAX; /* be paranoid */
+            ASSERT(!walk->reg_spilled[r]);
+            walk->reg_spilled[r] = false; /* be paranoid */
 #else
             /* On AArchXX/RISCV64 we do spill registers across app instrs and mangle
              * regions, though right now only the following routines do this:
@@ -319,7 +317,7 @@ translate_walk_track_pre_instr(dcontext_t *tdcontext, instr_t *inst,
              * Each of these cases is a tls restore, and we assert as much.
              */
             DOCHECK(1, {
-                if (walk->reg_spill_offs[r] != UINT_MAX) {
+                if (walk->reg_spilled[r]) {
                     instr_t *curr;
                     bool spill_or_restore = false;
                     reg_id_t reg;
@@ -452,9 +450,9 @@ translate_walk_track_post_instr(dcontext_t *tdcontext, instr_t *inst,
             /* reset for non-exit non-trace-jecxz cti (i.e., selfmod cti) */
             LOG(THREAD_GET, LOG_INTERP, 4, "\treset spills on cti\n");
             for (r = 0; r < REG_SPILL_NUM; r++)
-                walk->reg_spill_offs[r] = UINT_MAX;
+                walk->reg_spilled[r] = false;
         }
-        uint offs = UINT_MAX;
+        int offs;
         if (instr_is_DR_reg_spill_or_restore(tdcontext, inst, &spill_tls, &spill, &reg,
                                              &offs)) {
             r = reg - REG_START_SPILL;
@@ -468,20 +466,20 @@ translate_walk_track_post_instr(dcontext_t *tdcontext, instr_t *inst,
                     spill = false;
             });
             /* if a restore whose spill was before a cti, ignore */
-            if (spill || walk->reg_spill_offs[r] != UINT_MAX) {
+            if (spill || walk->reg_spilled[r]) {
                 /* Ensure restores and spills are properly paired up, but we do
                  * allow for redundant spills.
                  */
-                ASSERT(spill || (!spill && walk->reg_spill_offs[r] != UINT_MAX));
+                ASSERT(spill || (!spill && walk->reg_spilled[r]));
                 ASSERT(spill || walk->reg_tls[r] == spill_tls);
                 if (spill) {
-                    ASSERT(offs != UINT_MAX);
                     walk->reg_spill_offs[r] = offs;
+                    walk->reg_spilled[r] = true;
                 } else {
-                    walk->reg_spill_offs[r] = UINT_MAX;
+                    walk->reg_spilled[r] = false;
                 }
                 walk->reg_tls[r] = spill_tls;
-                LOG(THREAD_GET, LOG_INTERP, 4, "\tspill update: %s %s %s offs=%u\n",
+                LOG(THREAD_GET, LOG_INTERP, 4, "\tspill update: %s %s %s offs=%d\n",
                     spill ? "spill" : "restore", spill_tls ? "tls" : "mcontext",
                     reg_names[reg], offs);
             }
@@ -629,6 +627,39 @@ emulate_epilogue(dcontext_t *tdcontext, priv_mcontext_t *mc, instr_t *first_inst
 }
 #endif /* AARCH64 */
 
+/* tls_base is the full signed displacement of local_state_t from the TLS base. */
+static bool
+translate_restore_spilled_registers(dcontext_t *tdcontext, translate_walk_t *walk,
+                                    int tls_base)
+{
+    /* PR 263407: Restore register values that are currently in spill slots
+     * for ind branches or rip-rel mangling.
+     * XXX: for rip-rel loads, we may have clobbered the destination
+     * already, and won't be able to restore it: but that's a minor issue.
+     */
+    for (reg_id_t r = 0; r < REG_SPILL_NUM; r++) {
+        if (walk->reg_spilled[r]) {
+            reg_id_t reg = r + REG_START_SPILL;
+            reg_t value;
+            if (walk->reg_tls[r]) {
+                ushort offs;
+                if (!os_local_state_offset(walk->reg_spill_offs[r], tls_base, &offs) ||
+                    offs > sizeof(tdcontext->local_state->spill_space) - sizeof(reg_t))
+                    return false;
+                value = *(reg_t *)(((byte *)&tdcontext->local_state->spill_space) + offs);
+            } else {
+                value = reg_get_value_priv(reg, get_mcontext(tdcontext));
+            }
+            LOG(THREAD_GET, LOG_INTERP, 2, "\trestoring spilled %s to " PFX "\n",
+                reg_names[reg], value);
+            STATS_INC(recreate_spill_restores);
+            reg_set_value_priv(reg, walk->mc, value);
+        }
+    }
+
+    return true;
+}
+
 static app_pc
 translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, instr_t *inst,
                        app_pc translate_pc)
@@ -643,8 +674,6 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, instr_t *i
         return translate_pc;
     }
 #endif
-    reg_id_t r;
-
     if (IF_X86_ELSE(translate_walk_enters_mangling_epilogue(tdcontext, inst, walk),
                     false)) {
         /* We handle only simple symmetric one-spill/one-restore mangling cases
@@ -664,27 +693,23 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, instr_t *i
             translate_pc, walk->translation);
         DOCHECK(1, {
             bool spill_seen = false;
-            for (r = 0; r < REG_SPILL_NUM; r++) {
-                if (walk->reg_spill_offs[r] != UINT_MAX) {
+            for (reg_id_t r = 0; r < REG_SPILL_NUM; r++) {
+                if (walk->reg_spilled[r]) {
                     ASSERT_NOT_IMPLEMENTED(!spill_seen);
                     spill_seen = true;
                 }
             }
-            bool tls;
-            bool spill;
-            uint offs;
-            if (instr_is_reg_spill_or_restore(tdcontext, inst, &tls, &spill, NULL,
-                                              &offs)) {
-                ASSERT_NOT_IMPLEMENTED(!spill);
-            } else if (!tls || offs == -1 ||
-                       offs != os_tls_offset((ushort)MANGLE_RIPREL_SPILL_SLOT)) {
-                /* Riprel mangling can put arbitrary registers into
-                 * MANGLE_RIPREL_SPILL_SLOT and as such is not recognized as regular
-                 * spill/restore by instr_is_reg_spill_or_restore. Either way, we don't
-                 * support cases that are more complex than one spill and restore in this
-                 * context if instruction was part of mangling epilogue.
-                 */
-                ASSERT_NOT_IMPLEMENTED(false);
+            if (!instr_is_tls_restore(inst, REG_NULL, MANGLE_RIPREL_SPILL_SLOT)) {
+                bool spill;
+                if (instr_is_DR_reg_spill_or_restore(tdcontext, inst, NULL, &spill, NULL,
+                                                     NULL)) {
+                    ASSERT_NOT_IMPLEMENTED(!spill);
+                } else {
+                    /* Rip-rel mangling can restore an arbitrary register from its
+                     * spill slot. Other cases must be a recognized DR restore.
+                     */
+                    ASSERT_NOT_IMPLEMENTED(false);
+                }
             }
             DOCHECK(1, {
                 /* Enforcing here what mangling needs to obey.  We can, however,
@@ -705,28 +730,8 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, instr_t *i
         });
     }
 
-    /* PR 263407: restore register values that are currently in spill slots
-     * for ind branches or rip-rel mangling.
-     * XXX: for rip-rel loads, we may have clobbered the destination
-     * already, and won't be able to restore it: but that's a minor issue.
-     */
-    for (r = 0; r < REG_SPILL_NUM; r++) {
-        if (walk->reg_spill_offs[r] != UINT_MAX) {
-            reg_id_t reg = r + REG_START_SPILL;
-            reg_t value;
-            if (walk->reg_tls[r]) {
-                value =
-                    *(reg_t *)(((byte *)&tdcontext->local_state->spill_space) +
-                               os_local_state_offset((ushort)walk->reg_spill_offs[r]));
-            } else {
-                value = reg_get_value_priv(reg, get_mcontext(tdcontext));
-            }
-            LOG(THREAD_GET, LOG_INTERP, 2, "\trestoring spilled %s to " PFX "\n",
-                reg_names[reg], value);
-            STATS_INC(recreate_spill_restores);
-            reg_set_value_priv(reg, walk->mc, value);
-        }
-    }
+    if (!translate_restore_spilled_registers(tdcontext, walk, os_tls_offset(0)))
+        return NULL;
 
     if (translate_pc !=
         walk->translation IF_X86(
@@ -957,8 +962,14 @@ recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *in
         }
     }
 
-    if (!just_pc)
-        answer = translate_walk_restore(tdcontext, &walk, &instr, answer);
+    if (!just_pc) {
+        app_pc restored = translate_walk_restore(tdcontext, &walk, &instr, answer);
+        if (restored == NULL) {
+            if (res == RECREATE_SUCCESS_STATE)
+                res = RECREATE_SUCCESS_PC;
+        } else
+            answer = restored;
+    }
     answer = translate_restore_special_cases(tdcontext, answer);
     LOG(THREAD_GET, LOG_INTERP, 2, "recreate_app -- found ok pc " PFX "\n", answer);
     mc->pc = answer;
@@ -1162,8 +1173,14 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
                     }
                 }
             }
-            if (!just_pc)
-                answer = translate_walk_restore(tdcontext, &walk, inst, answer);
+            if (!just_pc) {
+                app_pc restored = translate_walk_restore(tdcontext, &walk, inst, answer);
+                if (restored == NULL) {
+                    if (res == RECREATE_SUCCESS_STATE)
+                        res = RECREATE_SUCCESS_PC;
+                } else
+                    answer = restored;
+            }
             answer = translate_restore_special_cases(tdcontext, answer);
             LOG(THREAD_GET, LOG_INTERP, 2, "recreate_app -- found ok pc " PFX "\n",
                 answer);
@@ -2060,7 +2077,8 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
     bool success_so_far = true;
     bool inside_mangle_region = false;
     IF_X86(bool inside_mangle_epilogue = false;)
-    uint spill_ibreg_outstanding_offs = UINT_MAX;
+    int spill_ibreg_outstanding_offs = 0;
+    bool spill_ibreg_outstanding = false;
     reg_id_t reg;
     bool spill;
     int xsp_adjust = 0;
@@ -2099,7 +2117,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
             IF_X86(inside_mangle_epilogue = false;)
             xsp_adjust = 0;
             success_so_far = true;
-            spill_ibreg_outstanding_offs = UINT_MAX;
+            spill_ibreg_outstanding = false;
             /* go ahead and fall through and ensure we succeed w/ 0 xsp adjust */
         }
 
@@ -2119,7 +2137,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
                                mangle_translation == instr_get_translation(in));
             }
 
-            if (spill_ibreg_outstanding_offs != UINT_MAX) {
+            if (spill_ibreg_outstanding) {
                 mc.MC_IBL_REG = (reg_t)d_r_get_tls(spill_ibreg_outstanding_offs) + 1;
             } else {
                 mc.MC_IBL_REG =
@@ -2151,7 +2169,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
 
             /* check that xsp and ibreg are adjusted properly */
             ASSERT(mc.xsp == STRESS_XSP_INIT - /*negate*/ xsp_adjust);
-            ASSERT(spill_ibreg_outstanding_offs == UINT_MAX ||
+            ASSERT(!spill_ibreg_outstanding ||
                    mc.MC_IBL_REG == (reg_t)d_r_get_tls(spill_ibreg_outstanding_offs));
 
             if (success_so_far && !res)
@@ -2159,14 +2177,13 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
             instr_check_xsp_mangling(dcontext, in, &xsp_adjust);
             if (xsp_adjust != 0)
                 LOG(THREAD, LOG_INTERP, 3, "  xsp_adjust=%d\n", xsp_adjust);
-            uint offs = UINT_MAX;
+            int offs;
             if (instr_is_DR_reg_spill_or_restore(dcontext, in, NULL, &spill, &reg,
                                                  &offs) &&
                 reg == IBL_TARGET_REG) {
+                spill_ibreg_outstanding = spill;
                 if (spill)
                     spill_ibreg_outstanding_offs = offs;
-                else
-                    spill_ibreg_outstanding_offs = UINT_MAX;
             }
         }
     }
@@ -2178,3 +2195,76 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
 #endif /* INTERNAL */
 
 /* END TRANSLATION CODE ***********************************************************/
+
+#if defined(STANDALONE_UNIT_TEST) && defined(X86)
+void
+unit_test_tls_translate(dcontext_t *dcontext)
+{
+    local_state_t local_state;
+    dcontext_t tdcontext;
+    priv_mcontext_t mc;
+    translate_walk_t walk;
+    const ushort slot = TLS_REG0_SLOT;
+    const int bases[] = { 0x10000, -0x10000, -1 - (int)slot, INT_MIN,
+                          INT_MAX - (int)slot };
+    const int r = REG_XAX - REG_START_SPILL;
+    const reg_t value = 0x12345678;
+    ushort offs;
+    memset(&tdcontext, 0, sizeof(tdcontext));
+    memset(&local_state, 0, sizeof(local_state));
+    tdcontext.local_state = &local_state;
+    *(reg_t *)((byte *)&local_state.spill_space + slot) = value;
+    for (uint i = 0; i < BUFFER_SIZE_ELEMENTS(bases); ++i) {
+        memset(&mc, 0, sizeof(mc));
+        translate_walk_init(&walk, NULL, NULL, &mc);
+        walk.reg_spilled[r] = true;
+        walk.reg_tls[r] = true;
+        walk.reg_spill_offs[r] = bases[i] + slot;
+        EXPECT(translate_restore_spilled_registers(&tdcontext, &walk, bases[i]), true);
+        EXPECT(reg_get_value_priv(REG_XAX, &mc), value);
+        /* Validity is independent of all displacement bits, especially -1. */
+        walk.reg_spilled[r] = false;
+        reg_set_value_priv(REG_XAX, &mc, 0);
+        EXPECT(translate_restore_spilled_registers(&tdcontext, &walk, bases[i]), true);
+        EXPECT(reg_get_value_priv(REG_XAX, &mc), 0);
+    }
+    walk.reg_spilled[r] = true;
+    walk.reg_spill_offs[r] = INT_MIN;
+    EXPECT(translate_restore_spilled_registers(&tdcontext, &walk, INT_MAX), false);
+    walk.reg_spill_offs[r] = INT_MAX;
+    EXPECT(translate_restore_spilled_registers(&tdcontext, &walk, INT_MIN), false);
+    EXPECT(os_local_state_offset(-1, 0, &offs), false);
+    EXPECT(os_local_state_offset(USHRT_MAX + 1, 0, &offs), false);
+    EXPECT(os_local_state_offset(INT_MIN + USHRT_MAX, INT_MIN, &offs), true);
+    EXPECT(offs, USHRT_MAX);
+    walk.reg_spill_offs[r] = USHRT_MAX;
+    EXPECT(translate_restore_spilled_registers(&tdcontext, &walk, 0), false);
+    EXPECT(os_local_state_offset(os_tls_offset(slot), os_tls_offset(0), &offs), true);
+    EXPECT(offs, slot);
+
+    /* Exercise the actual recognizer and walk tracking with the OS's TLS base. */
+    instr_t *spill = instr_create_save_to_tls(dcontext, REG_XAX, slot);
+    instr_t *restore = instr_create_restore_from_tls(dcontext, REG_XAX, slot);
+    instr_set_our_mangling(spill, true);
+    instr_set_our_mangling(restore, true);
+    translate_walk_init(&walk, NULL, NULL, &mc);
+    translate_walk_track_pre_instr(dcontext, spill, &walk);
+    translate_walk_track_post_instr(dcontext, spill, &walk);
+    EXPECT(walk.reg_spilled[r], true);
+    EXPECT(walk.reg_spill_offs[r], os_tls_offset(slot));
+    translate_walk_track_pre_instr(dcontext, restore, &walk);
+    translate_walk_track_post_instr(dcontext, restore, &walk);
+    EXPECT(walk.reg_spilled[r], false);
+    instr_destroy(dcontext, spill);
+    instr_destroy(dcontext, restore);
+#    if defined(UNIX) && !defined(MACOS64)
+    /* macOS x64 shares GS with the app instead of saving separate FS/GS bases. */
+    instr_t *seg_load = instr_create_restore_from_tls(dcontext, REG_XAX,
+                                                      os_get_app_tls_base_offset(SEG_FS));
+    instr_set_our_mangling(seg_load, true);
+    EXPECT(instr_is_seg_ref_load(dcontext, seg_load), true);
+    instr_destroy(dcontext, seg_load);
+#    endif
+    print_file(STDERR, "done testing TLS spill translation\n");
+}
+#endif /* STANDALONE_UNIT_TEST && X86 */

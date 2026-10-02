@@ -93,7 +93,7 @@ typedef struct _tracedump_trace_header_t {
 #define BB_ORIGIN_HEADER_SIZE (sizeof(app_pc) + sizeof(int))
 
 /**< tracedump_stub_data_t.stub_size will not exceed this value. */
-#define SEPARATE_STUB_MAX_SIZE IF_X64_ELSE(23, 15)
+#define SEPARATE_STUB_MAX_SIZE IF_X64_ELSE(24, 15)
 
 /** The format of a stub in a trace dump file. */
 typedef struct _tracedump_stub_data {
