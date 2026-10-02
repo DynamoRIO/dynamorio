@@ -92,7 +92,7 @@ reader_t::operator++()
             if (version_ == 0) {
                 version_ = input_entry_->addr;
             } else if (input_entry_->addr != version_) {
-                ERRMSG("Header mismatch: new header version %" PRIu64 " != %" PRIu64 "\n",
+                ERRMSG("Header mismatch: new header version %zu != %" PRIu64 "\n",
                        input_entry_->addr, version_);
                 assert_release_too(false);
             }
@@ -372,8 +372,8 @@ reader_t::process_input_entry()
             if (version_ == 0) {
                 version_ = cur_ref_.marker.marker_value;
             } else if (cur_ref_.marker.marker_value != version_) {
-                ERRMSG("Version mismatch: header %" PRIu64 " != marker %" PRIu64 "\n",
-                       version_, input_entry_->addr);
+                ERRMSG("Version mismatch: header %" PRIu64 " != marker %zu\n", version_,
+                       input_entry_->addr);
                 assert_release_too(false);
             }
         } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
@@ -404,7 +404,7 @@ reader_t::process_input_entry()
         if (version_ == 0) {
             version_ = input_entry_->addr;
         } else if (input_entry_->addr != version_) {
-            ERRMSG("Header mismatch: new header version %" PRIu64 " != %" PRIu64 "\n",
+            ERRMSG("Header mismatch: new header version %zu != %" PRIu64 "\n",
                    input_entry_->addr, version_);
             assert_release_too(false);
         }
