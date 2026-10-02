@@ -643,8 +643,7 @@ translate_restore_spilled_registers(dcontext_t *tdcontext, translate_walk_t *wal
             reg_t value;
             if (walk->reg_tls[r]) {
                 ushort offs;
-                if (!os_tls_offset_to_local_state(walk->reg_spill_offs[r], tls_base,
-                                                  &offs) ||
+                if (!os_local_state_offset(walk->reg_spill_offs[r], tls_base, &offs) ||
                     offs > sizeof(tdcontext->local_state->spill_space) - sizeof(reg_t))
                     return false;
                 value = *(reg_t *)(((byte *)&tdcontext->local_state->spill_space) + offs);
@@ -2234,13 +2233,14 @@ unit_test_tls_translate(dcontext_t *dcontext)
     EXPECT(translate_restore_spilled_registers(&tdcontext, &walk, INT_MAX), false);
     walk.reg_spill_offs[r] = INT_MAX;
     EXPECT(translate_restore_spilled_registers(&tdcontext, &walk, INT_MIN), false);
-    EXPECT(os_tls_offset_to_local_state(-1, 0, &offs), false);
-    EXPECT(os_tls_offset_to_local_state(USHRT_MAX + 1, 0, &offs), false);
-    EXPECT(os_tls_offset_to_local_state(INT_MIN + USHRT_MAX, INT_MIN, &offs), true);
+    EXPECT(os_local_state_offset(-1, 0, &offs), false);
+    EXPECT(os_local_state_offset(USHRT_MAX + 1, 0, &offs), false);
+    EXPECT(os_local_state_offset(INT_MIN + USHRT_MAX, INT_MIN, &offs), true);
     EXPECT(offs, USHRT_MAX);
     walk.reg_spill_offs[r] = USHRT_MAX;
     EXPECT(translate_restore_spilled_registers(&tdcontext, &walk, 0), false);
-    EXPECT(os_local_state_offset(os_tls_offset(slot)), slot);
+    EXPECT(os_local_state_offset(os_tls_offset(slot), os_tls_offset(0), &offs), true);
+    EXPECT(offs, slot);
 
     /* Exercise the actual recognizer and walk tracking with the OS's TLS base. */
     instr_t *spill = instr_create_save_to_tls(dcontext, REG_XAX, slot);

@@ -4662,17 +4662,6 @@ os_tls_offset(ushort tls_offs)
     return tls_local_state_offs + tls_offs;
 }
 
-/* Converts a signed segment displacement back to a local-state slot offset. */
-ushort
-os_local_state_offset(int seg_offs)
-{
-    ushort offs = 0;
-    bool valid = os_tls_offset_to_local_state(seg_offs, os_tls_offset(0), &offs);
-    if (!valid)
-        ASSERT_NOT_REACHED();
-    return offs;
-}
-
 local_state_t *
 get_local_state()
 {
