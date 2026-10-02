@@ -337,6 +337,7 @@ filter_repstr_callee(int num_memrefs, int opsize)
     offline_entry_t start = *record++;
     offline_entry_t end, pc2, meminfo2, start2, end2;
     // Clear to be safe.
+    end.combined_value = 0;
     pc2.combined_value = 0;
     meminfo2.combined_value = 0;
     start2.combined_value = 0;
@@ -378,6 +379,8 @@ filter_repstr_callee(int num_memrefs, int opsize)
                " backward=%d\n",
                addr, end.combined_value, backward);
     }
+    // The end is exclusive: the register holding the address is updated *after*
+    // the memory operation so it ends pointing one past the final memop.
     while ((backward && addr > end.combined_value) ||
            (!backward && addr < end.combined_value)) {
         DR_ASSERT(num_memrefs == 1 || (backward && addr2 > end2.combined_value) ||
@@ -2203,17 +2206,35 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
                 bool is_L0I_enabled, is_L0D_enabled;
                 get_L0_filters_enabled(tracing_mode.load(std::memory_order_acquire),
                                        &is_L0I_enabled, &is_L0D_enabled);
+                offline_entry_t orig_pc, orig_meminfo;
+                orig_pc.combined_value = 0;
+                orig_meminfo.combined_value = 0;
+                if (is_L0D_enabled) {
+                    // We expect 3 records for each memref: PC, MEMINFO, and address; or 2
+                    // records for 1-memref instrs where MEMINFO is not needed.
+                    const int records_per = (num_memrefs == 1) ? 2 : 3;
+                    offline_entry_t *entry =
+                        reinterpret_cast<offline_entry_t *>(BUF_PTR(data->seg_base));
+                    orig_pc = *(entry - records_per);
+                    DR_ASSERT(orig_pc.pc.type ==
+                              OFFLINE_TYPE_PC IF_X64(
+                                  || orig_pc.pc.type == OFFLINE_TYPE_PC_TOP_BIT));
+                    // Only multi-memref instrs need MEMINFO records.
+                    if (num_memrefs > 1) {
+                        orig_meminfo = *(entry - records_per + 1);
+                        DR_ASSERT(orig_meminfo.extended.type == OFFLINE_TYPE_EXTENDED &&
+                                  orig_meminfo.extended.ext == OFFLINE_EXT_TYPE_MEMINFO);
+                    }
+                }
                 if (instr_reads_memory(instr)) {
                     NOTIFY(2, "interrupted repstr: inserting end xsi=%p\n",
                            info->source_mcontext->xsi);
                     offline_entry_t *entry =
                         reinterpret_cast<offline_entry_t *>(BUF_PTR(data->seg_base));
                     if (is_L0D_enabled) {
-                        offline_entry_t pc = *(entry - 2);
-                        *entry++ = pc;
-                        // Only multi-memref instrs need MEMINFO records.
+                        *entry++ = orig_pc;
                         if (num_memrefs > 1) {
-                            offline_entry_t meminfo = *(entry - 1);
+                            offline_entry_t meminfo = orig_meminfo;
                             meminfo.extended.valueB = TRACE_TYPE_READ;
                             *entry++ = meminfo;
                         }
@@ -2228,12 +2249,10 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
                     offline_entry_t *entry =
                         reinterpret_cast<offline_entry_t *>(BUF_PTR(data->seg_base));
                     if (is_L0D_enabled) {
-                        offline_entry_t pc = *(entry - 2);
-                        *entry++ = pc;
-                        // Only multi-memref instrs need MEMINFO records.
+                        *entry++ = orig_pc;
                         if (num_memrefs > 1) {
-                            offline_entry_t meminfo = *(entry - 1);
-                            meminfo.extended.valueB = TRACE_TYPE_READ;
+                            offline_entry_t meminfo = orig_meminfo;
+                            meminfo.extended.valueB = TRACE_TYPE_WRITE;
                             *entry++ = meminfo;
                         }
                         BUF_PTR(data->seg_base) += num_memrefs * sizeof(offline_entry_t);
