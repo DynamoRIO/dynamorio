@@ -93,23 +93,23 @@ main(int argc, char **argv)
         get_gs() != orig_gs)
         print("ARCH_SET_GS with upper bits failed\n");
 
-    /* The kernel rejects bases at or above TASK_SIZE_MAX, which is (1 << 47) - 4096
-     * with 4-level page tables and (1 << 56) - 4096 with 5-level page tables.  We find
-     * out which the kernel uses without arch_prctl: only with 5-level page tables can
-     * we map memory at 1 << 47.
+    /* The kernel rejects bases at or above TASK_SIZE_MAX, which is (1 << 47) - PAGE_SIZE
+     * with 4-level page tables and (1 << 56) - PAGE_SIZE with 5-level page tables.  We
+     * find out which the kernel uses without arch_prctl: only with 5-level page tables
+     * can we map memory at 1 << 47.
      */
-    void *hi = mmap((void *)(1UL << 47), 4096, PROT_READ,
+    void *hi = mmap((void *)(1UL << 47), PAGE_SIZE, PROT_READ,
                     MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1, 0);
     int five_level = hi == (void *)(1UL << 47);
     if (hi != MAP_FAILED)
-        munmap(hi, 4096);
-    check_set_gs((1UL << 47) - 8192, 1);
+        munmap(hi, PAGE_SIZE);
+    check_set_gs((1UL << 47) - 2 * PAGE_SIZE, 1);
     /* The first base between the two limits: DR asks the kernel. */
-    check_set_gs((1UL << 47) - 4096, five_level);
+    check_set_gs((1UL << 47) - PAGE_SIZE, five_level);
     /* The others use what DR learned. */
     check_set_gs(1UL << 47, five_level);
-    check_set_gs((1UL << 56) - 8192, five_level);
-    check_set_gs((1UL << 56) - 4096, 0);
+    check_set_gs((1UL << 56) - 2 * PAGE_SIZE, five_level);
+    check_set_gs((1UL << 56) - PAGE_SIZE, 0);
     check_set_gs(0xffff880000000000ULL, 0);
 
     if (syscall(SYS_arch_prctl, ARCH_SET_GS, orig_gs) != 0)

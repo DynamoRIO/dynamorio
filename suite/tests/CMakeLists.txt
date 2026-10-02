@@ -6112,7 +6112,7 @@ if (UNIX)
       "-vm_base 0x100000000 -no_vm_base_near_app" "")
   endif ()
 
-  if (X86 AND X64)
+  if (LINUX AND X86 AND X64)
     tobuild(linux.arch_prctl_gs linux/arch_prctl_gs.c)
   endif ()
   tobuild(linux.infinite linux/infinite.c)
