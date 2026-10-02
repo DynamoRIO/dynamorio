@@ -89,13 +89,9 @@ reader_t::operator++()
             // We support complete traces being packaged in archives and then read
             // sequentially.  We just keep going past the header.
             VPRINT(this, 2, "Assuming header is part of concatenated traces\n");
-            if (version_ == 0) {
-                version_ = input_entry_->addr;
-            } else if (input_entry_->addr != version_) {
-                ERRMSG("Header mismatch: new header version %zu != %" PRIu64 "\n",
-                       input_entry_->addr, version_);
-                assert_release_too(false);
-            }
+            // We do not complain about the version changing, to support multiple
+            // kernel templates of different versions in the same file.
+            version_ = input_entry_->addr;
             continue;
         }
         VPRINT(this, 5, "RECV: type=%s (%d), size=%d, addr=0x%zx\n",
@@ -401,13 +397,9 @@ reader_t::process_input_entry()
         VPRINT(
             this, 2,
             "Assuming header is part of concatenated or on-disk-core-sharded traces\n");
-        if (version_ == 0) {
-            version_ = input_entry_->addr;
-        } else if (input_entry_->addr != version_) {
-            ERRMSG("Header mismatch: new header version %zu != %" PRIu64 "\n",
-                   input_entry_->addr, version_);
-            assert_release_too(false);
-        }
+        // We do not complain about the version changing, to support multiple
+        // kernel templates of different versions in the same file.
+        version_ = input_entry_->addr;
         break;
     case TRACE_TYPE_FOOTER:
         // We support core-sharded-on-disk traces where an originally-thread-sharded
