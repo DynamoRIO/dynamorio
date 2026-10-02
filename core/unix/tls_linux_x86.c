@@ -878,12 +878,12 @@ os_set_dr_seg(dcontext_t *dcontext, reg_id_t seg)
  * one it uses, so on a processor that supports 5-level page tables we ask it once,
  * with a base between the two limits, and remember.
  */
-#    define SEG_BASE_LIMIT_4LEVEL ((reg_t)((1ULL << 47) - 4096))
-#    define SEG_BASE_LIMIT_5LEVEL ((reg_t)((1ULL << 56) - 4096))
+#    define SEG_BASE_LIMIT_4LEVEL ((reg_t)(1ULL << 47) - PAGE_SIZE)
+#    define SEG_BASE_LIMIT_5LEVEL ((reg_t)(1ULL << 56) - PAGE_SIZE)
 /* 1 if the kernel accepts bases below SEG_BASE_LIMIT_5LEVEL, 0 if only below
  * SEG_BASE_LIMIT_4LEVEL, -1 if we have not asked yet.
  */
-DECLARE_NEVERPROT_VAR(static int seg_base_limit_5level, -1);
+static int seg_base_limit_5level = -1;
 
 /* Sets the gs base to "base" with the kernel and returns its result.  On success the
  * system call replaces our own TLS base, which we restore.
@@ -913,18 +913,14 @@ tls_handle_pre_arch_set_gs(dcontext_t *dcontext, reg_t base)
         return -EPERM;
     if (base >= SEG_BASE_LIMIT_4LEVEL) {
         if (seg_base_limit_5level < 0) {
-            int cpuid_res[4];
             int res = -EPERM;
-            our_cpuid(cpuid_res, 0, 0);
-            if (cpuid_res[0] >= 7) {
-                our_cpuid(cpuid_res, 7, 0);
-                /* CPUID.(EAX=7,ECX=0):ECX[16] is LA57, support for 5-level paging. */
-                if ((cpuid_res[2] & (1 << 16)) != 0)
-                    res = probe_arch_set_gs(dcontext, base);
-            }
+            if (proc_has_feature(FEATURE_LA57))
+                res = probe_arch_set_gs(dcontext, base);
             if (res != 0 && res != -EPERM)
                 return res;
+            SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
             seg_base_limit_5level = (res == 0) ? 1 : 0;
+            SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
             LOG(GLOBAL, LOG_THREADS, 1, "kernel accepts gs bases below " PFX "\n",
                 res == 0 ? SEG_BASE_LIMIT_5LEVEL : SEG_BASE_LIMIT_4LEVEL);
         }

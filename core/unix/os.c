@@ -8525,7 +8525,7 @@ pre_system_call(dcontext_t *dcontext)
                 set_failure_return_val(dcontext, (uint)-res);
             break;
         }
-        /* we handle the rest of arch_prctl in post_syscall */
+        /* We handle the rest of arch_prctl in post_system_call(). */
         dcontext->sys_param0 = sys_param(dcontext, 0);
         dcontext->sys_param1 = sys_param(dcontext, 1);
         break;
