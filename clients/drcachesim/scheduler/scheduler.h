@@ -938,6 +938,13 @@ public:
          */
         uint64_t steal_attempt_period = 10000;
         /**
+         * Sets whether an output whose ready queue holds only blocked inputs attempts
+         * to steal from other outputs (subject to #steal_attempt_period) rather than
+         * idling until one of its inputs unblocks.  If false, an output only attempts
+         * to steal when its ready queue is empty.
+         */
+        bool steal_when_only_blocked = true;
+        /**
          * Sets whether to canonicalize (set to all 0's or all 1's) the top bytes
          * of each address in each record.  This is relevant for platforms
          * with a Top Byte Ignore feature where the top byte(s) of a 64-bit address

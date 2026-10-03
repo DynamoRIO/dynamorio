@@ -483,8 +483,16 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::pick_next_input_for_mode(
         set_cur_input(output, sched_type_t::INVALID_INPUT_ORDINAL);
         input_info_t *queue_next = nullptr;
         stream_status_t status = pop_from_ready_queue(output, output, queue_next);
+        if (status == sched_type_t::STATUS_IDLE && options_.steal_when_only_blocked &&
+            // Our queue holds only blocked inputs: rather than idling until one of
+            // them unblocks, try to run a ready input from another output.
+            try_steal(output) == sched_type_t::STATUS_STOLE) {
+            index = outputs_[output].cur_input;
+            return sched_type_t::STATUS_OK;
+        }
         if (status != sched_type_t::STATUS_OK) {
             if (status == sched_type_t::STATUS_IDLE) {
+                ++outputs_[output].idle_count;
                 outputs_[output].waiting = true;
                 if (options_.schedule_record_ostream != nullptr) {
                     stream_status_t record_status = this->record_schedule_segment(
@@ -1051,6 +1059,13 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::eof_or_idle_for_mode(
                live_inputs);
         return sched_type_t::STATUS_EOF;
     }
+    return try_steal(output);
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_dynamic_tmpl_t<RecordType, ReaderType>::try_steal(output_ordinal_t output)
+{
     // When going idle, periodically try to steal work from another output.
     // We don't want to try every time as we'll cause too much lock contention.
     // We start with us+1 to avoid everyone stealing from the low-numbered outputs
@@ -1062,14 +1077,18 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::eof_or_idle_for_mode(
             assert(target != output); // Sanity check (we won't reach "output").
             input_info_t *queue_next = nullptr;
             VPRINT(this, 4,
-                   "eof_or_idle: output %d trying to steal from %d's ready_queue\n",
-                   output, target);
+                   "try_steal: output %d trying to steal from %d's ready_queue\n", output,
+                   target);
             stream_status_t status = pop_from_ready_queue(target, output, queue_next);
             if (status == sched_type_t::STATUS_OK && queue_next != nullptr) {
                 set_cur_input(output, queue_next->index);
                 ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_RUNQUEUE_STEALS];
+                // Reset the counter so that our next transition to idle tries to
+                // steal right away.  on_context_switch() only resets it for
+                // idle-to-input switches, but we can get here input-to-input.
+                outputs_[output].consecutive_idles = 0;
                 VPRINT(this, 2,
-                       "eof_or_idle: output %d stole input %d from %d's ready_queue\n",
+                       "try_steal: output %d stole input %d from %d's ready_queue\n",
                        output, queue_next->index, target);
                 // This stolen task now has a core to itself, so it may make extra
                 // progress without competition: but that is better than this core
@@ -1079,7 +1098,7 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::eof_or_idle_for_mode(
             }
             // We didn't find anything; loop and check another output.
         }
-        VPRINT(this, 3, "eof_or_idle: output %d failed to steal from anyone\n", output);
+        VPRINT(this, 3, "try_steal: output %d failed to steal from anyone\n", output);
     }
     return sched_type_t::STATUS_IDLE;
 }
@@ -1302,9 +1321,8 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue_hold_lock
     }
     if (res == nullptr && !blocked.empty()) {
         // Do not hand out EOF thinking we're done: we still have inputs blocked
-        // on i/o, so just wait and retry.
-        if (for_output != sched_type_t::INVALID_OUTPUT_ORDINAL)
-            ++outputs_[for_output].idle_count;
+        // on i/o, so just wait and retry.  We leave it to the caller to count an
+        // idle, as a stealing caller may still find an input elsewhere.
         status = sched_type_t::STATUS_IDLE;
     }
     // Re-add the ones we skipped, but without changing their counters so we preserve

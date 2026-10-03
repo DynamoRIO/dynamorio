@@ -862,6 +862,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::print_configuration()
            options_.direct_switch_fallbacks);
     VPRINT(this, 1, "  %-25s : %" PRIu64 "\n", "steal_attempt_period",
            options_.steal_attempt_period);
+    VPRINT(this, 1, "  %-25s : %d\n", "steal_when_only_blocked",
+           options_.steal_when_only_blocked);
     VPRINT(this, 1, "  %-25s : %d\n", "canonicalize_addresses",
            options_.canonicalize_addresses);
 }
