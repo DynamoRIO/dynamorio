@@ -89,6 +89,9 @@ reader_t::operator++()
             // We support complete traces being packaged in archives and then read
             // sequentially.  We just keep going past the header.
             VPRINT(this, 2, "Assuming header is part of concatenated traces\n");
+            // We do not complain about the version changing, to support multiple
+            // kernel templates of different versions in the same file.
+            version_ = input_entry_->addr;
             continue;
         }
         VPRINT(this, 5, "RECV: type=%s (%d), size=%d, addr=0x%zx\n",
@@ -361,9 +364,15 @@ reader_t::process_input_entry()
             }
         } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID)
             last_cpuid_ = cur_ref_.marker.marker_value;
-        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_VERSION)
-            version_ = cur_ref_.marker.marker_value;
-        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
+        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_VERSION) {
+            if (version_ == 0) {
+                version_ = cur_ref_.marker.marker_value;
+            } else if (cur_ref_.marker.marker_value != version_) {
+                ERRMSG("Version mismatch: header %" PRIu64 " != marker %zu\n", version_,
+                       input_entry_->addr);
+                assert_release_too(false);
+            }
+        } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
             filetype_ = cur_ref_.marker.marker_value;
             found_filetype_ = true;
             if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype_)) {
@@ -388,6 +397,9 @@ reader_t::process_input_entry()
         VPRINT(
             this, 2,
             "Assuming header is part of concatenated or on-disk-core-sharded traces\n");
+        // We do not complain about the version changing, to support multiple
+        // kernel templates of different versions in the same file.
+        version_ = input_entry_->addr;
         break;
     case TRACE_TYPE_FOOTER:
         // We support core-sharded-on-disk traces where an originally-thread-sharded
