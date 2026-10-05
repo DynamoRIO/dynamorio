@@ -440,7 +440,8 @@ typedef enum {
     /**
      * The marker value contains the count of dynamic instruction executions in
      * this software thread since the start of the trace.  This marker type is only
-     * present in online-cache-filtered traces and is placed at thread exit.
+     * present in online-cache-filtered traces and is placed at each thread buffer
+     * boundary and at thread exit.
      */
     TRACE_MARKER_TYPE_INSTRUCTION_COUNT,
 
@@ -1171,7 +1172,9 @@ typedef enum {
 #define OFFLINE_FILE_VERSION_ELIDE_IMMED_BASE 11
 /** AArch64 stack pointer bases are elided. */
 #define OFFLINE_FILE_VERSION_ELIDE_AARCH64_SP 12
-#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_ELIDE_AARCH64_SP
+/** Rep string loops are never unrolled, even for filtered traces. */
+#define OFFLINE_FILE_VERSION_REPSTR_LOOP_ALL 13
+#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_REPSTR_LOOP_ALL
 
 /**
  * Bitfields used to describe the high-level characteristics of both an
