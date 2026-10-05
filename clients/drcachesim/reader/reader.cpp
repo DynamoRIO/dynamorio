@@ -80,20 +80,6 @@ reader_t::operator++()
             }
             break;
         }
-        if (input_entry_->type == TRACE_TYPE_FOOTER) {
-            VPRINT(this, 2, "At thread EOF\n");
-            // We've already presented the thread exit entry to the analyzer.
-            continue;
-        }
-        if (input_entry_->type == TRACE_TYPE_HEADER) {
-            // We support complete traces being packaged in archives and then read
-            // sequentially.  We just keep going past the header.
-            VPRINT(this, 2, "Assuming header is part of concatenated traces\n");
-            // We do not complain about the version changing, to support multiple
-            // kernel templates of different versions in the same file.
-            version_ = input_entry_->addr;
-            continue;
-        }
         VPRINT(this, 5, "RECV: type=%s (%d), size=%d, addr=0x%zx\n",
                trace_type_names[input_entry_->type], input_entry_->type,
                input_entry_->size, input_entry_->addr);
