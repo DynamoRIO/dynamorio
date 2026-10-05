@@ -223,13 +223,14 @@ public:
         scheduler_t::scheduler_options_t sched_ops =
             scheduler_t::make_scheduler_serial_options(verbosity_);
         sched_mapping_ = sched_ops.mapping;
-        if (scheduler_.init(sched_inputs, worker_count_, std::move(sched_ops)) !=
+        scheduler_ = std::make_unique<scheduler_t>();
+        if (scheduler_->init(sched_inputs, worker_count_, std::move(sched_ops)) !=
             sched_type_t::STATUS_SUCCESS) {
             assert(false);
             success_ = false;
         }
         for (int i = 0; i < worker_count_; ++i) {
-            worker_data_.push_back(analyzer_worker_data_t(i, scheduler_.get_stream(i)));
+            worker_data_.push_back(analyzer_worker_data_t(i, scheduler_->get_stream(i)));
         }
     }
 };

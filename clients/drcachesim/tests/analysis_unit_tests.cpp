@@ -104,13 +104,14 @@ public:
                     verbosity_);
         }
         sched_mapping_ = sched_ops.mapping;
-        if (scheduler_.init(sched_inputs, worker_count_, std::move(sched_ops)) !=
+        scheduler_ = std::make_unique<scheduler_tmpl_t<RecordType, ReaderType>>();
+        if (scheduler_->init(sched_inputs, worker_count_, std::move(sched_ops)) !=
             scheduler_tmpl_t<RecordType, ReaderType>::STATUS_SUCCESS) {
             assert(false);
             success_ = false;
         }
         for (int i = 0; i < worker_count_; ++i) {
-            worker_data_.push_back(analyzer_worker_data_t(i, scheduler_.get_stream(i)));
+            worker_data_.push_back(analyzer_worker_data_t(i, scheduler_->get_stream(i)));
         }
     }
     void

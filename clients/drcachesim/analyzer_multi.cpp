@@ -668,7 +668,7 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::~analyzer_multi_tmpl_t()
 
 #ifdef HAS_ZIP
     if (!op_record_file.get_value().empty()) {
-        if (this->scheduler_.write_recorded_schedule() != sched_type_t::STATUS_SUCCESS) {
+        if (this->scheduler_->write_recorded_schedule() != sched_type_t::STATUS_SUCCESS) {
             ERRMSG("Failed to write schedule to %s", op_record_file.get_value().c_str());
         }
     }

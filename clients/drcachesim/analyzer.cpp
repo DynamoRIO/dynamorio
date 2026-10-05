@@ -382,18 +382,19 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
         max_allowed_imbalance_ >= 1.) {
         load_balance_ = true;
     }
-    if (scheduler_.init(workloads, output_count, std::move(sched_ops)) !=
+    scheduler_ = std::make_unique<scheduler_tmpl_t<RecordType, ReaderType>>();
+    if (scheduler_->init(workloads, output_count, std::move(sched_ops)) !=
         sched_type_t::STATUS_SUCCESS) {
         ERRMSG("Failed to initialize scheduler: %s\n",
-               scheduler_.get_error_string().c_str());
+               scheduler_->get_error_string().c_str());
         return false;
     }
 
     for (int i = 0; i < worker_count_; ++i) {
-        worker_data_.push_back(analyzer_worker_data_t(i, scheduler_.get_stream(i)));
+        worker_data_.push_back(analyzer_worker_data_t(i, scheduler_->get_stream(i)));
         if (options.read_inputs_in_init) {
             // The docs say we can query the filetype up front.
-            uint64_t filetype = scheduler_.get_stream(i)->get_filetype();
+            uint64_t filetype = scheduler_->get_stream(i)->get_filetype();
             VPRINT(this, 2, "Worker %d filetype %" PRIx64 "\n", i, filetype);
             if (TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, filetype)) {
                 if (i == 0 && shard_type_ == SHARD_BY_CORE) {
@@ -615,8 +616,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
                     worker.error =
                         "Too-far -skip_instrs for: " + worker.stream->get_stream_name();
                 } else {
-                    worker.error =
-                        "Failed to read from trace: " + worker.stream->get_stream_name();
+                    worker.error = "Failed on " + worker.stream->get_stream_name() +
+                        ": " + scheduler_->get_error_string();
                 }
             } else if (interval_microseconds_ != 0 || interval_instr_count_ != 0) {
                 if (!process_interval(worker.shard_data[0].cur_interval_index,
@@ -828,8 +829,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks_internal(
                 worker->error =
                     "Too-far -skip_instrs for: " + worker->stream->get_stream_name();
             } else {
-                worker->error =
-                    "Failed to read from trace: " + worker->stream->get_stream_name();
+                worker->error = "Failed on " + worker->stream->get_stream_name() + ": " +
+                    scheduler_->get_error_string();
             }
             return false;
         }
