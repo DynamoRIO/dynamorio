@@ -1,5 +1,6 @@
 /* *******************************************************************************
  * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -42,6 +43,11 @@ typedef struct _memquery_iter_t {
     app_pc vm_start;
     app_pc vm_end;
     uint prot;
+#ifdef LINUX
+    bool is_shared;
+    uint device_major;
+    uint device_minor;
+#endif
     size_t offset; /* offset into the file being mapped */
     /* XXX: use ino_t?  We need to know what size code to use for the
      * scanf and I don't trust that we, the maps file, and any clients

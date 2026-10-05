@@ -1,5 +1,6 @@
 /* *******************************************************************************
  * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * Copyright (c) 2025 Foundation of Research and Technology, Hellas.
@@ -10199,6 +10200,43 @@ add_to_memcache(byte *region_start, byte *region_end, void *user_data)
 }
 #endif
 
+/* Returns whether the mapping in iter looks like the start of a loaded module. */
+static bool
+is_loaded_module_header(memquery_iter_t *iter, size_t size)
+{
+    if (!TESTANY(MEMPROT_READ, iter->prot) || !module_is_header(iter->vm_start, size))
+        return false;
+#ifdef LINUX
+    /* i#8117: An app may mmap an ELF file as data (a flat mapping).  DR sizes a
+     * module from its program headers, so a flat mapping could cover unrelated
+     * memory (e.g., JIT code).  Standard loaders map modules privately, so we
+     * validate only shared mappings.
+     * XXX i#8117: Private flat mappings have the same problem, but validating
+     * private mappings would also reject loaded modules that have no executable
+     * segment or whose code was remapped (e.g., onto huge pages).
+     */
+    if (!iter->is_shared)
+        return true;
+
+    /* Validation finds the file's executable mappings by device and inode and
+     * compares their file offsets with the program headers, so this must be a file
+     * mapped from offset 0.  An executable flat mapping could match itself: it maps
+     * file offset N at base + N, which is usually where the program headers place
+     * the code.
+     */
+    if (iter->inode == 0 || iter->offset != 0 || TESTANY(MEMPROT_EXEC, iter->prot))
+        return true;
+
+    if (!iter->may_alloc)
+        return true;
+
+    return module_validate_shared_elf_mapping(iter->vm_start, size, iter->device_major,
+                                              iter->device_minor, iter->inode);
+#else
+    return true;
+#endif
+}
+
 int
 os_walk_address_space(memquery_iter_t *iter, bool add_modules)
 {
@@ -10305,8 +10343,7 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
             /* we already added the whole image region when we hit the first map for it */
             image = true;
             DODEBUG({ map_type = "ELF SO"; });
-        } else if (TESTANY(MEMPROT_READ, iter->prot) &&
-                   module_is_header(iter->vm_start, size)) {
+        } else if (is_loaded_module_header(iter, size)) {
             DEBUG_DECLARE(size_t image_size = size;)
             app_pc mod_base, mod_first_end, mod_max_end;
             char *exec_match;

@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -122,6 +123,13 @@ module_is_executable(app_pc base);
 
 bool
 module_is_partial_map(app_pc base, size_t size, uint memprot);
+
+#ifdef LINUX
+/* Requires heap allocation and performs a nested non-allocating maps walk. */
+bool
+module_validate_shared_elf_mapping(app_pc base, size_t view_size, uint device_major,
+                                   uint device_minor, uint64 inode);
+#endif
 
 bool
 module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn_reloc,
