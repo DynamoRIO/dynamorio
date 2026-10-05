@@ -124,10 +124,11 @@ protected:
             return false;
         }
         header = *entry;
+        version_ = header.addr;
         // We can handle the older version 1 as well which simply omits the
         // early marker with the arch tag, and version 2 which only differs wrt
         // TRACE_MARKER_TYPE_KERNEL_EVENT.
-        if (entry->addr > TRACE_ENTRY_VERSION) {
+        if (version_ > TRACE_ENTRY_VERSION) {
             ERRMSG("Cannot handle version #%zu (expect version <= #%u)\n", entry->addr,
                    TRACE_ENTRY_VERSION);
             return false;

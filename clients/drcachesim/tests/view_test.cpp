@@ -674,7 +674,7 @@ run_single_thread_chunk_test(void *drcontext)
     const memref_tid_t t1 = 3;
     std::vector<memref_tid_t> tids = { t1 };
     std::vector<std::vector<trace_entry_t>> entries = { {
-        { TRACE_TYPE_HEADER, 0, { 0x1 } },
+        { TRACE_TYPE_HEADER, 0, { 0x3 } },
         { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 3 } },
         { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE, { 0 } },
         { TRACE_TYPE_THREAD, 0, { t1 } },
@@ -726,7 +726,7 @@ run_serial_chunk_test(void *drcontext)
     std::vector<memref_tid_t> tids = { t1, t2 };
     std::vector<std::vector<trace_entry_t>> entries = {
         {
-            { TRACE_TYPE_HEADER, 0, { 0x1 } },
+            { TRACE_TYPE_HEADER, 0, { 0x3 } },
             { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 3 } },
             { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE, { 0 } },
             { TRACE_TYPE_THREAD, 0, { t1 } },
@@ -742,7 +742,7 @@ run_serial_chunk_test(void *drcontext)
             { TRACE_TYPE_INSTR, 4, { 42 } },
         },
         {
-            { TRACE_TYPE_HEADER, 0, { 0x1 } },
+            { TRACE_TYPE_HEADER, 0, { 0x3 } },
             { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 3 } },
             { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE, { 0 } },
             { TRACE_TYPE_THREAD, 0, { t2 } },
@@ -858,7 +858,7 @@ run_regdeps_test(void *drcontext)
     constexpr addr_t ENCODING_REGDEPS_ISA_lock_cmpxchg_2 = 0x00000026;
     constexpr addr_t ENCODING_REGDEPS_ISA_branch = 0x00002200;
     std::vector<std::vector<trace_entry_t>> entries = { {
-        { TRACE_TYPE_HEADER, 0, { 0x1 } },
+        { TRACE_TYPE_HEADER, 0, { 0x3 } },
         { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 3 } },
         { TRACE_TYPE_MARKER,
           TRACE_MARKER_TYPE_FILETYPE,
