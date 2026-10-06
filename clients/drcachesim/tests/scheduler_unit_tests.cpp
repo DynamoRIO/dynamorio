@@ -8170,8 +8170,10 @@ test_kernel_switch_sequences()
             inputs.push_back(test_util::make_pid(1));
             inputs.push_back(test_util::make_version(TRACE_ENTRY_VERSION));
             inputs.push_back(test_util::make_timestamp(TIMESTAMP));
-            for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++)
-                inputs.push_back(test_util::make_instr(tid + instr_idx));
+            for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
+                inputs.push_back(
+                    test_util::make_instr(static_cast<addr_t>(tid + instr_idx)));
+            }
             inputs.push_back(test_util::make_exit(tid));
             readers.emplace_back(
                 std::unique_ptr<test_util::mock_reader_t>(
@@ -8225,8 +8227,10 @@ test_kernel_switch_sequences()
             inputs.push_back(test_util::make_pid(1));
             inputs.push_back(test_util::make_version(version));
             inputs.push_back(test_util::make_timestamp(TIMESTAMP));
-            for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++)
-                inputs.push_back(test_util::make_instr(tid + instr_idx));
+            for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
+                inputs.push_back(
+                    test_util::make_instr(static_cast<addr_t>(tid + instr_idx)));
+            }
             inputs.push_back(test_util::make_exit(tid));
             readers.emplace_back(
                 std::unique_ptr<test_util::mock_reader_t>(
@@ -8601,7 +8605,8 @@ test_kernel_syscall_sequences()
             inputs.push_back(test_util::make_version(TRACE_ENTRY_VERSION));
             inputs.push_back(test_util::make_timestamp(TIMESTAMP));
             for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
-                inputs.push_back(test_util::make_instr(tid + instr_idx));
+                inputs.push_back(
+                    test_util::make_instr(static_cast<addr_t>(tid + instr_idx)));
                 // As above, every other instr is a syscall, but to simplify we have
                 // no maybe-blocking and always have post timestamps.
                 if (instr_idx % 2 == 0) {
@@ -8670,7 +8675,8 @@ test_kernel_syscall_sequences()
             inputs.push_back(test_util::make_version(version));
             inputs.push_back(test_util::make_timestamp(TIMESTAMP));
             for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
-                inputs.push_back(test_util::make_instr(tid + instr_idx));
+                inputs.push_back(
+                    test_util::make_instr(static_cast<addr_t>(tid + instr_idx)));
                 // As above, every other instr is a syscall, but to simplify we have
                 // no maybe-blocking and always have post timestamps.
                 if (instr_idx % 2 == 0) {
