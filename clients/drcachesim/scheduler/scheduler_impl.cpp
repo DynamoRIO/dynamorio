@@ -2020,7 +2020,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_pending_syscall_sequence(
         // records from the reader.
         input->queue.emplace_front(record);
     }
-    int version = input->reader->get_version();
+    int version = static_cast<int>(input->reader->get_version());
     trace_sequence_t *to_inject_sequence =
         get_syscall_sequence(version, input->to_inject_syscall);
     if (to_inject_sequence == nullptr) {
@@ -3061,11 +3061,11 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::on_context_switch(
             switch_type = switch_type_t::SWITCH_PROCESS;
         int version = 0;
         if (prev_input != sched_type_t::INVALID_INPUT_ORDINAL)
-            version = inputs_[prev_input].reader->get_version();
+            version = static_cast<int>(inputs_[prev_input].reader->get_version());
         else if (new_input != sched_type_t::INVALID_INPUT_ORDINAL)
-            version = inputs_[new_input].reader->get_version();
+            version = static_cast<int>(inputs_[new_input].reader->get_version());
         else
-            version = outputs_[output].stream->get_version();
+            version = static_cast<int>(outputs_[output].stream->get_version());
         const auto &version_it = switch_sequence_.find(version);
         if (version_it == switch_sequence_.end()) {
             outputs_[output].stream->error_string_ =
@@ -3418,7 +3418,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::finalize_next_record(
     if (is_marker && marker_type == TRACE_MARKER_TYPE_SYSCALL) {
         assert(!input->in_syscall_injection);
         int syscall_num = static_cast<int>(marker_value);
-        int version = input->reader->get_version();
+        int version = static_cast<int>(input->reader->get_version());
         trace_sequence_t *to_inject_sequence = get_syscall_sequence(version, syscall_num);
         if (to_inject_sequence == nullptr) {
             if (!syscall_sequence_.empty()) {
