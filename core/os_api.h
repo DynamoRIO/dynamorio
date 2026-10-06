@@ -598,6 +598,8 @@ typedef struct _dr_mem_info_t {
     uint prot;
     /** Type of region */
     dr_mem_type_t type;
+    /** Whether the region is a shared mapping (Linux; false elsewhere). */
+    bool is_shared;
 } dr_mem_info_t;
 
 #ifdef DR_PAGE_SIZE_COMPATIBILITY

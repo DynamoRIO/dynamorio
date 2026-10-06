@@ -3806,9 +3806,8 @@ find_dynamo_library_vm_areas()
              */
             add_dynamo_vm_area(mbi.BaseAddress,
                                ((app_pc)mbi.BaseAddress) + mbi.RegionSize,
-                               osprot_to_memprot(mbi.Protect),
-                               true /* from image */
-                               _IF_DEBUG(prot_string(mbi.Protect)));
+                               osprot_to_memprot(mbi.Protect), true, /* from image */
+                               /*is_shared=*/false _IF_DEBUG(prot_string(mbi.Protect)));
             /* we need all writable regions to be inside the
              * sections that we protect */
             ASSERT(
@@ -4459,9 +4458,10 @@ process_memory_region(dcontext_t *dcontext, MEMORY_BASIC_INFORMATION *mbi, bool 
      * could have them on future list or something
      */
     if (add) {
-        return app_memory_allocation(
-            dcontext, mbi->BaseAddress, mbi->RegionSize, osprot_to_memprot(mbi->Protect),
-            from_image _IF_DEBUG(from_image ? "module" : "alloc"));
+        return app_memory_allocation(dcontext, mbi->BaseAddress, mbi->RegionSize,
+                                     osprot_to_memprot(mbi->Protect), from_image,
+                                     false /*not shared*/
+                                     _IF_DEBUG(from_image ? "module" : "alloc"));
     } else {
         app_memory_deallocation(dcontext, mbi->BaseAddress, mbi->RegionSize,
                                 false /* don't own thread_initexit_lock */, from_image);
@@ -4552,7 +4552,7 @@ all_memory_areas_unlock()
 { /* do nothing */
 }
 void
-update_all_memory_areas(app_pc start, app_pc end, uint prot, int type)
+update_all_memory_areas(app_pc start, app_pc end, uint prot, int type, bool is_shared)
 {
     /* do nothing */
 }
@@ -5732,6 +5732,7 @@ query_memory_internal(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info,
     byte *alloc_base;
     int num_blocks = 0;
     ASSERT(info != NULL);
+    info->is_shared = false;
     if (query_virtual_memory(pb, &mbi, sizeof(mbi)) != sizeof(mbi)) {
         /* Kernel memory returns STATUS_INVALID_PARAMETER.  We want to
          * distinguish that from some other failure (i#1538).

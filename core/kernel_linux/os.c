@@ -526,7 +526,7 @@ all_memory_areas_unlock(void)
 }
 
 void
-update_all_memory_areas(app_pc start, app_pc end, uint prot, int type)
+update_all_memory_areas(app_pc start, app_pc end, uint prot, int type, bool is_shared)
 {
     /* No-op in kernel mode. */
 }

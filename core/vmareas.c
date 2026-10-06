@@ -133,6 +133,11 @@ enum {
 
     /* i#1114: for areas containing JIT code flushed via annotation or inference */
     VM_JIT_MANAGED = 0x2000,
+
+    /* A shared page could be aliased at another address with different permissions, and
+     * therefore could be written to through the alias even if it is read-only.
+     */
+    VM_SHARED_MAPPING = 0x4000,
 };
 
 /* simple way to disable sandboxing */
@@ -2719,7 +2724,8 @@ add_executable_vm_area(app_pc start, app_pc end, uint vm_flags, uint frag_flags,
     {
         /* we only expect certain flags */
         uint expect = VM_WRITABLE | VM_UNMOD_IMAGE | VM_MADE_READONLY |
-            VM_DELAY_READONLY | VM_WAS_FUTURE | VM_EXECUTED_FROM | VM_DRIVER_ADDRESS;
+            VM_DELAY_READONLY | VM_WAS_FUTURE | VM_EXECUTED_FROM | VM_DRIVER_ADDRESS |
+            VM_SHARED_MAPPING;
 #    ifdef PROGRAM_SHEPHERDING
         expect |= VM_PATTERN_REVERIFY;
 #    endif
@@ -3661,8 +3667,8 @@ dynamo_vm_areas_done_reading(void)
  * w/ the app executing from it -- thus caller must hold DR areas write lock!
  */
 bool
-add_dynamo_vm_area(app_pc start, app_pc end, uint prot,
-                   bool unmod_image _IF_DEBUG(const char *comment))
+add_dynamo_vm_area(app_pc start, app_pc end, uint prot, bool unmod_image,
+                   bool is_shared _IF_DEBUG(const char *comment))
 {
     uint vm_flags = (TESTANY(MEMPROT_WRITE, prot) ? VM_WRITABLE : 0) |
         (unmod_image ? VM_UNMOD_IMAGE : 0);
@@ -3678,7 +3684,7 @@ add_dynamo_vm_area(app_pc start, app_pc end, uint prot,
     add_vm_area(dynamo_areas, start, end, vm_flags, 0 /* frag_flags */,
                 NULL _IF_DEBUG(comment));
     update_all_memory_areas(start, end, prot,
-                            unmod_image ? DR_MEMTYPE_IMAGE : DR_MEMTYPE_DATA);
+                            unmod_image ? DR_MEMTYPE_IMAGE : DR_MEMTYPE_DATA, is_shared);
     return true;
 }
 
@@ -3944,6 +3950,14 @@ is_driver_address(app_pc addr)
         return TESTANY(VM_DRIVER_ADDRESS, vm_flags);
     }
     return false;
+}
+
+bool
+is_shared_mapping(app_pc addr)
+{
+    uint vm_flags;
+    return get_executable_area_vm_flags(addr, &vm_flags) &&
+        TESTANY(VM_SHARED_MAPPING, vm_flags);
 }
 
 #ifdef PROGRAM_SHEPHERDING /********************************************/
@@ -6085,7 +6099,7 @@ app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot, b
  */
 bool
 app_memory_allocation(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
-                      bool image _IF_DEBUG(const char *comment))
+                      bool image, bool is_shared _IF_DEBUG(const char *comment))
 {
     /* First handle overlap with existing areas.  Callers try to additionally do this
      * pre-syscall to catch cases we want to block, but we can't do everything there
@@ -6137,11 +6151,16 @@ app_memory_allocation(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
 
     if (!TESTANY(MEMPROT_WRITE, prot)) {
         uint frag_flags = 0;
+        uint vm_flags = image ? VM_UNMOD_IMAGE : 0;
         if (DYNAMO_OPTION(coarse_units) && image && !RUNNING_WITHOUT_CODE_CACHE()) {
             /* all images start out with coarse-grain management */
             frag_flags |= FRAG_COARSE_GRAIN;
         }
-        add_executable_vm_area(base, base + size, image ? VM_UNMOD_IMAGE : 0, frag_flags,
+        if (is_shared && DYNAMO_OPTION(sandbox_shared)) {
+            vm_flags |= VM_SHARED_MAPPING;
+            frag_flags |= FRAG_SELFMOD_SANDBOXED;
+        }
+        add_executable_vm_area(base, base + size, vm_flags, frag_flags,
                                false /*no lock*/ _IF_DEBUG(comment));
         return true;
     } else if (dcontext == NULL ||
@@ -6386,6 +6405,39 @@ set_region_jit_managed(app_pc start, size_t len)
                     NULL _IF_DEBUG("jit-managed"));
     }
     d_r_write_unlock(&executable_areas->lock);
+}
+
+/* Replace only existing executable areas in [start, end), preserving any gaps.
+ * The caller must flush fragments first and hold the executable_areas write lock
+ * until the replacements are complete.
+ */
+static void
+replace_executable_vm_areas_for_protection_change(app_pc start, app_pc end, uint vm_flags,
+                                                  uint frag_flags)
+{
+    vm_area_t *area;
+    ASSERT_OWN_WRITE_LOCK(true, &executable_areas->lock);
+    while (start < end &&
+           binary_search(executable_areas, start, end, &area, NULL, true /*first*/)) {
+        app_pc overlap_start = MAX(start, area->start);
+        app_pc overlap_end = MIN(end, area->end);
+        uint this_area_vm_flags = vm_flags;
+        uint this_area_frag_flags = frag_flags;
+        if (TESTANY(VM_SHARED_MAPPING, area->vm_flags)) {
+            this_area_vm_flags |= VM_SHARED_MAPPING;
+            if (DYNAMO_OPTION(sandbox_shared)) {
+                this_area_frag_flags |= FRAG_SELFMOD_SANDBOXED;
+            }
+        }
+        remove_executable_vm_area(overlap_start, overlap_end, true /*have lock*/);
+        add_executable_vm_area(overlap_start, overlap_end, this_area_vm_flags,
+                               this_area_frag_flags,
+                               true /*have lock*/ _IF_DEBUG("protection change"));
+        /* Removal and insertion can move or merge entries, so search again using
+         * the saved end rather than retaining an area pointer or vector index.
+         */
+        start = overlap_end;
+    }
 }
 
 /* Called when memory region base:base+size is about to have privileges prot.
@@ -6839,18 +6891,19 @@ app_memory_protection_change_internal(dcontext_t *dcontext, bool update_areas,
         LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 1,
             "executable writable region " PFX "-" PFX " => read-only!\n", base,
             base + size);
-        /* remove writable exec area, then add read-only exec area */
-        /* use two-part flush to make futureexec & exec changes atomic w/ flush */
-        should_finish_flushing =
-            flush_and_remove_executable_vm_area(dcontext, base, size);
-        /* XXX: this is wrong -- this will make all pieces in the middle executable,
-         * which is not what we want -- we want all pieces ON THE EXEC LIST to
-         * change from rw to r.  thus this should be like the change-to-selfmod case
-         * in handle_modified_code => add new vector routine?  (case 3570)
+
+        /* Use a two-part flush to make futureexec and exec changes atomic with
+         * the flush.  Keep the exec list until we can replace each overlap,
+         * splitting at the protection-change boundaries and preserving gaps
+         * (case 3570), as in handle_modified_code's change-to-selfmod case.
          */
-        add_executable_vm_area(base, base + size, image ? VM_UNMOD_IMAGE : 0, 0,
-                               should_finish_flushing /* own lock if flushed */
-                                   _IF_DEBUG("protection change"));
+        flush_fragments_in_region_start(
+            dcontext, base, size, false /*don't own initexit_lock*/,
+            false /*keep futures*/, true /*exec invalid*/, false /*don't force synchall*/,
+            THREAD_SYNCH_NO_LOCKS_NO_XFER _IF_DGCDIAG(NULL));
+        should_finish_flushing = true;
+        replace_executable_vm_areas_for_protection_change(base, base + size,
+                                                          image ? VM_UNMOD_IMAGE : 0, 0);
     }
     /* also look for calls making data executable
      * XXX: perhaps should do a write_keep for this is_executable, to bind
@@ -6961,9 +7014,39 @@ app_memory_protection_change_internal(dcontext_t *dcontext, bool update_areas,
                 }
                 /* XXX : see note at top of function about bug 2833 */
                 ASSERT(!TESTANY(MEMPROT_WRITE, prot)); /* sanity check */
-                add_executable_vm_area(base, base + size, image ? VM_UNMOD_IMAGE : 0,
-                                       frag_flags_pfx,
-                                       false /*no lock*/ _IF_DEBUG(comment));
+
+                /* A protection change can span private and shared mappings.
+                 * Determine sandboxing separately for each mapping.
+                 *
+                 */
+                app_pc region_start = base;
+                app_pc end = base + size;
+                while (region_start < end) {
+                    app_pc region_end = end;
+                    uint region_vm_flags = image ? VM_UNMOD_IMAGE : 0;
+                    uint region_frag_flags = frag_flags_pfx;
+                    if (DYNAMO_OPTION(sandbox_shared)) {
+                        dr_mem_info_t info;
+                        if (!query_memory_ex(region_start, &info))
+                            break;
+
+                        if (!POINTER_OVERFLOW_ON_ADD(info.base_pc, info.size))
+                            region_end = MIN(end, info.base_pc + info.size);
+                        ASSERT(region_end > region_start);
+                        if (info.type == DR_MEMTYPE_FREE) {
+                            region_start = region_end;
+                            continue;
+                        }
+                        if (info.is_shared) {
+                            region_vm_flags |= VM_SHARED_MAPPING;
+                            region_frag_flags |= FRAG_SELFMOD_SANDBOXED;
+                        }
+                    }
+                    add_executable_vm_area(region_start, region_end, region_vm_flags,
+                                           region_frag_flags,
+                                           false /*no lock*/ _IF_DEBUG(comment));
+                    region_start = region_end;
+                }
             }
 #ifdef WINDOWS
             if (free_iat) {
@@ -7398,6 +7481,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
     app_pc base_pc = 0;
     size_t size = 0; /* set only for unknown areas */
     uint prot = 0;   /* set only for unknown areas */
+    bool is_shared = false;
     /* both area and local_area either point to thread-local vector, for which
      * we do not need a lock, or to a shared area, for which we hold
      * a read or a write lock (either is sufficient) the entire time
@@ -7564,7 +7648,13 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
              own_execareas_writelock IF_HOTP(&&(!DYNAMO_OPTION(hot_patching) ||
                                                 self_owns_write_lock(hotp_get_lock())))));
         ASSERT(!ok || area != NULL);
-        is_allocated_mem = get_memory_info(pc, &base_pc, &size, &prot);
+        dr_mem_info_t info = { 0 };
+        is_allocated_mem =
+            query_memory_ex_from_os(pc, &info) && info.type != DR_MEMTYPE_FREE;
+        base_pc = info.base_pc;
+        size = info.size;
+        prot = info.prot;
+        is_shared = info.is_shared;
         /* i#2135 : it can be a guard page if either ok or not ok
          * so we have to get protection value right now
          */
@@ -8100,6 +8190,14 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
 #endif
         } else {
             /* need to add the region */
+
+            /* The shared check must go before the writable check to prevent the region
+             * being put in read-only mode.
+             */
+            if (DYNAMO_OPTION(sandbox_shared) && is_shared) {
+                vm_flags |= VM_SHARED_MAPPING;
+                frag_flags |= FRAG_SELFMOD_SANDBOXED;
+            }
             if (TESTANY(MEMPROT_WRITE, prot)) {
                 vm_flags |= VM_WRITABLE;
                 STATS_INC(num_writable_code_regions);
@@ -11047,7 +11145,7 @@ vm_area_selfmod_check_clear_exec_count(dcontext_t *dcontext, fragment_t *f)
     app_pc start, end;
     bool ok;
     bool convert_s2ro = true;
-    if (DYNAMO_OPTION(sandbox2ro_threshold) == 0)
+    if (DYNAMO_OPTION(sandbox2ro_threshold) == 0 || is_shared_mapping(f->tag))
         return false;
 
     /* NOTE - we could only grab the readlock here.  Even though we're going to
@@ -11736,6 +11834,62 @@ vmvector_tests(void)
     vmvector_print(&v, STDERR);
 }
 
+static void
+test_executable_vm_areas_protection_change(void)
+{
+    vm_area_vector_t *saved_executable_areas = executable_areas;
+    const size_t size = 9 * PAGE_SIZE;
+    byte *base = heap_mmap(size, MEMPROT_READ | MEMPROT_WRITE, VMM_SPECIAL_MMAP);
+    ASSERT(base != NULL);
+    VMVECTOR_ALLOC_VECTOR(executable_areas, GLOBAL_DCONTEXT, VECTOR_SHARED,
+                          executable_areas);
+    d_r_write_lock(&executable_areas->lock);
+    add_vm_area(executable_areas, base + PAGE_SIZE, base + 3 * PAGE_SIZE, VM_WRITABLE, 0,
+                NULL _IF_DEBUG("A"));
+    add_vm_area(executable_areas, base + 4 * PAGE_SIZE, base + 5 * PAGE_SIZE, VM_WRITABLE,
+                FRAG_SELFMOD_SANDBOXED, NULL _IF_DEBUG("B"));
+    add_vm_area(executable_areas, base + 6 * PAGE_SIZE, base + 8 * PAGE_SIZE, VM_WRITABLE,
+                0, NULL _IF_DEBUG("C"));
+
+    /* Split both boundary areas, replace the middle area, and retain both gaps.
+     * These private mappings should no longer need selfmod sandboxing.
+     */
+    replace_executable_vm_areas_for_protection_change(base + 2 * PAGE_SIZE,
+                                                      base + 7 * PAGE_SIZE, 0, 0);
+    EXPECT(executable_areas->length, 5);
+    check_vec(executable_areas, 0, base + PAGE_SIZE, base + 2 * PAGE_SIZE, VM_WRITABLE, 0,
+              NULL);
+    check_vec(executable_areas, 1, base + 2 * PAGE_SIZE, base + 3 * PAGE_SIZE, 0, 0,
+              NULL);
+    check_vec(executable_areas, 2, base + 4 * PAGE_SIZE, base + 5 * PAGE_SIZE, 0, 0,
+              NULL);
+    check_vec(executable_areas, 3, base + 6 * PAGE_SIZE, base + 7 * PAGE_SIZE, 0, 0,
+              NULL);
+    check_vec(executable_areas, 4, base + 7 * PAGE_SIZE, base + 8 * PAGE_SIZE,
+              VM_WRITABLE, 0, NULL);
+
+    /* Cover leading and trailing gaps as well as merging adjacent replacements. */
+    replace_executable_vm_areas_for_protection_change(base, base + size, 0, 0);
+    EXPECT(executable_areas->length, 3);
+    check_vec(executable_areas, 0, base + PAGE_SIZE, base + 3 * PAGE_SIZE, 0, 0, NULL);
+    check_vec(executable_areas, 1, base + 4 * PAGE_SIZE, base + 5 * PAGE_SIZE, 0, 0,
+              NULL);
+    check_vec(executable_areas, 2, base + 6 * PAGE_SIZE, base + 8 * PAGE_SIZE, 0, 0,
+              NULL);
+
+    /* A range entirely in a gap must not add an executable area. */
+    replace_executable_vm_areas_for_protection_change(base + 3 * PAGE_SIZE,
+                                                      base + 4 * PAGE_SIZE, 0, 0);
+    EXPECT(executable_areas->length, 3);
+    ASSERT(
+        !vm_area_overlap(executable_areas, base + 3 * PAGE_SIZE, base + 4 * PAGE_SIZE));
+
+    d_r_write_unlock(&executable_areas->lock);
+    vmvector_delete_vector(GLOBAL_DCONTEXT, executable_areas);
+    executable_areas = saved_executable_areas;
+    heap_munmap(base, size, VMM_SPECIAL_MMAP);
+}
+
 /* initial vector tests
  * XXX: should add a lot more, esp. wrt other flags -- these only
  * test no flags or interactions w/ selfmod flag
@@ -11896,5 +12050,6 @@ unit_test_vmareas(void)
     EXPECT(index, 2);
 
     vmvector_tests();
+    test_executable_vm_areas_protection_change();
 }
 #endif /* STANDALONE_UNIT_TEST */

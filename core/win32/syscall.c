@@ -3764,7 +3764,7 @@ postsys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool succ
         });
 #endif
         app_memory_allocation(dcontext, base, size, osprot_to_memprot(prot),
-                              false /*not image*/
+                              false /*not image*/, false /*not shared*/
                               _IF_DEBUG("NtAllocateVirtualMemory"));
 #ifdef DGC_DIAGNOSTICS
         DOLOG(3, LOG_VMAREAS, {
