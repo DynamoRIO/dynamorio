@@ -8179,8 +8179,8 @@ test_kernel_switch_sequences()
                 std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
                 tid);
         }
-        std::vector<scheduler_t::input_workload_t> sched_inputs;
-        sched_inputs.emplace_back(std::move(readers));
+        std::vector<scheduler_t::input_workload_t> inputs;
+        inputs.emplace_back(std::move(readers));
         auto switch_reader = std::unique_ptr<test_util::mock_reader_t>(
             new test_util::mock_reader_t(old_switch_sequence));
         auto switch_reader_end =
@@ -8193,7 +8193,7 @@ test_kernel_switch_sequences()
         sched_ops.kernel_switch_reader = std::move(switch_reader);
         sched_ops.kernel_switch_reader_end = std::move(switch_reader_end);
         scheduler_t scheduler;
-        if (scheduler.init(sched_inputs, 1, std::move(sched_ops)) !=
+        if (scheduler.init(inputs, 1, std::move(sched_ops)) !=
             scheduler_t::STATUS_SUCCESS)
             assert(false);
         scheduler_t::stream_t *stream = scheduler.get_stream(0);
@@ -8234,8 +8234,8 @@ test_kernel_switch_sequences()
                 std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
                 tid);
         }
-        std::vector<scheduler_t::input_workload_t> sched_inputs;
-        sched_inputs.emplace_back(std::move(readers));
+        std::vector<scheduler_t::input_workload_t> inputs;
+        inputs.emplace_back(std::move(readers));
         auto switch_reader = std::unique_ptr<test_util::mock_reader_t>(
             new test_util::mock_reader_t(multi_switch));
         auto switch_reader_end =
@@ -8250,7 +8250,7 @@ test_kernel_switch_sequences()
         sched_ops.kernel_switch_reader = std::move(switch_reader);
         sched_ops.kernel_switch_reader_end = std::move(switch_reader_end);
         scheduler_t scheduler;
-        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+        if (scheduler.init(inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
             scheduler_t::STATUS_SUCCESS)
             assert(false);
         std::vector<std::vector<memref_t>> refs;
