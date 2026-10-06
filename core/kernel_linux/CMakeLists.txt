@@ -33,15 +33,17 @@
 # invocation, so this shells out to `make` against KERNEL_DIR and
 # MAKE_PROGRAM, both validated and cached by the parent CMakeLists.txt.
 
+# Must match obj-m in Kbuild.
 set(dynamorio_module_name dynamorio_module)
 
 # Single source of truth for module sources. Add new files here only.
-# This list drives both CMake's own rebuild-staleness tracking (DEPENDS
-# below) and the generated Kbuild Makefile's object list, so the two can't
-# drift out of sync as the module grows.
+# This list drives the generated Kbuild.sources object list.
 #
 # Note: No source file may be named "${dynamorio_module_name}.c" because
 # Kbuild composite targets cannot share a name with a component object file.
+#
+# TODO i#8021: Reuse the source file lists in core/CMakeLists.txt to generate
+# the object file list instead of maintaining a separate source list here.
 set(dynamorio_module_sources
   dynamorio_module_main.c
   kernel_interface.c
@@ -115,155 +117,57 @@ set(dynamorio_module_objs "")
 foreach (src ${dynamorio_module_sources})
   get_filename_component(abs_src "${CMAKE_CURRENT_SOURCE_DIR}/${src}" ABSOLUTE)
   file(RELATIVE_PATH rel_src "${PROJECT_SOURCE_DIR}" "${abs_src}")
-  set(mirrored_src "${CMAKE_CURRENT_BINARY_DIR}/${rel_src}")
-  get_filename_component(mirrored_dir "${mirrored_src}" DIRECTORY)
-  file(MAKE_DIRECTORY "${mirrored_dir}")
-  file(CREATE_LINK "${abs_src}" "${mirrored_src}" SYMBOLIC)
   string(REGEX REPLACE "\\.c$" ".o" rel_obj "${rel_src}")
   list(APPEND dynamorio_module_objs "${rel_obj}")
 endforeach ()
 
-get_filename_component(core_dir "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
-set(dynamorio_module_include_dirs
-  "${CMAKE_BINARY_DIR}"
-  "${PROJECT_SOURCE_DIR}/common"
-  "${core_dir}"
-  "${core_dir}/include"
-  "${core_dir}/kernel_linux"
-  "${core_dir}/arch"
-  "${core_dir}/arch/x86"
-  "${core_dir}/drlibc"
-  "${core_dir}/ir"
-  "${core_dir}/ir/x86"
-  "${core_dir}/lib"
-  "${core_dir}/unix"
+# Kbuild writes its outputs next to the sources, so the module is built in a
+# tree in the build directory that mirrors common/ and core/ with per-file
+# symlinks and has the generated headers at its root. Kbuild only refers to
+# paths within this tree, which keeps it relocatable.
+file(GLOB_RECURSE dynamorio_module_tree_files
+  RELATIVE "${PROJECT_SOURCE_DIR}"
+  CONFIGURE_DEPENDS
+  "${PROJECT_SOURCE_DIR}/common/*"
+  "${PROJECT_SOURCE_DIR}/core/*"
 )
 
-set(dynamorio_module_defines
-  LINUX_KERNEL
-  DYNAMORIO_INTERNAL
-  DR_DO_NOT_DEFINE_MAX_MIN
-)
-
-set(dynamorio_module_common_flags "")
-foreach (dir ${dynamorio_module_include_dirs})
-  list(APPEND dynamorio_module_common_flags "-I${dir}")
-endforeach ()
-foreach (define ${dynamorio_module_defines})
-  list(APPEND dynamorio_module_common_flags "-D${define}")
+foreach (file ${dynamorio_module_tree_files})
+  get_filename_component(mirrored_dir "${CMAKE_CURRENT_BINARY_DIR}/${file}" DIRECTORY)
+  file(MAKE_DIRECTORY "${mirrored_dir}")
+  file(CREATE_LINK "${PROJECT_SOURCE_DIR}/${file}" "${CMAKE_CURRENT_BINARY_DIR}/${file}"
+    SYMBOLIC)
 endforeach ()
 
-set(dynamorio_module_cpp_flags ${dynamorio_module_common_flags} -DCPP2ASM)
+foreach (header configure.h configure_defines.h event_strings.h)
+  file(CREATE_LINK "${PROJECT_BINARY_DIR}/${header}"
+    "${CMAKE_CURRENT_BINARY_DIR}/${header}" SYMBOLIC)
+endforeach ()
 
-set(x86_asm_stem "core/arch/x86/x86")
-set(x86_asm_src "${PROJECT_SOURCE_DIR}/${x86_asm_stem}.asm")
-set(x86_gen_s "${CMAKE_CURRENT_BINARY_DIR}/${x86_asm_stem}.S")
+# Kbuild generates core/arch/x86/x86.S from x86.asm.
+list(APPEND dynamorio_module_objs "core/arch/x86/x86.o")
 
-set(x86_asm_deps
-  "${x86_asm_src}"
-  "${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake"
-  "${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm"
-  "${PROJECT_SOURCE_DIR}/core/arch/x86/x86_asm_defines.asm"
-  "${PROJECT_SOURCE_DIR}/core/unix/os_asm_defines.asm"
-  "${PROJECT_BINARY_DIR}/configure.h"
-)
-
-# Preprocess x86.asm into x86.S.
-# Note: This replicates the preprocessing logic from cpp2asm_support.cmake because
-# cpp2asm_support.cmake cannot be used directly with kbuild.
-add_custom_command(
-  OUTPUT "${x86_gen_s}"
-  DEPENDS ${x86_asm_deps}
-  COMMAND ${CMAKE_C_COMPILER} -E -P -x c
-    ${dynamorio_module_cpp_flags}
-    "${x86_asm_src}"
-    -o "${x86_gen_s}"
-  COMMAND ${CMAKE_COMMAND}
-    -Dfile=${x86_gen_s}
-    -P "${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake"
-  COMMENT "Preprocessing ${x86_asm_stem}.asm -> .S"
-  VERBATIM
-)
-
-list(APPEND dynamorio_module_objs "${x86_asm_stem}.o")
-
-set(generated_stubs_c "${CMAKE_CURRENT_BINARY_DIR}/core/kernel_linux/stubs.c")
-list(APPEND dynamorio_module_objs "core/kernel_linux/stubs.o")
-
+# Kbuild adds the generated core/kernel_linux/stubs.o, which is derived from
+# these objects.
 string(REPLACE ";" " \\\n  " dynamorio_module_objs "${dynamorio_module_objs}")
-set(dynamorio_module_kbuild_objs
-  "${dynamorio_module_name}-y := \\\n  ${dynamorio_module_objs}")
 
-set(dynamorio_module_kbuild_ccflags "ccflags-y += \\")
-set(dynamorio_module_kbuild_asflags "asflags-y += \\")
-foreach (flag ${dynamorio_module_common_flags})
-  string(APPEND dynamorio_module_kbuild_ccflags "\n  ${flag} \\")
-  string(APPEND dynamorio_module_kbuild_asflags "\n  ${flag} \\")
-endforeach ()
+# Only the object list is generated; any build system can supply this input to Kbuild.
+# file(GENERATE) preserves the timestamp when the list is unchanged.
+set(dynamorio_module_kbuild_sources "${CMAKE_CURRENT_BINARY_DIR}/Kbuild.sources")
+file(GENERATE OUTPUT "${dynamorio_module_kbuild_sources}" CONTENT
+  "# Generated by CMake from dynamorio_module_sources.\ndr_objs := \\\n  ${dynamorio_module_objs}\n")
 
-string(APPEND dynamorio_module_kbuild_ccflags "\n  -Wframe-larger-than=4096")
-if (X86)
-  # Disable compiler-generated return thunks (__x86_return_thunk) since objtool
-  # is disabled for the module and won't generate the .return_sites section needed
-  # for runtime patching.
-  string(APPEND dynamorio_module_kbuild_ccflags " \\\n  -mfunction-return=keep")
-endif ()
-
-string(APPEND dynamorio_module_kbuild_asflags "\n  -Xassembler -mmnemonic=intel \\")
-string(APPEND dynamorio_module_kbuild_asflags "\n  -Xassembler -msyntax=intel \\")
-string(APPEND dynamorio_module_kbuild_asflags "\n  -Xassembler -mnaked-reg \\")
-string(APPEND dynamorio_module_kbuild_asflags "\n  -Xassembler --noexecstack \\")
-string(APPEND dynamorio_module_kbuild_asflags "\n  -Xassembler --64")
+file(CREATE_LINK "${CMAKE_CURRENT_SOURCE_DIR}/Kbuild" "${CMAKE_CURRENT_BINARY_DIR}/Kbuild"
+  SYMBOLIC)
 
 set(dynamorio_module_ko "${CMAKE_CURRENT_BINARY_DIR}/${dynamorio_module_name}.ko")
-set(dynamorio_module_kbuildfile "${CMAKE_CURRENT_BINARY_DIR}/Kbuild")
-
-configure_file(
-  ${CMAKE_CURRENT_SOURCE_DIR}/Kbuild.in
-  ${dynamorio_module_kbuildfile}
-  @ONLY
-)
-
-# When Module.symvers is present (e.g. built kernel or distro headers), extract undefined
-# symbols and generate weak stubs to allow loading during development. The stubs are not
-# expected to be called: each stub simply calls BUG(), so a runtime call would fail loudly
-# with a kernel oops.
-# When Module.symvers is absent (e.g. unbuilt kernel tree with make modules_prepare),
-# skip stub generation and rely on KBUILD_MODPOST_WARN=1 for compile-only testing.
-set(extra_module_build_commands "")
-if (EXISTS "${KERNEL_DIR}/Module.symvers")
-  set(extra_module_build_commands
-    # Phase 2: Extract undefined symbols from composite .o and generate weak stubs
-    COMMAND ${CMAKE_COMMAND}
-      -DMODULE_OBJECT=${CMAKE_CURRENT_BINARY_DIR}/${dynamorio_module_name}.o
-      -DKERNEL_DIR=${KERNEL_DIR}
-      -DOUTPUT_FILE=${generated_stubs_c}
-      -DNM_PROGRAM=${CMAKE_NM}
-      -P "${CMAKE_CURRENT_SOURCE_DIR}/generate_stubs.cmake"
-    # Phase 3: Compile stubs.o and link final dynamorio_module.ko
-    COMMAND ${MAKE_PROGRAM} -C ${KERNEL_DIR} M=${CMAKE_CURRENT_BINARY_DIR} modules
-  )
-endif ()
 
 # Always invoke kbuild and let it decide what needs rebuilding.
 add_custom_target(dynamorio_module ALL
-  # TODO i#8021: Turn off KBUILD_MODPOST_WARN and remove stubs.c generation once all
-  # kernel symbols are fully implemented.
-  # Phase 0: Reset stubs.c to empty so Phase 1 builds without stale stubs
-  COMMAND ${CMAKE_COMMAND} -E rm -f "${generated_stubs_c}"
-  COMMAND ${CMAKE_COMMAND} -E touch "${generated_stubs_c}"
-  # Phase 1: Compile all source files into component .o files and composite .o
-  COMMAND ${MAKE_PROGRAM} -C ${KERNEL_DIR} M=${CMAKE_CURRENT_BINARY_DIR}
-    KBUILD_MODPOST_WARN=1 modules
-  # If the kernel tree's Module.symvers exists, stubs.c is populated with stubs for
-  # missing symbols and then compiled into the final module in Phases 2 and 3. Otherwise
-  # the build stops here, producing a module with unresolved symbols that cannot be
-  # loaded. See comments for extra_module_build_commands above.
-  ${extra_module_build_commands}
+  COMMAND ${MAKE_PROGRAM} -C ${KERNEL_DIR} M=${CMAKE_CURRENT_BINARY_DIR} modules
   # Ensure generated inputs are ready before kbuild runs.
   DEPENDS
-    ${x86_gen_s}
-    ${dynamorio_module_kbuildfile}
+    ${dynamorio_module_kbuild_sources}
     generate_syslog # Generates event_strings.h.
   BYPRODUCTS ${dynamorio_module_ko}
   COMMENT "Building DynamoRIO Linux kernel module (${dynamorio_module_name}.ko) against \
