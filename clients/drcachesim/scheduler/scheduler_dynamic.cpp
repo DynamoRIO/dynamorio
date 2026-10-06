@@ -948,6 +948,7 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::rebalance_queues(
     }
     if (live_outputs == 0) {
         // An error was hit in another thread: just return.
+        rebalancer_.store(std::thread::id(), std::memory_order_release);
         return sched_type_t::STATUS_OK;
     }
     double avg_per_output = live_inputs / static_cast<double>(live_outputs);

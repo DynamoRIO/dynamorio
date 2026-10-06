@@ -617,7 +617,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
                         "Too-far -skip_instrs for: " + worker.stream->get_stream_name();
                 } else {
                     worker.error = "Failed on " + worker.stream->get_stream_name() +
-                        ": " + scheduler_->get_error_string();
+                        ": " + worker.stream->get_error_string();
                 }
             } else if (interval_microseconds_ != 0 || interval_instr_count_ != 0) {
                 if (!process_interval(worker.shard_data[0].cur_interval_index,
@@ -830,7 +830,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks_internal(
                     "Too-far -skip_instrs for: " + worker->stream->get_stream_name();
             } else {
                 worker->error = "Failed on " + worker->stream->get_stream_name() + ": " +
-                    scheduler_->get_error_string();
+                    worker->stream->get_error_string();
             }
             return false;
         }
