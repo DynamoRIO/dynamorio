@@ -41,84 +41,22 @@ set(dynamorio_module_name dynamorio_module)
 #
 # Note: No source file may be named "${dynamorio_module_name}.c" because
 # Kbuild composite targets cannot share a name with a component object file.
-#
-# TODO i#8021: Reuse the source file lists in core/CMakeLists.txt to generate
-# the object file list instead of maintaining a separate source list here.
-set(dynamorio_module_sources
+set(dynamorio_module_os_sources
   dynamorio_module_main.c
   kernel_interface.c
   os.c
-
-  # core/
-  ../buildmark.c
-  ../config.c
-  ../dispatch.c
-  ../dynamo.c
-  ../emit.c
-  ../fcache.c
-  ../fragment.c
-  ../hashtable.c
-  ../heap.c
-  ../io.c
-  ../link.c
-  ../loader_shared.c
-  ../module_list.c
-  ../moduledb.c
-  ../monitor.c
-  ../nudge.c
-  ../options.c
-  ../perscache.c
-  ../stats.c
-  ../string.c
-  ../synch.c
-  ../translate.c
-  ../utils.c
-  ../vmareas.c
-
-  # core/ir/
-  ../ir/decode_shared.c
-  ../ir/disassemble_shared.c
-  ../ir/encode_shared.c
-  ../ir/instr_shared.c
-  ../ir/instrlist.c
-  ../ir/ir_utils_shared.c
-  ../ir/opnd_shared.c
-
-  # core/ir/x86/
-  ../ir/x86/decode.c
-  ../ir/x86/decode_fast.c
-  ../ir/x86/decode_table.c
-  ../ir/x86/disassemble.c
-  ../ir/x86/encode.c
-  ../ir/x86/instr.c
-  ../ir/x86/ir_utils.c
-  ../ir/x86/opnd.c
-
-  # core/arch/
-  ../arch/arch.c
-  ../arch/clean_call_opt_shared.c
-  ../arch/emit_utils_shared.c
-  ../arch/interp.c
-  ../arch/mangle_shared.c
-  ../arch/proc_shared.c
-
-  # core/arch/x86/
-  ../arch/x86/clean_call_opt.c
-  ../arch/x86/emit_utils.c
-  ../arch/x86/mangle.c
-  ../arch/x86/proc.c
-
-  # core/lib/
-  ../lib/instrument.c
-  ../lib/module_api.c
 )
+# CORE_SRCS and ARCH_SRCS are relevant to `core/`, so we should transform
+# dynamorio_module_os_sources before merging them
+list(TRANSFORM dynamorio_module_os_sources PREPEND "kernel_linux/")
+set(dynamorio_module_sources ${CORE_SRCS} ${ARCH_SRCS} ${dynamorio_module_os_sources})
+# .asm files are handled directly by kbuild
+list(FILTER dynamorio_module_sources INCLUDE REGEX "\\.c$")
 
 set(dynamorio_module_objs "")
 foreach (src ${dynamorio_module_sources})
-  get_filename_component(abs_src "${CMAKE_CURRENT_SOURCE_DIR}/${src}" ABSOLUTE)
-  file(RELATIVE_PATH rel_src "${PROJECT_SOURCE_DIR}" "${abs_src}")
-  string(REGEX REPLACE "\\.c$" ".o" rel_obj "${rel_src}")
-  list(APPEND dynamorio_module_objs "${rel_obj}")
+  string(REGEX REPLACE "\\.c$" ".o" obj "core/${src}")
+  list(APPEND dynamorio_module_objs "${obj}")
 endforeach ()
 
 # Kbuild writes its outputs next to the sources, so the module is built in a
