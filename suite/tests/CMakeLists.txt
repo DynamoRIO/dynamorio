@@ -4463,7 +4463,7 @@ if (BUILD_CLIENTS)
       # We pass a small instr count to test multiple chunks in a zipfile.
       "@-chunk_instr_count@10K" "")
 
-    if (X86 AND X64)
+    if (X86 AND X64 AND ZLIB_FOUND)
       torunonly_drcacheoff(simple-dyn-inject-invariants ${ci_shared_app} ""
         # We pass a small instr count to test multiple chunks in a zipfile.
         "@-chunk_instr_count@1000@-sched_syscall_file@${syscall_file}@-tool@invariant_checker" "")
