@@ -1256,7 +1256,7 @@ raw2trace_t::read_syscall_template_file()
         trace_entry_t entry = **syscall_template_file_reader_;
         ++(*syscall_template_file_reader_);
         if (entry.type == TRACE_TYPE_HEADER)
-            version = entry.addr;
+            version = static_cast<int>(entry.addr);
         // Ignore entries for older versions.
         if (version != TRACE_ENTRY_VERSION)
             continue;
