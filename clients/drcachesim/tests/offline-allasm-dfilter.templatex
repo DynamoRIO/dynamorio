@@ -2,7 +2,7 @@ Hello world!
 Output format:
 <--record#-> <--instr#->: <Wrkld.Tid> <record details>
 ------------------------------------------------------------
-           1           0: *W0.T.* <marker: version 7>
+           1           0: *W0.T.* <marker: version 8>
            2           0: *W0.T.* <marker: filetype 0xf42>
            3           0: *W0.T.* <marker: cache line size 64>
            4           0: *W0.T.* <marker: chunk instruction count 10000000>

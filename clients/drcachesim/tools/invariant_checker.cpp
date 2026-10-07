@@ -1575,6 +1575,19 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             "Indirect target should be 0 for non-indirect-branches");
         }
     }
+    if (memref.instr.type == TRACE_TYPE_INSTR_MAYBE_FETCH &&
+        !shard->reported_maybe_fetch_) {
+        report_if_false(shard, false,
+                        "Maybe-fetch records should never appear in final traces");
+        shard->reported_maybe_fetch_ = true;
+    }
+    if (shard->trace_version_ >= TRACE_ENTRY_VERSION_NO_UNFETCHED_INSTRUCTIONS &&
+        memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH && !shard->reported_no_fetch_) {
+        report_if_false(
+            shard, false,
+            "No-fetch records should never appear in final non-legacy traces");
+        shard->reported_no_fetch_ = true;
+    }
 
 #ifdef UNIX
     if (saw_rseq_abort) {
@@ -1901,8 +1914,8 @@ invariant_checker_t::check_for_pc_discontinuity(
           // we can't use saw_timestamp_but_no_instr_.  We can't just check for
           // prev_instr.instr_type being no-fetch as the prev might have been
           // a single instance, which is fetched.  We check the sizes for now.
-          // TODO i#4915, #4948: Eliminate non-fetched and remove the
-          // underlying instrs altogether, which would fix this for us.
+          // TODO i#4948: Eliminate the underlying maybe-fetched instrs altogether,
+          // which would fix this for us.
           (!knob_offline_ &&
            cur_memref_info.memref.instr.size == prev_instr.instr.size))) ||
         // Same PC is allowed for a kernel interruption which may restart the

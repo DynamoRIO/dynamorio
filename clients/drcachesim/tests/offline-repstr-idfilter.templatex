@@ -1,0 +1,104 @@
+Wally world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Output format:
+<--record#-> <--instr#->: <Wrkld.Tid> <record details>
+------------------------------------------------------------
+           1           0: *W0.T.* <marker: version 8>
+           2           0: *W0.T.* <marker: filetype 0xbc2>
+           3           0: *W0.T.* <marker: cache line size 64>
+           4           0: *W0.T.* <marker: chunk instruction count 10000000>
+           5           0: *W0.T.* <marker: page size 4096>
+           6           0: *W0.T.* <marker: timestamp .*>
+           7           0: *W0.T.* <marker: *W0.T.* on core .*>
+           8           0: *W0.T.* <marker: instruction count 0>
+           9           1: *W0.T.* ifetch       4 byte\(s\) @ 0x0000000000401000 48 83 e4 f0          and    \$0xf0, %rsp
+          10           1: *W0.T.* read         1 byte\(s\) @ 0x0000000000402019 by PC 0x0000000000401034
+          11           1: *W0.T.* <marker: timestamp .*>
+          12           1: *W0.T.* <marker: *W0.T.* on core .*>
+          13           1: *W0.T.* <marker: instruction count 18>
+          14           2: *W0.T.* ifetch       5 byte\(s\) @ 0x0000000000401053 b9 05 00 00 00       mov    \$0x00000005, %ecx
+          15           2: *W0.T.* <marker: timestamp .*>
+          16           2: *W0.T.* <marker: *W0.T.* on core .*>
+          17           2: *W0.T.* <marker: instruction count 30>
+          18           3: *W0.T.* ifetch       8 byte\(s\) @ 0x000000000040108c 48 8d 0c 25 00 30 40 lea    0x00403000, %rcx
+          18           3: *W0.T.*                                             00
+          19           3: *W0.T.* read         4 byte\(s\) @ 0x0000000000402ffd by PC 0x0000000000401094
+          20           3: *W0.T.* <marker: timestamp .*>
+          21           3: *W0.T.* <marker: *W0.T.* on core .*>
+          22           3: *W0.T.* <marker: instruction count 111>
+.*
+          27           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........000 by PC 0x00000000004010f0
+          28           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........040 by PC 0x00000000004010f0
+          29           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........080 by PC 0x00000000004010f0
+          30           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........0c0 by PC 0x00000000004010f0
+          31           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........100 by PC 0x00000000004010f0
+          32           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........140 by PC 0x00000000004010f0
+          33           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........180 by PC 0x00000000004010f0
+          34           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........1c0 by PC 0x00000000004010f0
+          35           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........200 by PC 0x00000000004010f0
+          36           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........240 by PC 0x00000000004010f0
+          37           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........280 by PC 0x00000000004010f0
+          38           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........2c0 by PC 0x00000000004010f0
+          39           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........300 by PC 0x00000000004010f0
+          40           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........340 by PC 0x00000000004010f0
+          41           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........380 by PC 0x00000000004010f0
+          42           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........3c0 by PC 0x00000000004010f0
+          43           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........400 by PC 0x00000000004010f0
+          44           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........440 by PC 0x00000000004010f0
+          45           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........480 by PC 0x00000000004010f0
+          46           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........4c0 by PC 0x00000000004010f0
+          47           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........500 by PC 0x00000000004010f0
+          48           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........540 by PC 0x00000000004010f0
+          49           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........580 by PC 0x00000000004010f0
+          50           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........5c0 by PC 0x00000000004010f0
+          51           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........600 by PC 0x00000000004010f0
+          52           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........640 by PC 0x00000000004010f0
+          53           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........680 by PC 0x00000000004010f0
+          54           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........6c0 by PC 0x00000000004010f0
+          55           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........700 by PC 0x00000000004010f0
+          56           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........740 by PC 0x00000000004010f0
+          57           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........780 by PC 0x00000000004010f0
+          58           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........7c0 by PC 0x00000000004010f0
+          59           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........800 by PC 0x00000000004010f0
+          60           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........840 by PC 0x00000000004010f0
+          61           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........880 by PC 0x00000000004010f0
+          62           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........8c0 by PC 0x00000000004010f0
+          63           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........900 by PC 0x00000000004010f0
+          64           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........940 by PC 0x00000000004010f0
+          65           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........980 by PC 0x00000000004010f0
+          66           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........9c0 by PC 0x00000000004010f0
+          67           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........a00 by PC 0x00000000004010f0
+          68           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........a40 by PC 0x00000000004010f0
+          69           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........a80 by PC 0x00000000004010f0
+          70           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........ac0 by PC 0x00000000004010f0
+          71           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........b00 by PC 0x00000000004010f0
+          72           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........b40 by PC 0x00000000004010f0
+          73           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........b80 by PC 0x00000000004010f0
+          74           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........bc0 by PC 0x00000000004010f0
+          75           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........c00 by PC 0x00000000004010f0
+          76           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........c40 by PC 0x00000000004010f0
+          77           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........c80 by PC 0x00000000004010f0
+          78           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........cc0 by PC 0x00000000004010f0
+          79           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........d00 by PC 0x00000000004010f0
+          80           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........d40 by PC 0x00000000004010f0
+          81           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........d80 by PC 0x00000000004010f0
+          82           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........dc0 by PC 0x00000000004010f0
+          83           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........e00 by PC 0x00000000004010f0
+          84           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........e40 by PC 0x00000000004010f0
+          85           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........e80 by PC 0x00000000004010f0
+          86           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........ec0 by PC 0x00000000004010f0
+          87           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........f00 by PC 0x00000000004010f0
+          88           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........f40 by PC 0x00000000004010f0
+          89           4: *W0.T.* read         1 byte\(s\) @ 0x0000.........f80 by PC 0x00000000004010f0
+.*
+View tool results:
+              4 : total instructions

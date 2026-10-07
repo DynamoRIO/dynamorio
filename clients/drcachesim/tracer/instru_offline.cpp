@@ -269,9 +269,8 @@ offline_instru_t::get_instr_count(byte *buf_ptr) const
     if (entry->addr.type !=
         OFFLINE_TYPE_PC IF_X64(&&entry->addr.type != OFFLINE_TYPE_PC_TOP_BIT))
         return 0;
-    // TODO i#3995: We should *not* count "non-fetched" instrs so we'll match
-    // hardware performance counters.
-    // Xref i#4948 and i#4915 on getting rid of "non-fetched" instrs.
+    // We no longer have "non-fetched" instrs except in legacy traces, so this
+    // count will match hardware performance counters.
     return entry->pc.instr_count;
 }
 

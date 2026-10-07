@@ -589,6 +589,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         case TRACE_TYPE_INSTR_RETURN: std::cerr << "return\n"; break;
         case TRACE_TYPE_INSTR_NO_FETCH: std::cerr << "non-fetched instruction\n"; break;
         case TRACE_TYPE_INSTR_SYSENTER: std::cerr << "sysenter\n"; break;
+        case TRACE_TYPE_INSTR_REPEATED: std::cerr << "repeated instruction\n"; break;
         default: error_string_ = "Unknown instruction type\n"; return false;
         }
         ++num_disasm_instrs_;

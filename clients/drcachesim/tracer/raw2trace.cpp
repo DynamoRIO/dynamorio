@@ -287,10 +287,7 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf_i
     // potentially customize some properties of the trace. E.g. the start address for the
     // kernel code section.
     for (const auto &entry : trace_template->entries) {
-        if (type_is_instr(static_cast<trace_type_t>(entry.type)) ||
-            // We want to write out at each repstr instance so that we do not accumulate
-            // too many buffered entries.
-            entry.type == TRACE_TYPE_INSTR_NO_FETCH) {
+        if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
             // If this is the last instruction and an indirect branch, and there was a
             // branch target marker just before it, set it to the fallthrough pc of
             // the syscall instruction for which we're injecting the trace. This is
@@ -331,10 +328,12 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf_i
                    entry.size == TRACE_MARKER_TYPE_BRANCH_TARGET) {
             buf_last_branch_target_marker = buf;
         }
-        size_t size = buf - buf_base;
-        if ((uint)size >= WRITE_BUFFER_SIZE) {
-            tdata->error = "Too many accumulated entries";
-            return false;
+        if (static_cast<size_t>(buf + 1 - buf_base) >= WRITE_BUFFER_SIZE) {
+            if (!write(tdata, buf_base, buf, &saved_decode_pc, 1)) {
+                return false;
+            }
+            buf = buf_base;
+            DR_ASSERT(buf_last_branch_target_marker == nullptr);
         }
         *buf = entry;
         ++buf;
@@ -1819,14 +1818,15 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
     int consumed_memrefs = 0;
     bool interrupted = false;
     bool rseq_aborted = false;
-    bool repstr_first_last_supported =
-        get_version(tdata) >= OFFLINE_FILE_VERSION_REPSTR_LOOP &&
-        // Rule out filtering of any kind, including -L0_filter_until_instrs
-        // (since app2app is not part of bbdup).
-        // TODO i#4914: Add filtering support so all offline uses first-last.
-        !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_DFILTERED,
-                 tdata->start_file_type);
-
+    bool repstr_only_first_last =
+        get_version(tdata) >= OFFLINE_FILE_VERSION_REPSTR_LOOP_ALL ||
+        (get_version(tdata) >= OFFLINE_FILE_VERSION_REPSTR_LOOP &&
+         // For filtering of any kind, including -L0_filter_until_instrs,
+         // all filtered data is present and we need no special handling, whether
+         // rep strings were unrolled with first-last or not (since first-last we
+         // expanded online when filtering).
+         !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_DFILTERED,
+                  tdata->start_file_type));
     for (uint i = 0; i < instr_count; ++i) {
         trace_entry_t *buf_start = get_write_buffer(tdata);
         trace_entry_t *buf = buf_start;
@@ -1952,7 +1952,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         // Interrupting a rep string instruction is different: it can
         // partially complete its loop.
         bool partial_interrupt =
-            interrupted && instr->is_rep_string() && repstr_first_last_supported;
+            interrupted && instr->is_rep_string() && repstr_only_first_last;
         bool added_encoding = false;
         if (interrupted && !partial_interrupt) {
             // Insert the TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION marker to
@@ -1977,28 +1977,24 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 trace_entry.addr);
             buf++;
         } else {
-            if (!skip_icache && record_encoding_emitted(tdata, decode_pc)) {
-                if (!append_encoding(tdata, decode_pc, instr->length(), buf, buf_start))
-                    return false;
-                added_encoding = true;
-            }
-
+            bool skip_fetch = false;
             // XXX i#1729: make bundles via lazy accum until hit memref/end, if
             // we don't need encodings.
-            buf->type = instr->type();
-            if (buf->type == TRACE_TYPE_INSTR_MAYBE_FETCH) {
+            if (instr->type() == TRACE_TYPE_INSTR_MAYBE_FETCH) {
+                tdata->error = "Should never see MAYBE_FETCH records.";
+                return false;
+            }
+            if (instr->type() == TRACE_TYPE_INSTR_REPEATED) {
+                // Handle a legacy trace with an instr fetch per iteration.
                 // We want it to look like the original rep string, with just one instr
                 // fetch for the whole loop, instead of the drutil-expanded loop.
                 // We fix up the maybe-fetch here so our offline file doesn't have to
                 // rely on our own reader.
-                if (!was_prev_instr_rep_string(tdata) || repstr_first_last_supported) {
+                if (!was_prev_instr_rep_string(tdata) || repstr_only_first_last) {
                     set_prev_instr_rep_string(tdata, true);
-                    buf->type = TRACE_TYPE_INSTR;
                 } else {
-                    log(3, "Skipping instr fetch for " PFX "\n", (ptr_uint_t)decode_pc);
-                    // We still include the instr to make it easier for core simulators
-                    // (i#2051).
-                    buf->type = TRACE_TYPE_INSTR_NO_FETCH;
+                    log(4, "Skipping instr fetch for " PFX "\n", (ptr_uint_t)decode_pc);
+                    skip_fetch = true;
                 }
             } else
                 set_prev_instr_rep_string(tdata, false);
@@ -2006,10 +2002,19 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 set_last_pc_fallthrough_if_syscall(tdata, orig_pc + instr->length());
             else
                 set_last_pc_fallthrough_if_syscall(tdata, 0);
-            buf->size = (ushort)(skip_icache ? 0 : instr->length());
-            buf->addr = (addr_t)orig_pc;
-            ++buf;
-            log(4, "Appended instr fetch for original %p\n", orig_pc);
+            if (!skip_fetch) {
+                if (!skip_icache && record_encoding_emitted(tdata, decode_pc)) {
+                    if (!append_encoding(tdata, decode_pc, instr->length(), buf,
+                                         buf_start))
+                        return false;
+                    added_encoding = true;
+                }
+                buf->type = instr->type();
+                buf->size = (ushort)(skip_icache ? 0 : instr->length());
+                buf->addr = (addr_t)orig_pc;
+                ++buf;
+                log(4, "Appended instr fetch for original %p\n", orig_pc);
+            }
         }
         decode_pc = pc;
         if (tdata->rseq_past_end_) {
@@ -2032,6 +2037,11 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 if (!append_scatter_gather(tdata, instr, &buf, reg_vals,
                                            expect_all_memrefs, consumed_memrefs, orig_pc))
                     return false;
+            } else if (instr->is_rep_string() && repstr_only_first_last) {
+                if (!append_repstring(tdata, instr, orig_pc, &buf, reg_vals,
+                                      expect_all_memrefs, consumed_memrefs,
+                                      &saved_decode_pc, interrupted, added_encoding))
+                    return false;
             } else if (instrs_are_separate) {
                 // There is only one memref entry (each memref is after a count=0 PC
                 // entry). Full info (type and size) is provided via
@@ -2042,11 +2052,6 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                                        consumed_memrefs, orig_pc))
                         return false;
                 }
-            } else if (instr->is_rep_string() && repstr_first_last_supported) {
-                if (!append_repstring(tdata, instr, orig_pc, &buf, reg_vals,
-                                      expect_all_memrefs, consumed_memrefs,
-                                      &saved_decode_pc, interrupted, added_encoding))
-                    return false;
             } else {
                 log(4, "Walking memrefs: %d srcs, %d dsts\n", instr->num_mem_srcs(),
                     instr->num_mem_dests());
@@ -2272,7 +2277,34 @@ raw2trace_t::append_repstring(raw2trace_thread_data_t *tdata,
                               app_pc *saved_decode_pc, bool interrupted,
                               bool added_encoding)
 {
+    trace_entry_t *buf_start = get_write_buffer(tdata);
     trace_entry_t *buf = *buf_in;
+    bool reached_end_of_memrefs = false;
+    if (TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_DFILTERED,
+                tdata->start_file_type)) {
+        // All the records are present: we just need to read until they stop.
+        // For multi-memref, MEMINFO records will indicate the type and this parameter
+        // will be ignored, so we just need to identify the type for single-memref
+        // operations.
+        bool has_store = instr->num_mem_dests() > 0;
+        while (!reached_end_of_memrefs) {
+            // If we're nearing the size limit, write out the buffer.
+            if ((size_t)(buf - buf_start) + sizeof(*buf) >= WRITE_BUFFER_SIZE) {
+                if (!write(tdata, buf_start, buf, saved_decode_pc, 1))
+                    return false;
+                buf = buf_start;
+            }
+            if (!append_memref(tdata, &buf, instr, /*ignored*/ instr->mem_src_at(0),
+                               has_store, reg_vals, &reached_end_of_memrefs,
+                               expect_all_memrefs, consumed_memrefs, orig_pc))
+                return false;
+        }
+        // Don't leave the buffer full as the rest of the block assumes it has space.
+        if (!write(tdata, buf_start, buf, saved_decode_pc, 1))
+            return false;
+        *buf_in = buf_start;
+        return true;
+    }
     // To support elision (though we don't expect any with these instructions
     // modifying the pointers, just to be safe), it's easier to append the 2 or
     // 4 memrefs and then modify the buffer afterward, instead of peeking ahead
@@ -2281,7 +2313,6 @@ raw2trace_t::append_repstring(raw2trace_thread_data_t *tdata,
     log(5, "Rep string with %d memrefs (loads=%d stores=%d) pc=%p\n", num_memrefs,
         instr->num_mem_srcs(), instr->num_mem_dests(), orig_pc);
     DR_ASSERT(num_memrefs == 1 || num_memrefs == 2);
-    bool reached_end_of_memrefs = false;
     for (int i = 0; i < 2 * num_memrefs; ++i) {
         const instr_summary_t::memref_summary_t *memref;
         bool is_store;
@@ -2337,7 +2368,7 @@ raw2trace_t::append_repstring(raw2trace_thread_data_t *tdata,
             // instead a loop that was about to start but was interrupted by
             // a signal or exception. Replace it with a marker.
             buf = *buf_in - 1;
-            DR_ASSERT(buf->type == TRACE_TYPE_INSTR);
+            DR_ASSERT(buf->type == TRACE_TYPE_INSTR_REPEATED);
             if (added_encoding) {
                 rollback_last_encoding(tdata);
                 --buf;
@@ -2367,7 +2398,6 @@ raw2trace_t::append_repstring(raw2trace_thread_data_t *tdata,
     // Unroll the loop.
     start = backward ? (start - size) : (start + size);
     start_2 = backward ? (start_2 - size) : (start_2 + size);
-    trace_entry_t *buf_start = get_write_buffer(tdata);
     while ((backward && start > end) || (!backward && start < end)) {
         // If we're nearing the size limit, write out the buffer.
         if ((size_t)(buf - buf_start) + 3 * sizeof(*buf) >= WRITE_BUFFER_SIZE) {
@@ -2376,16 +2406,7 @@ raw2trace_t::append_repstring(raw2trace_thread_data_t *tdata,
             buf = buf_start;
         }
         log(4, "  Adding rep string memref %p\n", start);
-        // We assume we never need an encoding record as no-fetch won't count
-        // toward chunk limits.
-        // XXX i#4915: Remove these non-fetched entries.
-        // We'd have to also remove from the expanded path for online and filtered:
-        // for filtered via a post-unexpanded-repstr clean call applying filtering;
-        // for online via the reader removing the expanded-repstr nofetch records.
-        buf->type = static_cast<unsigned short>(TRACE_TYPE_INSTR_NO_FETCH);
-        buf->size = instr->length();
-        buf->addr = reinterpret_cast<addr_t>(orig_pc);
-        ++buf;
+        // We no longer emit TRACE_TYPE_INSTR_NO_FETCH: just the loads and stores.
         buf->type = static_cast<unsigned short>(
             instr->num_mem_srcs() > 0 ? TRACE_TYPE_READ : TRACE_TYPE_WRITE);
         buf->size = static_cast<unsigned short>(size);
@@ -2725,9 +2746,12 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
         }
         in_entry = get_next_entry(tdata);
     }
-    if (TESTANY(OFFLINE_FILE_TYPE_DFILTERED, get_file_type(tdata)) &&
-        !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
-                 get_file_type(tdata))) {
+    // For non-repstring, we only expect dfiltered-but-not-ifiltered to come
+    // here with 0-instr-count PC entries. For repstring first-last iter expansion
+    // we come here for ifiltered as well, so look for 0-instr-count for any filtering.
+    if (TESTANY(OFFLINE_FILE_TYPE_DFILTERED | OFFLINE_FILE_TYPE_FILTERED |
+                    OFFLINE_FILE_TYPE_IFILTERED,
+                get_file_type(tdata))) {
         if (in_entry != nullptr &&
             (in_entry->pc.type ==
              OFFLINE_TYPE_PC IF_X64(|| in_entry->pc.type == OFFLINE_TYPE_PC_TOP_BIT))) {
@@ -2735,6 +2759,8 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
             if (in_entry->pc.instr_count != 0) {
                 // All further memrefs for this block must have been filtered out.
                 unread_last_entry(tdata);
+                if (reached_end_of_memrefs != nullptr)
+                    *reached_end_of_memrefs = true;
                 return true;
             }
             // Otherwise, this is a 0-instr-count entry identifying which PC the
@@ -2742,14 +2768,14 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
             // had their address records ommitted, in which case we just return here.
             app_pc memref_pc =
                 modmap_().get_orig_pc(in_entry->pc.modidx, in_entry->pc.modoffs);
-            if (memref_pc < orig_pc) {
-                tdata->error = "Bypassed dfilter memref";
-                return false;
-            }
-            if (memref_pc > orig_pc) {
+            // This next PC could be larger in this same block, or smaller or larger
+            // in the next block; if not equal in any way, return.
+            if (memref_pc != orig_pc) {
                 log(4, "Did not yet reach next memref @%p vs instr %p\n", memref_pc,
                     orig_pc);
                 unread_last_entry(tdata);
+                if (reached_end_of_memrefs != nullptr)
+                    *reached_end_of_memrefs = true;
                 return true;
             }
             in_entry = get_next_entry(tdata);

@@ -1,9 +1,8 @@
 all done
 Basic counts tool results:
 Total counts:
-    .* total \(fetched\) instructions
-    .* total unique \(fetched\) instructions
-    .* total non-fetched instructions
+    .* total instructions
+    .* total unique instructions
     .* total prefetches
     .* total data loads
     .* total data stores

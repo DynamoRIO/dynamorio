@@ -102,7 +102,7 @@ typedef enum {
      * post-syscall timestamp actually containing the pre-syscall time.
      */
     TRACE_ENTRY_VERSION_FREQUENT_TIMESTAMPS = 6,
-    /*
+    /**
      * The trace supports #TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION. The marker is used
      * to indicate an instruction started to execute but didn't retire. The instruction
      * was either preempted by an asynchronous signal or caused a fault. The instruction
@@ -115,10 +115,16 @@ typedef enum {
      * instruction is available in a subsequent
      * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT marker.
      */
-    TRACE_ENTRY_VERSION_RETIRED_INSTRUCTIONS_ONLY =
-        7, /**< Trace version which has only retired instructions in drmemtraces.*/
+    TRACE_ENTRY_VERSION_RETIRED_INSTRUCTIONS_ONLY = 7,
+    /**
+     * The trace completely omits #TRACE_TYPE_INSTR_NO_FETCH records. Repeated string
+     * instructions consist of a single instruction record of the new type
+     * #TRACE_TYPE_INSTR_REPEATED followed by consecutive memory access records
+     * with no further instruction fetch record for any subsequent iteration.
+     */
+    TRACE_ENTRY_VERSION_NO_UNFETCHED_INSTRUCTIONS = 8,
     /** The latest version of the trace format. */
-    TRACE_ENTRY_VERSION = TRACE_ENTRY_VERSION_RETIRED_INSTRUCTIONS_ONLY,
+    TRACE_ENTRY_VERSION = TRACE_ENTRY_VERSION_NO_UNFETCHED_INSTRUCTIONS,
 } trace_version_t;
 
 /** The type of a trace entry in a #memref_t structure. */
@@ -240,10 +246,13 @@ typedef enum {
      * For core simulators, a trace includes instructions that do not incur
      * instruction cache fetches, such as on each subsequent iteration of a
      * rep string loop on x86.
+     *
+     * \deprecated This record only appears in legacy traces with a version
+     * less than #TRACE_ENTRY_VERSION_NO_UNFETCHED_INSTRUCTIONS.
      */
     TRACE_TYPE_INSTR_NO_FETCH,
-    // An internal value used for online traces and turned by reader_t into
-    // either TRACE_TYPE_INSTR or TRACE_TYPE_INSTR_NO_FETCH.
+    // An internal value used for online traces which is either turned into
+    // #TRACE_TYPE_INSTR or removed by reader_t.
     // Enum value == 30.
     TRACE_TYPE_INSTR_MAYBE_FETCH,
 
@@ -264,6 +273,7 @@ typedef enum {
     TRACE_TYPE_PREFETCH_INSTR_L2,    /**< Instr prefetch to L2 cache. */
     TRACE_TYPE_PREFETCH_INSTR_L2_NT, /**< Non-temporal instr prefetch to L2 cache. */
     TRACE_TYPE_PREFETCH_INSTR_L3,    /**< Instr prefetch to L3 cache. */
+    // Enum value == 40.
     TRACE_TYPE_PREFETCH_INSTR_L3_NT, /**< Non-temporal instr prefetch to L3 cache. */
 
     TRACE_TYPE_PREFETCH_WRITE_L1,    /**< Store prefetch to L1 cache. */
@@ -274,9 +284,6 @@ typedef enum {
     TRACE_TYPE_PREFETCH_WRITE_L3_NT, /**< Non-temporal store prefetch to L3 cache. */
 
     // Internal value for encoding bytes.
-    // Currently this is only used for offline traces with OFFLINE_FILE_TYPE_ENCODINGS.
-    // XXX i#5520: Add to online traces, but under an option since extra
-    // encoding entries add runtime overhead.
     TRACE_TYPE_ENCODING,
 
     /**
@@ -290,8 +297,16 @@ typedef enum {
      */
     TRACE_TYPE_INSTR_UNTAKEN_JUMP,
 
+    // Enum value == 50.
     /** An invalid record, meant for use as a sentinel value. */
     TRACE_TYPE_INVALID,
+
+    /**
+     * We separate out the x86 string loop instructions (from
+     * #TRACE_ENTRY_VERSION_NO_UNFETCHED_INSTRUCTIONS onward) to make it easier
+     * to handle their potentially very long sequences of load/store records.
+     */
+    TRACE_TYPE_INSTR_REPEATED,
 
     // Update trace_type_names[] when adding here.
 } trace_type_t;
@@ -425,7 +440,8 @@ typedef enum {
     /**
      * The marker value contains the count of dynamic instruction executions in
      * this software thread since the start of the trace.  This marker type is only
-     * present in online-cache-filtered traces and is placed at thread exit.
+     * present in online-cache-filtered traces and is placed at each thread buffer
+     * boundary and at thread exit.
      */
     TRACE_MARKER_TYPE_INSTRUCTION_COUNT,
 
@@ -850,20 +866,23 @@ extern const char *const trace_type_names[];
 
 /**
  * Returns whether the type represents an instruction fetch.
- * Deliberately excludes TRACE_TYPE_INSTR_NO_FETCH and TRACE_TYPE_INSTR_BUNDLE.
+ * Deliberately excludes #TRACE_TYPE_INSTR_NO_FETCH and TRACE_TYPE_INSTR_BUNDLE.
+ * #TRACE_TYPE_INSTR_NO_FETCH is now deprecated and only present in legacy
+ * traces.
  */
 static inline bool
 type_is_instr(const trace_type_t type)
 {
     return (type >= TRACE_TYPE_INSTR && type <= TRACE_TYPE_INSTR_RETURN) ||
         type == TRACE_TYPE_INSTR_SYSENTER || type == TRACE_TYPE_INSTR_TAKEN_JUMP ||
-        type == TRACE_TYPE_INSTR_UNTAKEN_JUMP;
+        type == TRACE_TYPE_INSTR_UNTAKEN_JUMP || type == TRACE_TYPE_INSTR_REPEATED;
 }
 
 /**
  * Returns whether \p type represents any type of instruction record whether an
  * instruction fetch or operation hint. This is a superset of type_is_instr() and includes
- * #TRACE_TYPE_INSTR_NO_FETCH.
+ * #TRACE_TYPE_INSTR_NO_FETCH. Note that #TRACE_TYPE_INSTR_NO_FETCH is now deprecated
+ * and only present in legacy traces.
  */
 static inline bool
 is_any_instr_type(const trace_type_t type)
@@ -1153,7 +1172,9 @@ typedef enum {
 #define OFFLINE_FILE_VERSION_ELIDE_IMMED_BASE 11
 /** AArch64 stack pointer bases are elided. */
 #define OFFLINE_FILE_VERSION_ELIDE_AARCH64_SP 12
-#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_ELIDE_AARCH64_SP
+/** Rep string loops are never unrolled, even for filtered traces. */
+#define OFFLINE_FILE_VERSION_REPSTR_LOOP_ALL 13
+#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_REPSTR_LOOP_ALL
 
 /**
  * Bitfields used to describe the high-level characteristics of both an

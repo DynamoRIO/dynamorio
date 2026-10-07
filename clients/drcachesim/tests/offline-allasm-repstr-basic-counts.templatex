@@ -11,9 +11,8 @@ Adios world!
 Adios world!
 Basic counts tool results:
 Total counts:
-         122 total \(fetched\) instructions
-          50 total unique \(fetched\) instructions
-           8 total non-fetched instructions
+         122 total instructions
+          50 total unique instructions
            0 total prefetches
           12 total data loads
           10 total data stores
@@ -36,5 +35,5 @@ Total counts:
            5 total other markers
           50 total encodings
 Thread [0-9]* counts:
-         122 \(fetched\) instructions
+         122 instructions
 .*

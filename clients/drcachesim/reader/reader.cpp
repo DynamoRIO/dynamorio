@@ -80,17 +80,6 @@ reader_t::operator++()
             }
             break;
         }
-        if (input_entry_->type == TRACE_TYPE_FOOTER) {
-            VPRINT(this, 2, "At thread EOF\n");
-            // We've already presented the thread exit entry to the analyzer.
-            continue;
-        }
-        if (input_entry_->type == TRACE_TYPE_HEADER) {
-            // We support complete traces being packaged in archives and then read
-            // sequentially.  We just keep going past the header.
-            VPRINT(this, 2, "Assuming header is part of concatenated traces\n");
-            continue;
-        }
         VPRINT(this, 5, "RECV: type=%s (%d), size=%d, addr=0x%zx\n",
                trace_type_names[input_entry_->type], input_entry_->type,
                input_entry_->size, input_entry_->addr);
@@ -160,13 +149,24 @@ reader_t::process_input_entry()
         last_encoding_.size += static_cast<unsigned char>(input_entry_->size);
         break;
     case TRACE_TYPE_INSTR_MAYBE_FETCH:
+    case TRACE_TYPE_INSTR_REPEATED:
         // While offline traces can convert rep string per-iter instrs into
         // no-fetch entries, online can't w/o extra work, so we do the work
         // here:
-        if (prev_instr_addr_ == input_entry_->addr)
-            input_entry_->type = TRACE_TYPE_INSTR_NO_FETCH;
-        else
-            input_entry_->type = TRACE_TYPE_INSTR;
+        if (prev_instr_addr_ == input_entry_->addr) {
+            if (version_ < TRACE_ENTRY_VERSION_NO_UNFETCHED_INSTRUCTIONS)
+                input_entry_->type = TRACE_TYPE_INSTR_NO_FETCH;
+            else {
+                // Just omit. Clear the encoding size as for online we keep getting
+                // a new ecoding on each iteration (when encodings are enabled).
+                // XXX i#4948: Avoid the cost of generating and sending these for online
+                // now that we just discard them, and now that offline traces never
+                // generate them in the first place.
+                last_encoding_.size = 0;
+                break;
+            }
+        } else
+            input_entry_->type = TRACE_TYPE_INSTR_REPEATED;
         ANNOTATE_FALLTHROUGH;
     case TRACE_TYPE_INSTR:
     case TRACE_TYPE_INSTR_DIRECT_JUMP:
@@ -350,9 +350,15 @@ reader_t::process_input_entry()
             }
         } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID)
             last_cpuid_ = cur_ref_.marker.marker_value;
-        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_VERSION)
-            version_ = cur_ref_.marker.marker_value;
-        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
+        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_VERSION) {
+            if (version_ == 0) {
+                version_ = cur_ref_.marker.marker_value;
+            } else if (cur_ref_.marker.marker_value != version_) {
+                ERRMSG("Version mismatch: header %" PRIu64 " != marker %zu\n", version_,
+                       input_entry_->addr);
+                assert_release_too(false);
+            }
+        } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
             filetype_ = cur_ref_.marker.marker_value;
             found_filetype_ = true;
             if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype_)) {
@@ -377,6 +383,9 @@ reader_t::process_input_entry()
         VPRINT(
             this, 2,
             "Assuming header is part of concatenated or on-disk-core-sharded traces\n");
+        // We do not complain about the version changing, to support multiple
+        // kernel templates of different versions in the same file.
+        version_ = input_entry_->addr;
         break;
     case TRACE_TYPE_FOOTER:
         // We support core-sharded-on-disk traces where an originally-thread-sharded
