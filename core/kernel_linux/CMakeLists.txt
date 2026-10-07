@@ -31,33 +31,26 @@
 # Builds the DynamoRIO Linux kernel module via the kernel's own Kbuild
 # system. Kernel modules can't be compiled with CMake's normal compiler
 # invocation, so this shells out to `make` against KERNEL_DIR and
-# MAKE_PROGRAM, both validated and cached by the parent CMakeLists.txt.
+# MAKE_PROGRAM, both validated and cached by the top-level CMakeLists.txt.
 
 # Must match obj-m in Kbuild.
 set(dynamorio_module_name dynamorio_module)
 
-# Single source of truth for module sources. Add new files here only.
-# This list drives the generated Kbuild.sources object list.
+# Linux kernel OS-specific sources. Combine with CORE_SRCS and ARCH_SRCS from
+# core/CMakeLists.txt to generate the Kbuild.sources object list. Paths here should be
+# relative to core/, matching CORE_SRCS and ARCH_SRCS.
 #
 # Note: No source file may be named "${dynamorio_module_name}.c" because
 # Kbuild composite targets cannot share a name with a component object file.
 set(dynamorio_module_os_sources
-  dynamorio_module_main.c
-  kernel_interface.c
-  os.c
+  kernel_linux/dynamorio_module_main.c
+  kernel_linux/kernel_interface.c
+  kernel_linux/os.c
 )
-# CORE_SRCS and ARCH_SRCS are relevant to `core/`, so we should transform
-# dynamorio_module_os_sources before merging them
-list(TRANSFORM dynamorio_module_os_sources PREPEND "kernel_linux/")
 set(dynamorio_module_sources ${CORE_SRCS} ${ARCH_SRCS} ${dynamorio_module_os_sources})
-# .asm files are handled directly by kbuild
-list(FILTER dynamorio_module_sources INCLUDE REGEX "\\.c$")
-
-set(dynamorio_module_objs "")
-foreach (src ${dynamorio_module_sources})
-  string(REGEX REPLACE "\\.c$" ".o" obj "core/${src}")
-  list(APPEND dynamorio_module_objs "${obj}")
-endforeach ()
+list(TRANSFORM dynamorio_module_sources PREPEND "core/")
+list(TRANSFORM dynamorio_module_sources REPLACE "\\.(c|asm)$" ".o"
+  OUTPUT_VARIABLE dynamorio_module_objs)
 
 # Kbuild writes its outputs next to the sources, so the module is built in a
 # tree in the build directory that mirrors common/ and core/ with per-file
@@ -81,9 +74,6 @@ foreach (header configure.h configure_defines.h event_strings.h)
   file(CREATE_LINK "${PROJECT_BINARY_DIR}/${header}"
     "${CMAKE_CURRENT_BINARY_DIR}/${header}" SYMBOLIC)
 endforeach ()
-
-# Kbuild generates core/arch/x86/x86.S from x86.asm.
-list(APPEND dynamorio_module_objs "core/arch/x86/x86.o")
 
 # Kbuild adds the generated core/kernel_linux/stubs.o, which is derived from
 # these objects.
