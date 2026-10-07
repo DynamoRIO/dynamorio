@@ -1703,11 +1703,11 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_syscall_sequence(int version,
                                                                     int syscall_num)
 {
     const auto &version_it = syscall_sequence_.find(version);
-    if (version_it == syscall_sequence_.end())
-        return nullptr;
-    const auto &num_it = version_it->second.find(syscall_num);
-    if (num_it != version_it->second.end()) {
-        return &num_it->second;
+    if (version_it != syscall_sequence_.end()) {
+        const auto &num_it = version_it->second.find(syscall_num);
+        if (num_it != version_it->second.end() && num_it->second.first_pc_valid) {
+            return &num_it->second;
+        }
     }
     const auto &default_it = default_syscall_sequence_.find(version);
     if (default_it != default_syscall_sequence_.end() &&
@@ -2025,8 +2025,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_pending_syscall_sequence(
         get_syscall_sequence(version, input->to_inject_syscall);
     if (to_inject_sequence == nullptr) {
         outputs_[output].stream->error_string_ =
-            "Failed to find syscall sequence for version " + std::to_string(version) +
-            " and number " + std::to_string(input->to_inject_syscall);
+            "Failed to find syscall sequence for trace version " +
+            std::to_string(version) + " and syscall number " +
+            std::to_string(input->to_inject_syscall);
         return stream_status_t::STATUS_MISSING_TEMPLATE;
     }
     stream_status_t res = inject_kernel_sequence(*to_inject_sequence, input);
@@ -3069,7 +3070,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::on_context_switch(
         const auto &version_it = switch_sequence_.find(version);
         if (version_it == switch_sequence_.end()) {
             outputs_[output].stream->error_string_ =
-                "No context switch template found for version " + std::to_string(version);
+                "No context switch template found for trace version " +
+                std::to_string(version);
             return stream_status_t::STATUS_MISSING_TEMPLATE;
         }
         const auto &type_it = version_it->second.find(switch_type);
@@ -3423,8 +3425,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::finalize_next_record(
         if (to_inject_sequence == nullptr) {
             if (!syscall_sequence_.empty()) {
                 outputs_[output].stream->error_string_ =
-                    "Failed to find syscall sequence for version " +
-                    std::to_string(version) + " and number " +
+                    "Failed to find syscall sequence for trace version " +
+                    std::to_string(version) + " and syscall number " +
                     std::to_string(syscall_num);
                 return stream_status_t::STATUS_MISSING_TEMPLATE;
             }
