@@ -52,7 +52,7 @@
 #ifndef WINDOWS
 #endif
 
-#include <limits.h> /* for ULLONG_MAX */
+#include "limits_wrapper.h" /* for ULLONG_MAX */
 
 #include "fcache.h" /* for fcache_reset_all_caches_proactively */
 #ifdef GBOP

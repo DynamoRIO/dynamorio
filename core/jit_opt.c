@@ -1,6 +1,5 @@
 #include "globals.h"
 #include "annotations.h"
-#include "lib/dr_annotations.h"
 #include "jit_opt.h"
 
 #define DYNAMORIO_ANNOTATE_MANAGE_CODE_AREA_NAME "dynamorio_annotate_manage_code_area"
