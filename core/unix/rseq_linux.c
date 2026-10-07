@@ -710,14 +710,15 @@ rseq_get_tls_scan_bounds(byte *tp, byte **lo DR_PARAM_OUT, byte **hi DR_PARAM_OU
     *lo = base;
     *hi = base + size;
 
+    byte *min_lo = tp - RSEQ_MAX_TLS_SCAN;
+    byte *max_hi = tp + RSEQ_MAX_TLS_SCAN;
     uint prot;
-    while (tp - *lo < RSEQ_MAX_TLS_SCAN &&
-           get_memory_info(*lo - 1, &base, &size, &prot) &&
+    while (*lo > min_lo && get_memory_info(*lo - 1, &base, &size, &prot) &&
            TESTALL(MEMPROT_READ | MEMPROT_WRITE, prot))
-        *lo = base;
-    while (*hi - tp < RSEQ_MAX_TLS_SCAN && get_memory_info(*hi, &base, &size, &prot) &&
+        *lo = MAX(base, min_lo);
+    while (*hi < max_hi && get_memory_info(*hi, &base, &size, &prot) &&
            TESTALL(MEMPROT_READ | MEMPROT_WRITE, prot))
-        *hi = base + size;
+        *hi = MIN(base + size, max_hi);
     ASSERT(*lo <= tp && tp < *hi);
     return true;
 }
