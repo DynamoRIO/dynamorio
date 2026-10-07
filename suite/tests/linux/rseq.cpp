@@ -73,6 +73,17 @@
 #include <errno.h>
 #undef NDEBUG
 #include <assert.h>
+#ifdef RSEQ_TEST_SPLIT_TLS_VMA
+#    include <sys/mman.h>
+#    include <sys/prctl.h>
+#    include <unistd.h>
+#    ifndef PR_SET_VMA
+#        define PR_SET_VMA 0x53564d41
+#    endif
+#    ifndef PR_SET_VMA_ANON_NAME
+#        define PR_SET_VMA_ANON_NAME 0
+#    endif
+#endif
 
 #define EXPANDSTR(x) #x
 #define STRINGIFY(x) EXPANDSTR(x)
@@ -105,7 +116,35 @@
  */
 static __thread volatile struct rseq rseq_tls;
 /* Make it harder to find rseq_tls for DR's heuristic by adding more static TLS. */
+#ifdef RSEQ_TEST_SPLIT_TLS_VMA
+/* Large enough that one end is always more than a page from the thread pointer. */
+static __thread volatile struct rseq fill_up_tls[256];
+#else
 static __thread volatile struct rseq fill_up_tls[128];
+#endif
+
+/* Returns the static-TLS struct rseq that we register when glibc does not. */
+static volatile struct rseq *
+get_tls_rseq()
+{
+#ifdef RSEQ_TEST_SPLIT_TLS_VMA
+    /* Use whichever end of fill_up_tls is farther from the thread pointer.  It is
+     * more than a page away, so it is on a different page than the thread pointer
+     * regardless of the TLS variant or the order of the TLS variables.
+     */
+    uintptr_t tp = reinterpret_cast<uintptr_t>(__builtin_thread_pointer());
+    volatile struct rseq *first = &fill_up_tls[0];
+    volatile struct rseq *last =
+        &fill_up_tls[sizeof(fill_up_tls) / sizeof(fill_up_tls[0]) - 1];
+    uintptr_t first_addr = reinterpret_cast<uintptr_t>(first);
+    uintptr_t last_addr = reinterpret_cast<uintptr_t>(last);
+    uintptr_t first_dist = first_addr < tp ? tp - first_addr : first_addr - tp;
+    uintptr_t last_dist = last_addr < tp ? tp - last_addr : last_addr - tp;
+    return first_dist > last_dist ? first : last;
+#else
+    return &rseq_tls;
+#endif
+}
 
 extern "C" void
 test_rseq_native_abort_handler();
@@ -162,8 +201,9 @@ register_rseq()
         assert(res == -1 && (errno == EBUSY || errno == ENOSYS));
     } else {
 #endif
-        rseq_tls.cpu_id = RSEQ_CPU_ID_UNINITIALIZED;
-        int res = syscall(SYS_rseq, &rseq_tls, sizeof(rseq_tls), 0, RSEQ_SIG);
+        volatile struct rseq *tls_rseq = get_tls_rseq();
+        tls_rseq->cpu_id = RSEQ_CPU_ID_UNINITIALIZED;
+        int res = syscall(SYS_rseq, tls_rseq, sizeof(*tls_rseq), 0, RSEQ_SIG);
         assert(res == 0 || (res == -1 && errno == ENOSYS));
 #ifdef GLIBC_RSEQ
     }
@@ -180,7 +220,7 @@ get_my_rseq()
         return reinterpret_cast<struct rseq *>(
             reinterpret_cast<byte *>(__builtin_thread_pointer()) + __rseq_offset);
 #endif
-    return &rseq_tls;
+    return get_tls_rseq();
 }
 
 static void
@@ -1283,6 +1323,31 @@ test_rseq_cmpxchg(void)
 #endif
 
 #ifdef RSEQ_TEST_ATTACH
+#    ifdef RSEQ_TEST_SPLIT_TLS_VMA
+/* i#8174: Put this thread's struct rseq in a separate mapping from the one holding
+ * the thread pointer, as happens when an app names a sub-range of a thread's TLS
+ * with PR_SET_VMA_ANON_NAME.  DR's attach-time search must then look beyond the
+ * mapping containing the thread pointer.
+ */
+static void
+split_tls_mapping()
+{
+    uintptr_t page_size = static_cast<uintptr_t>(sysconf(_SC_PAGESIZE));
+    uintptr_t tp = reinterpret_cast<uintptr_t>(__builtin_thread_pointer());
+    uintptr_t rseq_page = reinterpret_cast<uintptr_t>(get_tls_rseq()) & ~(page_size - 1);
+    assert(rseq_page != (tp & ~(page_size - 1)));
+    void *start = reinterpret_cast<void *>(rseq_page);
+    /* Naming requires Linux 5.17+ with CONFIG_ANON_VMA_NAME.  Otherwise, changing
+     * the flags of the page with MADV_DONTFORK splits the mapping just the same.
+     */
+    if (prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, start, page_size, "rseq_test_tls") !=
+        0) {
+        int res = madvise(start, page_size, MADV_DONTFORK);
+        assert(res == 0);
+    }
+}
+#    endif
+
 void *
 rseq_thread_loop(void *arg)
 {
@@ -1477,6 +1542,10 @@ main()
         thread_ready = create_cond_var();
         thread_t mythread = create_thread(rseq_thread_loop, NULL);
         wait_cond_var(thread_ready);
+#    ifdef RSEQ_TEST_SPLIT_TLS_VMA
+        /* DR searches for struct rseq on this thread during attach. */
+        split_tls_mapping();
+#    endif
         dr_app_setup_and_start();
 #endif
         test_rseq_call();
