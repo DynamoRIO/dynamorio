@@ -101,10 +101,11 @@ static volatile bool rseq_enabled;
 #    define GLIBC_RSEQ_OFFSET -32
 #endif
 
-/* i#8174: Upper bound on how far from the thread pointer we can extend the static TLS
- * search across adjacent mappings. Real static TLS is far smaller. This cap avoids
- * unbounded search or accepting a struct rseq that is not at a constant TLS offset (e.g.,
- * heap-registered).
+/* i#8174: Upper bound on how far from the thread pointer we extend the static TLS search
+ * across adjacent mappings. Real static TLS is far smaller. This cap limits extra search
+ * time and reduces the risk of accepting a struct rseq that is not at a constant TLS
+ * offset (e.g., heap-registered). It does not limit the mapping containing the thread
+ * pointer, which is always searched in full, as before.
  */
 #define RSEQ_MAX_TLS_SCAN (1024 * 1024)
 
@@ -802,7 +803,7 @@ rseq_locate_tls_offset(void)
      */
     byte *lo, *hi;
     if (addr > 0 && rseq_get_tls_scan_bounds(addr, &lo, &hi)) {
-        LOG(GLOBAL, LOG_LOADER, 3, "rseq within static TLS " PFX " - " PFX "\n", lo, hi);
+        LOG(GLOBAL, LOG_LOADER, 3, "Searching resq within " PFX " - " PFX "\n", lo, hi);
         offset = rseq_scan_tls(addr, lo, hi);
         if (offset != 0) {
             LOG(GLOBAL, LOG_LOADER, 2,
