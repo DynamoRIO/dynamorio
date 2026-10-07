@@ -101,6 +101,13 @@ static volatile bool rseq_enabled;
 #    define GLIBC_RSEQ_OFFSET -32
 #endif
 
+/* i#8174: Upper bound on how far from the thread pointer we can extend the static TLS
+ * search across adjacent mappings. Real static TLS is far smaller. This cap avoids
+ * unbounded search or accepting a struct rseq that is not at a constant TLS offset (e.g.,
+ * heap-registered).
+ */
+#define RSEQ_MAX_TLS_SCAN (1024 * 1024)
+
 /* We require all threads to use the same TLS offset to point at struct rseq. */
 static int rseq_tls_offset;
 
@@ -663,10 +670,12 @@ try_struct_rseq(void *try_addr)
      * value based on what was observed and some extra for future-proofing.
      * See https://lwn.net/Articles/1033957/ for more details.
      */
-    for (size = 32; size <= 40 && res == -EINVAL; size++) {
+    for (size = 32; size <= 40; size++) {
         res = dynamorio_syscall(SYS_rseq, 4, try_addr, size, RSEQ_FLAG_UNREGISTER,
                                 RSEQ_RARE_SIGNATURE);
         LOG(GLOBAL, LOG_LOADER, 3, "Tried rseq @ " PFX " => %d\n", try_addr, res);
+        if (res != -EINVAL)
+            break;
     }
     if (res == -EINVAL) /* Our struct != registered struct. */
         return false;
@@ -683,6 +692,63 @@ try_struct_rseq(void *try_addr)
         return true;
     }
     return false;
+}
+
+static bool
+rseq_get_tls_scan_bounds(byte *tp, byte **lo, byte **hi)
+{
+    byte *base;
+    size_t size;
+    if (!get_memory_info(tp, &base, &size, NULL)) {
+        return false;
+    }
+    *lo = base;
+    *hi = base + size;
+
+    uint prot;
+    while (tp - *lo < RSEQ_MAX_TLS_SCAN &&
+           get_memory_info(*lo - 1, &base, &size, &prot) &&
+           TESTALL(MEMPROT_READ | MEMPROT_WRITE, prot))
+        *lo = base;
+    while (*hi - tp < RSEQ_MAX_TLS_SCAN && get_memory_info(*hi, &base, &size, &prot) &&
+           TESTALL(MEMPROT_READ | MEMPROT_WRITE, prot))
+        *hi = base + size;
+    ASSERT(*lo <= tp && tp < *hi);
+    return true;
+}
+
+static int
+rseq_scan_tls(byte *tp, byte *lo, byte *hi)
+{
+    int alignment = __alignof(struct rseq_cs);
+    int below = (tp - lo) / alignment;
+    int above = (hi - tp - 1) / alignment;
+
+    /* Scan the static-TLS side first, then the other side as backup. */
+#ifdef X86
+    for (int d = 1; d <= below; d++) {
+        if (try_struct_rseq(tp - d * alignment)) {
+            return -d * alignment;
+        }
+    }
+    for (int d = 1; d <= above; d++) {
+        if (try_struct_rseq(tp + d * alignment)) {
+            return d * alignment;
+        }
+    }
+#else
+    for (int d = 1; d <= above; d++) {
+        if (try_struct_rseq(tp + d * alignment)) {
+            return d * alignment;
+        }
+    }
+    for (int d = 1; d <= below; d++) {
+        if (try_struct_rseq(tp - d * alignment)) {
+            return -d * alignment;
+        }
+    }
+#endif
+    return 0;
 }
 
 /* If we did not observe the app invoke SYS_rseq (because we attached mid-run)
@@ -715,40 +781,10 @@ rseq_locate_tls_offset(void)
     /* Either the app's glibc does not have rseq support (old glibc or disabled by app)
      * or the offset of glibc's struct rseq has changed. We do a wider search now.
      */
-    byte *seg_bottom;
-    size_t seg_size;
-    if (addr > 0 && get_memory_info(addr, &seg_bottom, &seg_size, NULL)) {
-        LOG(GLOBAL, LOG_LOADER, 3, "rseq within static TLS " PFX " - " PFX "\n",
-            seg_bottom, addr);
-        /* struct rseq_cs is aligned to 32. */
-        int alignment = __alignof(struct rseq_cs);
-        int i;
-        /* When rseq support is enabled in glibc 2.35+, the glibc-registered struct rseq
-         * is present in the struct pthread, which is at a positive offset from the
-         * app library segment base on x86, and negative on aarchxx. However, in the
-         * absence of rseq support from glibc, the app manually registers its own
-         * struct rseq which is present in static TLS, which is at a negative offset
-         * from the app library segment base on x86, and positive on aarchxx.
-         */
-        ASSERT(seg_bottom <= addr && addr < seg_bottom + seg_size);
-        for (i = (seg_bottom - addr) / alignment;
-             addr + i * alignment < seg_bottom + seg_size; ++i) {
-            byte *try_addr = addr + i * alignment;
-            ASSERT(seg_bottom <= try_addr &&
-                   try_addr < seg_bottom + seg_size); /* For loop guarantees this. */
-            /* Our strategy is to check all of the aligned addresses to find the
-             * registered one.  Our caller is not supposed to call here until the app
-             * has registered the current thread (either manually or using glibc).
-             */
-            if (try_struct_rseq(try_addr)) {
-                LOG(GLOBAL, LOG_LOADER, 2,
-                    "Found struct rseq @ " PFX " for thread => %s:%s0x%x\n", try_addr,
-                    get_register_name(LIB_SEG_TLS), (i < 0 ? "-" : ""),
-                    ABS(i) * alignment);
-                offset = i * alignment;
-                break;
-            }
-        }
+    byte *lo, *hi;
+    if (addr > 0 && rseq_get_tls_scan_bounds(addr, &lo, &hi)) {
+        LOG(GLOBAL, LOG_LOADER, 3, "rseq within static TLS " PFX " - " PFX "\n", lo, hi);
+        offset = rseq_scan_tls(addr, lo, hi);
     }
     return offset;
 }
