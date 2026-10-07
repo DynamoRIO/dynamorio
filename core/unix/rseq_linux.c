@@ -697,7 +697,8 @@ try_struct_rseq(void *try_addr)
 
 /* Returns the [lo, hi) range to search around tp.  A thread's stack+TLS mapping may be
  * split (e.g., by PR_SET_VMA_ANON_NAME on a sub-range), so we extend across adjacent
- * read-write mappings, stopping at a gap, a guard page, or RSEQ_MAX_TLS_SCAN.
+ * read-write mappings, stopping at a gap, a non-RW page (e.g., a guard page), or
+ * RSEQ_MAX_TLS_SCAN. The region containing tp is always included in full.
  */
 static bool
 rseq_get_tls_scan_bounds(byte *tp, byte **lo DR_PARAM_OUT, byte **hi DR_PARAM_OUT)
