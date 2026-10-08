@@ -1344,8 +1344,7 @@ split_tls_mapping()
     /* Naming requires Linux 5.17+ with CONFIG_ANON_VMA_NAME.  Otherwise, changing
      * the flags of the page with MADV_DONTFORK splits the mapping just the same.
      */
-    if (prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, start, page_size, "rseq_test_tls") !=
-        0) {
+    if (prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, start, page_size, "rseq_test_tls") != 0) {
         int res = madvise(start, page_size, MADV_DONTFORK);
         assert(res == 0);
     }
