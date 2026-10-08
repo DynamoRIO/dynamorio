@@ -114,12 +114,14 @@
 /* This cannot be a stack-local variable, as the kernel will force SIGSEGV
  * if it can't read this struct.  And for multiple threads it should be in TLS.
  */
-static __thread volatile struct rseq rseq_tls;
-/* Make it harder to find rseq_tls for DR's heuristic by adding more static TLS. */
 #ifdef RSEQ_TEST_SPLIT_TLS_VMA
-/* Large enough that one end is always more than a page from the thread pointer. */
+/* The registered struct rseq is one end of this array (see get_tls_rseq()).  It is
+ * large enough that one end is always more than a page from the thread pointer.
+ */
 static __thread volatile struct rseq fill_up_tls[256];
 #else
+static __thread volatile struct rseq rseq_tls;
+/* Make it harder to find rseq_tls for DR's heuristic by adding more static TLS. */
 static __thread volatile struct rseq fill_up_tls[128];
 #endif
 
