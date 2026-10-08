@@ -61,6 +61,7 @@ static strhash_table_t *ntdll_win7_table;
 static const redirect_import_t redirect_ntdll[] = {
     { "LdrGetProcedureAddress", (app_pc)redirect_LdrGetProcedureAddress },
     { "LdrLoadDll", (app_pc)redirect_LdrLoadDll },
+    { "LdrResolveDelayLoadedAPI", (app_pc)redirect_LdrResolveDelayLoadedAPI },
     { "RtlPcToFileHeader", (app_pc)redirect_RtlPcToFileHeader },
     /* kernel32 passes some of its routines to ntdll where they are
      * stored in function pointers.  xref PR 215408 where on x64 we had
@@ -809,6 +810,192 @@ redirect_LdrLoadDll(DR_PARAM_IN PWSTR path OPTIONAL,
         *handle = (PVOID)res;
         return STATUS_SUCCESS;
     }
+}
+
+PVOID NTAPI
+redirect_LdrResolveDelayLoadedAPI(PVOID ParentModuleBase,
+                                  PCIMAGE_DELAYLOAD_DESCRIPTOR DelayloadDescriptor,
+                                  PDELAYLOAD_FAILURE_DLL_CALLBACK FailureDllHook,
+                                  PVOID FailureSystemHook, PIMAGE_THUNK_DATA ThunkAddress,
+                                  ULONG Flags)
+{
+    app_pc caller_base = (app_pc)ParentModuleBase;
+    HMODULE *pModuleHandle;
+    HMODULE hTargetModule;
+    PIMAGE_THUNK_DATA pIAT_base;
+    PIMAGE_THUNK_DATA pINT_base;
+    PIMAGE_THUNK_DATA pINT_entry;
+    INT_PTR thunk_index;
+    LPCSTR pszDllName;
+    LPCSTR pszProcName = NULL;
+    FARPROC pfnTarget = NULL;
+    PVOID result = NULL;
+
+    LOG(GLOBAL, LOG_LOADER, 2, "%s: ParentModuleBase=" PFX ", ThunkAddress=" PFX "\n",
+        __FUNCTION__, ParentModuleBase, ThunkAddress);
+
+    /* Delay-load support (i#233): Resolve delay-loaded functions similar to
+     * Windows delay-load helper (__delayLoadHelper2).
+     * Algorithm:
+     * 1. Check if target DLL is loaded (via ModuleHandleRVA storage)
+     * 2. Load DLL if needed using locate_and_load_private_library
+     * 3. Find function name/ordinal from Import Name Table
+     * 4. Resolve function using redirect_LdrGetProcedureAddress
+     * 5. Patch IAT entry with resolved address
+     * 6. Return resolved function pointer
+     */
+
+    if (DelayloadDescriptor == NULL || ThunkAddress == NULL) {
+        LOG(GLOBAL, LOG_LOADER, 1,
+            "%s: ERROR - Invalid parameters (DelayloadDescriptor or ThunkAddress is NULL)\n",
+            __FUNCTION__);
+        return NULL;
+    }
+
+    /* 1. Get the address where the HMODULE is (or will be) stored.
+     * The ModuleHandleRVA field is an RVA to a HMODULE variable.
+     */
+    if (DelayloadDescriptor->ModuleHandleRVA == 0) {
+        LOG(GLOBAL, LOG_LOADER, 1, "%s: ERROR - ModuleHandleRVA is 0\n", __FUNCTION__);
+        return NULL;
+    }
+    pModuleHandle = (HMODULE *)(caller_base + DelayloadDescriptor->ModuleHandleRVA);
+
+    /* 2. Check if the DLL is already loaded. */
+    if (*pModuleHandle == NULL) {
+        /* It's not loaded. Get the DLL name (RVA) and load it. */
+        app_pc loaded_base;
+
+        if (DelayloadDescriptor->DllNameRVA == 0) {
+            LOG(GLOBAL, LOG_LOADER, 1, "%s: ERROR - DllNameRVA is 0\n", __FUNCTION__);
+            return NULL;
+        }
+        pszDllName = (LPCSTR)(caller_base + DelayloadDescriptor->DllNameRVA);
+
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: Loading delay-load DLL: %s\n", __FUNCTION__,
+            pszDllName);
+
+        /* Use locate_and_load_private_library to load the DLL */
+        loaded_base = locate_and_load_private_library(pszDllName, false /*!reachable*/);
+        if (loaded_base == NULL) {
+            LOG(GLOBAL, LOG_LOADER, 1, "%s: ERROR - Failed to load DLL: %s\n",
+                __FUNCTION__, pszDllName);
+            return NULL;
+        }
+
+        hTargetModule = (HMODULE)loaded_base;
+
+        /* Store the handle back into the pointer for future calls. */
+        *pModuleHandle = hTargetModule;
+    } else {
+        hTargetModule = *pModuleHandle;
+    }
+
+    LOG(GLOBAL, LOG_LOADER, 2, "%s: Target module handle: " PFX "\n", __FUNCTION__,
+        hTargetModule);
+
+    /* 3. Find the function name or ordinal.
+     * We need to find the "index" of our thunk to look in the parallel name table.
+     */
+
+    /* Get the base of the IAT (pIAT) and INT (pINT) arrays. */
+    if (DelayloadDescriptor->ImportAddressTableRVA == 0 ||
+        DelayloadDescriptor->ImportNameTableRVA == 0) {
+        LOG(GLOBAL, LOG_LOADER, 1, "%s: ERROR - IAT or INT RVA is 0\n", __FUNCTION__);
+        return NULL;
+    }
+
+    pIAT_base =
+        (PIMAGE_THUNK_DATA)(caller_base + DelayloadDescriptor->ImportAddressTableRVA);
+    pINT_base =
+        (PIMAGE_THUNK_DATA)(caller_base + DelayloadDescriptor->ImportNameTableRVA);
+
+    /* Calculate the index of our function by its position in the IAT.
+     * ThunkAddress is the entry we are resolving (e.g., &pIAT_base[2])
+     */
+    thunk_index = ThunkAddress - pIAT_base;
+    if (thunk_index < 0) {
+        LOG(GLOBAL, LOG_LOADER, 1,
+            "%s: ERROR - ThunkAddress " PFX " is before IAT base " PFX "\n", __FUNCTION__,
+            ThunkAddress, pIAT_base);
+        return NULL;
+    }
+
+    LOG(GLOBAL, LOG_LOADER, 2, "%s: Resolving thunk at index %d\n", __FUNCTION__,
+        thunk_index);
+
+    /* 4. Get the corresponding entry from the Import Name Table (pINT). */
+    pINT_entry = &pINT_base[thunk_index];
+
+    /* 5. Check if we are importing by ordinal or by name.
+     * The high bit of the thunk data's value tells us if it's an ordinal.
+     */
+    if (TEST(IMAGE_ORDINAL_FLAG, pINT_entry->u1.Function)) {
+        /* Import by ordinal. The lower bits are the ordinal number. */
+        const char *forwarder = NULL;
+        DWORD ord = (DWORD)(pINT_entry->u1.AddressOfData & ~(IMAGE_ORDINAL_FLAG));
+
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: Resolving by ordinal: %d\n", __FUNCTION__, ord);
+
+        /* Call get_proc_address_by_ordinal directly */
+        pfnTarget =
+            (FARPROC)get_proc_address_by_ordinal((app_pc)hTargetModule, ord, &forwarder);
+        if (pfnTarget == NULL) {
+            LOG(GLOBAL, LOG_LOADER, 1,
+                "%s: ERROR - get_proc_address_by_ordinal failed for ordinal %d\n",
+                __FUNCTION__, ord);
+            return NULL;
+        }
+
+        /* XXX i#233: Handle forwarders if needed */
+        if (forwarder != NULL) {
+            LOG(GLOBAL, LOG_LOADER, 2, "%s: WARNING - Ordinal %d is forwarded to %s\n",
+                __FUNCTION__, ord, forwarder);
+        }
+    } else {
+        /* Import by name. The value is an RVA to an IMAGE_IMPORT_BY_NAME struct. */
+        NTSTATUS status;
+        PVOID resolved_addr;
+        ANSI_STRING func_name;
+        IMAGE_IMPORT_BY_NAME *pImportByName =
+            (IMAGE_IMPORT_BY_NAME *)(caller_base + pINT_entry->u1.AddressOfData);
+
+        /* The 'Name' field is the null-terminated function name string. */
+        pszProcName = (LPCSTR)pImportByName->Name;
+
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: Resolving by name: %s\n", __FUNCTION__,
+            pszProcName);
+
+        /* Initialize ANSI_STRING for the function name */
+        func_name.Buffer = (PCHAR)pszProcName;
+        func_name.Length = (USHORT)strlen(pszProcName);
+        func_name.MaximumLength = func_name.Length + 1;
+
+        /* Call redirect_LdrGetProcedureAddress with ANSI_STRING */
+        status =
+            redirect_LdrGetProcedureAddress(hTargetModule, &func_name, 0, &resolved_addr);
+        if (!NT_SUCCESS(status)) {
+            LOG(GLOBAL, LOG_LOADER, 1,
+                "%s: ERROR - LdrGetProcedureAddress failed for %s (status=%x)\n",
+                __FUNCTION__, pszProcName, status);
+            return NULL;
+        }
+        pfnTarget = (FARPROC)resolved_addr;
+    }
+
+    LOG(GLOBAL, LOG_LOADER, 2, "%s: Resolved function address: " PFX "\n", __FUNCTION__,
+        pfnTarget);
+
+    /* 7. Patch the IAT entry with the resolved address. */
+    ThunkAddress->u1.Function = (ptr_uint_t)pfnTarget;
+
+    /* 8. Return the real function address. */
+    result = (PVOID)pfnTarget;
+
+    LOG(GLOBAL, LOG_LOADER, 2, "%s: Returning function pointer " PFX "\n", __FUNCTION__,
+        result);
+
+    return result;
 }
 
 PVOID NTAPI
