@@ -741,34 +741,23 @@ rseq_scan_tls(byte *tp, byte *lo, byte *hi)
      * absence of rseq support from glibc, the app manually registers its own
      * struct rseq which is present in static TLS, which is at a negative offset
      * from the app library segment base on X86, and positive on AArchXX.
-     * We scan the static-TLS side first, then the other side, in case
-     * GLIBC_RSEQ_OFFSET is wrong for this glibc version or architecture.
+     *
+     * Our caller already checked GLIBC_RSEQ_OFFSET, so we reach here either when the
+     * app registered its own struct rseq in static TLS or when GLIBC_RSEQ_OFFSET
+     * does not match this glibc version/architecture. Scanning outward from tp on both
+     * sides together checks both static TLS and struct pthread before reaching the stack.
+     *
      * Our caller is not supposed to call here until the app has registered the
      * current thread (either manually or using glibc).
      */
-#ifdef X86
-    for (int d = 1; d <= below; d++) {
-        if (try_struct_rseq(tp - d * alignment)) {
+    for (int d = 1; d <= MAX(below, above); d++) {
+        if (d <= below && try_struct_rseq(tp - d * alignment)) {
             return -d * alignment;
         }
-    }
-    for (int d = 1; d <= above; d++) {
-        if (try_struct_rseq(tp + d * alignment)) {
+        if (d <= above && try_struct_rseq(tp + d * alignment)) {
             return d * alignment;
         }
     }
-#else
-    for (int d = 1; d <= above; d++) {
-        if (try_struct_rseq(tp + d * alignment)) {
-            return d * alignment;
-        }
-    }
-    for (int d = 1; d <= below; d++) {
-        if (try_struct_rseq(tp - d * alignment)) {
-            return -d * alignment;
-        }
-    }
-#endif
     return 0;
 }
 
