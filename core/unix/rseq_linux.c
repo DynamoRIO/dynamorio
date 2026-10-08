@@ -739,7 +739,7 @@ rseq_scan_tls(byte *tp, byte *lo, byte *hi)
      * app library segment base on X86, and negative on AArchXX. However, in the
      * absence of rseq support from glibc, the app manually registers its own
      * struct rseq which is present in static TLS, which is at a negative offset
-     * from the app library segment base on x86, and positive on AArchXX.
+     * from the app library segment base on X86, and positive on AArchXX.
      * We scan the static-TLS side first, then the other side, in case
      * GLIBC_RSEQ_OFFSET is wrong for this glibc version or architecture.
      * Our caller is not supposed to call here until the app has registered the
@@ -803,7 +803,7 @@ rseq_locate_tls_offset(void)
      */
     byte *lo, *hi;
     if (addr > 0 && rseq_get_tls_scan_bounds(addr, &lo, &hi)) {
-        LOG(GLOBAL, LOG_LOADER, 3, "Searching resq within " PFX " - " PFX "\n", lo, hi);
+        LOG(GLOBAL, LOG_LOADER, 3, "Searching rseq within " PFX " - " PFX "\n", lo, hi);
         offset = rseq_scan_tls(addr, lo, hi);
         if (offset != 0) {
             LOG(GLOBAL, LOG_LOADER, 2,
