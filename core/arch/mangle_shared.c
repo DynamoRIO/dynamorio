@@ -1460,9 +1460,8 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
             instrlist_preinsert(ilist, insert_at, exit);
         }
 #    if defined(DEBUG) && defined(X86)
-        /* Support for the api.rseq and api.rseq_splitvma tests with (officially
-         * unsupported) syscall in their rseq code executing before the app executes
-         * a syscall.
+        /* Support for the api.rseq/api.rseq_splitvma tests with (officially unsupported)
+         * syscall in their rseq code executing before the app executes a syscall.
          */
         if (instr_is_syscall(copy) &&
             get_syscall_method() == SYSCALL_METHOD_UNINITIALIZED) {
