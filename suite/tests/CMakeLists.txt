@@ -6418,6 +6418,18 @@ if (UNIX)
     use_DynamoRIO_drmemtrace_tracer(api.rseq)
     set(api.rseq_expectbase rseq_client)
     disable_glibc_rseq(api.rseq)
+
+    # i#8174: Test attaching when the struct rseq is in a different mapping than the
+    # thread pointer, as when an app names a sub-range of its TLS.
+    tobuild_api(api.rseq_splitvma linux/rseq.cpp "" "" OFF ON OFF)
+    link_with_pthread(api.rseq_splitvma)
+    append_property_list(TARGET api.rseq_splitvma
+      COMPILE_DEFINITIONS "RSEQ_TEST_ATTACH;RSEQ_TEST_SPLIT_TLS_VMA")
+    use_DynamoRIO_static_client(api.rseq_splitvma drmemtrace_nomain)
+    use_DynamoRIO_drmemtrace_tracer(api.rseq_splitvma)
+    set(api.rseq_splitvma_expectbase rseq_client)
+    disable_glibc_rseq(api.rseq_splitvma)
+
     # Test non-compliant code with our workaround flag.
     tobuild_ops(linux.rseq_disable linux/rseq_disable.c "-disable_rseq" "")
     disable_glibc_rseq(api.rseq_disable)
