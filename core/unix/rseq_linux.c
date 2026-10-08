@@ -667,10 +667,11 @@ try_struct_rseq(void *try_addr)
     int res = -EINVAL;
     int size;
     /* The kernel requires rseq_len to exactly match the registered length.  It
-     * accepts any length >= 32, so we try the lengths seen in practice: 32 (the
-     * original size), 33-40 (glibc's getauxval(AT_RSEQ_FEATURE_SIZE)-based sizes,
-     * plus some extra for future-proofing), and 64 (sizeof(struct rseq) with newer
-     * UAPI headers; i#8159).  We avoid glibc's getauxval so these are hardcoded.
+     * accepts 32 or, per linux/rseq.h, any length >= AT_RSEQ_FEATURE_SIZE with no
+     * upper bound, so we try the lengths seen in practice: 32 (the original size),
+     * 33-40 (glibc's getauxval(AT_RSEQ_FEATURE_SIZE)-based sizes, plus some extra
+     * for future-proofing), and 64 (sizeof(struct rseq) with newer UAPI headers, see
+     * i#8159).  We avoid glibc's getauxval so these are hardcoded.
      * See https://lwn.net/Articles/1033957/ for more details.
      */
     static const int sizes[] = { 32, 33, 34, 35, 36, 37, 38, 39, 40, 64 };
