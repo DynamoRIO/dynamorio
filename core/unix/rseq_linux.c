@@ -391,7 +391,8 @@ rseq_analyze_instructions(rseq_region_t *info)
         if (instr_is_syscall(&instr)
             /* Allow a syscall for our test in debug build. */
             IF_DEBUG(
-                &&!check_filter("api.rseq;linux.rseq;linux.rseq_table;linux.rseq_noarray",
+                &&!check_filter("api.rseq;api.rseq_splitvma;linux.rseq;linux.rseq_table;"
+                                "linux.rseq_noarray",
                                 get_short_name(get_application_name())))) {
             REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3,
                                         get_application_name(), get_application_pid(),

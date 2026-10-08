@@ -703,7 +703,9 @@ test_rseq_native_fault(void)
  * behavior in the two DR executions of the rseq code.
  * The only reliable way we can force a context switch or migration is to use
  * a system call, which is officially disallowed.  We have special exceptions in
- * the code which look for the test name "linux.rseq" and are limited to DEBUG.
+ * the code which look for the names of the tests built from this file (see the
+ * check_filter() calls in core/unix/rseq_linux.c and core/arch/mangle_shared.c)
+ * and are limited to DEBUG.
  */
 static void
 test_rseq_native_abort(void)
@@ -863,8 +865,8 @@ test_rseq_native_abort(void)
 
 /* Tests that DR handles an asynch signal in the native code in the final rseq
  * fragment.  We use a system call, which is officially disallowed.  We have special
- * exceptions in the code which look for the test name "linux.rseq" and are limited to
- * DEBUG.
+ * exceptions in the code which look for the names of the tests built from this file
+ * (see test_rseq_native_abort()) and are limited to DEBUG.
  */
 static void
 test_rseq_asynch_signal(void)
