@@ -677,6 +677,9 @@ try_struct_rseq(void *try_addr)
                                 RSEQ_RARE_SIGNATURE);
         LOG(GLOBAL, LOG_LOADER, 3, "Tried rseq @ " PFX " len %d => %d\n", try_addr, size,
             res);
+        /* Break here rather than checking res in the for condition so size is not
+         * incremented past the matched registration size needed below.
+         */
         if (res != -EINVAL)
             break;
     }
