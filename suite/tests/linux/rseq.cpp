@@ -116,11 +116,12 @@
  */
 #ifdef RSEQ_TEST_SPLIT_TLS_VMA
 /* The registered struct rseq is one end of this array (see get_tls_rseq()).  It is
- * large enough that one end is always more than a page from the thread pointer.
- * Currently the largest possible base page size on the platforms with this test enabled
- * is 64 KB.
+ * large enough that one end is always more than a 4 KB page from the thread pointer.
+ * XXX: Support larger page sizes once AArch64 rseq mangling handles TLS offsets
+ * beyond the store instruction's immediate range.  A 64 KB array currently causes
+ * the generated stores to fail to encode.
  */
-static __thread volatile struct rseq fill_up_tls[64 * 1024 / sizeof(struct rseq) + 2];
+static __thread volatile struct rseq fill_up_tls[4 * 1024 / sizeof(struct rseq) + 2];
 #else
 static __thread volatile struct rseq rseq_tls;
 /* Make it harder to find rseq_tls for DR's heuristic by adding more static TLS. */
@@ -133,7 +134,7 @@ get_tls_rseq()
 {
 #ifdef RSEQ_TEST_SPLIT_TLS_VMA
     /* Use whichever end of fill_up_tls is farther from the thread pointer.  It is
-     * more than a page away, so it is on a different page than the thread pointer
+     * more than a 4 KB page away, so it is on a different page than the thread pointer
      * regardless of the TLS variant or the order of the TLS variables.
      */
     uintptr_t tp = reinterpret_cast<uintptr_t>(__builtin_thread_pointer());
