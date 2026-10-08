@@ -117,8 +117,10 @@
 #ifdef RSEQ_TEST_SPLIT_TLS_VMA
 /* The registered struct rseq is one end of this array (see get_tls_rseq()).  It is
  * large enough that one end is always more than a page from the thread pointer.
+ * Currently the largest possible base page size on the platforms with this test enabled
+ * is 64 KB.
  */
-static __thread volatile struct rseq fill_up_tls[256];
+static __thread volatile struct rseq fill_up_tls[64 * 1024 / sizeof(struct rseq) + 2];
 #else
 static __thread volatile struct rseq rseq_tls;
 /* Make it harder to find rseq_tls for DR's heuristic by adding more static TLS. */
