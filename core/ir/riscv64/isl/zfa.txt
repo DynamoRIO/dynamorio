@@ -1,0 +1,45 @@
+# Zfa (Additional Floating-Point Instructions)
+# Version 1.0
+#
+# The single- (.s), double- (.d) and half-precision (.h) forms are listed
+# here, since they build on the F, D and Zfhmin extensions (all mandatory in
+# RVA23).  The quad-precision (.q) forms depend on Q and are intentionally
+# omitted.  The RV32-only move pair (fmvh.x.d / fmvp.d.x) and the RV64Q move
+# pair (fmvh.x.q / fmvp.q.x) are omitted as well.
+
+# 1.1 Load-Immediate Instructions
+
+fli.s           | r | csr_imm rd(fp)  | 111100000001.....000.....1010011
+fli.d           | r | csr_imm rd(fp)  | 111100100001.....000.....1010011
+fli.h           | r | csr_imm rd(fp)  | 111101000001.....000.....1010011
+
+# 1.2 Minimum and Maximum Instructions
+
+fminm.s         | r | rs2(fp) rs1(fp) rd(fp) | 0010100..........010.....1010011
+fminm.d         | r | rs2(fp) rs1(fp) rd(fp) | 0010101..........010.....1010011
+fminm.h         | r | rs2(fp) rs1(fp) rd(fp) | 0010110..........010.....1010011
+fmaxm.s         | r | rs2(fp) rs1(fp) rd(fp) | 0010100..........011.....1010011
+fmaxm.d         | r | rs2(fp) rs1(fp) rd(fp) | 0010101..........011.....1010011
+fmaxm.h         | r | rs2(fp) rs1(fp) rd(fp) | 0010110..........011.....1010011
+
+# 1.3 Round-to-Integer Instructions
+
+fround.s        | r | rs1(fp) rm rd(fp) | 010000000100.............1010011
+fround.d        | r | rs1(fp) rm rd(fp) | 010000100100.............1010011
+fround.h        | r | rs1(fp) rm rd(fp) | 010001000100.............1010011
+froundnx.s      | r | rs1(fp) rm rd(fp) | 010000000101.............1010011
+froundnx.d      | r | rs1(fp) rm rd(fp) | 010000100101.............1010011
+froundnx.h      | r | rs1(fp) rm rd(fp) | 010001000101.............1010011
+
+# 1.4 Modular Convert-to-Integer Instruction
+
+fcvtmod.w.d     | r | rs1(fp) rm rd     | 110000101000.............1010011
+
+# 1.6 Comparison Instructions (quiet comparisons)
+
+fleq.s          | r | rs2(fp) rs1(fp) rd | 1010000..........100.....1010011
+fleq.d          | r | rs2(fp) rs1(fp) rd | 1010001..........100.....1010011
+fleq.h          | r | rs2(fp) rs1(fp) rd | 1010010..........100.....1010011
+fltq.s          | r | rs2(fp) rs1(fp) rd | 1010000..........101.....1010011
+fltq.d          | r | rs2(fp) rs1(fp) rd | 1010001..........101.....1010011
+fltq.h          | r | rs2(fp) rs1(fp) rd | 1010010..........101.....1010011

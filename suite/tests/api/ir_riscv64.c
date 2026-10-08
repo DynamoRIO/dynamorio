@@ -1663,6 +1663,153 @@ test_decode_xtheadsync(void *dc)
 }
 
 static void
+test_decode_zicond(void *dc)
+{
+    instr_t *instr;
+    instr =
+        INSTR_CREATE_czero_eqz(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
+                               opnd_create_reg(DR_REG_A2));
+    test_instr_encoding(dc, OP_czero_eqz, instr);
+    instr =
+        INSTR_CREATE_czero_nez(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
+                               opnd_create_reg(DR_REG_A2));
+    test_instr_encoding(dc, OP_czero_nez, instr);
+}
+
+static void
+test_decode_zfa(void *dc)
+{
+    instr_t *instr;
+
+    /* fli.s/d rd, imm  (the 5-bit constant selector lives in rs1). */
+    instr = INSTR_CREATE_fli_s(dc, opnd_create_reg(DR_REG_F0),
+                               opnd_create_immed_int(16, OPSZ_5b) /* 1.0 */);
+    test_instr_encoding(dc, OP_fli_s, instr);
+    instr = INSTR_CREATE_fli_d(dc, opnd_create_reg(DR_REG_F0),
+                               opnd_create_immed_int(16, OPSZ_5b));
+    test_instr_encoding(dc, OP_fli_d, instr);
+
+    /* fminm.s/d, fmaxm.s/d rs1, rs2 -> rd */
+    instr = INSTR_CREATE_fminm_s(dc, opnd_create_reg(DR_REG_F0),
+                                 opnd_create_reg(DR_REG_F1), opnd_create_reg(DR_REG_F2));
+    test_instr_encoding(dc, OP_fminm_s, instr);
+    instr = INSTR_CREATE_fminm_d(dc, opnd_create_reg(DR_REG_F0),
+                                 opnd_create_reg(DR_REG_F1), opnd_create_reg(DR_REG_F2));
+    test_instr_encoding(dc, OP_fminm_d, instr);
+    instr = INSTR_CREATE_fmaxm_s(dc, opnd_create_reg(DR_REG_F0),
+                                 opnd_create_reg(DR_REG_F1), opnd_create_reg(DR_REG_F2));
+    test_instr_encoding(dc, OP_fmaxm_s, instr);
+    instr = INSTR_CREATE_fmaxm_d(dc, opnd_create_reg(DR_REG_F0),
+                                 opnd_create_reg(DR_REG_F1), opnd_create_reg(DR_REG_F2));
+    test_instr_encoding(dc, OP_fmaxm_d, instr);
+
+    /* fround.s/d, froundnx.s/d rd, rm, rs1 */
+    instr = INSTR_CREATE_fround_s(dc, opnd_create_reg(DR_REG_F0),
+                                  opnd_create_immed_int(0, OPSZ_3b),
+                                  opnd_create_reg(DR_REG_F1));
+    test_instr_encoding(dc, OP_fround_s, instr);
+    instr = INSTR_CREATE_fround_d(dc, opnd_create_reg(DR_REG_F0),
+                                  opnd_create_immed_int(0, OPSZ_3b),
+                                  opnd_create_reg(DR_REG_F1));
+    test_instr_encoding(dc, OP_fround_d, instr);
+    instr = INSTR_CREATE_froundnx_s(dc, opnd_create_reg(DR_REG_F0),
+                                    opnd_create_immed_int(0, OPSZ_3b),
+                                    opnd_create_reg(DR_REG_F1));
+    test_instr_encoding(dc, OP_froundnx_s, instr);
+    instr = INSTR_CREATE_froundnx_d(dc, opnd_create_reg(DR_REG_F0),
+                                    opnd_create_immed_int(0, OPSZ_3b),
+                                    opnd_create_reg(DR_REG_F1));
+    test_instr_encoding(dc, OP_froundnx_d, instr);
+
+    /* fcvtmod.w.d rd, rtz, rs1 */
+    instr = INSTR_CREATE_fcvtmod_w_d(dc, opnd_create_reg(DR_REG_A0),
+                                     opnd_create_immed_int(1, OPSZ_3b) /* rtz */,
+                                     opnd_create_reg(DR_REG_F0));
+    test_instr_encoding(dc, OP_fcvtmod_w_d, instr);
+
+    /* fleq.s/d, fltq.s/d rs1, rs2 -> rd */
+    instr = INSTR_CREATE_fleq_s(dc, opnd_create_reg(DR_REG_A0),
+                                opnd_create_reg(DR_REG_F1), opnd_create_reg(DR_REG_F2));
+    test_instr_encoding(dc, OP_fleq_s, instr);
+    instr = INSTR_CREATE_fleq_d(dc, opnd_create_reg(DR_REG_A0),
+                                opnd_create_reg(DR_REG_F1), opnd_create_reg(DR_REG_F2));
+    test_instr_encoding(dc, OP_fleq_d, instr);
+    instr = INSTR_CREATE_fltq_s(dc, opnd_create_reg(DR_REG_A0),
+                                opnd_create_reg(DR_REG_F1), opnd_create_reg(DR_REG_F2));
+    test_instr_encoding(dc, OP_fltq_s, instr);
+    instr = INSTR_CREATE_fltq_d(dc, opnd_create_reg(DR_REG_A0),
+                                opnd_create_reg(DR_REG_F1), opnd_create_reg(DR_REG_F2));
+    test_instr_encoding(dc, OP_fltq_d, instr);
+
+    /* Half-precision forms, enabled by Zfhmin. */
+    instr = INSTR_CREATE_fli_h(dc, opnd_create_reg(DR_REG_F0),
+                               opnd_create_immed_int(16, OPSZ_5b) /* 1.0 */);
+    test_instr_encoding(dc, OP_fli_h, instr);
+    instr = INSTR_CREATE_fminm_h(dc, opnd_create_reg(DR_REG_F0),
+                                 opnd_create_reg(DR_REG_F1), opnd_create_reg(DR_REG_F2));
+    test_instr_encoding(dc, OP_fminm_h, instr);
+    instr = INSTR_CREATE_fmaxm_h(dc, opnd_create_reg(DR_REG_F0),
+                                 opnd_create_reg(DR_REG_F1), opnd_create_reg(DR_REG_F2));
+    test_instr_encoding(dc, OP_fmaxm_h, instr);
+    instr = INSTR_CREATE_fround_h(dc, opnd_create_reg(DR_REG_F0),
+                                  opnd_create_immed_int(0, OPSZ_3b),
+                                  opnd_create_reg(DR_REG_F1));
+    test_instr_encoding(dc, OP_fround_h, instr);
+    instr = INSTR_CREATE_froundnx_h(dc, opnd_create_reg(DR_REG_F0),
+                                    opnd_create_immed_int(0, OPSZ_3b),
+                                    opnd_create_reg(DR_REG_F1));
+    test_instr_encoding(dc, OP_froundnx_h, instr);
+    instr = INSTR_CREATE_fleq_h(dc, opnd_create_reg(DR_REG_A0),
+                                opnd_create_reg(DR_REG_F1), opnd_create_reg(DR_REG_F2));
+    test_instr_encoding(dc, OP_fleq_h, instr);
+    instr = INSTR_CREATE_fltq_h(dc, opnd_create_reg(DR_REG_A0),
+                                opnd_create_reg(DR_REG_F1), opnd_create_reg(DR_REG_F2));
+    test_instr_encoding(dc, OP_fltq_h, instr);
+}
+
+static void
+test_decode_zawrs(void *dc)
+{
+    instr_t *instr;
+    instr = INSTR_CREATE_wrs_nto(dc);
+    test_instr_encoding(dc, OP_wrs_nto, instr);
+    instr = INSTR_CREATE_wrs_sto(dc);
+    test_instr_encoding(dc, OP_wrs_sto, instr);
+}
+
+static void
+test_decode_zimop(void *dc)
+{
+    instr_t *instr;
+
+    /* Zimop may-be-operations are HINTs today; the index N lives in the fixed
+     * bits, so exercising the N-bit boundaries (0/1, 15/16, 31) covers the
+     * distinct trie patterns.  Only rd/rs1(/rs2) vary.
+     */
+    instr =
+        INSTR_CREATE_mop_r_0(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1));
+    test_instr_encoding(dc, OP_mop_r_0, instr);
+    instr =
+        INSTR_CREATE_mop_r_1(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1));
+    test_instr_encoding(dc, OP_mop_r_1, instr);
+    instr =
+        INSTR_CREATE_mop_r_15(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1));
+    test_instr_encoding(dc, OP_mop_r_15, instr);
+    instr =
+        INSTR_CREATE_mop_r_16(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1));
+    test_instr_encoding(dc, OP_mop_r_16, instr);
+    instr =
+        INSTR_CREATE_mop_r_31(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1));
+    test_instr_encoding(dc, OP_mop_r_31, instr);
+    instr = INSTR_CREATE_mop_rr_0(dc, opnd_create_reg(DR_REG_A0),
+                                  opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2));
+    test_instr_encoding(dc, OP_mop_rr_0, instr);
+    instr = INSTR_CREATE_mop_rr_7(dc, opnd_create_reg(DR_REG_A0),
+                                  opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2));
+    test_instr_encoding(dc, OP_mop_rr_7, instr);
+}
+
+static void
 test_isa_features(void *dc)
 {
     /* TODO i#7842: Until instr_get_isa_feature() and instr_get_isa_feature_name() are
@@ -1759,6 +1906,18 @@ main(int argc, char *argv[])
 
     test_decode_xtheadsync(dcontext);
     print("test_decode_xtheadsync complete\n");
+
+    test_decode_zicond(dcontext);
+    print("test_decode_zicond complete\n");
+
+    test_decode_zfa(dcontext);
+    print("test_decode_zfa complete\n");
+
+    test_decode_zawrs(dcontext);
+    print("test_decode_zawrs complete\n");
+
+    test_decode_zimop(dcontext);
+    print("test_decode_zimop complete\n");
 
     print("All tests complete\n");
     return 0;
