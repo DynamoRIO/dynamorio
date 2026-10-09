@@ -165,6 +165,7 @@ static uint64 num_refs;      /* keep a global memory reference count */
 static uint64 num_writeouts;
 static uint64 num_v2p_writeouts;
 static uint64 num_phys_markers;
+static uint64 bytes_written; /* Cached for drmemtrace_get_bytes_written(). */
 
 static drmgr_priority_t pri_pre_bbdup = { sizeof(drmgr_priority_t),
                                           DRMGR_PRIORITY_NAME_MEMTRACE, NULL, NULL,
@@ -2546,6 +2547,9 @@ event_exit(void)
         }
     }
 #endif
+    // Cache for drmemtrace_get_bytes_written().
+    bytes_written = num_refs * instru->sizeof_entry();
+
     /* we use placement new for better isolation */
     instru->~instru_t();
     dr_global_free(instru, MAX_INSTRU_SIZE);
@@ -2795,6 +2799,25 @@ drmemtrace_replace_file_ops_ex(drmemtrace_replace_file_ops_t *ops)
 }
 
 drmemtrace_status_t
+drmemtrace_get_file_ops_ex(drmemtrace_replace_file_ops_t *ops,
+                           drmemtrace_open_file_func_t *open_file_func)
+{
+    if (open_file_func == nullptr || ops == nullptr ||
+        ops->size != sizeof(drmemtrace_replace_file_ops_t))
+        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+    *open_file_func = file_ops_func.open_file;
+    ops->open_file_ex_func = file_ops_func.open_file_ex;
+    ops->read_file_func = file_ops_func.read_file;
+    ops->write_file_func = file_ops_func.write_file;
+    ops->close_file_func = file_ops_func.close_file;
+    ops->create_dir_func = file_ops_func.create_dir;
+    ops->handoff_buf_func = file_ops_func.handoff_buf;
+    ops->exit_func = file_ops_func.exit_cb;
+    ops->exit_arg = file_ops_func.exit_arg;
+    return DRMEMTRACE_SUCCESS;
+}
+
+drmemtrace_status_t
 drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
                           drmemtrace_exit_func_t exit_func, void *exit_func_arg)
 {
@@ -2901,6 +2924,12 @@ drmemtrace_filter_threads(bool (*should_trace_thread)(thread_id_t tid, void *use
     trace_thread_cb_user_data = user_value;
     thread_filtering_enabled = true;
     return DRMEMTRACE_SUCCESS;
+}
+
+uint64
+drmemtrace_get_bytes_written()
+{
+    return bytes_written;
 }
 
 /* We export drmemtrace_client_main so that a global dr_client_main can initialize
@@ -3039,6 +3068,8 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
                          funclist_file)) {
         FATAL("Failed to initialized function tracing.\n");
     }
+
+    bytes_written = 0;
 
     /* We need an extra for -L0I_filter and -L0D_filter. */
     if (op_L0I_filter.get_value() || op_L0D_filter.get_value())

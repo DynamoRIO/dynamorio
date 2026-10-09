@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -279,6 +279,17 @@ drmemtrace_replace_file_ops_ex(drmemtrace_replace_file_ops_t *ops);
 
 DR_EXPORT
 /**
+ * Returns the currently-installed file operation functions.
+ * The "size" parameter must be set in "ops" before calling.
+ * If neither drmemtrace_replace_file_ops() nor drmemtrace_replace_file_ops_ex() has
+ * been called, this returns the default file functions.
+ */
+drmemtrace_status_t
+drmemtrace_get_file_ops_ex(drmemtrace_replace_file_ops_t *ops,
+                           drmemtrace_open_file_func_t *open_file_func);
+
+DR_EXPORT
+/**
  * Retrieves the full path to the output directory in -offline mode
  * where data is being written.
  */
@@ -400,6 +411,14 @@ DR_EXPORT
 drmemtrace_status_t
 drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size,
                                             DR_PARAM_OUT uint64 *timestamp);
+
+DR_EXPORT
+/**
+ * Returns the total count of bytes written out.
+ * This should only be relied upon after tracing finishes.
+ */
+uint64
+drmemtrace_get_bytes_written();
 
 } // namespace drmemtrace
 } // namespace dynamorio

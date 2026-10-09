@@ -90,6 +90,8 @@ my_setenv(const char *var, const char *value)
 drvector_t all_buffers;
 #define ALL_BUFFERS_INIT_SIZE 256
 
+int64 bytes_written;
+
 #define MODULE_FILENO 0
 #define IGNORE_FILENO 1
 
@@ -179,6 +181,7 @@ handoff_cb(file_t file, void *data, size_t data_size, size_t alloc_size)
     entry->data_size = data_size;
     entry->alloc_size = alloc_size;
     drvector_append(&all_buffers, entry);
+    bytes_written += data_size;
     drvector_unlock(&all_buffers);
     return true;
 }
@@ -300,6 +303,25 @@ test_main(int argc, const char *argv[])
         std::cerr << "failed to set env var!\n";
 
     std::cerr << "replace all file functions\n";
+    // Test querying defaults.
+    drmemtrace_replace_file_ops_t query_ops = {
+        sizeof(query_ops),
+    };
+    drmemtrace_status_t res = drmemtrace_get_file_ops_ex(nullptr, nullptr);
+    assert(res == DRMEMTRACE_ERROR_INVALID_PARAMETER);
+    drmemtrace_open_file_func_t open_func;
+    res = drmemtrace_get_file_ops_ex(&query_ops, &open_func);
+    assert(res == DRMEMTRACE_SUCCESS);
+    assert(open_func != nullptr || query_ops.open_file_ex_func != nullptr);
+    assert(query_ops.read_file_func != nullptr);
+    assert(query_ops.write_file_func != nullptr);
+    assert(query_ops.close_file_func != nullptr);
+    assert(query_ops.create_dir_func != nullptr);
+    assert(query_ops.handoff_buf_func == nullptr);
+    assert(query_ops.exit_func == nullptr);
+    assert(query_ops.exit_arg == nullptr);
+
+    // Replace the functions.
     drmemtrace_replace_file_ops_t ops = {
         sizeof(ops),
     };
@@ -308,10 +330,24 @@ test_main(int argc, const char *argv[])
     ops.write_file_func = local_write_file;
     ops.close_file_func = local_close_file;
     ops.create_dir_func = local_create_dir;
-    drmemtrace_status_t res = drmemtrace_replace_file_ops_ex(&ops);
+    res = drmemtrace_replace_file_ops_ex(&ops);
     assert(res == DRMEMTRACE_SUCCESS);
     res = drmemtrace_buffer_handoff(handoff_cb, exit_cb, (void *)&all_buffers);
     assert(res == DRMEMTRACE_SUCCESS);
+
+    // Test querying what we just set.
+    res = drmemtrace_get_file_ops_ex(&query_ops, &open_func);
+    assert(res == DRMEMTRACE_SUCCESS);
+    assert(open_func == nullptr);
+    assert(query_ops.open_file_ex_func == ops.open_file_ex_func);
+    assert(query_ops.read_file_func == ops.read_file_func);
+    assert(query_ops.write_file_func == ops.write_file_func);
+    assert(query_ops.close_file_func == ops.close_file_func);
+    assert(query_ops.create_dir_func == ops.create_dir_func);
+    assert(query_ops.handoff_buf_func == handoff_cb);
+    assert(query_ops.exit_func == exit_cb);
+    assert(query_ops.exit_arg == (void *)&all_buffers);
+
     std::cerr << "pre-DR init\n";
     dr_app_setup();
     assert(!dr_app_running_under_dynamorio());
@@ -362,6 +398,9 @@ test_main(int argc, const char *argv[])
     assert(res == DRMEMTRACE_SUCCESS);
     assert(kpath[0] == '\0');
 #endif
+
+    uint64 wrote = drmemtrace_get_bytes_written();
+    assert(wrote == bytes_written);
 
     std::cerr << "all done\n";
     return 0;
