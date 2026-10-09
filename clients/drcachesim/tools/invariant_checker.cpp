@@ -663,6 +663,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         shard->trace_version_ = memref.marker.marker_value;
         report_if_false(shard,
                         is_a_unit_test(shard) ||
+                            // No error for a multi-version kernel template file.
+                            TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES,
+                                    shard->file_type_) ||
                             memref.marker.marker_value == shard->stream->get_version(),
                         "Stream interface version != trace marker");
     }

@@ -3866,6 +3866,21 @@ test_syscall_injection(void *drcontext)
     static constexpr addr_t ENCODING_IGNORE = 0xfe;
     std::vector<trace_entry_t> syscall_sequence = {
         /* clang-format off */
+        // Test multi-version: start with an old version.
+        test_util::make_header(TRACE_ENTRY_VERSION-1),
+        test_util::make_thread(TID_IN_SYSCALL),
+        test_util::make_pid(TID_IN_SYSCALL),
+        test_util::make_version(TRACE_ENTRY_VERSION-1),
+        test_util::make_timestamp(0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_NUM),
+        test_util::make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
+        test_util::make_instr(SYSCALL_PC_START),
+        test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, 0),
+        test_util::make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
+        test_util::make_instr(SYSCALL_PC_START + 1, TRACE_TYPE_INSTR_INDIRECT_JUMP),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_NUM),
+        test_util::make_exit(TID_IN_SYSCALL),
+        // Our version.
         test_util::make_header(TRACE_ENTRY_VERSION),
         test_util::make_thread(TID_IN_SYSCALL),
         test_util::make_pid(TID_IN_SYSCALL),

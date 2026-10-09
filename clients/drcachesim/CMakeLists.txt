@@ -253,6 +253,7 @@ set(raw2trace_srcs
   common/trace_entry.cpp
   reader/record_file_reader.cpp
   ${zlib_reader}
+  ${zip_reader}
   )
 if (libsnappy)
   set(raw2trace_srcs ${raw2trace_srcs}

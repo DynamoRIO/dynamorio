@@ -142,6 +142,8 @@ public:
          */
         STATUS_IMPOSSIBLE_BINDING,
         STATUS_STOLE, /**< Used for internal scheduler purposes. */
+        /** Failed to find an appropriate template. */
+        STATUS_MISSING_TEMPLATE,
     };
 
     /** Identifies an input stream by its index (0-based). */
