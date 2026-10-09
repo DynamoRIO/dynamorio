@@ -113,14 +113,19 @@
 
 /* This cannot be a stack-local variable, as the kernel will force SIGSEGV
  * if it can't read this struct.  And for multiple threads it should be in TLS.
+ * i#8159: We register with sizeof(struct rseq), which is 64 with newer UAPI headers,
+ * while the struct is only declared 32-byte aligned.  The kernel requires a length > 32
+ * to be aligned to AT_RSEQ_ALIGN (64 on current kernels; see the allocation rules in
+ * linux/rseq.h), so we align the registered struct to 64.
  */
 #ifdef RSEQ_TEST_SPLIT_TLS_VMA
 /* The registered struct rseq is one end of this array (see get_tls_rseq()).  It is
  * large enough that one end is always more than a 4 KB page from the thread pointer.
  */
-static __thread volatile struct rseq fill_up_tls[64 * 1024 / sizeof(struct rseq) + 2];
+static __thread volatile struct rseq fill_up_tls[64 * 1024 / sizeof(struct rseq) + 2]
+    __attribute__((aligned(64)));
 #else
-static __thread volatile struct rseq rseq_tls;
+static __thread volatile struct rseq rseq_tls __attribute__((aligned(64)));
 /* Make it harder to find rseq_tls for DR's heuristic by adding more static TLS. */
 static __thread volatile struct rseq fill_up_tls[128];
 #endif
@@ -206,6 +211,12 @@ register_rseq()
         volatile struct rseq *tls_rseq = get_tls_rseq();
         tls_rseq->cpu_id = RSEQ_CPU_ID_UNINITIALIZED;
         int res = syscall(SYS_rseq, tls_rseq, sizeof(*tls_rseq), 0, RSEQ_SIG);
+        if (res != 0 && errno != ENOSYS) {
+            int err = errno;
+            print("rseq registration failed: errno=%d addr=%p len=%zu\n", err,
+                  (void *)tls_rseq, sizeof(*tls_rseq));
+            errno = err;
+        }
         assert(res == 0 || (res == -1 && errno == ENOSYS));
 #ifdef GLIBC_RSEQ
     }

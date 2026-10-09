@@ -826,18 +826,19 @@ protected:
 
     template <typename SequenceKey>
     scheduler_status_t
-    read_kernel_sequences(std::unordered_map<SequenceKey, trace_sequence_t,
-                                             custom_hash_t<SequenceKey>> &sequence,
-                          std::string trace_path, std::unique_ptr<ReaderType> reader,
-                          std::unique_ptr<ReaderType> reader_end,
-                          trace_marker_type_t start_marker,
-                          trace_marker_type_t end_marker, std::string sequence_type);
+    read_kernel_sequences(
+        std::unordered_map<int,
+                           std::unordered_map<SequenceKey, trace_sequence_t,
+                                              custom_hash_t<SequenceKey>>> &sequence,
+        std::string trace_path, std::unique_ptr<ReaderType> reader,
+        std::unique_ptr<ReaderType> reader_end, trace_marker_type_t start_marker,
+        trace_marker_type_t end_marker, std::string sequence_type);
 
     scheduler_status_t
     read_switch_sequences();
 
     trace_sequence_t *
-    get_syscall_sequence(int syscall_num);
+    get_syscall_sequence(int version, int syscall_num);
 
     scheduler_status_t
     read_syscall_sequences();
@@ -1155,12 +1156,16 @@ protected:
     };
     std::unordered_map<workload_tid_t, input_ordinal_t, workload_tid_hash_t> tid2input_;
 
-    std::unordered_map<switch_type_t, trace_sequence_t, custom_hash_t<switch_type_t>>
+    // We store separate sequences per trace version, to match to input versions.
+    std::unordered_map<
+        int,
+        std::unordered_map<switch_type_t, trace_sequence_t, custom_hash_t<switch_type_t>>>
         switch_sequence_;
     // We specify a custom hash function only to make it easier to generalize with
     // switch_sequence_ defined above.
-    std::unordered_map<int, trace_sequence_t, custom_hash_t<int>> syscall_sequence_;
-    trace_sequence_t default_syscall_sequence_;
+    std::unordered_map<int, std::unordered_map<int, trace_sequence_t, custom_hash_t<int>>>
+        syscall_sequence_;
+    std::unordered_map<int, trace_sequence_t> default_syscall_sequence_;
     // For single_lockstep_output.
     std::unique_ptr<stream_t> global_stream_;
     // For online where we currently have to map dynamically observed thread ids

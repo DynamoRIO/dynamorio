@@ -284,7 +284,8 @@ public:
     get_stream_name() const override
     {
         size_t ind = input_path_.find_last_of(DIRSEP);
-        assert(ind != std::string::npos);
+        if (ind == std::string::npos)
+            return input_path_;
         return input_path_.substr(ind + 1);
     }
     virtual ~record_file_reader_t();

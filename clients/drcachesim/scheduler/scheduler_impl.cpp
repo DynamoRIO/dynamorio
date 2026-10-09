@@ -1699,13 +1699,20 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::read_switch_sequences()
 
 template <typename RecordType, typename ReaderType>
 typename scheduler_impl_tmpl_t<RecordType, ReaderType>::trace_sequence_t *
-scheduler_impl_tmpl_t<RecordType, ReaderType>::get_syscall_sequence(int syscall_num)
+scheduler_impl_tmpl_t<RecordType, ReaderType>::get_syscall_sequence(int version,
+                                                                    int syscall_num)
 {
-    if (syscall_sequence_.find(syscall_num) != syscall_sequence_.end()) {
-        return &syscall_sequence_[syscall_num];
+    const auto &version_it = syscall_sequence_.find(version);
+    if (version_it != syscall_sequence_.end()) {
+        const auto &num_it = version_it->second.find(syscall_num);
+        if (num_it != version_it->second.end() && num_it->second.first_pc_valid) {
+            return &num_it->second;
+        }
     }
-    if (default_syscall_sequence_.first_pc_valid) {
-        return &default_syscall_sequence_;
+    const auto &default_it = default_syscall_sequence_.find(version);
+    if (default_it != default_syscall_sequence_.end() &&
+        default_it->second.first_pc_valid) {
+        return &default_it->second;
     }
     return nullptr;
 }
@@ -1723,10 +1730,12 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::read_syscall_sequences()
     if (status != sched_type_t::STATUS_SUCCESS) {
         return status;
     }
-    auto default_seq_it = syscall_sequence_.find(DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM);
-    if (default_seq_it != syscall_sequence_.end()) {
-        default_syscall_sequence_ = std::move(default_seq_it->second);
-        syscall_sequence_.erase(default_seq_it);
+    for (auto &[version, calls] : syscall_sequence_) {
+        auto default_seq_it = calls.find(DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM);
+        if (default_seq_it != calls.end()) {
+            default_syscall_sequence_[version] = std::move(default_seq_it->second);
+            calls.erase(default_seq_it);
+        }
     }
     return status;
 }
@@ -1735,8 +1744,9 @@ template <typename RecordType, typename ReaderType>
 template <typename SequenceKey>
 typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
 scheduler_impl_tmpl_t<RecordType, ReaderType>::read_kernel_sequences(
-    std::unordered_map<SequenceKey, trace_sequence_t, custom_hash_t<SequenceKey>>
-        &sequence,
+    std::unordered_map<int,
+                       std::unordered_map<SequenceKey, trace_sequence_t,
+                                          custom_hash_t<SequenceKey>>> &sequence,
     std::string trace_path, std::unique_ptr<ReaderType> reader,
     std::unique_ptr<ReaderType> reader_end, trace_marker_type_t start_marker,
     trace_marker_type_t end_marker, std::string sequence_type)
@@ -1770,12 +1780,15 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::read_kernel_sequences(
     SequenceKey sequence_key = invalid_kernel_sequence_key<SequenceKey>();
     const SequenceKey INVALID_SEQ_KEY = invalid_kernel_sequence_key<SequenceKey>();
     bool in_sequence = false;
+    int version = 0;
     while (*reader != *reader_end) {
         RecordType record = **reader;
         // Only remember the records between the markers.
         trace_marker_type_t marker_type = TRACE_MARKER_TYPE_RESERVED_END;
         uintptr_t marker_value = 0;
         bool is_marker = record_type_is_marker(record, marker_type, marker_value);
+        if (is_marker && marker_type == TRACE_MARKER_TYPE_VERSION)
+            version = static_cast<int>(marker_value);
         if (is_marker && marker_type == start_marker) {
             if (in_sequence) {
                 error_string_ += "Found another " + sequence_type +
@@ -1789,17 +1802,17 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::read_kernel_sequences(
                     "Invalid " + sequence_type + " sequence found with default key";
                 return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
             }
-            if (!sequence[sequence_key].records.empty()) {
+            if (!sequence[version][sequence_key].records.empty()) {
                 error_string_ += "Duplicate " + sequence_type + " sequence found";
                 return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
             }
         }
         if (in_sequence) {
-            sequence[sequence_key].records.push_back(record);
-            if (!sequence[sequence_key].first_pc_valid &&
-                record_type_has_pc(record, sequence[sequence_key].first_pc)) {
-                sequence[sequence_key].first_pc_valid = true;
-                assert(sequence[sequence_key].first_pc != 0);
+            sequence[version][sequence_key].records.push_back(record);
+            if (!sequence[version][sequence_key].first_pc_valid &&
+                record_type_has_pc(record, sequence[version][sequence_key].first_pc)) {
+                sequence[version][sequence_key].first_pc_valid = true;
+                assert(sequence[version][sequence_key].first_pc != 0);
             }
         }
         if (is_marker && marker_type == end_marker) {
@@ -1812,13 +1825,13 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::read_kernel_sequences(
                 error_string_ += sequence_type + " marker values mismatched";
                 return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
             }
-            if (sequence[sequence_key].records.empty()) {
+            if (sequence[version][sequence_key].records.empty()) {
                 error_string_ += sequence_type + " sequence empty";
                 return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
             }
-            VPRINT(this, 1, "Read %zu kernel %s records for key %d\n",
-                   sequence[sequence_key].records.size(), sequence_type.c_str(),
-                   sequence_key);
+            VPRINT(this, 1, "Read %zu kernel %s records for version %d key %d\n",
+                   sequence[version][sequence_key].records.size(), sequence_type.c_str(),
+                   version, sequence_key);
             sequence_key = INVALID_SEQ_KEY;
             in_sequence = false;
         }
@@ -2007,8 +2020,16 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_pending_syscall_sequence(
         // records from the reader.
         input->queue.emplace_front(record);
     }
-    trace_sequence_t *to_inject_sequence = get_syscall_sequence(input->to_inject_syscall);
-    assert(to_inject_sequence != nullptr);
+    int version = static_cast<int>(input->reader->get_version());
+    trace_sequence_t *to_inject_sequence =
+        get_syscall_sequence(version, input->to_inject_syscall);
+    if (to_inject_sequence == nullptr) {
+        outputs_[output].stream->error_string_ =
+            "Failed to find syscall sequence for trace version " +
+            std::to_string(version) + " and syscall number " +
+            std::to_string(input->to_inject_syscall);
+        return stream_status_t::STATUS_MISSING_TEMPLATE;
+    }
     stream_status_t res = inject_kernel_sequence(*to_inject_sequence, input);
     if (res != stream_status_t::STATUS_OK)
         return res;
@@ -3039,16 +3060,31 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::on_context_switch(
             switch_type = switch_type_t::SWITCH_THREAD;
         else
             switch_type = switch_type_t::SWITCH_PROCESS;
-        if (switch_sequence_.find(switch_type) != switch_sequence_.end()) {
-            stream_status_t res = inject_kernel_sequence(switch_sequence_[switch_type],
-                                                         &inputs_[new_input]);
+        int version = 0;
+        if (prev_input != sched_type_t::INVALID_INPUT_ORDINAL)
+            version = static_cast<int>(inputs_[prev_input].reader->get_version());
+        else if (new_input != sched_type_t::INVALID_INPUT_ORDINAL)
+            version = static_cast<int>(inputs_[new_input].reader->get_version());
+        else
+            version = static_cast<int>(outputs_[output].stream->get_version());
+        const auto &version_it = switch_sequence_.find(version);
+        if (version_it == switch_sequence_.end()) {
+            outputs_[output].stream->error_string_ =
+                "No context switch template found for trace version " +
+                std::to_string(version);
+            return stream_status_t::STATUS_MISSING_TEMPLATE;
+        }
+        const auto &type_it = version_it->second.find(switch_type);
+        if (type_it != version_it->second.end()) {
+            stream_status_t res =
+                inject_kernel_sequence(type_it->second, &inputs_[new_input]);
             if (res == stream_status_t::STATUS_OK) {
                 injected_switch_trace = true;
                 ++outputs_[output].stats
                       [memtrace_stream_t::SCHED_STAT_KERNEL_SWITCH_SEQUENCE_INJECTIONS];
                 VPRINT(this, 3,
                        "Inserted %zu switch records for type %d from %d.%d to %d.%d\n",
-                       switch_sequence_[switch_type].records.size(), switch_type,
+                       type_it->second.records.size(), switch_type,
                        prev_input != sched_type_t::INVALID_INPUT_ORDINAL
                            ? inputs_[prev_input].workload
                            : -1,
@@ -3384,8 +3420,17 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::finalize_next_record(
     if (is_marker && marker_type == TRACE_MARKER_TYPE_SYSCALL) {
         assert(!input->in_syscall_injection);
         int syscall_num = static_cast<int>(marker_value);
-        trace_sequence_t *to_inject_sequence = get_syscall_sequence(syscall_num);
-        if (to_inject_sequence != nullptr) {
+        int version = static_cast<int>(input->reader->get_version());
+        trace_sequence_t *to_inject_sequence = get_syscall_sequence(version, syscall_num);
+        if (to_inject_sequence == nullptr) {
+            if (!syscall_sequence_.empty()) {
+                outputs_[output].stream->error_string_ =
+                    "Failed to find syscall sequence for trace version " +
+                    std::to_string(version) + " and syscall number " +
+                    std::to_string(syscall_num);
+                return stream_status_t::STATUS_MISSING_TEMPLATE;
+            }
+        } else {
             // The actual injection of the syscall trace happens later at the intended
             // point between the syscall function tracing markers.
             input->to_inject_syscall = syscall_num;

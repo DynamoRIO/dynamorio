@@ -264,8 +264,14 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             if (trace_version_ == -1) {
                 trace_version_ = static_cast<int>(memref.marker.marker_value);
             } else if (trace_version_ != static_cast<int>(memref.marker.marker_value)) {
-                error_string_ = std::string("Version mismatch across files");
-                return false;
+                if (TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES,
+                            filetype_)) {
+                    // No error for a multi-version kernel template file.
+                    trace_version_ = static_cast<int>(memref.marker.marker_value);
+                } else {
+                    error_string_ = std::string("Version mismatch across files");
+                    return false;
+                }
             }
             std::cerr << "<marker: version " << trace_version_ << ">\n";
             break;
