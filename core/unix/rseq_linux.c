@@ -666,20 +666,22 @@ try_struct_rseq(void *try_addr)
     static const int RSEQ_RARE_SIGNATURE = 42;
     int res = -EINVAL;
     int size;
-    /* Originally the rseq_len parameter was supposed to be 32, but on more recent
-     * kernels, it may be extended up to getauxval(AT_RSEQ_FEATURE_SIZE).
-     * Since we do not want to depend on glibc's getauxval, we hardcode a max
-     * value based on what was observed and some extra for future-proofing.
+    /* The kernel requires rseq_len to exactly match the registered length.  It
+     * accepts 32 or, per linux/rseq.h, any length >= AT_RSEQ_FEATURE_SIZE with no
+     * upper bound, so we try the lengths seen in practice: 32 (the original size),
+     * 33-40 (glibc's getauxval(AT_RSEQ_FEATURE_SIZE)-based sizes, plus some extra
+     * for future-proofing), and 64 (sizeof(struct rseq) with newer UAPI headers, see
+     * i#8159).  We avoid glibc's getauxval so these are hardcoded.
      * See https://lwn.net/Articles/1033957/ for more details.
      */
-    for (size = 32; size <= 40; size++) {
+    static const int sizes[] = { 32, 33, 34, 35, 36, 37, 38, 39, 40, 64 };
+    for (int i = 0; i < BUFFER_SIZE_ELEMENTS(sizes); i++) {
+        size = sizes[i];
         res = dynamorio_syscall(SYS_rseq, 4, try_addr, size, RSEQ_FLAG_UNREGISTER,
                                 RSEQ_RARE_SIGNATURE);
         LOG(GLOBAL, LOG_LOADER, 3, "Tried rseq @ " PFX " len %d => %d\n", try_addr, size,
             res);
-        /* Break here rather than checking res in the for condition so size is not
-         * incremented past the matched registration size needed below.
-         */
+        /* Break so size keeps the matched registration length needed below. */
         if (res != -EINVAL)
             break;
     }
