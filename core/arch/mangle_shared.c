@@ -1224,6 +1224,46 @@ mangle_rseq_write_exit_reason(dcontext_t *dcontext, instrlist_t *ilist,
                       REG1_OFFSET);
 }
 
+#    ifdef AARCHXX
+/* Inserts address adjustments before insert_at and returns the remaining displacement
+ * for a pointer-sized rseq TLS store.  The generated code preserves the sum of base_reg
+ * and the displacement, as well as condition flags.  The caller must save and restore
+ * base_reg.
+ * XXX i#8183: AArch32 may need similar adjustment.
+ */
+static int
+mangle_rseq_adjust_tls_base(dcontext_t *dcontext, instrlist_t *ilist, instr_t *insert_at,
+                            reg_id_t base_reg, int offset)
+{
+#        ifdef AARCH64
+    /* STR accepts offsets [0, 32760] in multiples of 8; STUR accepts [-256..255].
+     * Therefore, the combined range is [-256, 32760].
+     */
+    while (offset < -256 || offset > 32760) {
+        /* We use ADD/SUB with LSL 12 so that base_reg and offset are always adjusted by
+         * multiples of 4096, perserving their alignment.
+         */
+        if (offset < -256) {
+            int step = MIN(4095, ((-256 - offset) >> 12) + 1);
+            PRE(ilist, insert_at,
+                INSTR_CREATE_sub_shift(dcontext, opnd_create_reg(base_reg),
+                                       opnd_create_reg(base_reg), OPND_CREATE_INT(step),
+                                       OPND_CREATE_LSL(), OPND_CREATE_INT(12)));
+            offset += step * 4096;
+        } else if (offset > 32760) {
+            int step = MIN(4095, ((offset - 32760) >> 12) + 1);
+            PRE(ilist, insert_at,
+                INSTR_CREATE_add_shift(dcontext, opnd_create_reg(base_reg),
+                                       opnd_create_reg(base_reg), OPND_CREATE_INT(step),
+                                       OPND_CREATE_LSL(), OPND_CREATE_INT(12)));
+            offset -= step * 4096;
+        }
+    }
+#        endif
+    return offset;
+}
+#    endif
+
 /* May modify next_instr. */
 static void
 mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
@@ -1397,11 +1437,12 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
     instr_t *start_mangling = INSTR_CREATE_mrs(dcontext, opnd_create_reg(scratch2),
                                                opnd_create_reg(LIB_SEG_TLS));
     instrlist_preinsert(ilist, insert_at, start_mangling);
+    int disp = mangle_rseq_adjust_tls_base(dcontext, ilist, insert_at, scratch2,
+                                           rseq_get_tls_ptr_offset());
     PRE(ilist, insert_at,
-        XINST_CREATE_store(dcontext,
-                           opnd_create_base_disp(scratch2, DR_REG_NULL, 0,
-                                                 rseq_get_tls_ptr_offset(), OPSZ_PTR),
-                           opnd_create_reg(scratch_reg)));
+        XINST_CREATE_store(
+            dcontext, opnd_create_base_disp(scratch2, DR_REG_NULL, 0, disp, OPSZ_PTR),
+            opnd_create_reg(scratch_reg)));
     PRE(ilist, insert_at,
         instr_create_restore_from_tls(dcontext, scratch2, TLS_REG2_SLOT));
 #    endif
@@ -1530,12 +1571,13 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
         XINST_CREATE_load_int(dcontext, opnd_create_reg(scratch_reg),
                               OPND_CREATE_INT(0)));
 #        endif
+    disp = mangle_rseq_adjust_tls_base(dcontext, ilist, insert_at, scratch2,
+                                       rseq_get_tls_ptr_offset());
     instrlist_preinsert(
         ilist, insert_at,
-        XINST_CREATE_store(dcontext,
-                           opnd_create_base_disp(scratch2, DR_REG_NULL, 0,
-                                                 rseq_get_tls_ptr_offset(), OPSZ_PTR),
-                           opnd_create_reg(IF_AARCH64_ELSE(DR_REG_XZR, scratch_reg))));
+        XINST_CREATE_store(
+            dcontext, opnd_create_base_disp(scratch2, DR_REG_NULL, 0, disp, OPSZ_PTR),
+            opnd_create_reg(IF_AARCH64_ELSE(DR_REG_XZR, scratch_reg))));
 #        ifdef ARM /* No zero register. */
     PRE(ilist, insert_at,
         instr_create_restore_from_tls(dcontext, scratch_reg, TLS_REG1_SLOT));
