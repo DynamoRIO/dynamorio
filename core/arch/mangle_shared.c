@@ -1228,7 +1228,8 @@ mangle_rseq_write_exit_reason(dcontext_t *dcontext, instrlist_t *ilist,
 /* Inserts address adjustments before insert_at and returns the remaining displacement
  * for a pointer-sized rseq TLS store.  The generated code preserves the sum of base_reg
  * and the displacement, as well as condition flags.  The caller must save and restore
- * base_reg.  AArch32 currently uses the original displacement without adjustment.
+ * base_reg.
+ * XXX i#8183: AArch32 may need similar adjustment.
  */
 static int
 mangle_rseq_adjust_tls_base(dcontext_t *dcontext, instrlist_t *ilist, instr_t *insert_at,
@@ -1239,8 +1240,8 @@ mangle_rseq_adjust_tls_base(dcontext_t *dcontext, instrlist_t *ilist, instr_t *i
      * Therefore, the combined range is [-256, 32760].
      */
     while (offset < -256 || offset > 32760) {
-        /* We use ADD/SUB with LSL 12 so that base_reg are always moves by mutiples of
-         * 4096 to preserve alignment.
+        /* We use ADD/SUB with LSL 12 so that base_reg and offset are always adjusted by
+         * multiples of 4096, perserving their alignment.
          */
         if (offset < -256) {
             int step = MIN(4095, ((-256 - offset) >> 12) + 1);
