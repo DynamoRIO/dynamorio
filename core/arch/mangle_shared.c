@@ -1439,7 +1439,7 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
     int disp = mangle_rseq_adjust_tls_base(dcontext, ilist, insert_at, scratch2,
                                            rseq_get_tls_ptr_offset());
     PRE(ilist, insert_at,
-        XINST_CREATE_stre(
+        XINST_CREATE_store(
             dcontext, opnd_create_base_disp(scratch2, DR_REG_NULL, 0, disp, OPSZ_PTR),
             opnd_create_reg(scratch_reg)));
     PRE(ilist, insert_at,
