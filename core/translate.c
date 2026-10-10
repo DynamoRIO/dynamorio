@@ -207,12 +207,28 @@ instr_is_rseq_mangling(dcontext_t *dcontext, instr_t *inst)
         return true;
     if (instr_get_opcode(inst) == OP_movz || instr_get_opcode(inst) == OP_movk)
         return true;
+    /* Match the non-flag-setting ADD/SUB immediate with LSL #12 from
+     * mangle_rseq_adjust_tls_base().
+     */
+    if ((instr_get_opcode(inst) == OP_add || instr_get_opcode(inst) == OP_sub) &&
+        instr_num_srcs(inst) == 4) {
+        opnd_t shift = instr_get_src(inst, 2);
+        opnd_t amount = instr_get_src(inst, 3);
+        return opnd_is_immed_int(instr_get_src(inst, 1)) && opnd_is_immed_int(shift) &&
+            opnd_get_immed_int(shift) == DR_SHIFT_LSL && opnd_is_immed_int(amount) &&
+            opnd_get_immed_int(amount) == 12;
+    }
     if (instr_get_opcode(inst) == OP_strh && opnd_is_base_disp(instr_get_dst(inst, 0)) &&
         opnd_get_disp(instr_get_dst(inst, 0)) == EXIT_REASON_OFFSET)
         return true;
-    if (instr_get_opcode(inst) == OP_str && opnd_is_base_disp(instr_get_dst(inst, 0)) &&
-        opnd_get_disp(instr_get_dst(inst, 0)) == rseq_get_tls_ptr_offset())
-        return true;
+    if ((instr_get_opcode(inst) == OP_str || instr_get_opcode(inst) == OP_stur) &&
+        opnd_is_base_disp(instr_get_dst(inst, 0))) {
+        int disp = opnd_get_disp(instr_get_dst(inst, 0));
+        /* mangle_rseq_adjust_tls_base() adjusts the base and displacement by
+         * multiples of 4096, preserving the low 12 bits of the displacement.
+         */
+        return ((uint)disp & 0xfff) == ((uint)rseq_get_tls_ptr_offset() & 0xfff);
+    }
 #        endif
 #    endif
     return false;
