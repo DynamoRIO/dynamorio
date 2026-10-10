@@ -103,6 +103,10 @@ endif (UNIX)
 set(main_run_list
   # our main configuration
   "SHORT::-code_api"
+  # i#8165: direct and indirect x64 stub sizes can match; indirect stubs must
+  # stay local when direct stubs are separated, for shared and private caches.
+  "SHORT::X86::LIN::ONLY::^linux[.](clone|signal0000)$::-code_api -indirect_stubs -no_coarse_units -no_inline_trace_ibl -no_inline_bb_ibl -separate_shared_stubs"
+  "SHORT::X86::LIN::ONLY::^linux[.](clone|signal0000)$::-code_api -thread_private -indirect_stubs -no_coarse_units -no_inline_trace_ibl -no_inline_bb_ibl -separate_private_stubs"
   # no_intercept_all_signals tests.
   # TODO i#5261: Remove this suite when -intercept_all_signals is deprecated.
   "SHORT::LIN::ONLY::sigaction$::-no_code_api -no_intercept_all_signals"

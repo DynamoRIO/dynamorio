@@ -214,9 +214,9 @@ extern uint android_tls_base_offs;
 #endif
 
 void *
-d_r_get_tls(ushort tls_offs);
+d_r_get_tls(int tls_offs);
 void
-d_r_set_tls(ushort tls_offs, void *value);
+d_r_set_tls(int tls_offs, void *value);
 byte *
 os_get_dr_tls_base(dcontext_t *dcontext);
 
