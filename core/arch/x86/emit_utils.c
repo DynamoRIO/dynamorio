@@ -210,8 +210,8 @@ insert_tls_spill_or_restore64(byte *pc, bool spill, reg_id_t reg, int tls_disp)
 {
 #    ifndef LINUX_KERNEL
     if (reg == REG_XAX) {
-        /* Preserve the compact user-space form.  Select by build so stub
-         * and prefix sizes remain independent of the TLS layout.
+        /* A1/A3 moffs with addr32 takes 8 bytes, saving one byte over ModRM/SIB.
+         * addr32 zero-extends so this form cannot address negative TLS displacements.
          */
         ASSERT(tls_disp >= 0);
         *pc++ = ADDR_PREFIX_OPCODE;
@@ -240,8 +240,8 @@ insert_tls_spill_or_restore(byte *pc, uint flags, bool spill, reg_id_t reg, int 
     if (!FRAG_IS_32(flags))
         return insert_tls_spill_or_restore64(pc, spill, reg, tls_disp);
 #endif
-    /* Preserve the compact 32-bit stub layout.  addr16 requires a displacement
-     * in [0, 0xffff]; full signed displacements use the native address size.
+    /* addr16 keeps 32-bit stubs compact and requires a displacement in [0, 0xffff].
+     * Without addr16, use the native 32-bit address size.
      */
     bool addr16 = (require_addr16 || use_addr_prefix_on_short_disp());
     if (addr16) {
@@ -3187,7 +3187,7 @@ unit_test_tls_emit(dcontext_t *dcontext)
     memset(&info, 0, sizeof(info));
     instr_init(dcontext, &instr);
 #    if defined(X64) && !defined(LINUX_KERNEL)
-    /* Preserve the user-space RAX instruction bytes and direct-stub size. */
+    /* Expect the compact user-space RAX instruction bytes and direct-stub size. */
     EXPECT(SIZE64_MOV_XAX_TO_TLS, 8);
     EXPECT(DIRECT_EXIT_STUB_SIZE64, 23);
     byte expected[] = { ADDR_PREFIX_OPCODE,
@@ -3310,7 +3310,9 @@ unit_test_tls_emit(dcontext_t *dcontext)
         }
     }
 #    ifdef X64
-    /* Exercise the production kernel RAX emitter from the user-space test. */
+    /* Exercise the sign-extended disp32 RAX form used by kernel builds, even
+     * when this test is built for user space, where RAX normally uses moffs.
+     */
     dr_set_isa_mode(dcontext, DR_ISA_AMD64, NULL);
     for (uint d = 0; d < BUFFER_SIZE_ELEMENTS(disps); ++d) {
         for (int spill = 0; spill < 2; ++spill) {
