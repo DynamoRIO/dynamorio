@@ -186,6 +186,14 @@ patchable_exit_cti_align_offs(dcontext_t *dcontext, instr_t *inst, cache_pc pc)
                                   CTI_PATCH_SIZE, PAD_JMPS_ALIGNMENT);
 }
 
+static inline byte
+spill_restore_opcode(bool spill, bool moffs)
+{
+    if (moffs)
+        return spill ? MOV_XAX2MEM_OPCODE : MOV_MEM2XAX_OPCODE;
+    return spill ? MOV_REG2MEM_OPCODE : MOV_MEM2REG_OPCODE;
+}
+
 #ifdef X64
 /* Emits a 9-byte TLS spill or restore using ModRM/SIB with sign-extended disp32
  * for any supported register, including RAX.
@@ -195,7 +203,7 @@ insert_tls_spill_or_restore64_modrm(byte *pc, bool spill, reg_id_t reg, int tls_
 {
     *pc++ = TLS_SEG_OPCODE;
     *pc++ = REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG;
-    *pc++ = spill ? MOV_REG2MEM_OPCODE : MOV_MEM2REG_OPCODE;
+    *pc++ = spill_restore_opcode(spill, false /*moffs*/);
     *pc++ = MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), 4 /*rm*/);
     *pc++ = SIB_DISP32;
     *((int *)pc) = tls_disp;
@@ -217,7 +225,7 @@ insert_tls_spill_or_restore64(byte *pc, bool spill, reg_id_t reg, int tls_disp)
         *pc++ = ADDR_PREFIX_OPCODE;
         *pc++ = TLS_SEG_OPCODE;
         *pc++ = REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG;
-        *pc++ = spill ? MOV_XAX2MEM_OPCODE : MOV_MEM2XAX_OPCODE;
+        *pc++ = spill_restore_opcode(spill, true /*moffs*/);
         *((int *)pc) = tls_disp;
         return pc + 4;
     }
@@ -249,8 +257,7 @@ insert_tls_spill_or_restore(byte *pc, uint flags, bool spill, reg_id_t reg, int 
         *pc++ = ADDR_PREFIX_OPCODE;
     }
     *pc++ = TLS_SEG_OPCODE;
-    *pc++ = reg == REG_XAX ? (spill ? MOV_XAX2MEM_OPCODE : MOV_MEM2XAX_OPCODE)
-                           : (spill ? MOV_REG2MEM_OPCODE : MOV_MEM2REG_OPCODE);
+    *pc++ = spill_restore_opcode(spill, reg == REG_XAX);
     if (reg != REG_XAX)
         *pc++ = MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), addr16 ? 6 : 5 /*rm*/);
     if (addr16) {
@@ -280,8 +287,7 @@ insert_spill_or_restore(dcontext_t *dcontext, cache_pc pc, uint flags, bool spil
                                          require_addr16);
     } else {
         /* mov %ebx,((int)&dcontext)+dc_offs */
-        *pc++ = reg == REG_XAX ? (spill ? MOV_XAX2MEM_OPCODE : MOV_MEM2XAX_OPCODE)
-                               : (spill ? MOV_REG2MEM_OPCODE : MOV_MEM2REG_OPCODE);
+        *pc++ = spill_restore_opcode(spill, reg == REG_XAX);
         if (reg != REG_XAX)
             *pc++ = MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), 5 /*rm*/);
         IF_X64(ASSERT_NOT_IMPLEMENTED(false));
