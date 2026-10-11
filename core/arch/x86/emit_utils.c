@@ -187,11 +187,11 @@ patchable_exit_cti_align_offs(dcontext_t *dcontext, instr_t *inst, cache_pc pc)
 }
 
 #ifdef X64
-/* Use a sign-extended disp32.  addr32 moffs would zero-extend a negative
- * displacement before adding the segment base.
+/* Emits a 9-byte TLS spill or restore using ModRM/SIB with sign-extended disp32
+ * for any supported register, including RAX.
  */
 static byte *
-insert_tls_spill_or_restore64(byte *pc, bool spill, reg_id_t reg, int tls_disp)
+insert_tls_spill_or_restore64_modrm(byte *pc, bool spill, reg_id_t reg, int tls_disp)
 {
     *pc++ = TLS_SEG_OPCODE;
     *pc++ = REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG;
@@ -201,17 +201,13 @@ insert_tls_spill_or_restore64(byte *pc, bool spill, reg_id_t reg, int tls_disp)
     *((int *)pc) = tls_disp;
     return pc + 4;
 }
-#endif
 
-/* Emits to a writable address.  tls_disp is a full segment displacement, not a
- * local_state_t slot.  Keep in sync with instr_raw_is_tls_spill().
+/* Emits a 64-bit TLS spill or restore, selecting the encoding by register and
+ * build to match the fixed stub and prefix size definitions.
  */
 static byte *
-insert_tls_spill_or_restore(byte *pc, uint flags, bool spill, reg_id_t reg, int tls_disp,
-                            bool require_addr16)
+insert_tls_spill_or_restore64(byte *pc, bool spill, reg_id_t reg, int tls_disp)
 {
-#ifdef X64
-    if (!FRAG_IS_32(flags)) {
 #    ifndef LINUX_KERNEL
         if (reg == REG_XAX) {
             /* Preserve the compact user-space form.  Select by build so stub
@@ -226,8 +222,23 @@ insert_tls_spill_or_restore(byte *pc, uint flags, bool spill, reg_id_t reg, int 
             return pc + 4;
         }
 #    endif
-        return insert_tls_spill_or_restore64(pc, spill, reg, tls_disp);
+    /* Kernel TLS displacements can be negative. Use sign-extended disp32 even
+     * for positive displacements to keep stub and prefix sizes fixed.
+     */
+    return insert_tls_spill_or_restore64_modrm(pc, spill, reg, tls_disp);
     }
+#endif
+
+/* Emits to a writable address.  tls_disp is a full segment displacement, not a
+ * local_state_t slot.  Keep in sync with instr_raw_is_tls_spill().
+ */
+static byte *
+insert_tls_spill_or_restore(byte *pc, uint flags, bool spill, reg_id_t reg, int tls_disp,
+                            bool require_addr16)
+{
+#ifdef X64
+    if (!FRAG_IS_32(flags))
+        return insert_tls_spill_or_restore64(pc, spill, reg, tls_disp);
 #endif
     /* Preserve the compact 32-bit stub layout.  addr16 requires a displacement
      * in [0, 0xffff]; full signed displacements use the native address size.
@@ -3303,7 +3314,8 @@ unit_test_tls_emit(dcontext_t *dcontext)
     dr_set_isa_mode(dcontext, DR_ISA_AMD64, NULL);
     for (uint d = 0; d < BUFFER_SIZE_ELEMENTS(disps); ++d) {
         for (int spill = 0; spill < 2; ++spill) {
-            byte *end = insert_tls_spill_or_restore64(buf, spill != 0, REG_XAX, disps[d]);
+            byte *end =
+                insert_tls_spill_or_restore64_modrm(buf, spill != 0, REG_XAX, disps[d]);
             EXPECT(end - buf, 9);
             EXPECT(buf[0], TLS_SEG_OPCODE);
             EXPECT(buf[2], (spill ? MOV_REG2MEM_OPCODE : MOV_MEM2REG_OPCODE));
@@ -3316,11 +3328,11 @@ unit_test_tls_emit(dcontext_t *dcontext)
             EXPECT(opnd_get_size(mem), OPSZ_8);
         }
     }
-    insert_tls_spill_or_restore64(buf, true, REG_XAX,
+    insert_tls_spill_or_restore64_modrm(buf, true, REG_XAX,
                                   os_tls_offset(DIRECT_STUB_SPILL_SLOT));
     EXPECT(instr_raw_is_tls_spill(buf, REG_XAX, DIRECT_STUB_SPILL_SLOT), true);
     EXPECT(instr_raw_is_tls_spill(buf, REG_XAX, DIRECT_STUB_SPILL_SLOT + 1), false);
-    insert_tls_spill_or_restore64(buf, false, REG_XAX,
+    insert_tls_spill_or_restore64_modrm(buf, false, REG_XAX,
                                   os_tls_offset(DIRECT_STUB_SPILL_SLOT));
     EXPECT(instr_raw_is_tls_spill(buf, REG_XAX, DIRECT_STUB_SPILL_SLOT), false);
 #    endif
