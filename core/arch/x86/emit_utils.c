@@ -209,24 +209,24 @@ static byte *
 insert_tls_spill_or_restore64(byte *pc, bool spill, reg_id_t reg, int tls_disp)
 {
 #    ifndef LINUX_KERNEL
-        if (reg == REG_XAX) {
-            /* Preserve the compact user-space form.  Select by build so stub
-             * and prefix sizes remain independent of the TLS layout.
-             */
-            ASSERT(tls_disp >= 0);
-            *pc++ = ADDR_PREFIX_OPCODE;
-            *pc++ = TLS_SEG_OPCODE;
-            *pc++ = REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG;
-            *pc++ = spill ? MOV_XAX2MEM_OPCODE : MOV_MEM2XAX_OPCODE;
-            *((int *)pc) = tls_disp;
-            return pc + 4;
-        }
+    if (reg == REG_XAX) {
+        /* Preserve the compact user-space form.  Select by build so stub
+         * and prefix sizes remain independent of the TLS layout.
+         */
+        ASSERT(tls_disp >= 0);
+        *pc++ = ADDR_PREFIX_OPCODE;
+        *pc++ = TLS_SEG_OPCODE;
+        *pc++ = REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG;
+        *pc++ = spill ? MOV_XAX2MEM_OPCODE : MOV_MEM2XAX_OPCODE;
+        *((int *)pc) = tls_disp;
+        return pc + 4;
+    }
 #    endif
     /* Kernel TLS displacements can be negative. Use sign-extended disp32 even
      * for positive displacements to keep stub and prefix sizes fixed.
      */
     return insert_tls_spill_or_restore64_modrm(pc, spill, reg, tls_disp);
-    }
+}
 #endif
 
 /* Emits to a writable address.  tls_disp is a full segment displacement, not a
@@ -3329,11 +3329,11 @@ unit_test_tls_emit(dcontext_t *dcontext)
         }
     }
     insert_tls_spill_or_restore64_modrm(buf, true, REG_XAX,
-                                  os_tls_offset(DIRECT_STUB_SPILL_SLOT));
+                                        os_tls_offset(DIRECT_STUB_SPILL_SLOT));
     EXPECT(instr_raw_is_tls_spill(buf, REG_XAX, DIRECT_STUB_SPILL_SLOT), true);
     EXPECT(instr_raw_is_tls_spill(buf, REG_XAX, DIRECT_STUB_SPILL_SLOT + 1), false);
     insert_tls_spill_or_restore64_modrm(buf, false, REG_XAX,
-                                  os_tls_offset(DIRECT_STUB_SPILL_SLOT));
+                                        os_tls_offset(DIRECT_STUB_SPILL_SLOT));
     EXPECT(instr_raw_is_tls_spill(buf, REG_XAX, DIRECT_STUB_SPILL_SLOT), false);
 #    endif
     dr_set_isa_mode(dcontext, old_mode, NULL);
