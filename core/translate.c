@@ -110,6 +110,9 @@ translate_walk_init(translate_walk_t *walk, byte *start_cache, byte *end_cache,
     walk->mc = mc;
     walk->start_cache = start_cache;
     walk->end_cache = end_cache;
+    for (int r = 0; r < REG_SPILL_NUM; r++) {
+        walk->reg_spilled[r] = false;
+    }
 }
 
 #ifdef UNIX
