@@ -676,7 +676,9 @@ entrance_stub_target_tag(cache_pc stub, coarse_info_t *info)
         tag = (cache_pc)((high32 << 32) | low32);
     } else { /* else fall-through to 32-bit case */
 #endif
-        tag = (app_pc)(ptr_uint_t) * ((uint *)(jmp - 4));
+        /* A 32-bit stub stores a four-byte tag, even in an x64 build. */
+        uint tag32 = *((uint *)(jmp - 4));
+        tag = (app_pc)(ptr_uint_t)tag32;
 #if defined(X86) && defined(X64)
     }
 #endif
