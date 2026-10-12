@@ -3214,12 +3214,12 @@ unit_test_tls_emit(dcontext_t *dcontext)
 #    endif
     dr_set_isa_mode(dcontext, DR_ISA_IA32, &old_mode);
     /* Both native 32-bit and mixed-mode builds use the same compact layout. */
-    for (int mode = 0; mode < IF_X64_ELSE(2, 1); ++mode) {
-        uint flags = IF_X64_ELSE(mode == 0 ? FRAG_32_BIT : 0, 0);
-        dr_set_isa_mode(dcontext, mode == 0 ? DR_ISA_IA32 : DR_ISA_AMD64, NULL);
+    for (int is_64bit = 0; is_64bit < IF_X64_ELSE(2, 1); ++is_64bit) {
+        uint flags = IF_X64_ELSE(is_64bit ? 0 : FRAG_32_BIT, 0);
+        dr_set_isa_mode(dcontext, is_64bit ? DR_ISA_AMD64 : DR_ISA_IA32, NULL);
         for (uint d = 0; d < BUFFER_SIZE_ELEMENTS(disps); ++d) {
             for (int addr16 = 0; addr16 < 2; ++addr16) {
-                if (mode == 0 && (addr16 || use_addr_prefix_on_short_disp()) &&
+                if (!is_64bit && (addr16 || use_addr_prefix_on_short_disp()) &&
                     !CHECK_TRUNCATE_TYPE_ushort(disps[d]))
                     continue;
                 for (uint r = 0; r < BUFFER_SIZE_ELEMENTS(regs); ++r) {
@@ -3227,7 +3227,7 @@ unit_test_tls_emit(dcontext_t *dcontext)
                     /* User-space RAX moffs uses an unsigned address.  Exercise
                      * signed kernel RAX displacements separately below.
                      */
-                    if (mode != 0 && regs[r] == REG_XAX && disps[d] < 0)
+                    if (is_64bit && regs[r] == REG_XAX && disps[d] < 0)
                         continue;
 #    endif
                     for (int spill = 0; spill < 2; ++spill) {
@@ -3247,11 +3247,11 @@ unit_test_tls_emit(dcontext_t *dcontext)
                         /* Decoding small moffs addresses normalizes them to
                          * base-disp operands without the short-address flag.
                          */
-                        if (mode != 0)
+                        if (is_64bit)
                             EXPECT(opnd_is_disp_short_addr(mem), false);
-                        EXPECT(opnd_get_size(mem), (mode == 0 ? OPSZ_4 : OPSZ_8));
+                        EXPECT(opnd_get_size(mem), (is_64bit ? OPSZ_8 : OPSZ_4));
                         EXPECT(opnd_get_reg(reg),
-                               reg_resize_to_opsz(regs[r], mode == 0 ? OPSZ_4 : OPSZ_8));
+                               reg_resize_to_opsz(regs[r], is_64bit ? OPSZ_8 : OPSZ_4));
                         /* Public spill queries retain their uint offset API, even
                          * when the decoded segment displacement is negative.
                          */
@@ -3275,21 +3275,21 @@ unit_test_tls_emit(dcontext_t *dcontext)
                 }
             }
             /* The high dword store must also fit in a signed displacement. */
-            if ((mode == 0 && !CHECK_TRUNCATE_TYPE_ushort(disps[d])) ||
+            if ((!is_64bit && !CHECK_TRUNCATE_TYPE_ushort(disps[d])) ||
                 !CHECK_TRUNCATE_TYPE_int((int64)disps[d] + 4))
                 continue;
             app_pc tag = (app_pc)(ptr_uint_t)(IF_X64_ELSE(
-                mode == 0 ? 0x89abcdefULL : 0x1234567889abcdefULL, 0x89abcdefU));
+                is_64bit ? 0x1234567889abcdefULL : 0x89abcdefULL, 0x89abcdefU));
             byte *end = insert_entrance_stub_tag(buf, flags, tag, disps[d]);
             EXPECT(entrance_stub_jmp(buf), end);
             /* The jump bytes must not become part of the 32-bit target tag. */
             insert_relative_jump(end, buf, NOT_HOT_PATCHABLE);
             EXPECT(entrance_stub_target_tag(buf, &info), tag);
-            for (int i = 0; i < (mode == 0 ? 1 : 2); ++i) {
+            for (int i = 0; i < (is_64bit ? 2 : 1); ++i) {
                 byte *start = buf + i * (SIZE64_MOV_PTR_IMM_TO_TLS / 2);
                 instr_reset(dcontext, &instr);
                 EXPECT(decode(dcontext, start, &instr),
-                       (mode == 0 ? end : start + SIZE64_MOV_PTR_IMM_TO_TLS / 2));
+                       (is_64bit ? start + SIZE64_MOV_PTR_IMM_TO_TLS / 2 : end));
                 EXPECT(opnd_get_disp(instr_get_dst(&instr, 0)), disps[d] + 4 * i);
                 EXPECT(opnd_get_segment(instr_get_dst(&instr, 0)), SEG_TLS);
             }
@@ -3300,7 +3300,7 @@ unit_test_tls_emit(dcontext_t *dcontext)
         for (uint r = 0; r < BUFFER_SIZE_ELEMENTS(regs); ++r) {
             for (int addr16 = 0; addr16 < 2; ++addr16) {
                 int disp = os_tls_offset(DIRECT_STUB_SPILL_SLOT);
-                if (mode == 0 && (addr16 || use_addr_prefix_on_short_disp()) &&
+                if (!is_64bit && (addr16 || use_addr_prefix_on_short_disp()) &&
                     !CHECK_TRUNCATE_TYPE_ushort(disp))
                     continue;
                 insert_tls_spill_or_restore(buf, flags, true, regs[r], disp, addr16 != 0);
