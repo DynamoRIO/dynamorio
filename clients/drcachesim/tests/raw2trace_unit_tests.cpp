@@ -5214,6 +5214,60 @@ test_stack_elision(void *drcontext)
 #endif
 }
 
+// Tests an elided address whose base moved by more than 16 bits within its block.
+bool
+test_large_base_delta(void *drcontext)
+{
+#ifdef AARCH64
+    std::cerr << "\n===============\nTesting a large base delta\n";
+    instrlist_t *ilist = instrlist_create(drcontext);
+    // Offset 0 would look like non-module code.
+    instrlist_append(ilist, XINST_CREATE_nop(drcontext));
+    size_t offs_block = instr_length(drcontext, instrlist_first(ilist));
+    auto sp_reg = opnd_create_reg(DR_REG_XSP);
+    // str REG2, [sp]
+    instrlist_append(ilist,
+                     XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(DR_REG_XSP, 0),
+                                        opnd_create_reg(REG2)));
+    // 4080 is the largest 16-byte-aligned unshifted immediate. 9 of them move sp
+    // 36720 bytes, past what 16 bits can hold.
+    constexpr int SUB_COUNT = 9, SUB_IMM = 4080;
+    for (int i = 0; i < SUB_COUNT; ++i) {
+        // sub sp, sp, #4080
+        instrlist_append(ilist,
+                         XINST_CREATE_sub(drcontext, sp_reg, OPND_CREATE_INT(SUB_IMM)));
+    }
+    // str REG2, [sp, #8]
+    instrlist_append(ilist,
+                     XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(DR_REG_XSP, 8),
+                                        opnd_create_reg(REG2)));
+    instrlist_append(ilist, XINST_CREATE_nop(drcontext));
+    constexpr addr_t BASE = 0xfffff0001000;
+    std::vector<offline_entry_t> raw = { make_header(),
+                                         make_tid(),
+                                         make_pid(),
+                                         make_line_size(),
+                                         make_timestamp(),
+                                         make_core(),
+                                         make_block(offs_block, SUB_COUNT + 3),
+                                         make_memref(BASE),
+                                         make_timestamp(),
+                                         make_core(),
+                                         make_exit() };
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, ilist, entries))
+        return false;
+    std::vector<addr_t> addrs;
+    for (const auto &entry : entries) {
+        if (entry.type == TRACE_TYPE_READ || entry.type == TRACE_TYPE_WRITE)
+            addrs.push_back(entry.addr);
+    }
+    std::vector<addr_t> expect = { BASE, BASE - SUB_COUNT * SUB_IMM + 8 };
+    CHECK(addrs == expect, "wrong address after a large base delta");
+#endif
+    return true;
+}
+
 bool
 test_filter_endpoint(void *drcontext)
 {
@@ -6179,7 +6233,8 @@ test_main(int argc, const char *argv[])
         !test_negative_timestamps(drcontext) || !test_top_byte_ignore(drcontext) ||
         !test_missing_memref(drcontext) || !test_skipped_memrefs(drcontext) ||
         !test_stack_elision(drcontext) || !test_filter_endpoint(drcontext) ||
-        !test_repstr_firstlast(drcontext) || !test_gpr_elision(drcontext))
+        !test_repstr_firstlast(drcontext) || !test_gpr_elision(drcontext) ||
+        !test_large_base_delta(drcontext))
         return 1;
     return 0;
 }
