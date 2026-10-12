@@ -78,11 +78,12 @@ typedef struct _translate_walk_t {
     byte *start_cache;
     byte *end_cache;
     /* PR 263407: Track registers spilled since the last cti, for
-     * restoring indirect branch and rip-rel spills. Keep validity separate from
-     * the signed displacement: every int value, including -1, can be a TLS offset.
+     * restoring indirect branch and rip-rel spills.
+     * reg_spilled[r] indicates whether a spill of r is currently recorded.
      */
-    int reg_spill_offs[REG_SPILL_NUM];
     bool reg_spilled[REG_SPILL_NUM];
+    /* The TLS displacement of the spill. Only valid when reg_spilled[r] is true. */
+    int reg_spill_offs[REG_SPILL_NUM];
     bool reg_tls[REG_SPILL_NUM];
     /* PR 267260: Track our own mangle-inserted pushes and pops, for
      * restoring state in the middle of our indirect branch mangling.
