@@ -3288,7 +3288,10 @@ unit_test_tls_emit(dcontext_t *dcontext)
                 is_64bit ? 0x1234567889abcdefULL : 0x89abcdefULL, 0x89abcdefU));
             byte *end = insert_entrance_stub_tag(buf, flags, tag, disps[d]);
             EXPECT(entrance_stub_jmp(buf), end);
-            /* The jump bytes must not become part of the 32-bit target tag. */
+            /* A 32-bit stub stores a four-byte tag immediately before its jump, even in
+             * an x64 build.  Emit the jump so the tag comparison below detects a read
+             * that includes bytes from the next instruction.
+             */
             insert_relative_jump(end, buf, NOT_HOT_PATCHABLE);
             EXPECT(entrance_stub_target_tag(buf, &info), tag);
             for (int i = 0; i < (is_64bit ? 2 : 1); ++i) {
