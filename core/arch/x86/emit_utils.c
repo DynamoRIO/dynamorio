@@ -3177,8 +3177,8 @@ is_jmp_rel8(byte *code_buf, app_pc app_loc, app_pc *jmp_target /* OUT */)
 #ifdef STANDALONE_UNIT_TEST
 #    include "../../perscache.h"
 
-/* Exercise the raw production emitters with full segment displacements that
- * cannot currently be obtained from user-space local_state_t slots.
+/* Exercise the raw emitters with full segment displacements that cannot currently be
+ * obtained from user-space local_state_t slots.
  */
 void
 unit_test_tls_emit(dcontext_t *dcontext)
