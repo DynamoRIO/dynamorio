@@ -253,7 +253,6 @@ insert_tls_spill_or_restore(byte *pc, uint flags, bool spill, reg_id_t reg, int 
      */
     bool addr16 = (require_addr16 || use_addr_prefix_on_short_disp());
     if (addr16) {
-        ASSERT(CHECK_TRUNCATE_TYPE_ushort(tls_disp));
         *pc++ = ADDR_PREFIX_OPCODE;
     }
     *pc++ = TLS_SEG_OPCODE;
@@ -261,6 +260,7 @@ insert_tls_spill_or_restore(byte *pc, uint flags, bool spill, reg_id_t reg, int 
     if (reg != REG_XAX)
         *pc++ = MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), addr16 ? 6 : 5 /*rm*/);
     if (addr16) {
+        ASSERT(CHECK_TRUNCATE_TYPE_ushort(tls_disp));
         *((ushort *)pc) = (ushort)tls_disp;
         pc += 2;
     } else {
