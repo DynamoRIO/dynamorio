@@ -4062,12 +4062,17 @@ instr_raw_is_tls_spill(byte *pc, reg_id_t reg, ushort offs)
 {
 #    ifdef X86
 #        ifdef X64
-    /* Match the compact user-space RAX addr32 moffs form. */
+    /* Match the compact user-space RAX addr32 moffs form:
+     *   67 65 48 a3 88 00 00 00        addr32 mov %rax -> %gs:0x88
+     */
     if (reg == REG_XAX && *pc == ADDR_PREFIX_OPCODE && *(pc + 1) == TLS_SEG_OPCODE &&
         *(pc + 2) == (REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG) &&
         *(pc + 3) == MOV_XAX2MEM_OPCODE && *((int *)(pc + 4)) == os_tls_offset(offs))
         return true;
-    /* Match the sign-extended disp32 form for all registers, including RAX. */
+    /* Match the sign-extended disp32 form for all registers, including RAX:
+     *   65 48 89 1c 25 88 00 00 00     mov %rbx -> %gs:0x88
+     *   65 48 89 04 25 f8 ff ff ff     mov %rax -> %gs:-0x8
+     */
     if (*pc == TLS_SEG_OPCODE &&
         *(pc + 1) == (REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG) &&
         *(pc + 2) == MOV_REG2MEM_OPCODE &&
@@ -4079,7 +4084,10 @@ instr_raw_is_tls_spill(byte *pc, reg_id_t reg, ushort offs)
      * version, but we're not worried about false positives.
      */
 #        endif
-    /* The 32-bit RAX form uses moffs instead of ModRM. */
+    /* The 32-bit RAX form uses moffs instead of ModRM:
+     *   67 64 a3 e4 0e                 addr16 mov %eax -> %fs:0xee4
+     *   64 a3 e4 0e 00 00              mov %eax -> %fs:0xee4
+     */
     if (reg == REG_XAX) {
         return (*pc == ADDR_PREFIX_OPCODE && *(pc + 1) == TLS_SEG_OPCODE &&
                 *(pc + 2) == MOV_XAX2MEM_OPCODE &&
@@ -4087,13 +4095,19 @@ instr_raw_is_tls_spill(byte *pc, reg_id_t reg, ushort offs)
             (*pc == TLS_SEG_OPCODE && *(pc + 1) == MOV_XAX2MEM_OPCODE &&
              *((int *)(pc + 2)) == os_tls_offset(offs));
     }
-    /* addr16 mov %ebx -> %fs:0xee4; prefix order is fixed. */
+    /* ASSUMPTION: when addr16 prefix is used, prefix order is fixed.
+     *   67 64 89 1e e4 0e              addr16 mov %ebx -> %fs:0xee4
+     */
     return (*pc == ADDR_PREFIX_OPCODE && *(pc + 1) == TLS_SEG_OPCODE &&
             *(pc + 2) == MOV_REG2MEM_OPCODE &&
+            /* 0x1e for ebx, 0x0e for ecx */
             *(pc + 3) == MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), 6 /*rm*/) &&
             *((ushort *)(pc + 4)) == os_tls_offset(offs)) ||
-        /* Without addr16 the absolute disp32 uses rm=5, and follows ModRM. */
+        /* Without addr16 the absolute disp32 uses rm=5, and follows ModRM:
+         *   64 89 1d e4 0e 00 00         mov %ebx -> %fs:0xee4
+         */
         (*pc == TLS_SEG_OPCODE && *(pc + 1) == MOV_REG2MEM_OPCODE &&
+         /* 0x1d for ebx, 0x0d for ecx */
          *(pc + 2) == MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), 5 /*rm*/) &&
          *((int *)(pc + 3)) == os_tls_offset(offs));
 #    elif defined(AARCHXX)
