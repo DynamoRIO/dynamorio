@@ -5214,38 +5214,6 @@ test_stack_elision(void *drcontext)
 #endif
 }
 
-
-#ifdef AARCH64
-// Runs raw2trace and returns its error, collecting the data addresses on success.
-std::string
-convert_data_addrs(void *drcontext, const std::vector<offline_entry_t> &raw,
-                   instrlist_t *ilist, std::vector<addr_t> &addrs,
-                   std::vector<uint64_t> &stats)
-{
-    std::ostringstream raw_out;
-    for (const auto &entry : raw) {
-        raw_out << std::string(reinterpret_cast<const char *>(&entry),
-                               reinterpret_cast<const char *>(&entry + 1));
-    }
-    std::istringstream raw_in(raw_out.str());
-    std::vector<std::istream *> input = { &raw_in };
-    std::ostringstream result_stream;
-    std::vector<std::ostream *> output = { &result_stream };
-    raw2trace_test_t raw2trace(input, output, *ilist, drcontext);
-    std::string error = raw2trace.do_conversion();
-    if (!error.empty())
-        return error;
-    populate_all_stats(raw2trace, &stats);
-    std::string result = result_stream.str();
-    const trace_entry_t *entry = reinterpret_cast<const trace_entry_t *>(result.data());
-    for (size_t i = 0; i < result.size() / sizeof(trace_entry_t); ++i) {
-        if (entry[i].type == TRACE_TYPE_READ || entry[i].type == TRACE_TYPE_WRITE)
-            addrs.push_back(entry[i].addr);
-    }
-    return "";
-}
-#endif
-
 // Tests an elided address whose base moved by more than 16 bits within its block.
 bool
 test_large_base_delta(void *drcontext)
@@ -5286,13 +5254,16 @@ test_large_base_delta(void *drcontext)
                                          make_timestamp(),
                                          make_core(),
                                          make_exit() };
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, ilist, entries))
+        return false;
     std::vector<addr_t> addrs;
-    std::vector<uint64_t> stats;
-    std::string error = convert_data_addrs(drcontext, raw, ilist, addrs, stats);
-    CHECK(error.empty(), error);
+    for (const auto &entry : entries) {
+        if (entry.type == TRACE_TYPE_READ || entry.type == TRACE_TYPE_WRITE)
+            addrs.push_back(entry.addr);
+    }
     std::vector<addr_t> expect = { BASE, BASE - SUB_COUNT * SUB_IMM + 8 };
     CHECK(addrs == expect, "wrong address after a large base delta");
-    instrlist_clear_and_destroy(drcontext, ilist);
 #endif
     return true;
 }
