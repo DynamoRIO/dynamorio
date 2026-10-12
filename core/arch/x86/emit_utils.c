@@ -3274,10 +3274,16 @@ unit_test_tls_emit(dcontext_t *dcontext)
                     }
                 }
             }
-            /* The high dword store must also fit in a signed displacement. */
-            if ((!is_64bit && !CHECK_TRUNCATE_TYPE_ushort(disps[d])) ||
-                !CHECK_TRUNCATE_TYPE_int((int64)disps[d] + 4))
-                continue;
+            /* Test only displacements supported by this stub layout. */
+            if (is_64bit) {
+                /* The second dword store uses disp + 4, which must fit disp32. */
+                if (!CHECK_TRUNCATE_TYPE_int((int64)disps[d] + 4))
+                    continue;
+            } else {
+                /* The 32-bit stub uses an unsigned 16-bit displacement. */
+                if (!CHECK_TRUNCATE_TYPE_ushort(disps[d]))
+                    continue;
+            }
             app_pc tag = (app_pc)(ptr_uint_t)(IF_X64_ELSE(
                 is_64bit ? 0x1234567889abcdefULL : 0x89abcdefULL, 0x89abcdefU));
             byte *end = insert_entrance_stub_tag(buf, flags, tag, disps[d]);
