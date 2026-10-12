@@ -5214,6 +5214,89 @@ test_stack_elision(void *drcontext)
 #endif
 }
 
+
+#ifdef AARCH64
+// Runs raw2trace and returns its error, collecting the data addresses on success.
+std::string
+convert_data_addrs(void *drcontext, const std::vector<offline_entry_t> &raw,
+                   instrlist_t *ilist, std::vector<addr_t> &addrs,
+                   std::vector<uint64_t> &stats)
+{
+    std::ostringstream raw_out;
+    for (const auto &entry : raw) {
+        raw_out << std::string(reinterpret_cast<const char *>(&entry),
+                               reinterpret_cast<const char *>(&entry + 1));
+    }
+    std::istringstream raw_in(raw_out.str());
+    std::vector<std::istream *> input = { &raw_in };
+    std::ostringstream result_stream;
+    std::vector<std::ostream *> output = { &result_stream };
+    raw2trace_test_t raw2trace(input, output, *ilist, drcontext);
+    std::string error = raw2trace.do_conversion();
+    if (!error.empty())
+        return error;
+    populate_all_stats(raw2trace, &stats);
+    std::string result = result_stream.str();
+    const trace_entry_t *entry = reinterpret_cast<const trace_entry_t *>(result.data());
+    for (size_t i = 0; i < result.size() / sizeof(trace_entry_t); ++i) {
+        if (entry[i].type == TRACE_TYPE_READ || entry[i].type == TRACE_TYPE_WRITE)
+            addrs.push_back(entry[i].addr);
+    }
+    return "";
+}
+#endif
+
+// Tests an elided address whose base moved by more than 16 bits within its block.
+bool
+test_large_base_delta(void *drcontext)
+{
+#ifdef AARCH64
+    std::cerr << "\n===============\nTesting a large base delta\n";
+    instrlist_t *ilist = instrlist_create(drcontext);
+    // Offset 0 would look like non-module code.
+    instrlist_append(ilist, XINST_CREATE_nop(drcontext));
+    size_t offs_block = instr_length(drcontext, instrlist_first(ilist));
+    auto sp_reg = opnd_create_reg(DR_REG_XSP);
+    // str REG2, [sp]
+    instrlist_append(ilist,
+                     XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(DR_REG_XSP, 0),
+                                        opnd_create_reg(REG2)));
+    // 4080 is the largest 16-byte-aligned unshifted immediate. 9 of them move sp
+    // 36720 bytes, past what 16 bits can hold.
+    constexpr int SUB_COUNT = 9, SUB_IMM = 4080;
+    for (int i = 0; i < SUB_COUNT; ++i) {
+        // sub sp, sp, #4080
+        instrlist_append(ilist,
+                         XINST_CREATE_sub(drcontext, sp_reg, OPND_CREATE_INT(SUB_IMM)));
+    }
+    // str REG2, [sp, #8]
+    instrlist_append(ilist,
+                     XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(DR_REG_XSP, 8),
+                                        opnd_create_reg(REG2)));
+    instrlist_append(ilist, XINST_CREATE_nop(drcontext));
+    constexpr addr_t BASE = 0xfffff0001000;
+    std::vector<offline_entry_t> raw = { make_header(),
+                                         make_tid(),
+                                         make_pid(),
+                                         make_line_size(),
+                                         make_timestamp(),
+                                         make_core(),
+                                         make_block(offs_block, SUB_COUNT + 3),
+                                         make_memref(BASE),
+                                         make_timestamp(),
+                                         make_core(),
+                                         make_exit() };
+    std::vector<addr_t> addrs;
+    std::vector<uint64_t> stats;
+    std::string error = convert_data_addrs(drcontext, raw, ilist, addrs, stats);
+    CHECK(error.empty(), error);
+    std::vector<addr_t> expect = { BASE, BASE - SUB_COUNT * SUB_IMM + 8 };
+    CHECK(addrs == expect, "wrong address after a large base delta");
+    instrlist_clear_and_destroy(drcontext, ilist);
+#endif
+    return true;
+}
+
 bool
 test_filter_endpoint(void *drcontext)
 {
@@ -6179,7 +6262,8 @@ test_main(int argc, const char *argv[])
         !test_negative_timestamps(drcontext) || !test_top_byte_ignore(drcontext) ||
         !test_missing_memref(drcontext) || !test_skipped_memrefs(drcontext) ||
         !test_stack_elision(drcontext) || !test_filter_endpoint(drcontext) ||
-        !test_repstr_firstlast(drcontext) || !test_gpr_elision(drcontext))
+        !test_repstr_firstlast(drcontext) || !test_gpr_elision(drcontext) ||
+        !test_large_base_delta(drcontext))
         return 1;
     return 0;
 }
