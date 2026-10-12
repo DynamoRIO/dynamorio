@@ -215,7 +215,7 @@ struct instr_summary_t final {
         target->use_remembered_base = target->use_remembered_base || use_remembered_base;
         target->remember_base = target->remember_base || remember_base;
         if (use_remembered_base)
-            target->base_delta = static_cast<int16_t>(base_delta);
+            target->base_delta = base_delta;
     }
 
     /**
@@ -231,7 +231,7 @@ struct instr_summary_t final {
         target->use_remembered_base = target->use_remembered_base || use_remembered_base;
         target->remember_base = target->remember_base || remember_base;
         if (use_remembered_base)
-            target->base_delta = static_cast<int16_t>(base_delta);
+            target->base_delta = base_delta;
     }
 
 private:
