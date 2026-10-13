@@ -1721,10 +1721,6 @@ if (BUILD_TESTS)
   include(CTest)
 endif (BUILD_TESTS)
 
-if (BUILD_CORE)
-  add_subdirectory(core)
-endif (BUILD_CORE)
-
 if (BUILD_KERNEL_MODULE)
   if (NOT LINUX)
     message(FATAL_ERROR "BUILD_KERNEL_MODULE is only supported on Linux")
@@ -1758,8 +1754,11 @@ if (BUILD_KERNEL_MODULE)
   endif()
 
   message(STATUS "DynamoRIO Linux kernel module enabled using KERNEL_DIR=${KERNEL_DIR}")
-  add_subdirectory(core/kernel_linux)
 endif()
+
+if (BUILD_CORE)
+  add_subdirectory(core)
+endif (BUILD_CORE)
 
 add_subdirectory(libutil)
 

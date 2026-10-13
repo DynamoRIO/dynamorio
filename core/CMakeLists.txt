@@ -322,7 +322,6 @@ set(ARCH_SRCS
   arch/arch.c
   arch/emit_utils_shared.c
   arch/${ARCH_NAME}/emit_utils.c
-  arch/${ARCH_NAME_SHARED}/emit_utils.c
   # TODO i#1684: Link with drdecode rather than compiling all the same files.
   ${DECODER_SRCS}
   arch/interp.c
@@ -340,6 +339,12 @@ set(ARCH_SRCS
   arch/retcheck.c
   )
 
+# Avoid duplicate files in ARCH_SRCS when ARCH_NAME and ARCH_NAME_SHARED are the same.
+# Currently they differ only on ARM/AArch64.
+if (NOT "${ARCH_NAME}" STREQUAL "${ARCH_NAME_SHARED}")
+  set(ARCH_SRCS ${ARCH_SRCS} arch/${ARCH_NAME_SHARED}/emit_utils.c)
+endif ()
+
 if (X86 AND X64)
   set(ARCH_SRCS ${ARCH_SRCS} arch/${ARCH_NAME}/x86_to_x64.c)
 endif (X86 AND X64)
@@ -348,6 +353,12 @@ endif (X86 AND X64)
 if (AARCHXX)
   set(ARCH_SRCS ${ARCH_SRCS} arch/asm_offsets.c)
 endif (AARCHXX)
+
+# The kernel module reuses CORE_SRCS and ARCH_SRCS, so this must come after
+# both lists are complete.
+if (BUILD_KERNEL_MODULE)
+  add_subdirectory(kernel_linux)
+endif ()
 
 if (WIN32)
   # i#894: Win8 WDK ntdll.lib does not list Ki routines so we make our own .lib.

@@ -2074,6 +2074,7 @@ DR_API
 /**
  * Returns an operand that refers to the raw TLS slot with offset \p
  * tls_offs from the TLS base \p tls_register.
+ * A negative displacement can be specified using its unsigned representation.
  */
 opnd_t
 dr_raw_tls_opnd(void *drcontext, reg_id_t tls_register, uint tls_offs);

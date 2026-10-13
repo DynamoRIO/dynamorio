@@ -48,6 +48,7 @@
 #include "instrlist.h"
 #include "decode.h"
 #include "disassemble.h"
+#include "dr_project_wide_defines.h"
 #include "dr_tools.h"
 #include "ir_utils.h"
 #include "../fragment.h"
@@ -532,6 +533,35 @@ remove_callback(callback_list_t *vec, void (*func)(void), bool unprotect)
     return found;
 }
 
+/* NOINLINE to keep these large buffers off the stack in the common path.
+ * The kernel module build enforces a small per-function stack frame limit.
+ */
+static NOINLINE void
+report_client_lib_load_error(const char *path)
+{
+    char msg[MAXIMUM_PATH * 4];
+    char err[MAXIMUM_PATH * 2];
+    shared_library_error(err, BUFFER_SIZE_ELEMENTS(err));
+    d_r_snprintf(msg, BUFFER_SIZE_ELEMENTS(msg),
+                 ".\n\tError opening instrumentation library %s:\n\t%s", path, err);
+    NULL_TERMINATE_BUFFER(msg);
+
+    /* PR 232490 - malformed library names or incorrect
+     * permissions shouldn't blow up an app in release builds as
+     * they may happen at customer sites with a third party
+     * client.
+     */
+    /* PR 408318: 32-vs-64 errors should NOT be fatal to continue
+     * in debug build across execve chains.  Xref i#147.
+     * XXX: w/ -private_loader, err always equals "error in private loader"
+     * and so we never match here!
+     */
+    IF_UNIX(if (d_r_strstr(err, "wrong ELF class") == NULL))
+    CLIENT_ASSERT(false, msg);
+    SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 4, get_application_name(),
+           get_application_pid(), path, msg);
+}
+
 /* This should only be called prior to instrument_init(),
  * since no readers of the client_libs array use synch
  * and since this routine assumes .data is writable.
@@ -565,27 +595,7 @@ add_client_lib(const char *path, const char *id_str, const char *options)
     client_lib =
         load_shared_library(path, IF_X64_ELSE(DYNAMO_OPTION(reachable_client), true));
     if (client_lib == NULL) {
-        char msg[MAXIMUM_PATH * 4];
-        char err[MAXIMUM_PATH * 2];
-        shared_library_error(err, BUFFER_SIZE_ELEMENTS(err));
-        snprintf(msg, BUFFER_SIZE_ELEMENTS(msg),
-                 ".\n\tError opening instrumentation library %s:\n\t%s", path, err);
-        NULL_TERMINATE_BUFFER(msg);
-
-        /* PR 232490 - malformed library names or incorrect
-         * permissions shouldn't blow up an app in release builds as
-         * they may happen at customer sites with a third party
-         * client.
-         */
-        /* PR 408318: 32-vs-64 errors should NOT be fatal to continue
-         * in debug build across execve chains.  Xref i#147.
-         * XXX: w/ -private_loader, err always equals "error in private loader"
-         * and so we never match here!
-         */
-        IF_UNIX(if (strstr(err, "wrong ELF class") == NULL))
-        CLIENT_ASSERT(false, msg);
-        SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 4, get_application_name(),
-               get_application_pid(), path, msg);
+        report_client_lib_load_error(path);
     } else {
         /* PR 250952: version check */
         int *uses_dr_version =
@@ -4724,16 +4734,18 @@ dr_raw_tls_opnd(void *drcontext, reg_id_t tls_register, uint tls_offs)
 {
     CLIENT_ASSERT(drcontext != NULL, "dr_raw_tls_opnd: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT, "dr_raw_tls_opnd: drcontext is invalid");
+    /* The public API represents signed displacements by their unsigned bits. */
+    int disp = (int)tls_offs;
     IF_X86_ELSE(
         {
             return opnd_create_far_base_disp_ex(tls_register, DR_REG_NULL, DR_REG_NULL, 0,
-                                                tls_offs, OPSZ_PTR,
+                                                disp, OPSZ_PTR,
                                                 /* modern processors don't want addr16
                                                  * prefixes
                                                  */
                                                 false, true, false);
         },
-        { return OPND_CREATE_MEMPTR(tls_register, tls_offs); });
+        { return OPND_CREATE_MEMPTR(tls_register, disp); });
 }
 
 DR_API
@@ -5572,7 +5584,7 @@ dr_save_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg,
 #endif
 
     if (slot <= SPILL_SLOT_TLS_MAX) {
-        ushort offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
+        int offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
         MINSERT(ilist, where,
                 XINST_CREATE_store(dcontext, opnd_create_tls_slot(offs),
                                    opnd_create_reg(reg)));
@@ -5618,7 +5630,7 @@ dr_restore_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg
 #endif
 
     if (slot <= SPILL_SLOT_TLS_MAX) {
-        ushort offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
+        int offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
         MINSERT(ilist, where,
                 XINST_CREATE_load(dcontext, opnd_create_reg(reg),
                                   opnd_create_tls_slot(offs)));
@@ -5657,7 +5669,7 @@ reg_spill_slot_opnd(void *drcontext, dr_spill_slot_t slot)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     if (slot <= SPILL_SLOT_TLS_MAX) {
-        ushort offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
+        int offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
         return opnd_create_tls_slot(offs);
     } else {
         reg_id_t reg_slot = SPILL_SLOT_MC_REG[slot - NUM_TLS_SPILL_SLOTS];

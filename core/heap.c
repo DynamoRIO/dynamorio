@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -915,7 +916,7 @@ vmm_place_vmcode(vm_heap_t *vmh, /*INOUT*/ size_t *size, heap_error_code_t *erro
             preferred, *size / (1024 * 1024), vmh->start_addr);
         if (vmh->alloc_start == NULL && DYNAMO_OPTION(vm_allow_smaller)) {
             /* Just a little smaller might fit */
-            size_t sub = (size_t)ALIGN_FORWARD(size / 16, 1024 * 1024);
+            size_t sub = (size_t)ALIGN_FORWARD(*size / 16, 1024 * 1024);
             SYSLOG_INTERNAL_WARNING_ONCE("Full size vmm heap allocation failed");
             /* Don't go too small. */
             if (*size > 2 * sub)

@@ -545,9 +545,8 @@ Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 Basic counts tool results:
 Total counts:
-      134566 total (fetched) instructions
-       13838 total unique (fetched) instructions
-         423 total non-fetched instructions
+      134566 total instructions
+       13838 total unique instructions
            0 total prefetches
        30919 total data loads
        13122 total data stores
@@ -570,9 +569,8 @@ Total counts:
           12 total other markers
            0 total encodings
 Thread 64951 counts:
-      130900 (fetched) instructions
-       13469 unique (fetched) instructions
-         423 non-fetched instructions
+      130900 instructions
+       13469 unique instructions
            0 prefetches
        29844 data loads
        12594 data stores
@@ -594,9 +592,8 @@ Thread 64951 counts:
            4 other markers
            0 encodings
 Thread 64958 counts:
-        1861 (fetched) instructions
-        1009 unique (fetched) instructions
-           0 non-fetched instructions
+        1861 instructions
+        1009 unique instructions
            0 prefetches
          538 data loads
          262 data stores
@@ -618,9 +615,8 @@ Thread 64958 counts:
            4 other markers
            0 encodings
 Thread 64959 counts:
-        1805 (fetched) instructions
-         978 unique (fetched) instructions
-           0 non-fetched instructions
+        1805 instructions
+         978 unique instructions
            0 prefetches
          537 data loads
          266 data stores
@@ -643,16 +639,10 @@ Thread 64959 counts:
            0 encodings
 \endcode
 
-The non-fetched instructions are x86 string loop instructions, where
-subsequent iterations do not incur a fetch.  They are included in the trace
-as a different type of trace entry to support core simulators in addition
-to cache simulators.
-
 \section sec_tool_opcode_mix Opcode Mix
 
-The opcode_mix tool uses the non-fetched instruction information along with
-the preserved libraries and binaries from the traced execution to gather
-more information on each executed instruction than was stored in the trace.
+The opcode_mix tool gathers information on each type of executed instruction in
+the trace.
 To run on online traces, pass the `-instr_encodings` option.
 The results are broken
 down by the opcodes used in DR's IR, where for x86 \p mov is split into a separate
@@ -2217,10 +2207,8 @@ Instructions that reference multiple memory words on the same cache line
 drcachesim, while other simulators (such as \p cachegrind) may split the
 accesses into separate pieces.  A final example involves string loop
 instructions on x86.  \p drcachesim considers only the first iteration to
-involve an instruction fetch (presenting subsequent iterations as a
-"non-fetched instruction" which the simulator ignores: the basic_counts
-tool does show these as a separate statistics), while other simulators
-(incorrectly) issue a fetch to the instruction cache on every iteration of
-the string loop.
+involve an instruction fetch (with no fetch on subsequent iterations), while
+some other simulators (incorrectly) issue a fetch to the instruction cache on
+every iteration of the string loop.
 
 */

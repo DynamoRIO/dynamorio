@@ -214,6 +214,12 @@ public:
     virtual void
     set_entry_addr(byte *buf_ptr, addr_t addr) = 0;
 
+    virtual void
+    set_reg_vector(drvector_t *reg_vector)
+    {
+        reg_vector_ = reg_vector;
+    }
+
     // Fills the first pointer-sized-integer of each record with "sentinel" and the
     // rest (if any) with 0.
     virtual void

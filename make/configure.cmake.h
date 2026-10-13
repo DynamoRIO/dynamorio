@@ -113,6 +113,10 @@
 #cmakedefine HAVE_FNOSANITIZE_NULL
 #cmakedefine HAVE_TYPELIMITS_CONTROL
 #cmakedefine ANNOTATIONS
+#ifdef LINUX_KERNEL
+/* Binary annotations are not supported in the kernel module. */
+#    undef ANNOTATIONS
+#endif
 #cmakedefine HAVE_RSEQ
 #cmakedefine HAVE_HALF_FLOAT
 

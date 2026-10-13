@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -742,8 +743,8 @@ d_r_sscanf(const char *str, const char *fmt, ...)
  * cross-arch.  We need %ll to parse 64-bit ints on 32-bit and drop the %l to
  * parse 32-bit ints on x64.
  */
-#    define MAPS_LINE_FORMAT4 "%08x-%08x %s %08x %*s %llu %4096s"
-#    define MAPS_LINE_FORMAT8 "%016llx-%016llx %s %016llx %*s %llu %4096s"
+#    define MAPS_LINE_FORMAT4 "%08x-%08x %s %08x %x:%x %llu %4096s"
+#    define MAPS_LINE_FORMAT8 "%016llx-%016llx %s %016llx %x:%x %llu %4096s"
 
 static void
 test_sscanf_maps_x86(void)
@@ -751,6 +752,7 @@ test_sscanf_maps_x86(void)
     char line_copy[1024];
     uint start, end;
     uint offset;
+    uint device_major, device_minor;
     uint64 inode;
     char perm[16];
     char comment[4096];
@@ -759,13 +761,15 @@ test_sscanf_maps_x86(void)
                             "                            /lib32/libc-2.11.1.so";
 
     strncpy(line_copy, maps_line, BUFFER_SIZE_ELEMENTS(line_copy));
-    len = d_r_sscanf(line_copy, MAPS_LINE_FORMAT4, &start, &end, perm, &offset, &inode,
-                     comment);
-    EXPECT(len, 6);
+    len = d_r_sscanf(line_copy, MAPS_LINE_FORMAT4, &start, &end, perm, &offset,
+                     &device_major, &device_minor, &inode, comment);
+    EXPECT(len, 8);
     /* Do int64 comparisons directly.  EXPECT casts to ptr_uint_t. */
     EXPECT(start, 0xf75c3000UL);
     EXPECT(end, 0xf75c4000UL);
     EXPECT(offset, 0x00155000UL);
+    EXPECT(device_major, 0xfcU);
+    EXPECT(device_minor, 0);
     EXPECT((inode == 1840387ULL), 1);
     EXPECT(strcmp(perm, "rw-p"), 0);
     EXPECT(strcmp(comment, "/lib32/libc-2.11.1.so"), 0);
@@ -779,6 +783,7 @@ test_sscanf_maps_x64(void)
     char line_copy[1024];
     uint64 start, end;
     uint64 offset;
+    uint device_major, device_minor;
     uint64 inode;
     char perm[16];
     char comment[4096];
@@ -787,13 +792,15 @@ test_sscanf_maps_x64(void)
                             "1839331                     /lib/libc-2.11.1.so";
 
     strncpy(line_copy, maps_line, BUFFER_SIZE_ELEMENTS(line_copy));
-    len = d_r_sscanf(line_copy, MAPS_LINE_FORMAT8, &start, &end, perm, &offset, &inode,
-                     comment);
-    EXPECT(len, 6);
+    len = d_r_sscanf(line_copy, MAPS_LINE_FORMAT8, &start, &end, perm, &offset,
+                     &device_major, &device_minor, &inode, comment);
+    EXPECT(len, 8);
     /* Do int64 comparisons directly.  EXPECT casts to ptr_uint_t. */
     EXPECT((start == 0x7f94a6757000ULL), 1);
     EXPECT((end == 0x7f94a6758000ULL), 1);
     EXPECT((offset == 0x00017d000ULL), 1);
+    EXPECT(device_major, 0xfcU);
+    EXPECT(device_minor, 0);
     EXPECT((inode == 1839331ULL), 1);
     EXPECT(strcmp(perm, "rw-p"), 0);
     EXPECT(strcmp(comment, "/lib/libc-2.11.1.so"), 0);

@@ -70,8 +70,8 @@ Core #3 switch-outs:
 ===========================================================================
 Basic counts tool results:
 Total counts:
-      650576 total \(fetched\) instructions
-        6360 total unique \(fetched\) instructions
+      650576 total instructions
+        6360 total unique instructions
          126 total non-fetched instructions
            0 total prefetches
       172208 total data loads

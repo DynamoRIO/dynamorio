@@ -389,7 +389,7 @@ protected:
     get_current_microseconds();
 
     bool success_;
-    scheduler_tmpl_t<RecordType, ReaderType> scheduler_;
+    std::unique_ptr<scheduler_tmpl_t<RecordType, ReaderType>> scheduler_;
     std::string error_string_;
     // For serial mode we have just one entry here but it is this controller
     // thread who operates it, not a separately-created worker.

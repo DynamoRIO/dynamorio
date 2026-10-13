@@ -33,6 +33,7 @@
 /* Tests a signal handler accessing sigcontext */
 
 #include "tools.h"
+#include "dr_project_wide_defines.h"
 /* we want the latest defs so we can get at ymm state */
 #include "../../../core/unix/include/sigcontext.h"
 #include "../../../core/unix/include/syscall.h"

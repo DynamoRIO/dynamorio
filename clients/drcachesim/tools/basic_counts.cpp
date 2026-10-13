@@ -276,11 +276,10 @@ void
 basic_counts_t::print_counters(const counters_t &counters, const std::string &prefix,
                                bool for_kernel_trace, bool for_whole_system_trace)
 {
-    std::cerr << std::setw(12) << counters.instrs << prefix
-              << " (fetched) instructions\n";
+    std::cerr << std::setw(12) << counters.instrs << prefix << " instructions\n";
     if (counters.is_tracking_unique_pc_addrs()) {
         std::cerr << std::setw(12) << counters.unique_pc_addrs.size() << prefix
-                  << " unique (fetched) instructions\n";
+                  << " unique instructions\n";
     }
     if (for_kernel_trace || for_whole_system_trace) {
         std::cerr << std::setw(12) << counters.user_instrs << prefix
@@ -288,13 +287,16 @@ basic_counts_t::print_counters(const counters_t &counters, const std::string &pr
         std::cerr << std::setw(12) << counters.kernel_instrs << prefix
                   << " kernel instructions\n";
     }
-    std::cerr << std::setw(12) << counters.instrs_nofetch << prefix
-              << " non-fetched instructions\n";
-    if (for_kernel_trace || for_whole_system_trace) {
-        std::cerr << std::setw(12) << counters.user_nofetch_instrs << prefix
-                  << " non-fetched userspace instructions\n";
-        std::cerr << std::setw(12) << counters.kernel_nofetch_instrs << prefix
-                  << " non-fetched kernel instructions\n";
+    if (counters.instrs_nofetch > 0) {
+        // Show for legacy traces only. Omit completely for new traces.
+        std::cerr << std::setw(12) << counters.instrs_nofetch << prefix
+                  << " non-fetched instructions\n";
+        if (for_kernel_trace || for_whole_system_trace) {
+            std::cerr << std::setw(12) << counters.user_nofetch_instrs << prefix
+                      << " non-fetched userspace instructions\n";
+            std::cerr << std::setw(12) << counters.kernel_nofetch_instrs << prefix
+                      << " non-fetched kernel instructions\n";
+        }
     }
     std::cerr << std::setw(12) << counters.prefetches << prefix << " prefetches\n";
     std::cerr << std::setw(12) << counters.loads << prefix << " data loads\n";

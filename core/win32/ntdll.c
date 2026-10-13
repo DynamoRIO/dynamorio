@@ -1852,7 +1852,6 @@ tls_alloc_helper(int synch, uint *teb_offs /* OUT */, int num_slots, uint alignm
         *teb_offs = tls_segment_offs(start);
         /* mostly safe since using the small TLS map (of 64 entries)
          * and that is on TEB so reachable with a short */
-        /* to avoid ASSERT_TRUNCATE in os_tls_offset() checking here */
         ASSERT_TRUNCATE(ushort, ushort, *teb_offs);
         NTPRINT("Taking %d tls slot(s) %d-%d at offset 0x%x\n", num_slots, start,
                 start + num_slots, *teb_offs);

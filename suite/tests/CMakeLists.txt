@@ -103,6 +103,10 @@ endif (UNIX)
 set(main_run_list
   # our main configuration
   "SHORT::-code_api"
+  # i#8165: direct and indirect x64 stub sizes can match; indirect stubs must
+  # stay local when direct stubs are separated, for shared and private caches.
+  "SHORT::X86::LIN::ONLY::^linux[.](clone|signal0000)$::-code_api -indirect_stubs -no_coarse_units -no_inline_trace_ibl -no_inline_bb_ibl -separate_shared_stubs"
+  "SHORT::X86::LIN::ONLY::^linux[.](clone|signal0000)$::-code_api -thread_private -indirect_stubs -no_coarse_units -no_inline_trace_ibl -no_inline_bb_ibl -separate_private_stubs"
   # no_intercept_all_signals tests.
   # TODO i#5261: Remove this suite when -intercept_all_signals is deprecated.
   "SHORT::LIN::ONLY::sigaction$::-no_code_api -no_intercept_all_signals"
@@ -3286,6 +3290,10 @@ if (X86 OR AARCH64)
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_repstr.asm
         "-early_inject" "")
       append_pure_asm_app_link_flags(allasm_repstr)
+      add_exe(allasm_repstr_long
+        ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_repstr_long.asm
+        "-early_inject" "")
+      append_pure_asm_app_link_flags(allasm_repstr_long)
       # i#7769: Test instruction counting excludes REP emulation overhead.
       add_exe(allasm_instcount
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_instcount.asm
@@ -3669,6 +3677,9 @@ if (NOT ANDROID AND NOT APPLE AND NOT RISCV64)
   target_link_libraries(api.static_detach ${libmath})
   tobuild_api(api.static_prepop api/static_prepop.c "" "" OFF ON OFF)
   target_link_libraries(api.static_prepop ${libmath})
+  if (LINUX)
+    tobuild_api(api.static_partial_module_map api/static_partial_module_map.c "" "" OFF ON OFF)
+  endif ()
   tobuild_api(api.static_reattach_client_flags api/static_reattach_client_flags.c
     "" "" OFF ON ON)
   target_link_libraries(api.static_reattach_client_flags ${libmath})
@@ -4166,7 +4177,7 @@ if (BUILD_CLIENTS)
     endif ()
 
     set(syscall_file
-      "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/mock_syscall_sequences.x64")
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/mock_syscall_sequences.x64.zip")
 
     if (X86 AND X64) # We only bother with a sample trace for x86_64.
       # We test with a fixed trace file so we can test exact numeric results.
@@ -4456,10 +4467,13 @@ if (BUILD_CLIENTS)
       # We pass a small instr count to test multiple chunks in a zipfile.
       "@-chunk_instr_count@10K" "")
 
-    if (X86 AND X64)
+    if (X86 AND X64 AND ZLIB_FOUND)
       torunonly_drcacheoff(simple-dyn-inject-invariants ${ci_shared_app} ""
         # We pass a small instr count to test multiple chunks in a zipfile.
         "@-chunk_instr_count@1000@-sched_syscall_file@${syscall_file}@-tool@invariant_checker" "")
+      torunonly_drcacheoff(simple-static-inject-invariants ${ci_shared_app} ""
+        # We pass a small instr count to test multiple chunks in a zipfile.
+        "@-chunk_instr_count@1000@-syscall_template_file@${syscall_file}@-tool@invariant_checker" "")
     endif()
 
     if (UNIX)
@@ -4679,9 +4693,6 @@ if (BUILD_CLIENTS)
       "-no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
       "@-tool@invariant_checker" "")
     if (X86 AND X64 AND UNIX)
-      # XXX i#4914: It is a pain to updating other tests using allasm_repstr when we
-      # add repstr coverage for testing new repstr features. Maybe this window test
-      # should have its own app.
       torunonly_drcacheoff(windows-asm allasm_repstr
         "-no_split_windows -trace_after_instrs 3 -trace_for_instrs 4 -retrace_every_instrs 4"
         "@-tool@basic_counts" "")
@@ -5044,7 +5055,7 @@ if (BUILD_CLIENTS)
         set(tool.drcacheoff.burst_maps_nodr ON)
         torunonly_drcacheoff(burst_maps tool.drcacheoff.burst_maps "" "" "")
       endif ()
-      if (LINUX)
+      if (LINUX AND ZLIB_FOUND)
         set(tool.drcacheoff.burst_syscall_inject_nodr ON)
         torunonly_drcacheoff(burst_syscall_inject tool.drcacheoff.burst_syscall_inject ""
           "@-tool@invariant_checker@-syscall_template_file@drmemtrace.tool.drcacheoff.burst_syscall_inject.*.dir/raw/syscall_trace_template"
@@ -5253,6 +5264,16 @@ if (BUILD_CLIENTS)
         # We test counting encodings for online.
         "-instr_encodings -tool basic_counts" "")
       unset(tool.drcachesim.allasm-repstr-basic-counts_rawtemp) # use preprocessor
+
+      # Test repeated string instruction handling when filtered.
+      # Pass a small buffer size to test the filter buffer writeout path
+      # on the 4K-iter lods loop in allasm_repstr_long.
+      torunonly_drcacheoff(repstr-ifilter allasm_repstr_long
+        "-L0I_filter -main_buf_records 128" "@-tool@view" "")
+      torunonly_drcacheoff(repstr-dfilter allasm_repstr_long
+        "-L0D_filter -main_buf_records 128" "@-tool@view" "")
+      torunonly_drcacheoff(repstr-idfilter allasm_repstr_long
+        "-L0I_filter -L0D_filter -main_buf_records 128" "@-tool@view" "")
 
       # Test -record_syscall on SYS_write == #1 with 3 args.
       torunonly_drcacheoff(allasm-record-syscall allasm_repstr
@@ -6404,6 +6425,18 @@ if (UNIX)
     use_DynamoRIO_drmemtrace_tracer(api.rseq)
     set(api.rseq_expectbase rseq_client)
     disable_glibc_rseq(api.rseq)
+
+    # i#8174: Test attaching when the struct rseq is in a different mapping than the
+    # thread pointer, as when an app names a sub-range of its TLS.
+    tobuild_api(api.rseq_splitvma linux/rseq.cpp "" "" OFF ON OFF)
+    link_with_pthread(api.rseq_splitvma)
+    append_property_list(TARGET api.rseq_splitvma
+      COMPILE_DEFINITIONS "RSEQ_TEST_ATTACH;RSEQ_TEST_SPLIT_TLS_VMA")
+    use_DynamoRIO_static_client(api.rseq_splitvma drmemtrace_nomain)
+    use_DynamoRIO_drmemtrace_tracer(api.rseq_splitvma)
+    set(api.rseq_splitvma_expectbase rseq_client)
+    disable_glibc_rseq(api.rseq_splitvma)
+
     # Test non-compliant code with our workaround flag.
     tobuild_ops(linux.rseq_disable linux/rseq_disable.c "-disable_rseq" "")
     disable_glibc_rseq(api.rseq_disable)

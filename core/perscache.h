@@ -465,7 +465,7 @@ typedef struct _coarse_persisted_info_t {
     size_t end_offs;
 
     /* We require a match here; alternative is to put all uses in relocs */
-    uint tls_offs_base; /* could be ushort */
+    int tls_offs_base; /* signed segment displacement; keeps the persisted width */
 
     /* Now we store the lengths of each data section, in reverse
      * order, to allow for expansion */

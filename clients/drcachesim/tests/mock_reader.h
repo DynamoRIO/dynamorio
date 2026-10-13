@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -50,7 +50,7 @@ class mock_reader_t : public reader_t {
 public:
     mock_reader_t() = default;
     explicit mock_reader_t(const std::vector<trace_entry_t> &trace)
-        : reader_t(/*online=*/false, /*verbosity=*/3, "mock_reader_t")
+        : reader_t(/*online=*/false, /*verbosity=*/2, "mock_reader_t")
         , trace_(trace)
     {
     }

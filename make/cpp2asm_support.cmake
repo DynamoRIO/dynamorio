@@ -310,7 +310,7 @@ endif (UNIX AND NOT APPLE)
 ##################################################
 # Assembler build rule for Makefile generators
 
-# Note: The Linux kernel build in core/kernel_linux/CMakeLists.txt replicates this
+# Note: The Linux kernel build in core/kernel_linux/Kbuild replicates this
 # assembly preprocessing logic because kbuild cannot use this file. Keep them in sync
 # when making changes here.
 
