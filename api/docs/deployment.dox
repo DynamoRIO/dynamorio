@@ -1,5 +1,6 @@
 /* ******************************************************************************
  * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -881,6 +882,10 @@ are specified via \c drconfig, \c drrun, or dr_register_process().  See
    code cache, at the risk of running out memory due to the smaller space
    of available memory.
 
+   On AArch64, if -vm_size is larger than 2GB, the guarantees above do not
+   apply (see \ref sec_64bit_reach), and turning this option on reduces
+   -vm_size to 2GB.
+
  - \b -reachable_client: \anchor op_reachable_client
    By default, DynamoRIO guarantees that client libraries are reachable
    from its code caches by a 32-bit displacement (except for clients
@@ -888,6 +893,8 @@ are specified via \c drconfig, \c drrun, or dr_register_process().  See
    removes that guarantee and allows a client to be located elsewhere.
    The option is automatically turned off when DynamoRIO is statically
    linked into the application.
+
+   On AArch64, it is also turned off when -vm_size is larger than 2GB.
 
  - \b -max_bb_instrs:
    DynamoRIO stops building a basic block if it hits this application
