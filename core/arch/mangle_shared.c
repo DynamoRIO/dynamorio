@@ -1236,27 +1236,34 @@ mangle_rseq_adjust_tls_base(dcontext_t *dcontext, instrlist_t *ilist, instr_t *i
                             reg_id_t base_reg, int offset)
 {
 #        ifdef AARCH64
-    /* STR accepts offsets [0, 32760] in multiples of 8; STUR accepts [-256..255].
+    /* For our pointer-sized stores, STR accepts offsets [0, 32760] in multiples of 8
+     * (a 12-bit unsigned immediate scaled by 8); STUR accepts [-256, 255].
      * Therefore, the combined range is [-256, 32760].
      */
-    while (offset < -256 || offset > 32760) {
+    enum {
+        MIN_DISP = -256,
+        MAX_DISP = 4095 * 8,   /* 32760 */
+        ADDSUB_MAX_IMM = 4095, /* ADD/SUB 12-bit unsigned immediate. */
+        ADDSUB_SHIFT = 12,     /* ADD/SUB immediate shifted by LSL 12. */
+    };
+    while (offset < MIN_DISP || offset > MAX_DISP) {
         /* We use ADD/SUB with LSL 12 so that base_reg and offset are always adjusted by
-         * multiples of 4096, perserving their alignment.
+         * multiples of 4096, preserving their alignment.
          */
-        if (offset < -256) {
-            int step = MIN(4095, ((-256 - offset) >> 12) + 1);
+        if (offset < MIN_DISP) {
+            int step = MIN(ADDSUB_MAX_IMM, ((MIN_DISP - offset) >> ADDSUB_SHIFT) + 1);
             PRE(ilist, insert_at,
                 INSTR_CREATE_sub_shift(dcontext, opnd_create_reg(base_reg),
                                        opnd_create_reg(base_reg), OPND_CREATE_INT(step),
-                                       OPND_CREATE_LSL(), OPND_CREATE_INT(12)));
-            offset += step * 4096;
-        } else if (offset > 32760) {
-            int step = MIN(4095, ((offset - 32760) >> 12) + 1);
+                                       OPND_CREATE_LSL(), OPND_CREATE_INT(ADDSUB_SHIFT)));
+            offset += step << ADDSUB_SHIFT;
+        } else {
+            int step = MIN(ADDSUB_MAX_IMM, ((offset - MAX_DISP) >> ADDSUB_SHIFT) + 1);
             PRE(ilist, insert_at,
                 INSTR_CREATE_add_shift(dcontext, opnd_create_reg(base_reg),
                                        opnd_create_reg(base_reg), OPND_CREATE_INT(step),
-                                       OPND_CREATE_LSL(), OPND_CREATE_INT(12)));
-            offset -= step * 4096;
+                                       OPND_CREATE_LSL(), OPND_CREATE_INT(ADDSUB_SHIFT)));
+            offset -= step << ADDSUB_SHIFT;
         }
     }
 #        endif
