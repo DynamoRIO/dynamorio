@@ -4734,16 +4734,18 @@ dr_raw_tls_opnd(void *drcontext, reg_id_t tls_register, uint tls_offs)
 {
     CLIENT_ASSERT(drcontext != NULL, "dr_raw_tls_opnd: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT, "dr_raw_tls_opnd: drcontext is invalid");
+    /* The public API represents signed displacements by their unsigned bits. */
+    int disp = (int)tls_offs;
     IF_X86_ELSE(
         {
             return opnd_create_far_base_disp_ex(tls_register, DR_REG_NULL, DR_REG_NULL, 0,
-                                                tls_offs, OPSZ_PTR,
+                                                disp, OPSZ_PTR,
                                                 /* modern processors don't want addr16
                                                  * prefixes
                                                  */
                                                 false, true, false);
         },
-        { return OPND_CREATE_MEMPTR(tls_register, tls_offs); });
+        { return OPND_CREATE_MEMPTR(tls_register, disp); });
 }
 
 DR_API
@@ -5582,7 +5584,7 @@ dr_save_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg,
 #endif
 
     if (slot <= SPILL_SLOT_TLS_MAX) {
-        ushort offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
+        int offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
         MINSERT(ilist, where,
                 XINST_CREATE_store(dcontext, opnd_create_tls_slot(offs),
                                    opnd_create_reg(reg)));
@@ -5628,7 +5630,7 @@ dr_restore_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg
 #endif
 
     if (slot <= SPILL_SLOT_TLS_MAX) {
-        ushort offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
+        int offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
         MINSERT(ilist, where,
                 XINST_CREATE_load(dcontext, opnd_create_reg(reg),
                                   opnd_create_tls_slot(offs)));
@@ -5667,7 +5669,7 @@ reg_spill_slot_opnd(void *drcontext, dr_spill_slot_t slot)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     if (slot <= SPILL_SLOT_TLS_MAX) {
-        ushort offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
+        int offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
         return opnd_create_tls_slot(offs);
     } else {
         reg_id_t reg_slot = SPILL_SLOT_MC_REG[slot - NUM_TLS_SPILL_SLOTS];

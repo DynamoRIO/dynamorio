@@ -750,7 +750,7 @@ instr_is_tls_restore(instr_t *instr, reg_id_t reg, ushort offs);
 bool
 instr_is_DR_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls DR_PARAM_OUT,
                                  bool *spill DR_PARAM_OUT, reg_id_t *reg DR_PARAM_OUT,
-                                 uint *offs DR_PARAM_OUT);
+                                 int *offs DR_PARAM_OUT);
 
 #ifdef AARCHXX
 bool

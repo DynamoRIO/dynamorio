@@ -144,10 +144,10 @@ app_pc dynamo_dll_end = NULL; /* open-ended */
 static app_pc dynamo_dll_preferred_base = NULL;
 
 /* thread-local storage slots */
-enum { TLS_UNINITIALIZED = (ushort)0U };
+enum { TLS_UNINITIALIZED = 0 };
 static ushort tls_local_state_offs = TLS_UNINITIALIZED;
 /* we keep this cached for easy asm access */
-static ushort tls_dcontext_offs = TLS_UNINITIALIZED;
+static int tls_dcontext_offs = TLS_UNINITIALIZED;
 
 /* used for early inject */
 app_pc parent_early_inject_address = NULL; /* dynamo.c fills in */
@@ -4655,19 +4655,11 @@ get_image_entry(void)
     return image_entry_point;
 }
 
-/* converts a local_state_t offset to a segment offset */
-ushort
+/* Converts a local-state slot offset to a signed segment displacement. */
+int
 os_tls_offset(ushort tls_offs)
 {
-    ASSERT_TRUNCATE(tls_offs, ushort, tls_local_state_offs + tls_offs);
-    return (ushort)(tls_local_state_offs + tls_offs);
-}
-
-/* converts a segment offset to a local_state_t offset */
-ushort
-os_local_state_offset(ushort seg_offs)
-{
-    return (ushort)(seg_offs - tls_local_state_offs);
+    return tls_local_state_offs + tls_offs;
 }
 
 local_state_t *

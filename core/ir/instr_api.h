@@ -2504,6 +2504,7 @@ DR_API
  * Returns information about the spill/restore in the OUT parameters.
  * The returned \p offs is the raw offset in bytes from the TLS segment base,
  * the stolen register base, or the thread-private context area.
+ * A negative displacement is returned as its unsigned representation.
  */
 bool
 instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls DR_PARAM_OUT,
