@@ -298,6 +298,7 @@ nonpersistent_heap_free(dcontext_t *dcontext, void *p,
                         size_t size HEAPACCT(which_heap_t which));
 
 /* Passing dcontext == GLOBAL_DCONTEXT allocates from a global pool.
+ * The memory comes from vmcode and is reachable only if vmcode_is_reachable().
  * Important note: within the W^X scheme (-satisfy_w_xor_x), this will return an address
  * of the writeable view. vmcode_get_executable_addr() needs to be called in order to get
  * the reachable address.
