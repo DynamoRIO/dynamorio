@@ -1,0 +1,5 @@
+# Zawrs (Wait-on-Reservation-Set Instructions)
+# Version 1.0
+#
+wrs.nto | i |      | 00000000110100000000000001110011
+wrs.sto | i |      | 00000001110100000000000001110011
