@@ -1621,7 +1621,7 @@ OPTION_DEFAULT(uint_size, vm_size,
                IF_X64_ELSE(IF_WINDOWS_ELSE(512, 1024UL), 128) * 1024 * 1024,
                "capacity of virtual memory region reserved for code and reachable heap. "
                "Maximum: 512MB for 32-bit, 2GB for x86-64 and RISC-V64, "
-               "64GB for AArch64 (2GB with -heap_in_lower_4GB)")
+               "64GB for AArch64 (above 2GB removes reachability guarantees)")
 OPTION_DEFAULT(uint_size, vmheap_size, IF_X64_ELSE(8192ULL, 128) * 1024 * 1024,
                /* XXX: default value is currently not good enough for 32-bit sqlserver,
                 * for which we need more than 256MB.

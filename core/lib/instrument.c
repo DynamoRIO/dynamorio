@@ -1,5 +1,6 @@
 /* ******************************************************************************
  * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2010-2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -2961,7 +2962,9 @@ void *
 dr_thread_alloc(void *drcontext, size_t size)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
-    /* For back-compat this is guaranteed-reachable. */
+    /* For back-compat this is guaranteed-reachable, except on AArch64 with
+     * -vm_size > 2G.
+     */
     return heap_reachable_alloc(dcontext, size HEAPACCT(ACCT_CLIENT));
 }
 
@@ -2984,7 +2987,9 @@ DR_API
 void *
 dr_global_alloc(size_t size)
 {
-    /* For back-compat this is guaranteed-reachable. */
+    /* For back-compat this is guaranteed-reachable, except on AArch64 with
+     * -vm_size > 2G.
+     */
     return heap_reachable_alloc(GLOBAL_DCONTEXT, size HEAPACCT(ACCT_CLIENT));
 }
 
@@ -3008,7 +3013,9 @@ dr_nonheap_alloc(size_t size, uint prot)
             !DYNAMO_OPTION(satisfy_w_xor_x),
         "reachable executable client memory is not supported with -satisfy_w_xor_x");
     return heap_mmap_ex(size, size, prot, false /*no guard pages*/,
-                        /* For back-compat we preserve reachability. */
+                        /* For back-compat we preserve reachability, except on
+                         * AArch64 with -vm_size > 2G.
+                         */
                         VMM_SPECIAL_MMAP | VMM_REACHABLE);
 }
 
@@ -3147,6 +3154,12 @@ custom_memory_shared(bool alloc, void *drcontext, dr_alloc_flags_t flags, size_t
                   "dr_custom_alloc: cannot combine non-DR and cache-reachable");
     CLIENT_ASSERT(!alloc || TESTANY(DR_ALLOC_FIXED_LOCATION, flags) || addr == NULL,
                   "dr_custom_alloc: address only honored for fixed location");
+    if (alloc && TESTANY(DR_ALLOC_CACHE_REACHABLE, flags) && !vmcode_is_reachable()) {
+        CLIENT_ASSERT(false,
+                      "dr_custom_alloc: DR_ALLOC_CACHE_REACHABLE is not "
+                      "supported with -vm_size above 2G");
+        return NULL;
+    }
 #ifdef WINDOWS
     CLIENT_ASSERT(!TESTANY(DR_ALLOC_RESERVE_ONLY | DR_ALLOC_COMMIT_ONLY, flags) ||
                       TESTALL(DR_ALLOC_NON_HEAP | DR_ALLOC_NON_DR, flags),

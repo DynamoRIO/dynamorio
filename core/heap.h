@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -168,6 +169,8 @@ heap_check_option_compatibility(void);
 bool
 is_vmm_reserved_address(byte *pc, size_t size, DR_PARAM_OUT byte **region_start,
                         DR_PARAM_OUT byte **region_end);
+bool
+vmcode_is_reachable(void);
 /* Returns whether "target" is reachable from all future vmcode allocations. */
 bool
 rel32_reachable_from_vmcode(byte *target);
