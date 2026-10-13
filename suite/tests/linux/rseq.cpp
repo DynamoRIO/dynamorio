@@ -121,11 +121,8 @@
 #ifdef RSEQ_TEST_SPLIT_TLS_VMA
 /* The registered struct rseq is one end of this array (see get_tls_rseq()).  It is
  * large enough that one end is always more than a 4 KB page from the thread pointer.
- * XXX: Support larger page sizes once AArch64 rseq mangling handles TLS offsets
- * beyond the store instruction's immediate range.  A 64 KB array currently causes
- * the generated stores to fail to encode.
  */
-static __thread volatile struct rseq fill_up_tls[4 * 1024 / sizeof(struct rseq) + 2]
+static __thread volatile struct rseq fill_up_tls[64 * 1024 / sizeof(struct rseq) + 2]
     __attribute__((aligned(64)));
 #else
 static __thread volatile struct rseq rseq_tls __attribute__((aligned(64)));
