@@ -672,7 +672,7 @@ int
 os_tls_offset(ushort tls_offs)
 {
     ASSERT(os_state_ready);
-    return tls_local_state_seg_offs + os_tls_offset;
+    return tls_local_state_seg_offs + tls_offs;
 }
 
 /* Diagnostics are not supported in kernel mode, as is also the case in
