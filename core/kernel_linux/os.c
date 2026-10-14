@@ -117,10 +117,43 @@ d_r_os_init(void)
          */
         os_terminate(NULL, 0);
     }
+#ifdef X86
     tls_local_state_seg_offs = kernel_get_cpu_local_state_segment_offset();
+#else
+    ASSERT_NOT_PORTED(false);
+#endif
     ASSERT(tls_local_state_seg_offs <= INT_MAX - (int)sizeof(local_state_extended_t));
     os_state_ready = true;
     DOCHECK(1, { check_tls_segment_mapping(); });
+}
+
+void *
+d_r_get_tls(int tls_offs)
+{
+#ifdef X86
+    void *value;
+    asm volatile("mov %" ASM_SEG ":(%1), %0"
+                 : "=r"(value)
+                 : "r"((ptr_int_t)tls_offs)
+                 : "memory");
+    return value;
+#else
+    ASSERT_NOT_PORTED(false);
+    return NULL;
+#endif
+}
+
+void
+d_r_set_tls(int tls_offs, void *value)
+{
+#ifdef X86
+    asm volatile("mov %0, %" ASM_SEG ":(%1)"
+                 :
+                 : "r"(value), "r"((ptr_int_t)tls_offs)
+                 : "memory");
+#else
+    ASSERT_NOT_PORTED(false);
+#endif
 }
 
 void
