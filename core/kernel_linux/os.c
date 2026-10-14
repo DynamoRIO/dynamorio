@@ -54,6 +54,8 @@ static bool heap_already_reserved = false;
 static int num_online_processors = 0;
 static bool os_state_ready = false;
 
+static int tls_local_state_seg_offs;
+
 #define ASSERT_NOT_PORTED(x) assert_not_ported(__FILE__, __LINE__, __func__)
 
 static void
@@ -115,6 +117,8 @@ d_r_os_init(void)
          */
         os_terminate(NULL, 0);
     }
+    tls_local_state_seg_offs = kernel_get_cpu_local_state_segment_offset();
+    ASSERT(tls_local_state_seg_offs <= INT_MAX - (int)sizeof(local_state_extended_t));
     os_state_ready = true;
     DOCHECK(1, { check_tls_segment_mapping(); });
 }
@@ -662,6 +666,13 @@ void
 mem_stats_snapshot()
 {
     /* No-op as in core/unix/os.c. */
+}
+
+int
+os_tls_offset(ushort tls_offs)
+{
+    ASSERT(os_state_ready);
+    return tls_local_state_seg_offs + os_tls_offset;
 }
 
 /* Diagnostics are not supported in kernel mode, as is also the case in
