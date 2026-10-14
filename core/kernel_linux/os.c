@@ -663,7 +663,7 @@ our_getenv(const char *name)
 }
 
 void
-mem_stats_snapshot()
+mem_stats_snapshot(void)
 {
     /* No-op as in core/unix/os.c. */
 }
