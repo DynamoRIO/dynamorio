@@ -279,6 +279,10 @@ kernel_get_cpu_local_state(void)
 int
 kernel_get_cpu_local_state_segment_offset(void)
 {
+    /* With -mcmodel=kernel, module code refers to this address through an R_X86_64_32S
+     * relocation. The module loader rejects the module unless the address fits in a
+     * sign-extended 32-bit value, so it always fits in an int.
+     */
     long offs = (__force long)&dr_cpu_local_storage.data;
     KERNEL_ASSERT(offs == (int)offs);
     return (int)offs;

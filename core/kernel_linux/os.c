@@ -70,6 +70,9 @@ assert_not_ported(const char *file, int line, const char *func)
 }
 
 #ifdef DEBUG
+/* Verifies that segment accesses through os_tls_offset() and C accesses through the
+ * CPU-local state pointer reach the same memory, in both directions.
+ */
 static void
 check_tls_segment_mapping(void)
 {
@@ -118,10 +121,15 @@ d_r_os_init(void)
         os_terminate(NULL, 0);
     }
 #ifdef X86
+    /* Generated code accesses local state as gs:[disp32] off the kernel's per-CPU base.
+     * TODO i#8021: Move x86-specific TLS code to an arch-specific file when AArch64
+     * support starts.
+     */
     tls_local_state_seg_offs = kernel_get_cpu_local_state_segment_offset();
 #else
     ASSERT_NOT_PORTED(false);
 #endif
+    /* Ensures os_tls_offset() cannot overflow. */
     ASSERT(tls_local_state_seg_offs <= INT_MAX - (int)sizeof(local_state_extended_t));
     os_state_ready = true;
     DOCHECK(1, { check_tls_segment_mapping(); });
@@ -132,6 +140,7 @@ d_r_get_tls(int tls_offs)
 {
 #ifdef X86
     void *value;
+    /* Sign-extend tls_offs as it can be negative since Linux 6.15. */
     asm volatile("mov %" ASM_SEG ":(%1), %0"
                  : "=r"(value)
                  : "r"((ptr_int_t)tls_offs)
@@ -147,6 +156,7 @@ void
 d_r_set_tls(int tls_offs, void *value)
 {
 #ifdef X86
+    /* Sign-extend tls_offs as it can be negative since Linux 6.15. */
     asm volatile("mov %0, %" ASM_SEG ":(%1)"
                  :
                  : "r"(value), "r"((ptr_int_t)tls_offs)
