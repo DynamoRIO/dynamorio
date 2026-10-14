@@ -67,6 +67,32 @@ assert_not_ported(const char *file, int line, const char *func)
 #endif
 }
 
+#ifdef DEBUG
+static void
+check_tls_segment_mapping(void)
+{
+    local_state_extended_t *ls = get_local_state_extended();
+    /* Lowest and highest pointer-sized slots that generated code accesses:
+     * the first register spill slot and the last IBL hashtable pointer.
+     */
+    const ushort first = TLS_REG0_SLOT;
+    const ushort last = TLS_TABLE_SLOT(IBL_BRANCH_TYPE_END - 1);
+    ptr_uint_t *first_slot = (ptr_uint_t *)((byte *)ls + first);
+    ptr_uint_t *last_slot = (ptr_uint_t *)((byte *)ls + last);
+    const ptr_uint_t sentinel1 = 0xdecafbadcafef00d;
+    const ptr_uint_t sentinel2 = 0x0123456789abcdef;
+
+    *first_slot = sentinel1;
+    ASSERT((ptr_uint_t)d_r_get_tls(os_tls_offset(first)) == sentinel1);
+
+    d_r_set_tls(os_tls_offset(last), (void *)sentinel2);
+    ASSERT(*last_slot == sentinel2);
+
+    *first_slot = 0;
+    *last_slot = 0;
+}
+#endif
+
 void
 d_r_os_init(void)
 {
@@ -90,6 +116,7 @@ d_r_os_init(void)
         os_terminate(NULL, 0);
     }
     os_state_ready = true;
+    DOCHECK(1, { check_tls_segment_mapping(); });
 }
 
 void
