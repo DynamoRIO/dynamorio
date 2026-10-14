@@ -72,6 +72,9 @@ kernel_get_cpu_local_state_layout(size_t *size, size_t *alignment);
 void *
 kernel_get_cpu_local_state(void);
 
+int
+kernel_get_cpu_local_state_segment_offset(void);
+
 size_t
 kernel_get_page_size(void);
 
