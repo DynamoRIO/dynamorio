@@ -448,7 +448,7 @@ Dr. Memory for their log files.
 
 To launch an Android application under DynamoRIO, use a wrapper script and
 point at the script via the \p logwrapper property set on your
-application's name prefixed by \p <tt>wrap.</tt>.  For example, if your
+application's name prefixed by <tt>wrap.</tt>.  For example, if your
 application's name is <tt>com.myco.appname</tt>, set the property for
 <tt>wrap.com.myco.appname</tt>, truncating to 31 characters:
 
