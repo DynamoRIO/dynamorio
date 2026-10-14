@@ -641,6 +641,13 @@ os_check_option_compatibility(void)
     FORCE_OPTION_VALUE(switch_to_os_at_vmm_reset_limit, false);
     FORCE_OPTION_VALUE(vm_reserve, true);
 
+    /* Self-protection toggles page protections via change_protection(). This needs to be
+     * disabled in the kernel build because DR memory is a single RWX region shared by
+     * code and data, and each page permission change requires a cross-CPU TLB flush.
+     * TODO i#8124: Revisit once code and data are in separate regions.
+     */
+    FORCE_OPTION_VALUE(protect_mask, 0);
+
     /* A reset rebuilds the code cache after suspending every thread at a safe point,
      * which we cannot do yet.  DISABLE_RESET() also clears the -reset_at_* sub-options:
      * leaving those set makes check_option_compatibility_helper() turn -enable_reset
