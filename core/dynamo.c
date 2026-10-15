@@ -591,14 +591,14 @@ dynamorio_app_init_part_two_finalize(void)
          * code, such as the private PEB on Windows.
          */
         loader_init_prologue();
+
+        d_r_arch_init();
 #ifdef LINUX_KERNEL
         /* TODO i#8021: Remove this early return as the remainder of part two is ported.
          * Move it further down for each incremental step.
          */
         return SUCCESS;
 #endif
-
-        d_r_arch_init();
         synch_init();
 
 #ifdef KSTATS

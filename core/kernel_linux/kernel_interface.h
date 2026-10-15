@@ -72,6 +72,12 @@ kernel_get_cpu_local_state_layout(size_t *size, size_t *alignment);
 void *
 kernel_get_cpu_local_state(void);
 
+/* Returns the gs-relative displacement of the buffer returned by
+ * kernel_get_cpu_local_state(). That is its raw __percpu address on x86-64 SMP.
+ */
+int
+kernel_get_cpu_local_state_segment_offset(void);
+
 size_t
 kernel_get_page_size(void);
 
@@ -80,6 +86,15 @@ kernel_get_image_start(void);
 
 void *
 kernel_get_image_end(void);
+
+char *
+kernel_get_module_name(void);
+
+void *
+kernel_get_module_text_start(void);
+
+void *
+kernel_get_module_text_end(void);
 
 /* Returns whether the |size| bytes at |addr| can be read without faulting.  Handles both
  * kernel and user addresses.  Acquires no locks and never sleeps, so it is safe to call
@@ -90,6 +105,9 @@ kernel_is_readable_without_fault(const void *addr, size_t size);
 
 unsigned int
 kernel_query_time_seconds(void);
+
+unsigned long long
+kernel_query_time_nanos(void);
 
 __attribute__((format(__printf__, 1, 2))) void
 kernel_printk(const char *fmt, ...);
