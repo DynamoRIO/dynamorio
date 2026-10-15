@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -36,7 +36,7 @@
 /* one should use a CALL and the other should use a JMP
  *   just to be sure
  *
- *  FIXME: need to get this test also to be done like initapc.dll.c so that
+ *  XXX: need to get this test also to be done like initapc.dll.c so that
  *  this all happens BEFORE we take control
  **/
 
@@ -159,7 +159,7 @@ do_hook(const char *hookfn, int args, int use_call)
             print("there be witches! what happened to my write?\n");
         else
             print("hooked %s\n", hookfn);
-        /* FIXME: try it out and see what happens */
+        /* XXX: try it out and see what happens */
 
         /* restore */
         *(DWORD *)hooktarget = old_code1;
@@ -203,14 +203,14 @@ main()
 
     /* hack: we'll pass 4 args instead of 0 */
     /* hooking a function we really don't care much about */
-    /* FIXME: should we let this through or not? */
+    /* XXX: should we let this through or not? */
     do_hook("NtFlushWriteBuffer", 4, 1);
     do_hook("NtFlushWriteBuffer", 4, 0);
 
     /* we have 4 writes to ntdll memory
      * on each of 6 calls to do_hook
      * should get app_modify_ntdll_writes = 24
-     * FIXME: how to scrape a log for this?
+     * XXX: how to scrape a log for this?
      */
     print("hooking done with\n");
 }

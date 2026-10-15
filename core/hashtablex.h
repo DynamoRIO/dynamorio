@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -72,7 +72,7 @@
  *     This is optional; if omitted, "table_entry = new_entry" is used.
  *   ENTRY_TYPE ENTRY_EMPTY
  *   ENTRY_TYPE ENTRY_SENTINEL
- *     FIXME: to support structs we'll need lhs like AUX_ENTRY_SET_TO_SENTINEL
+ *     XXX: to support structs we'll need lhs like AUX_ENTRY_SET_TO_SENTINEL
  *   (up to caller to ever set an entry to invalid)
  *   HTLOCK_RANK
  *     table_rwlock will work for most users.
@@ -136,7 +136,7 @@
  *         (dcontext_t *dcontext, HTNAME(,NAME_KEY,_table_t) *table,
  *          ENTRY_TYPE entry);
  *
- * FIXME:
+ * XXX:
  * - use defines to weed out unused static routines
  * - rename unlinked_entries to invalid_entries
  * - remove references to "ibl"/"ibt" and make them general comments
@@ -193,7 +193,7 @@ typedef struct HTNAME(_, NAME_KEY, _table_t) {
     uint hash_mask_offset;     /* ignores given number of LSB bits */
     uint capacity;             /* = 2^hash_bits + 1 sentinel */
     uint entries;
-    /* FIXME: rename to invalid_entries to be more general */
+    /* XXX: rename to invalid_entries to be more general */
     uint unlinked_entries;
 
     uint load_factor_percent; /* \alpha = load_factor_percent/100 */
@@ -304,7 +304,7 @@ HTNAME(hashtable_, NAME_KEY, _table_aligned_size)(uint table_capacity, uint flag
     /* we assume table size allows 32-bit indices */
     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(table_capacity * sizeof(ENTRY_TYPE))));
     size = table_capacity * sizeof(ENTRY_TYPE);
-    if (TEST(HASHTABLE_ALIGN_TABLE, flags)) {
+    if (TESTANY(HASHTABLE_ALIGN_TABLE, flags)) {
         /* aligned at least at 4, and may be aligned */
         size += proc_get_cache_line_size() - 4;
     }
@@ -342,7 +342,7 @@ HTNAME(hashtable_, NAME_KEY,
     /*
      * add an extra null_fragment at end to allow critical collision path
      * not to worry about table overwrap
-     * FIXME: case 2147 to stay at power of 2 should use last element instead
+     * XXX: case 2147 to stay at power of 2 should use last element instead
      */
     table->capacity++;
     sentinel_index = table->capacity - 1;
@@ -379,7 +379,7 @@ HTNAME(hashtable_, NAME_KEY,
                                                                    table->table_flags);
     table->table_unaligned = (ENTRY_TYPE *)TABLE_MEMOP(table->table_flags, alloc)(
         dcontext, alloc_size HEAPACCT(HASHTABLE_WHICH_HEAP(table->table_flags)));
-    if (TEST(HASHTABLE_ALIGN_TABLE, table->table_flags)) {
+    if (TESTANY(HASHTABLE_ALIGN_TABLE, table->table_flags)) {
         ASSERT(ALIGNED(table->table_unaligned, 4)); /* guaranteed by heap_alloc */
         table->table = (ENTRY_TYPE *)ALIGN_FORWARD(table->table_unaligned,
                                                    proc_get_cache_line_size());
@@ -469,7 +469,7 @@ HTNAME(hashtable_, NAME_KEY,
 #    ifdef HASHTABLE_STATISTICS
 #        ifdef HASHTABLE_ENTRY_STATS
     if (INTERNAL_OPTION(hashtable_ibl_entry_stats)) {
-        if (TEST(HASHTABLE_USE_ENTRY_STATS, table->table_flags)) {
+        if (TESTANY(HASHTABLE_USE_ENTRY_STATS, table->table_flags)) {
 #            ifdef HASHTABLE_USE_LOOKUPTABLE
             ASSERT(sizeof(fragment_stat_entry_t) == sizeof(AUX_ENTRY_TYPE));
 #            else
@@ -477,7 +477,7 @@ HTNAME(hashtable_, NAME_KEY,
 #            endif
             if (table->entry_stats != NULL) { /* resize */
                 /* assuming resize is always doubling the table */
-                /* FIXME: too error prone we should pass old capacity
+                /* XXX: too error prone we should pass old capacity
                  * somewhere if case 2147 changes the table size
                  */
                 uint old_capacity =
@@ -487,7 +487,7 @@ HTNAME(hashtable_, NAME_KEY,
                                 old_capacity, HASHTABLE_WHICH_HEAP(table->table_flags),
                                 UNPROTECTED);
             }
-            /* FIXME: either put in nonpersistent heap as appropriate, or
+            /* XXX: either put in nonpersistent heap as appropriate, or
              * preserve across resets
              */
             table->entry_stats =
@@ -517,7 +517,7 @@ HTNAME(hashtable_, NAME_KEY, _init)(dcontext_t *dcontext,
                                     HTNAME(, NAME_KEY, _table_t) * table, uint bits,
                                     uint load_factor_percent, hash_function_t func,
                                     uint hash_offset
-                                        /* FIXME: turn this bool into a HASHTABLE_ flag */
+                                        /* XXX: turn this bool into a HASHTABLE_ flag */
                                         _IFLOOKUP(bool use_lookup),
                                     uint table_flags _IF_DEBUG(const char *table_name))
 {
@@ -533,7 +533,7 @@ HTNAME(hashtable_, NAME_KEY, _init)(dcontext_t *dcontext,
     table->added_since_dumped = 0;
 #        endif
 #    endif
-    ASSERT(dcontext != GLOBAL_DCONTEXT || TEST(HASHTABLE_SHARED, table_flags));
+    ASSERT(dcontext != GLOBAL_DCONTEXT || TESTANY(HASHTABLE_SHARED, table_flags));
     HTNAME(hashtable_, NAME_KEY, _init_internal)
     (dcontext, table, bits, load_factor_percent, func, hash_offset _IFLOOKUP(use_lookup));
     ASSIGN_INIT_READWRITE_LOCK_FREE(table->rwlock, HTLOCK_RANK);
@@ -591,7 +591,7 @@ HTNAME(hashtable_, NAME_KEY, _free)(dcontext_t *dcontext,
 #    ifdef HASHTABLE_STATISTICS
 #        ifdef HASHTABLE_ENTRY_STATS
     if (INTERNAL_OPTION(hashtable_ibl_entry_stats)) {
-        if (TEST(HASHTABLE_USE_ENTRY_STATS, table->table_flags)) {
+        if (TESTANY(HASHTABLE_USE_ENTRY_STATS, table->table_flags)) {
             HEAP_ARRAY_FREE(dcontext, table->entry_stats, fragment_stat_entry_t,
                             table->capacity, HASHTABLE_WHICH_HEAP(table->table_flags),
                             UNPROTECTED);
@@ -642,8 +642,8 @@ HTNAME(hashtable_, NAME_KEY, _check_consistency)(dcontext_t *dcontext,
          * in fragment_add_to_hashtable().
          */
         if (ENTRY_IS_INVALID(htable->table[hindex])) {
-            ASSERT(TEST(HASHTABLE_NOT_PRIMARY_STORAGE, htable->table_flags));
-            ASSERT(TEST(HASHTABLE_LOCKLESS_ACCESS, htable->table_flags));
+            ASSERT(TESTANY(HASHTABLE_NOT_PRIMARY_STORAGE, htable->table_flags));
+            ASSERT(TESTANY(HASHTABLE_LOCKLESS_ACCESS, htable->table_flags));
 #        ifdef HASHTABLE_USE_LOOKUPTABLE
             ASSERT(AUX_ENTRY_IS_INVALID(htable->lookuptable[hindex]));
 #        endif
@@ -657,7 +657,7 @@ HTNAME(hashtable_, NAME_KEY, _check_consistency)(dcontext_t *dcontext,
          * been unlinked (and so doesn't point to target_delete) can we expect
          * the lookup table and fragment_t* to be in-sync.
          */
-        else if (TEST(HASHTABLE_NOT_PRIMARY_STORAGE, htable->table_flags) ||
+        else if (TESTANY(HASHTABLE_NOT_PRIMARY_STORAGE, htable->table_flags) ||
                  AUX_PAYLOAD_IS_INVALID(dcontext, htable, htable->lookuptable[hindex])) {
             ASSERT(AUX_ENTRY_IS_SET_TO_ENTRY(htable->lookuptable[hindex],
                                              htable->table[hindex]));
@@ -691,9 +691,8 @@ HTNAME(hashtable_, NAME_KEY, _lookup)(dcontext_t *dcontext, ptr_uint_t tag,
     ASSERT_TABLE_SYNCHRONIZED(htable, READWRITE); /* requires read (or write) lock */
     e = htable->table[hindex];
 
-    DODEBUG({
-        HTNAME(hashtable_, NAME_KEY, _check_consistency)(dcontext, htable, hindex);
-    });
+    DODEBUG(
+        { HTNAME(hashtable_, NAME_KEY, _check_consistency)(dcontext, htable, hindex); });
     while (!ENTRY_IS_EMPTY(e)) {
         DODEBUG({
             HTNAME(hashtable_, NAME_KEY, _check_consistency)(dcontext, htable, hindex);
@@ -708,7 +707,7 @@ HTNAME(hashtable_, NAME_KEY, _lookup)(dcontext_t *dcontext, ptr_uint_t tag,
 #    else
         ftag = ENTRY_TAG(e);
 #    endif
-        /* FIXME future frags have a 0 tag and that's why we have
+        /* XXX future frags have a 0 tag and that's why we have
          * to compare with null_fragment for end of chain in table[]
          * whenever future frags go to their own table, this code should
          * be reworked to touch lookuptable only -- i.e. become while
@@ -768,8 +767,8 @@ HTNAME(hashtable_, NAME_KEY, _add)(dcontext_t *dcontext, ENTRY_TYPE e,
 
     ASSERT_TABLE_SYNCHRONIZED(table, WRITE); /* add requires write lock */
 
-    ASSERT(!TEST(HASHTABLE_READ_ONLY, table->table_flags));
-    if (TEST(HASHTABLE_READ_ONLY, table->table_flags))
+    ASSERT(!TESTANY(HASHTABLE_READ_ONLY, table->table_flags));
+    if (TESTANY(HASHTABLE_READ_ONLY, table->table_flags))
         return false;
 
     /* ensure higher-level synch not allowing any races between lookup and add */
@@ -801,7 +800,7 @@ HTNAME(hashtable_, NAME_KEY, _add)(dcontext_t *dcontext, ENTRY_TYPE e,
         /* Replace pending deletion entries in a private table but not
          * in a shared table. */
         if (ENTRY_IS_INVALID(table->table[hindex])) {
-            /* FIXME We cannot blindly overwrite an unlinked entry for a shared
+            /* XXX We cannot blindly overwrite an unlinked entry for a shared
              * table. We overwrite an entry only when we know that since the
              * unlink, every thread has exited the cache at least once (just as
              * with shared deletion). Refcounting on a per-entry basis is
@@ -818,9 +817,9 @@ HTNAME(hashtable_, NAME_KEY, _add)(dcontext_t *dcontext, ENTRY_TYPE e,
              * exited the cache at least once, so any shared tables marked
              * as FRAG_NO_CLOBBER_UNLINK can have that flag cleared.
              */
-            if (!TEST(HASHTABLE_SHARED, table->table_flags)) {
+            if (!TESTANY(HASHTABLE_SHARED, table->table_flags)) {
                 ASSERT(table->unlinked_entries > 0);
-                ASSERT(TEST(HASHTABLE_LOCKLESS_ACCESS, table->table_flags));
+                ASSERT(TESTANY(HASHTABLE_LOCKLESS_ACCESS, table->table_flags));
 #    ifdef HASHTABLE_USE_LOOKUPTABLE
                 ASSERT(
                     AUX_PAYLOAD_IS_INVALID(dcontext, table, table->lookuptable[hindex]));
@@ -838,7 +837,7 @@ HTNAME(hashtable_, NAME_KEY, _add)(dcontext_t *dcontext, ENTRY_TYPE e,
         hindex = HASH_INDEX_WRAPAROUND(hindex + 1, table);
     } while (1);
 
-    /* FIXME: case 4814 we may want to flush the table if we are running into a too long
+    /* XXX: case 4814 we may want to flush the table if we are running into a too long
      * collision cluster
      */
     DOLOG(1, LOG_HTABLE, {
@@ -853,7 +852,7 @@ HTNAME(hashtable_, NAME_KEY, _add)(dcontext_t *dcontext, ENTRY_TYPE e,
     });
 
     /* If we had uniformly distributed hash functions, expected max length is
-     * sqrt(capacity.\pi/8) see Knuth vol.3, FIXME we double below because this
+     * sqrt(capacity.\pi/8) see Knuth vol.3, XXX we double below because this
      * sometimes ASSERTS for the shared_future_table at the 10 to 11 bits
      * transition (seems to be fine at larger sizes)
      * bug2241 we add an additional 64 to handle problems in private future
@@ -862,23 +861,22 @@ HTNAME(hashtable_, NAME_KEY, _add)(dcontext_t *dcontext, ENTRY_TYPE e,
      * shared fragments
      */
 #    ifdef DEBUG
-    if (!TEST(HASHTABLE_RELAX_CLUSTER_CHECKS, table->table_flags) &&
+    if (!TESTANY(HASHTABLE_RELAX_CLUSTER_CHECKS, table->table_flags) &&
         (table->hash_func != HASH_FUNCTION_NONE || SHARED_FRAGMENTS_ENABLED())) {
         uint max_cluster_len =
             HASHTABLE_SIZE((1 + table->hash_bits) / 2 + 1 /* double */) + 64;
         if (!(cluster_len <= max_cluster_len)) {
-            DO_ONCE({ /* once reach this may fire many times in a row */
-                      /* always want to know which table this is */
-                      SYSLOG_INTERNAL_WARNING(
-                          "cluster length assert: %s cluster=%d vs %d,"
-                          " cap=%d, entries=%d",
-                          table->name, cluster_len, max_cluster_len, table->capacity,
-                          table->entries);
-                      DOLOG(3, LOG_HTABLE, {
-                          HTNAME(hashtable_, NAME_KEY, _dump_table)(dcontext, table);
-                      });
-                      ASSERT_CURIOSITY(false && "table collision cluster is too large");
-            });
+            DO_ONCE(
+                { /* once reach this may fire many times in a row */
+                  /* always want to know which table this is */
+                  SYSLOG_INTERNAL_WARNING("cluster length assert: %s cluster=%d vs %d,"
+                                          " cap=%d, entries=%d",
+                                          table->name, cluster_len, max_cluster_len,
+                                          table->capacity, table->entries);
+                  DOLOG(3, LOG_HTABLE,
+                        { HTNAME(hashtable_, NAME_KEY, _dump_table)(dcontext, table); });
+                  ASSERT_CURIOSITY(false && "table collision cluster is too large");
+                });
         }
     }
 #    endif
@@ -927,7 +925,7 @@ HTNAME(hashtable_, NAME_KEY, _check_size)(dcontext_t *dcontext,
     bool shared_lockless =
         TESTALL(HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED | HASHTABLE_LOCKLESS_ACCESS,
                 table->table_flags);
-    /* FIXME: too many assumptions here that if lockless, then a lookuptable
+    /* XXX: too many assumptions here that if lockless, then a lookuptable
      * is always used, etc.
      */
     bool lockless =
@@ -936,14 +934,14 @@ HTNAME(hashtable_, NAME_KEY, _check_size)(dcontext_t *dcontext,
     /* write lock must be held */
     ASSERT_TABLE_SYNCHRONIZED(table, WRITE);
 
-    ASSERT(!TEST(HASHTABLE_READ_ONLY, table->table_flags));
-    if (TEST(HASHTABLE_READ_ONLY, table->table_flags))
+    ASSERT(!TESTANY(HASHTABLE_READ_ONLY, table->table_flags));
+    if (TESTANY(HASHTABLE_READ_ONLY, table->table_flags))
         return false;
 
     /* check flush threshold to see if we'd want to flush hashtable */
     if (table->entries > table->groom_threshold && table->groom_threshold > 0) {
         HTNAME(hashtable_, NAME_KEY, _groom_table)(dcontext, table);
-        /* FIXME Grooming a table in-place doesn't work for a shared IBT table.
+        /* XXX Grooming a table in-place doesn't work for a shared IBT table.
          * To make it work, we should a) realloc a same-sized table
          * b) re-add all entries in the old table, c) add the old
          * to the dead list, and d) then call groom_table(). (b) is
@@ -957,7 +955,7 @@ HTNAME(hashtable_, NAME_KEY, _check_size)(dcontext_t *dcontext,
          * This is covered by case 5838.
          */
     }
-    /* FIXME: case 4814 we should move clock handles here
+    /* XXX: case 4814 we should move clock handles here
      */
 #    ifdef HASHTABLE_STATISTICS
 #        ifdef HASHTABLE_ENTRY_STATS
@@ -1138,9 +1136,8 @@ HTNAME(hashtable_, NAME_KEY, _check_size)(dcontext_t *dcontext,
              */
             HTNAME(hashtable_, NAME_KEY, _study)(dcontext, table, add_now);
 
-            DOLOG(3, LOG_HTABLE, {
-                HTNAME(hashtable_, NAME_KEY, _dump_table)(dcontext, table);
-            });
+            DOLOG(3, LOG_HTABLE,
+                  { HTNAME(hashtable_, NAME_KEY, _dump_table)(dcontext, table); });
         });
 
         /* Shared IBT tables are resized at safe points, not here, since
@@ -1229,7 +1226,7 @@ HTNAME(hashtable_, NAME_KEY, _lookup_for_removal)(ENTRY_TYPE fr,
 }
 
 #    ifdef HASHTABLE_USE_LOOKUPTABLE
-/* FIXME: figure out what weight function I tipped off so this is too much too inline */
+/* XXX: figure out what weight function I tipped off so this is too much too inline */
 static INLINE_FORCED void
 HTNAME(hashtable_, NAME_KEY, _update_lookup)(HTNAME(, NAME_KEY, _table_t) * htable,
                                              uint hindex)
@@ -1250,7 +1247,7 @@ HTNAME(hashtable_, NAME_KEY, _update_lookup)(HTNAME(, NAME_KEY, _table_t) * htab
 /* This slightly more complicated deletion scheme solves these undesired effects, */
 /* with the final arrangement being as if the elements were never inserted. */
 /* Returns whether it copied from the start of the table to the end (wraparound).
- * FIXME: if callers need more info, could return the final hindex, or the final
+ * XXX: if callers need more info, could return the final hindex, or the final
  * hole.
  */
 static uint
@@ -1327,7 +1324,7 @@ HTNAME(hashtable_, NAME_KEY,
          * We also block the call to fragment_update_lookup() in the
          * caller.
          */
-        /* FIXME We can remove this specialized code and simplify the
+        /* XXX We can remove this specialized code and simplify the
          * ASSERT_CONSISTENCY by using a dedicated unlinked fragment per
          * table. Each unlinked fragment can have its start_pc set to
          * the corresponding target_delete value for the table.
@@ -1375,8 +1372,8 @@ HTNAME(hashtable_, NAME_KEY, _remove)(ENTRY_TYPE fr,
     uint hindex;
     ENTRY_TYPE *pg;
     ASSERT_TABLE_SYNCHRONIZED(htable, WRITE); /* remove requires write lock */
-    ASSERT(!TEST(HASHTABLE_READ_ONLY, htable->table_flags));
-    if (TEST(HASHTABLE_READ_ONLY, htable->table_flags))
+    ASSERT(!TESTANY(HASHTABLE_READ_ONLY, htable->table_flags));
+    if (TESTANY(HASHTABLE_READ_ONLY, htable->table_flags))
         return false;
     pg = HTNAME(hashtable_, NAME_KEY, _lookup_for_removal)(fr, htable, &hindex);
     if (pg != NULL) {
@@ -1400,8 +1397,8 @@ HTNAME(hashtable_, NAME_KEY, _replace)(ENTRY_TYPE old_e, ENTRY_TYPE new_e,
      * need global consistency and replace requires two local writes!
      */
     ASSERT_TABLE_SYNCHRONIZED(htable, WRITE);
-    ASSERT(!TEST(HASHTABLE_READ_ONLY, htable->table_flags));
-    if (TEST(HASHTABLE_READ_ONLY, htable->table_flags))
+    ASSERT(!TESTANY(HASHTABLE_READ_ONLY, htable->table_flags));
+    if (TESTANY(HASHTABLE_READ_ONLY, htable->table_flags))
         return false;
     if (pg != NULL) {
         ASSERT(ENTRY_TAG(old_e) == ENTRY_TAG(new_e));
@@ -1432,13 +1429,12 @@ HTNAME(hashtable_, NAME_KEY, _clear)(dcontext_t *dcontext,
     uint i;
     ENTRY_TYPE e;
 
-    ASSERT(!TEST(HASHTABLE_READ_ONLY, table->table_flags));
-    if (TEST(HASHTABLE_READ_ONLY, table->table_flags))
+    ASSERT(!TESTANY(HASHTABLE_READ_ONLY, table->table_flags));
+    if (TESTANY(HASHTABLE_READ_ONLY, table->table_flags))
         return;
     LOG(THREAD, LOG_HTABLE, 2, "hashtable_" KEY_STRING "_clear\n");
-    DOLOG(2, LOG_HTABLE | LOG_STATS, {
-        HTNAME(hashtable_, NAME_KEY, _load_statistics)(dcontext, table);
-    });
+    DOLOG(2, LOG_HTABLE | LOG_STATS,
+          { HTNAME(hashtable_, NAME_KEY, _load_statistics)(dcontext, table); });
 
     for (i = 0; i < table->capacity; i++) {
         e = table->table[i];
@@ -1455,7 +1451,7 @@ HTNAME(hashtable_, NAME_KEY, _clear)(dcontext_t *dcontext,
 #        ifdef HASHTABLE_ENTRY_STATS
     table->added_since_dumped = 0;
     if (INTERNAL_OPTION(hashtable_ibl_entry_stats) && table->entry_stats != NULL) {
-        if (TEST(HASHTABLE_USE_ENTRY_STATS, table->table_flags)) {
+        if (TESTANY(HASHTABLE_USE_ENTRY_STATS, table->table_flags)) {
             memset(table->entry_stats, 0,
                    table->capacity * sizeof(fragment_stat_entry_t));
         }
@@ -1471,7 +1467,7 @@ HTNAME(hashtable_, NAME_KEY, _clear)(dcontext_t *dcontext,
  * should generalize hashtable_reset to do this in all cases,
  * yet we haven't had an instance where this is necessary
  *
- * FIXME: note that we don't do a full type dispatch here, while
+ * XXX: note that we don't do a full type dispatch here, while
  * hashtable_reset is not properly moving elements hence can't be used
  * for removing subsets, and is inefficient!
  */
@@ -1486,13 +1482,12 @@ HTNAME(hashtable_, NAME_KEY, _range_remove)(dcontext_t *dcontext,
     uint entries_removed = 0;
     DEBUG_DECLARE(uint entries_initial = 0;)
 
-    ASSERT(!TEST(HASHTABLE_READ_ONLY, table->table_flags));
-    if (TEST(HASHTABLE_READ_ONLY, table->table_flags))
+    ASSERT(!TESTANY(HASHTABLE_READ_ONLY, table->table_flags));
+    if (TESTANY(HASHTABLE_READ_ONLY, table->table_flags))
         return 0;
     LOG(THREAD, LOG_HTABLE, 2, "hashtable_" KEY_STRING "_range_remove\n");
-    DOLOG(2, LOG_HTABLE | LOG_STATS, {
-        HTNAME(hashtable_, NAME_KEY, _load_statistics)(dcontext, table);
-    });
+    DOLOG(2, LOG_HTABLE | LOG_STATS,
+          { HTNAME(hashtable_, NAME_KEY, _load_statistics)(dcontext, table); });
     DODEBUG({
         HTNAME(hashtable_, NAME_KEY, _study)(dcontext, table, 0 /*table consistent*/);
         /* ensure write lock is held if the table is shared, unless exiting */
@@ -1541,16 +1536,15 @@ HTNAME(hashtable_, NAME_KEY, _unlinked_remove)(dcontext_t *dcontext,
     ENTRY_TYPE e UNUSED;
     uint entries_removed = 0;
 
-    ASSERT(!TEST(HASHTABLE_READ_ONLY, table->table_flags));
-    if (TEST(HASHTABLE_READ_ONLY, table->table_flags))
+    ASSERT(!TESTANY(HASHTABLE_READ_ONLY, table->table_flags));
+    if (TESTANY(HASHTABLE_READ_ONLY, table->table_flags))
         return 0;
     LOG(THREAD, LOG_HTABLE, 2, "hashtable_" KEY_STRING "_unlinked_remove\n");
     /* body based on hashtable_range_remove() */
 
-    ASSERT(TEST(HASHTABLE_LOCKLESS_ACCESS, table->table_flags));
-    DOLOG(2, LOG_HTABLE | LOG_STATS, {
-        HTNAME(hashtable_, NAME_KEY, _load_statistics)(dcontext, table);
-    });
+    ASSERT(TESTANY(HASHTABLE_LOCKLESS_ACCESS, table->table_flags));
+    DOLOG(2, LOG_HTABLE | LOG_STATS,
+          { HTNAME(hashtable_, NAME_KEY, _load_statistics)(dcontext, table); });
     DODEBUG({
         /* ensure write lock is held if the table is shared, unless exiting */
         if (!dynamo_exited)
@@ -1624,7 +1618,7 @@ HTNAME(hashtable_, NAME_KEY, _groom_table)(dcontext_t *dcontext,
     LOG(THREAD, LOG_HTABLE, 1, "hashtable_" KEY_STRING "_groom_table %s\n", table->name);
 
     /* flush only tables caching data persistent in another table */
-    ASSERT(TEST(HASHTABLE_NOT_PRIMARY_STORAGE, table->table_flags));
+    ASSERT(TESTANY(HASHTABLE_NOT_PRIMARY_STORAGE, table->table_flags));
 
     DOLOG(3, LOG_HTABLE, { HTNAME(hashtable_, NAME_KEY, _dump_table)(dcontext, table); });
 
@@ -1635,7 +1629,7 @@ HTNAME(hashtable_, NAME_KEY, _groom_table)(dcontext_t *dcontext,
     HTNAME(hashtable_, NAME_KEY, _range_remove)(dcontext, table, 0, UINT_MAX, NULL);
     ASSERT(table->entries == 0);
 
-    /* FIXME: we should do better - we can tag fragments that have
+    /* XXX: we should do better - we can tag fragments that have
      * been readded after getting flushed, so that they are not
      * flushed next time we do this Some kind of aging that can be
      * used also if we do a real clock working set.
@@ -1644,7 +1638,7 @@ HTNAME(hashtable_, NAME_KEY, _groom_table)(dcontext_t *dcontext,
     /* will not flush again until table gets resized */
     table->groom_threshold = 0;
 
-    /* FIXME: we may want to do this more often - so that we can catch
+    /* XXX: we may want to do this more often - so that we can catch
      * phases and that we don't even have to resize if working set
      * does in fact fit here.  In that case we may want to
      * do have a step function,
@@ -1665,7 +1659,7 @@ HTNAME(hashtable_, NAME_KEY, _groom_helper)(dcontext_t *dcontext,
                                             HTNAME(, NAME_KEY, _table_t) * table)
 {
     /* flush only tables caching data persistent in another table */
-    ASSERT(TEST(HASHTABLE_NOT_PRIMARY_STORAGE, table->table_flags));
+    ASSERT(TESTANY(HASHTABLE_NOT_PRIMARY_STORAGE, table->table_flags));
 
     ASSERT(table->hash_bits != 0);
     /* can't double size, and there is no point in resizing
@@ -1708,7 +1702,7 @@ HTNAME(hashtable_, NAME_KEY,
 
     uint overwraps = 0;
     ENTRY_TYPE e;
-    bool lockless_access = TEST(HASHTABLE_LOCKLESS_ACCESS, table->table_flags);
+    bool lockless_access = TESTANY(HASHTABLE_LOCKLESS_ACCESS, table->table_flags);
 
     if (!INTERNAL_OPTION(hashtable_study))
         return;
@@ -1723,9 +1717,8 @@ HTNAME(hashtable_, NAME_KEY,
 
     for (i = 0; i < table->capacity; i++) {
         e = table->table[i];
-        DODEBUG({
-            HTNAME(hashtable_, NAME_KEY, _check_consistency)(dcontext, table, i);
-        });
+        DODEBUG(
+            { HTNAME(hashtable_, NAME_KEY, _check_consistency)(dcontext, table, i); });
 
         if (ENTRY_IS_EMPTY(e))
             continue;
@@ -1796,7 +1789,7 @@ HTNAME(hashtable_, NAME_KEY,
     /* for bug 2271 we make more lenient for non trace tables using the
      * _NONE hash function (i.e. private bb) when we are !SHARED_FRAGMENTS_ENABLED().
      */
-    if (!TEST(HASHTABLE_RELAX_CLUSTER_CHECKS, table->table_flags) &&
+    if (!TESTANY(HASHTABLE_RELAX_CLUSTER_CHECKS, table->table_flags) &&
         (lockless_access || table->hash_func != HASH_FUNCTION_NONE ||
          SHARED_FRAGMENTS_ENABLED()))
         ave_len_threshold = 5;
@@ -1805,7 +1798,7 @@ HTNAME(hashtable_, NAME_KEY,
     DOLOG(1, LOG_HTABLE | LOG_STATS, {
         /* This happens enough that it's good to get some info on it */
         if (!(total_len <= ave_len_threshold * num ||
-              (TEST(HASHTABLE_RELAX_CLUSTER_CHECKS, table->table_flags) &&
+              (TESTANY(HASHTABLE_RELAX_CLUSTER_CHECKS, table->table_flags) &&
                table->capacity <= 513))) {
             /* Hash table high average collision length */
             LOG(THREAD, LOG_HTABLE | LOG_STATS, 1,
@@ -1852,13 +1845,12 @@ HTNAME(hashtable_, NAME_KEY, _dump_table)(dcontext_t *dcontext,
     track_cache_lines = true;
     entry_size = sizeof(AUX_ENTRY_TYPE);
 #        else
-    track_cache_lines = TEST(HASHTABLE_ALIGN_TABLE, htable->table_flags);
+    track_cache_lines = TESTANY(HASHTABLE_ALIGN_TABLE, htable->table_flags);
     entry_size = sizeof(ENTRY_TYPE);
 #        endif
 
-    DOLOG(1, LOG_HTABLE | LOG_STATS, {
-        HTNAME(hashtable_, NAME_KEY, _load_statistics)(dcontext, htable);
-    });
+    DOLOG(1, LOG_HTABLE | LOG_STATS,
+          { HTNAME(hashtable_, NAME_KEY, _load_statistics)(dcontext, htable); });
     LOG(THREAD, LOG_HTABLE, 1, "  i      tag     coll     hits  age %s dump\n",
         htable->name);
     /* need read lock to traverse the table */
@@ -1908,9 +1900,8 @@ HTNAME(hashtable_, NAME_KEY, _dump_table)(dcontext_t *dcontext,
                 LOG(THREAD, LOG_HTABLE, 1, "----cache line----\n");
             }
         });
-        DODEBUG({
-            HTNAME(hashtable_, NAME_KEY, _check_consistency)(dcontext, htable, i);
-        });
+        DODEBUG(
+            { HTNAME(hashtable_, NAME_KEY, _check_consistency)(dcontext, htable, i); });
     }
     if (track_cache_lines) {
         if (cache_line_in_use)
@@ -1989,9 +1980,8 @@ HTNAME(hashtable_, NAME_KEY, _dump_entry_stats)(dcontext_t *dcontext,
         } else {
             /* skip null_fragment entries */
         }
-        DODEBUG({
-            HTNAME(hashtable_, NAME_KEY, _check_consistency)(dcontext, htable, i);
-        });
+        DODEBUG(
+            { HTNAME(hashtable_, NAME_KEY, _check_consistency)(dcontext, htable, i); });
     }
     if (max_age > 0) {
         LOG(THREAD, LOG_HTABLE, 1,
@@ -2063,7 +2053,7 @@ HTNAME(hashtable_, NAME_KEY, _num_unique_entries)(dcontext_t *dcontext,
      * use this when all-synched so we let that solve the problem.
      * N.B.: we assume that on suspend failure for flush synchall
      * (which ignores such failures) we do not come here as we abort
-     * coarse freezing/merging/persist.  FIXME: should we export
+     * coarse freezing/merging/persist.  XXX: should we export
      * another variable, or not set dynamo_all_threads_synched?
      */
     ASSERT(dynamo_all_threads_synched);
@@ -2186,13 +2176,13 @@ HTNAME(, NAME_KEY, _table_t) *
     uint flags;
     ASSERT(mapped_table != NULL);
     flags = ((HTNAME(, NAME_KEY, _table_t) *)mapped_table)->table_flags;
-    /* FIXME: the free, and the init alloc, are in client code: would be better
+    /* XXX: the free, and the init alloc, are in client code: would be better
      * to have all in same file using more-easily-kept-consistent alloc routines
      */
     htable = (HTNAME(, NAME_KEY, _table_t) *)TABLE_TYPE_MEMOP(
         flags, ALLOC, dcontext, HTNAME(, NAME_KEY, _table_t),
         HASHTABLE_WHICH_HEAP(table->table_flags), PROTECTED);
-    /* FIXME case 10349: we could directly use the mmapped struct when
+    /* XXX case 10349: we could directly use the mmapped struct when
      * !HASHTABLE_STATISTICS if we supported calculating where the table lies
      * in all the htable routines, and set HASHTABLE_READ_ONLY when persisting
      */

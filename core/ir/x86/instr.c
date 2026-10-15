@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,6 +42,8 @@
 #include "decode_private.h"
 #include "encode_api.h"
 #include "instr_create_shared.h"
+#include "isa_features.h"
+#include "isa_feature_names.h"
 
 #ifdef X64
 /*
@@ -114,8 +116,8 @@ instr_length_arch(dcontext_t *dcontext, instr_t *instr)
     case OP_jnz:
         /* XXX i#1315: we should support 2-byte immeds => length 4+ */
         return 6 +
-            ((TEST(PREFIX_JCC_TAKEN, instr_get_prefixes(instr)) ||
-              TEST(PREFIX_JCC_NOT_TAKEN, instr_get_prefixes(instr)))
+            ((TESTANY(PREFIX_JCC_TAKEN, instr_get_prefixes(instr)) ||
+              TESTANY(PREFIX_JCC_NOT_TAKEN, instr_get_prefixes(instr)))
                  ? 1
                  : 0);
     case OP_jb_short:
@@ -135,8 +137,8 @@ instr_length_arch(dcontext_t *dcontext, instr_t *instr)
     case OP_jz_short:
     case OP_jnz_short:
         return 2 +
-            ((TEST(PREFIX_JCC_TAKEN, instr_get_prefixes(instr)) ||
-              TEST(PREFIX_JCC_NOT_TAKEN, instr_get_prefixes(instr)))
+            ((TESTANY(PREFIX_JCC_TAKEN, instr_get_prefixes(instr)) ||
+              TESTANY(PREFIX_JCC_NOT_TAKEN, instr_get_prefixes(instr)))
                  ? 1
                  : 0);
         /* alternative names (e.g., OP_jae_short) are equivalent,
@@ -197,7 +199,7 @@ instr_compute_VSIB_index(bool *selected DR_PARAM_OUT, app_pc *result DR_PARAM_OU
 {
     CLIENT_ASSERT(selected != NULL && result != NULL && mc != NULL,
                   "vsib address computation: invalid args");
-    CLIENT_ASSERT(TEST(DR_MC_MULTIMEDIA, mc_flags),
+    CLIENT_ASSERT(TESTANY(DR_MC_MULTIMEDIA, mc_flags),
                   "dr_mcontext_t.flags must include DR_MC_MULTIMEDIA");
     opnd_t src0 = instr_get_src(instr, 0);
     /* We detect whether the instruction is EVEX by looking at its potential mask operand.
@@ -509,6 +511,15 @@ instr_branch_type(instr_t *cti_instr)
     case OP_call_far_ind: return LINK_INDIRECT | LINK_CALL | LINK_FAR;
     case OP_ret_far:
     case OP_iret: return LINK_INDIRECT | LINK_RETURN | LINK_FAR;
+    /* We don't mark sysenter and syscall as indirect branches because
+     * the user-mode DynamoRIO instrumentation does not need to treat them
+     * as such. sysexit and sysret are typically found in the kernel traces
+     * generated using other methods (like QEMU). It is useful to treat them
+     * as such to show proper PC continuity in the injected traces
+     * (i#6495, i#7157).
+     */
+    case OP_sysexit:
+    case OP_sysret: return LINK_INDIRECT | LINK_FAR;
     default:
         LOG(THREAD_GET, LOG_ALL, 0, "branch_type: unknown opcode: %d\n",
             instr_get_opcode(cti_instr));
@@ -583,9 +594,16 @@ bool
 instr_is_mbr_arch(instr_t *instr) /* multi-way branch */
 {
     int opc = instr->opcode; /* caller ensures opcode is valid */
+    /* We don't mark sysenter and syscall as indirect branches because
+     * the user-mode DynamoRIO instrumentation does not need to treat them
+     * as such. sysexit and sysret are typically found in the kernel traces
+     * generated using other methods (like QEMU). It is useful to treat them
+     * as such to show proper PC continuity in the injected traces
+     * (i#6495, i#7157).
+     */
     return (opc == OP_jmp_ind || opc == OP_call_ind || opc == OP_ret ||
             opc == OP_jmp_far_ind || opc == OP_call_far_ind || opc == OP_ret_far ||
-            opc == OP_iret);
+            opc == OP_iret || opc == OP_sysexit || opc == OP_sysret);
 }
 
 bool
@@ -636,7 +654,7 @@ instr_is_cti_short(instr_t *instr)
         opc = instr_get_opcode(instr);
     else if (instr_raw_bits_valid(instr)) { /* 2nd choice: 1st byte */
         /* get raw opcode
-         * FIXME: figure out which callers really rely on us not
+         * XXX: figure out which callers really rely on us not
          * up-decoding here -- if nobody then just do the
          * instr_get_opcode() and get rid of all this
          */
@@ -728,7 +746,7 @@ bool
 instr_is_syscall(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
-    /* FIXME: Intel processors treat "syscall" as invalid in 32-bit mode;
+    /* XXX: Intel processors treat "syscall" as invalid in 32-bit mode;
      * do we need to treat it specially? */
     if (opc == OP_sysenter || opc == OP_syscall)
         return true;
@@ -810,12 +828,20 @@ instr_is_wow64_syscall(instr_t *instr)
 #        ifdef DEBUG
         /* We still pattern match in debug to provide a sanity check */
         static const byte WOW64_SYSSVC[] = {
-            0x64, 0x8b, 0x15, 0x30, 0x00, 0x00, 0x00, /* mov edx,dword ptr fs:[30h] */
+            0x64,
+            0x8b,
+            0x15,
+            0x30,
+            0x00,
+            0x00,
+            0x00, /* mov edx,dword ptr fs:[30h] */
             /* The offset here varies across updates so we do do not check it */
-            0x8b, 0x92, /* mov edx,dword ptr [edx+254h] */
+            0x8b,
+            0x92, /* mov edx,dword ptr [edx+254h] */
         };
         static const byte WOW64_SYSSVC_1609[] = {
-            0xff, 0x25, /* + offs for "jmp dword ptr [ntdll!Wow64Transition]" */
+            0xff,
+            0x25, /* + offs for "jmp dword ptr [ntdll!Wow64Transition]" */
         };
         byte tgt_code[sizeof(WOW64_SYSSVC)];
 #        endif
@@ -912,7 +938,7 @@ bool
 instr_is_floating_type(instr_t *instr, dr_instr_category_t *type DR_PARAM_OUT)
 {
     uint cat = instr_get_category(instr);
-    if (!TEST(DR_INSTR_CATEGORY_FP, cat))
+    if (!TESTANY(DR_INSTR_CATEGORY_FP, cat))
         return false;
     if (type != NULL)
         *type = cat;
@@ -924,21 +950,21 @@ instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type DR_PARAM_OUT)
 {
     uint cat = instr_get_category(instr);
 
-    if (!TEST(DR_INSTR_CATEGORY_FP, cat))
+    if (!TESTANY(DR_INSTR_CATEGORY_FP, cat))
         return false;
-    else if (TEST(DR_INSTR_CATEGORY_MATH, cat)) {
+    else if (TESTANY(DR_INSTR_CATEGORY_MATH, cat)) {
         if (type != NULL)
             *type = DR_FP_MATH;
         return true;
-    } else if (TEST(DR_INSTR_CATEGORY_CONVERT, cat)) {
+    } else if (TESTANY(DR_INSTR_CATEGORY_CONVERT, cat)) {
         if (type != NULL)
             *type = DR_FP_CONVERT;
         return true;
-    } else if (TEST(DR_INSTR_CATEGORY_STATE, cat)) {
+    } else if (TESTANY(DR_INSTR_CATEGORY_STATE, cat)) {
         if (type != NULL)
             *type = DR_FP_STATE;
         return true;
-    } else if (TEST(DR_INSTR_CATEGORY_MOVE, cat)) {
+    } else if (TESTANY(DR_INSTR_CATEGORY_MOVE, cat)) {
         if (type != NULL)
             *type = DR_FP_MOVE;
         return true;
@@ -955,7 +981,7 @@ instr_can_set_single_step(instr_t *instr)
 }
 
 bool
-instr_may_write_zmm_or_opmask_register(instr_t *instr)
+instr_may_write_avx512_register(instr_t *instr)
 {
     if (instr_get_prefix_flag(instr, PREFIX_EVEX))
         return true;
@@ -963,8 +989,7 @@ instr_may_write_zmm_or_opmask_register(instr_t *instr)
     for (int i = 0; i < instr_num_dsts(instr); ++i) {
         opnd_t dst = instr_get_dst(instr, i);
         if (opnd_is_reg(dst)) {
-            if (reg_is_strictly_zmm(opnd_get_reg(dst)) ||
-                reg_is_opmask(opnd_get_reg(dst)))
+            if (reg_is_avx512(opnd_get_reg(dst)))
                 return true;
         }
     }
@@ -1481,10 +1506,10 @@ instr_invert_cbr(instr_t *instr)
         }
         instr_set_opcode(instr, opc);
         /* reverse any branch hint */
-        if (TEST(PREFIX_JCC_TAKEN, instr_get_prefixes(instr))) {
+        if (TESTANY(PREFIX_JCC_TAKEN, instr_get_prefixes(instr))) {
             instr->prefixes &= ~PREFIX_JCC_TAKEN;
             instr->prefixes |= PREFIX_JCC_NOT_TAKEN;
-        } else if (TEST(PREFIX_JCC_NOT_TAKEN, instr_get_prefixes(instr))) {
+        } else if (TESTANY(PREFIX_JCC_NOT_TAKEN, instr_get_prefixes(instr))) {
             instr->prefixes &= ~PREFIX_JCC_NOT_TAKEN;
             instr->prefixes |= PREFIX_JCC_TAKEN;
         }
@@ -1504,10 +1529,10 @@ instr_cbr_taken(instr_t *instr, priv_mcontext_t *mcontext, bool pre)
         switch (opc) {
         case OP_loop: return (mcontext->xcx != (pre ? 1U : 0U));
         case OP_loope:
-            return (TEST(EFLAGS_ZF, mcontext->xflags) &&
+            return (TESTANY(EFLAGS_ZF, mcontext->xflags) &&
                     mcontext->xcx != (pre ? 1U : 0U));
         case OP_loopne:
-            return (!TEST(EFLAGS_ZF, mcontext->xflags) &&
+            return (!TESTANY(EFLAGS_ZF, mcontext->xflags) &&
                     mcontext->xcx != (pre ? 1U : 0U));
         case OP_jecxz: return (mcontext->xcx == 0U);
         default: CLIENT_ASSERT(false, "instr_cbr_taken: unknown opcode"); return false;
@@ -1522,41 +1547,41 @@ opc_jcc_taken(int opc, reg_t eflags)
 {
     switch (opc) {
     case OP_jo:
-    case OP_jo_short: return TEST(EFLAGS_OF, eflags);
+    case OP_jo_short: return TESTANY(EFLAGS_OF, eflags);
     case OP_jno:
-    case OP_jno_short: return !TEST(EFLAGS_OF, eflags);
+    case OP_jno_short: return !TESTANY(EFLAGS_OF, eflags);
     case OP_jb:
-    case OP_jb_short: return TEST(EFLAGS_CF, eflags);
+    case OP_jb_short: return TESTANY(EFLAGS_CF, eflags);
     case OP_jnb:
-    case OP_jnb_short: return !TEST(EFLAGS_CF, eflags);
+    case OP_jnb_short: return !TESTANY(EFLAGS_CF, eflags);
     case OP_jz:
-    case OP_jz_short: return TEST(EFLAGS_ZF, eflags);
+    case OP_jz_short: return TESTANY(EFLAGS_ZF, eflags);
     case OP_jnz:
-    case OP_jnz_short: return !TEST(EFLAGS_ZF, eflags);
+    case OP_jnz_short: return !TESTANY(EFLAGS_ZF, eflags);
     case OP_jbe:
     case OP_jbe_short: return TESTANY(EFLAGS_CF | EFLAGS_ZF, eflags);
     case OP_jnbe:
     case OP_jnbe_short: return !TESTANY(EFLAGS_CF | EFLAGS_ZF, eflags);
     case OP_js:
-    case OP_js_short: return TEST(EFLAGS_SF, eflags);
+    case OP_js_short: return TESTANY(EFLAGS_SF, eflags);
     case OP_jns:
-    case OP_jns_short: return !TEST(EFLAGS_SF, eflags);
+    case OP_jns_short: return !TESTANY(EFLAGS_SF, eflags);
     case OP_jp:
-    case OP_jp_short: return TEST(EFLAGS_PF, eflags);
+    case OP_jp_short: return TESTANY(EFLAGS_PF, eflags);
     case OP_jnp:
-    case OP_jnp_short: return !TEST(EFLAGS_PF, eflags);
+    case OP_jnp_short: return !TESTANY(EFLAGS_PF, eflags);
     case OP_jl:
-    case OP_jl_short: return (TEST(EFLAGS_SF, eflags) != TEST(EFLAGS_OF, eflags));
+    case OP_jl_short: return (TESTANY(EFLAGS_SF, eflags) != TESTANY(EFLAGS_OF, eflags));
     case OP_jnl:
-    case OP_jnl_short: return (TEST(EFLAGS_SF, eflags) == TEST(EFLAGS_OF, eflags));
+    case OP_jnl_short: return (TESTANY(EFLAGS_SF, eflags) == TESTANY(EFLAGS_OF, eflags));
     case OP_jle:
     case OP_jle_short:
-        return (TEST(EFLAGS_ZF, eflags) ||
-                TEST(EFLAGS_SF, eflags) != TEST(EFLAGS_OF, eflags));
+        return (TESTANY(EFLAGS_ZF, eflags) ||
+                TESTANY(EFLAGS_SF, eflags) != TESTANY(EFLAGS_OF, eflags));
     case OP_jnle:
     case OP_jnle_short:
-        return (!TEST(EFLAGS_ZF, eflags) &&
-                TEST(EFLAGS_SF, eflags) == TEST(EFLAGS_OF, eflags));
+        return (!TESTANY(EFLAGS_ZF, eflags) &&
+                TESTANY(EFLAGS_SF, eflags) == TESTANY(EFLAGS_OF, eflags));
     default: CLIENT_ASSERT(false, "instr_jcc_taken: unknown opcode"); return false;
     }
 }
@@ -1635,7 +1660,7 @@ instr_predicate_triggered(instr_t *instr, dr_mcontext_t *mc)
                 ptr_int_t val;
                 if (!d_r_safe_read(opnd_compute_address(src, mc),
                                    MIN(opnd_get_size(src), sizeof(val)), &val))
-                    return false;
+                    return DR_PRED_TRIGGER_UNKNOWN;
                 return (val != 0) ? DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
             } else
                 CLIENT_ASSERT(false, "invalid predicate/instr combo");
@@ -1840,7 +1865,7 @@ instr_create_nbyte_nop(dcontext_t *dcontext, uint num_bytes, bool raw)
 }
 
 /* Borrowed from optimize.c, prob. belongs here anyways, could make it more
- * specific to the ones we create above, but know it works as is FIXME */
+ * specific to the ones we create above, but know it works as is XXX */
 /* return true if this instr is a nop, does not check for all types of nops
  * since there are many, these seem to be the most common */
 bool
@@ -1921,4 +1946,20 @@ instr_is_gather(instr_t *instr)
     case OP_vpgatherqq: return true;
     default: return false;
     }
+}
+
+/* TODO i#7842: to be implemented. */
+DR_API
+uint
+instr_get_isa_feature(byte *pc, instr_t *instr)
+{
+    return ISA_FEAT_UNKNOWN;
+}
+
+/* TODO i#7842: to be implemented. */
+DR_API
+const char *
+instr_get_isa_feature_name(uint isa_feature)
+{
+    return isa_feature_names[isa_feature];
 }

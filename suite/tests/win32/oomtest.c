@@ -32,7 +32,7 @@
 
 #include "tools.h"
 
-/* FIXME: case 10711
+/* XXX: case 10711
  * For now, use 50 threads so this test will pass for thin_client. We
  * should put this back to 100 once we address memory usage issues.
  * xref cases 8960, 9366, 10376

@@ -66,7 +66,7 @@ print_opmask(byte opmask_buf[], byte opmask_ref[])
 }
 
 static void
-read_avx512_state()
+read_avx512_state(void)
 {
     byte zmm_buf[NUM_SIMD_REGS * 64];
     byte zmm_ref[NUM_SIMD_REGS * 64];
@@ -193,7 +193,7 @@ read_avx512_state()
 }
 
 static void
-clobber_avx512_state()
+clobber_avx512_state(void)
 {
     byte buf[64];
     memset(buf, 0, sizeof(buf));

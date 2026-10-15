@@ -20,16 +20,11 @@ get_area(): s with c: 360326.775900
 Native two-args in Triangle::get_c()
 Native two-args in Triangle::get_b()
 Triangle [4.300000 x 5.200000 x 6.100000] area: 360326.775900 (1031)
-#ifdef WINDOWS
-Native two args: 1012, 5
-#endif
 Native two-args in Triangle::get_b()
 Native two-args in Square::get_area()
 Native two-args in Square::get_side_length()
 Native two-args in Square::get_side_length()
-#ifdef UNIX
 Native two args: 1012, 5
-#endif
 Native two-args in Triangle::get_c()
 Native two-args in Triangle::get_b()
 Native two-args in Triangle::get_c()

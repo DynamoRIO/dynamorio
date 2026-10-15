@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.   All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,9 +33,7 @@
 /* DynamoRIO Code Coverage Library */
 
 #ifndef _DRCOVLIB_H_
-#define _DRCOVLIB_H_ 1
-
-#include "drmgr.h"
+#define _DRCOVLIB_H_
 
 /**
  * @file drcovlib.h

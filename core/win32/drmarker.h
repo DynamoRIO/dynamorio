@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -79,7 +79,7 @@ enum {
  *          should only be field addtions.  NO DELETIONS ALLOWED; to obsolete
  *          fields fill it with an invalid value.  Also, each change should
  *          result in the DR_MARKER_VERSION_CURRENT being increased.
- * FIXME: use size to denote a newer structures in future; same issue needs to
+ * XXX: use size to denote a newer structures in future; same issue needs to
  *        be handled for hotp_policy_status_table.
  */
 struct _dr_statistics_t;

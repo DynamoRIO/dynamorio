@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -66,7 +66,6 @@ main(int argc, char *argv[])
         perror("ERROR on fork");
     } else if (child > 0) {
         pid_t result;
-        print("parent waiting for child\n");
         result = waitpid(child, NULL, 0);
         assert(result == child);
         print("child has exited\n");

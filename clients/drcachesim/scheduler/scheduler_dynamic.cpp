@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,6 +42,8 @@
 #include <cstdint>
 #include <limits>
 #include <mutex>
+#include <random>
+#include <shared_mutex>
 #include <sstream>
 #include <thread>
 #include <unordered_map>
@@ -111,20 +113,38 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::set_initial_schedule()
         inputs_[i].queue_counter = i;
         allq.push(&inputs_[i]);
     }
-    // Now assign round-robin to the outputs.  We have to obey bindings here: we
-    // just take the first.  This isn't guaranteed to be perfect if there are
-    // many bindings (or output limits), but we run a rebalancing afterward
-    // (to construct it up front would take similar code to the rebalance so we
-    // leverage that code).
+    // Now assign inputs to outputs, either random or round-robin.  We have to obey
+    // bindings here: we just take the first.  This isn't guaranteed to be perfect if
+    // there are many bindings (or output limits), but we run a rebalancing afterward (to
+    // construct it up front would take similar code to the rebalance so we leverage that
+    // code).
+    if (options_.random_initial_layout >= 0) {
+        int rand_seed = options_.random_initial_layout;
+        if (rand_seed == 0) {
+            rand_seed = static_cast<int>(
+                scheduler_impl_tmpl_t<RecordType, ReaderType>::get_time_micros());
+        }
+        rand_gen_.seed(rand_seed);
+    }
     output_ordinal_t output = 0;
     while (!allq.empty()) {
         input_info_t *input = allq.top();
         allq.pop();
         output_ordinal_t target = output;
-        if (!input->binding.empty())
-            target = *input->binding.begin();
-        else
-            output = (output + 1) % outputs_.size();
+        if (options_.random_initial_layout >= 0) {
+            if (!input->binding.empty()) {
+                std::vector<output_ordinal_t> bind_vec(input->binding.begin(),
+                                                       input->binding.end());
+                size_t index = rand_gen_() % bind_vec.size();
+                target = bind_vec[index];
+            } else
+                target = rand_gen_() % outputs_.size();
+        } else {
+            if (!input->binding.empty())
+                target = *input->binding.begin();
+            else
+                output = (output + 1) % outputs_.size();
+        }
         add_to_ready_queue(target, input);
     }
     stream_status_t status = rebalance_queues(0, {});
@@ -282,8 +302,28 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::pick_next_input_for_mode(
             inputs_[prev_index].blocked_start_time = get_output_time(output);
         }
     }
-    if (prev_index != sched_type_t::INVALID_INPUT_ORDINAL &&
+    flexible_queue_t<input_ordinal_t> local_direct_targets;
+    if (options_.direct_switch_fallbacks &&
+        // A direct switch requires a valid prev_index to have initiated it.
+        prev_index != sched_type_t::INVALID_INPUT_ORDINAL &&
         inputs_[prev_index].switch_to_input != sched_type_t::INVALID_INPUT_ORDINAL) {
+        // Create a local copy for the loop below.
+        // Use a read lock here to avoid contention which can significantly
+        // degrade performance.
+        std::shared_lock<std::shared_mutex> target_set_rlock(direct_target_rwlock_);
+        local_direct_targets = direct_targets_;
+    }
+    size_t fallback_attempts = 0;
+    // We want to ensure we find someone with our random picks.
+    // The attempt count includes randomly picking the source and re-picking.
+    // Queues can change between each pick as well so re-trying the same
+    // pick is not necessarily a bad thing.
+    // Experiments on large applications showed that using between half the queue
+    // size and the queue size works fairly well, and using double the size works
+    // even better: so we make that our default.
+    const size_t max_fallback_attempts = local_direct_targets.size() * 2;
+    while (prev_index != sched_type_t::INVALID_INPUT_ORDINAL &&
+           inputs_[prev_index].switch_to_input != sched_type_t::INVALID_INPUT_ORDINAL) {
         input_info_t *target = &inputs_[inputs_[prev_index].switch_to_input];
         inputs_[prev_index].switch_to_input = sched_type_t::INVALID_INPUT_ORDINAL;
         std::unique_lock<mutex_dbg_owned> target_input_lock(*target->lock);
@@ -356,15 +396,47 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::pick_next_input_for_mode(
             // dynamic switch to whoever happens to be available (and
             // different timing between tracing and analysis has caused this
             // miss).
-            VPRINT(this, 2,
-                   "Direct switch (from %d) target input #%d is running "
-                   "elsewhere; picking a different target @%" PRIu64 "\n",
-                   prev_index, target->index,
-                   inputs_[prev_index].reader->get_last_timestamp());
-            // We do ensure the missed target doesn't wait indefinitely.
-            // XXX i#6822: It's not clear this is always the right thing to
-            // do.
-            target->skip_next_unscheduled = true;
+            if (fallback_attempts == 0) {
+                // We do ensure the original missed target doesn't wait indefinitely.
+                // XXX i#6822: It's not clear this is always the right thing to
+                // do.
+                target->skip_next_unscheduled = true;
+            }
+            if (options_.direct_switch_fallbacks &&
+                fallback_attempts < max_fallback_attempts) {
+                // Try a different target. If this is enabled, it means these
+                // targets do not have data dependencies and instead are just a
+                // user-mode scheduler picking someone free to run next.
+                do {
+                    inputs_[prev_index].switch_to_input =
+                        local_direct_targets.get_random_entry();
+                    ++fallback_attempts;
+                    // Skip ourselves. Do not skip the original target: maybe it
+                    // will be available after the time searching others.
+                } while (inputs_[prev_index].switch_to_input == prev_index &&
+                         fallback_attempts < max_fallback_attempts);
+                if (fallback_attempts >= max_fallback_attempts) {
+                    inputs_[prev_index].switch_to_input =
+                        sched_type_t::INVALID_INPUT_ORDINAL;
+                }
+                VPRINT(this, 2,
+                       "Direct switch (from %d) target input #%d is running elsewhere; "
+                       "looking for a different direct switch target from %zd candidates "
+                       "@%" PRIu64 " => picked #%d (attempt %zd/%zd)\n",
+                       prev_index, target->index, local_direct_targets.size(),
+                       inputs_[prev_index].reader->get_last_timestamp(),
+                       inputs_[prev_index].switch_to_input, fallback_attempts,
+                       max_fallback_attempts);
+            } else {
+                VPRINT(this, 2,
+                       "Direct switch (from %d) target input #%d is running elsewhere; "
+                       "falling back to a regular non-direct local switch @%" PRIu64 "\n",
+                       prev_index, target->index,
+                       inputs_[prev_index].reader->get_last_timestamp());
+                break;
+            }
+        } else {
+            break;
         }
     }
     if (index != sched_type_t::INVALID_INPUT_ORDINAL) {
@@ -470,6 +542,24 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::check_for_input_switch(
                        "syscall in "
                        "input %d\n",
                        output, input->index);
+            } else if (input->unscheduled) {
+                bool do_switch = true;
+                if (options_.ignore_low_latency_unsched) {
+                    uint64_t ignored;
+                    if (!syscall_incurs_switch(input, ignored)) {
+                        // Ignore unschedule requests with very short latencies to
+                        // try to undo their inflation under tracing.
+                        do_switch = false;
+                        input->unscheduled = false;
+                        input->blocked_time = 0;
+                        input->blocked_start_time = 0;
+                    }
+                }
+                if (do_switch) {
+                    need_new_input = true;
+                    VPRINT(this, 3, "next_record[%d]: input %d going unscheduled\n",
+                           output, input->index);
+                }
             } else if (input->blocked_time > 0) {
                 // If we've found out another way that this input should
                 // block, use that time and do a switch.
@@ -477,10 +567,6 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::check_for_input_switch(
                 blocked_time = input->blocked_time;
                 VPRINT(this, 3, "next_record[%d]: blocked time set for input %d\n",
                        output, input->index);
-            } else if (input->unscheduled) {
-                need_new_input = true;
-                VPRINT(this, 3, "next_record[%d]: input %d going unscheduled\n", output,
-                       input->index);
             } else if (syscall_incurs_switch(input, blocked_time)) {
                 // Model as blocking and should switch to a different input.
                 need_new_input = true;
@@ -616,6 +702,23 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::process_marker(
                    target_tid);
         } else {
             input.switch_to_input = it->second;
+            if (options_.direct_switch_fallbacks) {
+                bool target_recorded = false;
+                // Avoid the write lock for the common case of already added.
+                {
+                    std::shared_lock<std::shared_mutex> target_set_rlock(
+                        direct_target_rwlock_);
+                    if (direct_targets_.find(input.switch_to_input))
+                        target_recorded = true;
+                }
+                if (!target_recorded) {
+                    std::unique_lock<std::shared_mutex> target_set_wlock(
+                        direct_target_rwlock_);
+                    VPRINT(this, 2, "Adding input #%d to direct target set\n",
+                           input.switch_to_input);
+                    direct_targets_.push(input.switch_to_input);
+                }
+            }
         }
         // Trigger a switch either indefinitely or until timeout.
         if (input.skip_next_unscheduled) {
@@ -843,6 +946,11 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::rebalance_queues(
         if (outputs_[i].active->load(std::memory_order_acquire))
             ++live_outputs;
     }
+    if (live_outputs == 0) {
+        // An error was hit in another thread: just return.
+        rebalancer_.store(std::thread::id(), std::memory_order_release);
+        return sched_type_t::STATUS_OK;
+    }
     double avg_per_output = live_inputs / static_cast<double>(live_outputs);
     unsigned int avg_ceiling = static_cast<int>(std::ceil(avg_per_output));
     unsigned int avg_floor = static_cast<int>(std::floor(avg_per_output));
@@ -948,12 +1056,12 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::eof_or_idle_for_mode(
                live_inputs);
         return sched_type_t::STATUS_EOF;
     }
-    //  Before going idle, try to steal work from another output.
-    //  We start with us+1 to avoid everyone stealing from the low-numbered outputs.
-    //  We only try when we first transition to idle; we rely on rebalancing after
-    //  that, to avoid repeatededly grabbing other output's locks over and over.
-    if (!outputs_[output].tried_to_steal_on_idle) {
-        outputs_[output].tried_to_steal_on_idle = true;
+    // When going idle, periodically try to steal work from another output.
+    // We don't want to try every time as we'll cause too much lock contention.
+    // We start with us+1 to avoid everyone stealing from the low-numbered outputs
+    // (better to randomly pick target cores?).
+    if (options_.steal_attempt_period > 0 &&
+        outputs_[output].consecutive_idles++ % options_.steal_attempt_period == 0) {
         for (unsigned int i = 1; i < outputs_.size(); ++i) {
             output_ordinal_t target = (output + i) % outputs_.size();
             assert(target != output); // Sanity check (we won't reach "output").
@@ -968,6 +1076,10 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::eof_or_idle_for_mode(
                 VPRINT(this, 2,
                        "eof_or_idle: output %d stole input %d from %d's ready_queue\n",
                        output, queue_next->index, target);
+                // This stolen task now has a core to itself, so it may make extra
+                // progress without competition: but that is better than this core
+                // sitting idle while the task is not running; plus, the next global
+                // rebalance will even runqueues out further.
                 return sched_type_t::STATUS_STOLE;
             }
             // We didn't find anything; loop and check another output.
@@ -1307,6 +1419,19 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::print_queue_stats()
             outputs_[i].ready_queue.queue.push(add);
     }
     VPRINT(this, 0, "%s\n", ostr.str().c_str());
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_dynamic_tmpl_t<RecordType, ReaderType>::mark_input_eof_for_mode(
+    input_info_t &input)
+{
+    if (options_.direct_switch_fallbacks) {
+        VPRINT(this, 2, "Removing input #%dn from direct target set\n", input.index);
+        std::unique_lock<std::shared_mutex> target_set_wlock(direct_target_rwlock_);
+        direct_targets_.erase(input.index);
+    }
+    return sched_type_t::STATUS_OK;
 }
 
 template class scheduler_dynamic_tmpl_t<memref_t, reader_t>;

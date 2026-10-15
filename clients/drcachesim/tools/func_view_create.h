@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /* func_view tool creation */
 
 #ifndef _FUNC_VIEW_CREATE_H_
-#define _FUNC_VIEW_CREATE_H_ 1
+#define _FUNC_VIEW_CREATE_H_
 
 #include "analysis_tool.h"
 

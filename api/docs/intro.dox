@@ -1,5 +1,6 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -52,9 +53,13 @@ operating system (Windows, Linux, or Android) and commodity IA-32, AMD64,
 ARM, and AArch64 hardware.  See \ref sec_limit_platforms for details of
 which platform combinations are fully supported.
 
+***************************************************************************
 This document describes the DynamoRIO system and the various APIs that it
-exports for building custom tools.  It is divided into the following
-sections:
+exports for building custom tools.  The DynamoRIO documentation follows an
+end-to-end workflow from obtaining DynamoRIO to validating deployment; for
+the complete build, run, and deploy flow, see the User Journey on the home
+page (\ref user_journey).  This page focuses on client APIs and concepts; it
+is divided into the following sections:
 
 - \subpage page_tutorials
   <br>Gives a few short tutorials on using DynamoRIO and includes slides
@@ -220,7 +225,7 @@ set of event callbacks.  These events include the following:
   - Basic block and trace creation or deletion
     (dr_register_bb_event(), dr_register_trace_event(), dr_register_delete_event())
   - Process initialization and exit
-    (dr_client_main(), dr_register_exit_event())
+    (dr_client_main(), dr_register_post_attach_event(), dr_register_exit_event())
   - Thread initialization and exit
     (dr_register_thread_init_event(), dr_register_thread_exit_event())
   - Fork child initialization (Linux-only); meant to be used for
@@ -253,6 +258,14 @@ and an associated unregistration routine.  The header file dr_events.h
 contains the declarations for all registration and unregistration
 routines.
 
+When attaching to an already running process, dr_client_main() is called
+in the initially taken over thread before the other threads are taken over.
+Thus, it is not the best place to take a snapshot of global state such
+as the address space.  The post-attach event (dr_register_post_attach_event())
+is provided as a point where all the other threads have been suspended but
+have not yet started executing under instrumentation: the best point to
+take a snapshot and avoid a gap between it and monitored events post-takeover.
+
 Note that clients are allowed to register multiple callbacks for the
 same event.  DynamoRIO also supports mutiple clients, each of which
 can register for the same event.  In this case, DynamoRIO sequences
@@ -261,7 +274,7 @@ other words, the first registered callback receives event notification
 last.  This scheme gives priority to a callback registered earlier,
 since it can override or modify the actions of clients registered
 later.  Note that DynamoRIO calls each client's dr_client_main() routine
-according to the client's priority (see \ref multi_client and
+according to the client's priority (see \ref sec_multi_client and
 dr_register_client() in the deployment API).
 
 Systems registering multiple callbacks for a single event should be
@@ -484,6 +497,13 @@ memory directly allocated via DynamoRIO's API.  The \ref op_reachable_heap
 "-reachable_heap runtime option" can be used to guarantee that all memory
 is reachable, at the risk of running out of memory due to the smaller space
 of available memory.
+
+On AArch64, the -vm_size runtime option can be as large as 64GB.  If it is
+larger than 2GB, the code caches no longer fit in a single 2GB region and
+DynamoRIO does not provide the guarantees above.  In this mode,
+dr_custom_alloc() with #DR_ALLOC_CACHE_REACHABLE returns NULL, \ref
+op_reachable_client "-reachable_client" is turned off, and \ref
+op_reachable_heap "-reachable_heap" reduces -vm_size to 2GB.
 
 To make more space available for the code caches when running larger
 applications, or for clients that use a lot of heap memory that is not

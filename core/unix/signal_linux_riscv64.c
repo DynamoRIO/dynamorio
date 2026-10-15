@@ -54,7 +54,7 @@ extern cpu_info_t cpu_info;
 void
 save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 

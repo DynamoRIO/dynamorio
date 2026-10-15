@@ -40,7 +40,7 @@
  */
 
 #ifndef _SYMTAB_H_
-#define _SYMTAB_H_ 1
+#define _SYMTAB_H_
 
 /* initialization */
 bool

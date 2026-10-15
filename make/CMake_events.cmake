@@ -33,7 +33,7 @@
 # Custom commands and source file properties are per-subdir so we must
 # include this in each instead of just placing in top-level CMakeLists.txt.
 
-# FIXME i#68: move the work of gen_event_strings.pl into this script
+# XXX i#68: move the work of gen_event_strings.pl into this script
 set(SYSLOG_SRCS ${PROJECT_BINARY_DIR}/event_strings.h)
 set_source_files_properties(${SYSLOG_SRCS} PROPERTIES GENERATED true)
 add_custom_command(

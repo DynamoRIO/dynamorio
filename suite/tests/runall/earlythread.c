@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -31,7 +31,7 @@
  * DAMAGE.
  */
 
-/* FIXME: nothing here tests that a child is under DR */
+/* XXX: nothing here tests that a child is under DR */
 /* case 9385 test */
 /* based on runall/processchain.c */
 /* should compare with win32/threadinjection.c */
@@ -114,7 +114,7 @@ main(int argc, char **argv)
 
     if (depth != 0) {
 
-        /* FIXME: may want to add CREATE_NEW_PROCESS_GROUP | CREATE_SUSPENDED
+        /* XXX: may want to add CREATE_NEW_PROCESS_GROUP | CREATE_SUSPENDED
          * so we can send GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, child_group)
          * and see if that ever gets delivered before the first process thread in any
          * grandchild
@@ -166,7 +166,7 @@ main(int argc, char **argv)
             }
 #endif /* PROCAFFINITY */
 
-            /* FIXME: should play around with the order of these */
+            /* XXX: should play around with the order of these */
             /* resume initial thread */
             if (!roundrobin || (depth % 2) == 0) { /* even rounds primary goes first */
                 result = ResumeThread(pi.hThread);
@@ -174,7 +174,7 @@ main(int argc, char **argv)
                     print("ResumeThread primary thread failure %d\n", GetLastError());
                 }
 
-                /* FIXME: should play around with extra sleep if too
+                /* XXX: should play around with extra sleep if too
                  * deterministic otherwise */
                 Sleep(depth * 10);
             } else {
@@ -188,7 +188,7 @@ main(int argc, char **argv)
 
             if (roundrobin &&
                 ((depth % 2) == 1)) { /* odd rounds injected thread goes first */
-                /* FIXME: may want to be able to disable this */
+                /* XXX: may want to be able to disable this */
                 Sleep(depth * 10);
 
                 result = ResumeThread(pi.hThread);

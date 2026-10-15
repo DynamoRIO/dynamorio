@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020-2023 Google, Inc.   All rights reserved.
+ * Copyright (c) 2020-2025 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _DRBBDUP_H_
-#define _DRBBDUP_H_ 1
+#define _DRBBDUP_H_
 
 #include "drmgr.h"
 #include <stdint.h>

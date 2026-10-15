@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -43,7 +43,7 @@ UNIT_TEST_MAIN
 
 /* This part is more of a regression test - but the rest of the unit
  * test can use its own executable image as a good test case.
- * FIXME: convert the first part into a regression test to run us on top of it
+ * XXX: convert the first part into a regression test to run us on top of it
  * or even better - run DR on top of the unit tests
  */
 
@@ -97,7 +97,7 @@ bar(int a, fmult_t f)
 fmult_t farr[2] = { f2, f7 };
 
 static void
-test_indcalls()
+test_indcalls(void)
 {
     EXPECT(foo('a', true), 'a');
     EXPECT(foo('a', false), 'A');
@@ -120,7 +120,7 @@ test_switch_helper(char c)
 }
 
 static void
-test_switch()
+test_switch(void)
 {
     EXPECT(test_switch_helper('a'), 'j');
     EXPECT(test_switch_helper('z'), 'z');
@@ -289,7 +289,7 @@ test_self_direct(dcontext_t *dcontext)
     uint newfound;
 
 #ifdef WINDOWS
-    /* this will get both code and data FIXME: data2data reference
+    /* this will get both code and data XXX: data2data reference
      * will be the majority
      */
     size = get_allocation_size((app_pc)test_self_direct, &base_pc);
@@ -309,7 +309,7 @@ test_self_direct(dcontext_t *dcontext)
     /* guesstimate */
     EXPECT_RELATION(found, >, 140);
 #ifdef WINDOWS
-    /* FIXME: note data2data have a huge part here */
+    /* XXX: note data2data have a huge part here */
     EXPECT_RELATION(found, <, 20000);
 #else
     EXPECT_RELATION(found, <, 1000);
@@ -338,14 +338,14 @@ test_self_direct(dcontext_t *dcontext)
     EXPECT(rct_analyze_module_at_violation(dcontext, (app_pc)test_self_direct), true);
 
     /* should be all found */
-    /* FIXME: with the data2data in fact a few noisy entries show up
+    /* XXX: with the data2data in fact a few noisy entries show up
      * since second lookup in data may differ from original
      */
     newfound = find_address_references(dcontext, base_pc, base_pc + size, base_pc,
                                        base_pc + size);
     EXPECT_RELATION(newfound, <, 4);
     EXPECT_RELATION(invalidate_ind_branch_target_range(dcontext, 0, (app_pc)-1), >,
-                    found + newfound - 5); /* FIXME: data references uncomparable */
+                    found + newfound - 5); /* XXX: data references uncomparable */
 
     EXPECT_RELATION(invalidate_ind_branch_target_range(dcontext, 0, (app_pc)-1), ==,
                     0); /* nothing missed */
@@ -407,7 +407,7 @@ test_rct_ind_branch_check(void)
  * TODO: LoadLibrary(kernel32) and work on that
  */
 static void
-test_loaddll()
+test_loaddll(void)
 {
     /* TODO: LoadLibrary/GetProcAddress */
     /* and dlopen/dlsym */
@@ -424,19 +424,19 @@ test_loaddll()
 #if TEST_MULTI_SECTIONS /* NYI */
 #    pragma code_seg(".my_code1")
 void
-func2()
+func2(void)
 {
 }
 
 #    pragma code_seg(push, r1, ".my_code2")
 void
-func3()
+func3(void)
 {
 }
 
 #    pragma code_seg(pop, r1) /* back to my_code1 */
 void
-func4()
+func4(void)
 {
 }
 #    pragma code_seg /* back in .text */
@@ -458,7 +458,7 @@ unit_main(void)
     EXPECT(dynamo_options.rct_ind_call, 11);
     EXPECT(dynamo_options.rct_ind_jump, 11);
 
-    /* FIXME: report_current_process calls is_couldbelinking()
+    /* XXX: report_current_process calls is_couldbelinking()
      * maybe we should just set the TEB entry with a good context
      */
     EXPECT(dynamo_options.diagnostics, false);

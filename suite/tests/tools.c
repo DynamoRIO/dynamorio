@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -56,7 +56,7 @@ pthread_jit_write_protect_np(int enabled);
 
 #    ifdef WINDOWS
 /* returns 0 on failure */
-/* FIXME - share with core get_os_version() */
+/* XXX - share with core get_os_version() */
 int
 get_windows_version(void)
 {
@@ -111,7 +111,7 @@ get_windows_version(void)
     return 0;
 }
 
-/* FIXME: share w/ libutil is_wow64() */
+/* XXX: share w/ libutil is_wow64() */
 bool
 is_wow64(HANDLE hProcess)
 {
@@ -143,25 +143,25 @@ int
 get_os_prot_word(int prot)
 {
 #    ifdef UNIX
-    return ((TEST(ALLOW_READ, prot) ? PROT_READ : 0) |
-            (TEST(ALLOW_WRITE, prot) ? PROT_WRITE : 0) |
-            (TEST(ALLOW_EXEC, prot) ? PROT_EXEC : 0));
+    return ((TESTANY(ALLOW_READ, prot) ? PROT_READ : 0) |
+            (TESTANY(ALLOW_WRITE, prot) ? PROT_WRITE : 0) |
+            (TESTANY(ALLOW_EXEC, prot) ? PROT_EXEC : 0));
 #    else
-    if (TEST(ALLOW_WRITE, prot)) {
-        if (TEST(ALLOW_EXEC, prot)) {
+    if (TESTANY(ALLOW_WRITE, prot)) {
+        if (TESTANY(ALLOW_EXEC, prot)) {
             return PAGE_EXECUTE_READWRITE;
         } else {
             return PAGE_READWRITE;
         }
     } else {
-        if (TEST(ALLOW_READ, prot)) {
-            if (TEST(ALLOW_EXEC, prot)) {
+        if (TESTANY(ALLOW_READ, prot)) {
+            if (TESTANY(ALLOW_EXEC, prot)) {
                 return PAGE_EXECUTE_READ;
             } else {
                 return PAGE_READONLY;
             }
         } else {
-            if (TEST(ALLOW_EXEC, prot)) {
+            if (TESTANY(ALLOW_EXEC, prot)) {
                 return PAGE_EXECUTE;
             } else {
                 return PAGE_NOACCESS;
@@ -177,7 +177,7 @@ allocate_mem(size_t size, int prot)
 #    ifdef UNIX
     int flags = MAP_PRIVATE | MAP_ANON;
 #        if defined(MACOS) && defined(AARCH64)
-    if (TEST(ALLOW_EXEC, prot)) {
+    if (TESTANY(ALLOW_EXEC, prot)) {
         flags |= MAP_JIT;
         pthread_jit_write_protect_np(0);
     }
@@ -213,7 +213,7 @@ protect_mem(void *start, size_t len, int prot)
     int page_len = (len + ((ptr_int_t)start - (ptr_int_t)page_start) + PAGE_SIZE - 1) &
         ~(PAGE_SIZE - 1);
 #        if defined(MACOS) && defined(AARCH64)
-    if (TEST(ALLOW_EXEC, prot) && !TEST(ALLOW_WRITE, prot)) {
+    if (TESTANY(ALLOW_EXEC, prot) && !TESTANY(ALLOW_WRITE, prot)) {
         pthread_jit_write_protect_np(1);
         return;
     }
@@ -233,7 +233,7 @@ void
 protect_mem_check(void *start, size_t len, int prot, int expected)
 {
 #    ifdef UNIX
-    /* FIXME : add check */
+    /* XXX : add check */
     protect_mem(start, len, prot);
 #    else
     DWORD old;
@@ -274,7 +274,7 @@ reserve_memory(int size)
 #    define VENDOR_AMD 1
 #    define VENDOR_UNKNOWN 2
 
-/* Pentium IV -- FIXME: need to distinguish extended family bits? */
+/* Pentium IV -- XXX: need to distinguish extended family bits? */
 #    define FAMILY_PENTIUM_IV 15
 /* Pentium Pro, Pentium II, Pentium III, Athlon */
 #    define FAMILY_PENTIUM_III 6
@@ -630,6 +630,65 @@ dump_ucontext(ucontext_t *ucxt, bool is_sve, int vl_bytes)
 #        endif
 
 #    endif /* UNIX */
+
+int
+adaptive_retry(bool (*run)(int *adjust, unsigned long long param, void *arg), int tries,
+               unsigned long long param, void *arg, bool stop_on_hit)
+{
+    int hits = 0;
+    /* Typically we halve the step each time, which results in a
+     * binary search, but if we have had the same non-zero result
+     * several times in succession then we suspect that something has
+     * changed so we start doubling the step instead.
+     */
+    unsigned long long step = 1; /* This will always be a power of two. */
+    int max_unchanged_results = 4;
+    /* Initialise unchanged_results so that we immediately start doubling. */
+    int unchanged_results = max_unchanged_results - 1;
+    int previous_result = 0;
+    for (int i = 0; i < tries; i++) {
+        /* Call run. */
+        int adjust = 0;
+        bool hit = run(&adjust, param, arg);
+
+        /* Handle hit. */
+        if (hit) {
+            ++hits;
+            if (stop_on_hit)
+                break;
+        }
+
+        /* Convert result. */
+        int result = adjust < 0 ? -1 : adjust > 0 ? 1 : 0;
+
+        /* Update unchanged_results. */
+        if (result && (i == 0 || result == previous_result))
+            ++unchanged_results;
+        else
+            unchanged_results = 0;
+        previous_result = result;
+
+        /* Update step. */
+        if (unchanged_results <= max_unchanged_results)
+            step = step / 2 > 0 ? step / 2 : step;
+        else
+            step = step * 2 > 0 ? step * 2 : step;
+
+        /* Adjust param for next try. */
+        if (result < 0) {
+            param = param + step > param ? param + step : -1;
+        } else if (result > 0) {
+            if (param > step)
+                param = param - step;
+            else {
+                param = 1;
+                step = 1;
+            }
+        }
+    }
+
+    return hits;
+}
 
 #else /* asm code *************************************************************/
 /*

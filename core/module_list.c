@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -65,7 +65,7 @@ os_get_module_info_lock(void)
 {
     if (loaded_module_areas != NULL)
         d_r_read_lock(&module_data_lock);
-    /* else we assume past exit: FIXME: best to have exited bool */
+    /* else we assume past exit: XXX: best to have exited bool */
 }
 
 void
@@ -82,7 +82,7 @@ os_get_module_info_write_lock(void)
 {
     if (loaded_module_areas != NULL)
         d_r_write_lock(&module_data_lock);
-    /* else we assume past exit: FIXME: best to have exited bool */
+    /* else we assume past exit: XXX: best to have exited bool */
 }
 
 void
@@ -90,7 +90,7 @@ os_get_module_info_write_unlock(void)
 {
     if (loaded_module_areas != NULL)
         d_r_write_unlock(&module_data_lock);
-    /* else we assume past exit: FIXME: best to have exited bool */
+    /* else we assume past exit: XXX: best to have exited bool */
 }
 
 bool
@@ -315,7 +315,7 @@ module_list_remove(app_pc base, size_t view_size)
         /* don't notify for drearlyhelper* or other during-init modules */
         && dynamo_initialized
         /* don't notify for modules that were not executed (i#884) */
-        && TEST(MODULE_LOAD_EVENT, ma->flags)) {
+        && TESTANY(MODULE_LOAD_EVENT, ma->flags)) {
         client_data = copy_module_area_to_module_data(ma);
         inform_client = true;
     }
@@ -809,7 +809,7 @@ module_calculate_digest(DR_PARAM_OUT module_digest_t *digest, app_pc module_base
     region_start = module_base + 0;
     region_len = module_get_header_size(module_base);
 
-    /* FIXME: note that if we want to provide/match an Authenticode
+    /* XXX: note that if we want to provide/match an Authenticode
      * hash we'd have to skip the Checksum field in the header - see
      * pecoff_v8 */
 
@@ -879,7 +879,7 @@ module_calculate_digest(DR_PARAM_OUT module_digest_t *digest, app_pc module_base
         }
     });
 
-    /* FIXME: Note that if we did want to have an md5sum-matching
+    /* XXX: Note that if we did want to have an md5sum-matching
      * digest we'd have to append the module bytes with the extra
      * bytes that are only present on disk in our digest.  Since
      * usually quite small that could be handled by a read_file()

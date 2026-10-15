@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2024 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -149,7 +149,7 @@ static void *pre_nt_rpc;
 static void *pre_nls_cache;
 /* Isolate TEB->ThreadLocalStoragePointer. */
 static void *pre_static_tls;
-/* FIXME i#875: we do not have ntdll!RtlpFlsLock isolated.  Living w/ it for now. */
+/* XXX i#875: we do not have ntdll!RtlpFlsLock isolated.  Living w/ it for now. */
 
 /* NtTickCount: not really a syscall, just reads KUSER_SHARED_DATA.
  * Redirects to RtlGetTickCount on Win2003+.
@@ -175,7 +175,7 @@ os_loader_init_prologue(void)
     app_pc drdll = get_dynamorio_dll_start();
     app_pc user32 = NULL;
     privmod_t *mod;
-    /* FIXME i#812: need to delay this for earliest injection */
+    /* XXX i#812: need to delay this for earliest injection */
     if (!dr_earliest_injected && !standalone_library) {
         user32 = (app_pc)get_module_handle(L"user32.dll");
     }
@@ -193,7 +193,7 @@ os_loader_init_prologue(void)
         GET_NTDLL(RtlInitializeCriticalSection,
                   (DR_PARAM_OUT RTL_CRITICAL_SECTION * crit));
         PEB *own_peb = get_own_peb();
-        /* FIXME: does it need to be page-aligned? */
+        /* XXX: does it need to be page-aligned? */
         private_peb = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, PEB, ACCT_OTHER, UNPROTECTED);
         memcpy(private_peb, own_peb, sizeof(*private_peb));
         /* We need priv libs to NOT use any locks that app code uses: else we'll
@@ -203,7 +203,7 @@ os_loader_init_prologue(void)
          */
         private_peb->FastPebLock = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, RTL_CRITICAL_SECTION,
                                                    ACCT_OTHER, UNPROTECTED);
-        if (!dr_earliest_injected) /* FIXME i#812: need to delay this */
+        if (!dr_earliest_injected) /* XXX i#812: need to delay this */
             RtlInitializeCriticalSection(private_peb->FastPebLock);
 
         /* We can't redirect ntdll routines allocating memory internally,
@@ -211,7 +211,7 @@ os_loader_init_prologue(void)
          * We do this after the swap in case it affects some other peb field,
          * in which case it will match the RtlDestroyHeap.
          */
-        if (dr_earliest_injected) { /* FIXME i#812: need to delay RtlCreateHeap */
+        if (dr_earliest_injected) { /* XXX i#812: need to delay RtlCreateHeap */
             private_peb->ProcessHeap = own_peb->ProcessHeap;
         } else {
             private_peb->ProcessHeap =
@@ -281,7 +281,7 @@ os_loader_init_prologue(void)
     mod = privload_insert(NULL, ntdll, get_allocation_size(ntdll, NULL), "ntdll.dll",
                           modpath);
     mod->externally_loaded = true;
-    /* FIXME i#234: Once we have earliest injection and load DR via this private loader
+    /* XXX i#234: Once we have earliest injection and load DR via this private loader
      * (i#234/PR 204587) we can remove this
      */
     mod = privload_insert(NULL, drdll, get_allocation_size(drdll, NULL),
@@ -302,7 +302,7 @@ os_loader_init_prologue(void)
     privload_os_finalize(mod);
 #endif
 
-    /* FIXME i#1299: loading a private user32.dll is problematic: it registers
+    /* XXX i#1299: loading a private user32.dll is problematic: it registers
      * callbacks that KiUserCallbackDispatcher invokes.  For now we do not
      * duplicate it.  If the app loads it dynamically later we will end up
      * duplicating but not worth checking for that.
@@ -649,7 +649,7 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
     ASSERT(INTERNAL_OPTION(private_peb));
     ASSERT(private_peb_initialized);
     ASSERT(tgt_peb != NULL);
-    if (TEST(DR_STATE_PEB, flags) && should_swap_peb_pointer()) {
+    if (TESTANY(DR_STATE_PEB, flags) && should_swap_peb_pointer()) {
         set_teb_field(dcontext, PEB_TIB_OFFSET, (void *)tgt_peb);
         LOG(THREAD, LOG_LOADER, 2, "set teb->peb to " PFX "\n", tgt_peb);
     }
@@ -663,19 +663,19 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
         void *cur_rpc = NULL;
         void *cur_nls_cache = NULL;
         void *cur_static_tls = NULL;
-        if (TEST(DR_STATE_TEB_MISC, flags) && should_swap_teb_nonstack_fields()) {
+        if (TESTANY(DR_STATE_TEB_MISC, flags) && should_swap_teb_nonstack_fields()) {
             cur_fls = get_teb_field(dcontext, FLS_DATA_TIB_OFFSET);
             cur_rpc = get_teb_field(dcontext, NT_RPC_TIB_OFFSET);
             cur_nls_cache = get_teb_field(dcontext, NLS_CACHE_TIB_OFFSET);
         }
-        if (TEST(DR_STATE_TEB_MISC, flags) && should_swap_teb_static_tls()) {
+        if (TESTANY(DR_STATE_TEB_MISC, flags) && should_swap_teb_static_tls()) {
             cur_static_tls = get_teb_field(dcontext, STATIC_TLS_TIB_OFFSET);
         }
         DOLOG(3, LOG_LOADER, {
             print_teb_fields(dcontext, to_priv ? "pre swap to priv" : "pre swap to app");
         });
         if (to_priv) {
-            if (TEST(DR_STATE_STACK_BOUNDS, flags) &&
+            if (TESTANY(DR_STATE_STACK_BOUNDS, flags) &&
                 dynamo_initialized /* on app stack until init finished */) {
                 if (SWAP_TEB_STACKLIMIT() &&
                     /* Handle two in a row, using an exact cmp b/c
@@ -695,7 +695,7 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                     set_teb_field(dcontext, TOP_STACK_TIB_OFFSET, dcontext->dstack);
                 }
             }
-            if (TEST(DR_STATE_TEB_MISC, flags) && should_swap_teb_nonstack_fields()) {
+            if (TESTANY(DR_STATE_TEB_MISC, flags) && should_swap_teb_nonstack_fields()) {
                 /* note: two calls in a row will clobber app_errno w/ wrong value! */
                 dcontext->app_errno =
                     (int)(ptr_int_t)get_teb_field(dcontext, ERRNO_TIB_OFFSET);
@@ -713,7 +713,7 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                                   dcontext->priv_nls_cache);
                 }
             }
-            if (TEST(DR_STATE_TEB_MISC, flags) && should_swap_teb_static_tls()) {
+            if (TESTANY(DR_STATE_TEB_MISC, flags) && should_swap_teb_static_tls()) {
                 if (dcontext->priv_static_tls !=
                     cur_static_tls) { /* handle two in a row */
                     dcontext->app_static_tls = cur_static_tls;
@@ -722,7 +722,7 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                 }
             }
         } else {
-            if (TEST(DR_STATE_STACK_BOUNDS, flags)) {
+            if (TESTANY(DR_STATE_STACK_BOUNDS, flags)) {
                 if (SWAP_TEB_STACKLIMIT() &&
                     /* Handle two in a row, using an exact cmp b/c
                      * is_dynamo_address() is slow and needs locks (i#1832).
@@ -740,7 +740,7 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                                   dcontext->app_stack_base);
                 }
             }
-            if (TEST(DR_STATE_TEB_MISC, flags) && should_swap_teb_nonstack_fields()) {
+            if (TESTANY(DR_STATE_TEB_MISC, flags) && should_swap_teb_nonstack_fields()) {
                 /* two calls in a row should be fine */
                 set_teb_field(dcontext, ERRNO_TIB_OFFSET,
                               (void *)(ptr_int_t)dcontext->app_errno);
@@ -758,7 +758,7 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                                   dcontext->app_nls_cache);
                 }
             }
-            if (TEST(DR_STATE_TEB_MISC, flags) && should_swap_teb_static_tls()) {
+            if (TESTANY(DR_STATE_TEB_MISC, flags) && should_swap_teb_static_tls()) {
                 if (dcontext->app_static_tls !=
                     cur_static_tls) { /* handle two in a row */
                     /* Unlike the other fields, we control this private one so we
@@ -774,7 +774,10 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
         ASSERT(!is_dynamo_address((byte *)dcontext->app_stack_base - 1) ||
                IS_CLIENT_THREAD(dcontext));
         if (should_swap_teb_nonstack_fields()) {
-            ASSERT(!is_dynamo_address(dcontext->app_fls_data));
+            /* TODO i#7220: We'd like to fix app_fls_data problems but for now we
+             * downgrade to a curiosity to avoid breakage.
+             */
+            ASSERT_CURIOSITY_ONCE(!is_dynamo_address(dcontext->app_fls_data));
             ASSERT(!is_dynamo_address(dcontext->app_nt_rpc));
             ASSERT(!is_dynamo_address(dcontext->app_nls_cache));
         }
@@ -871,9 +874,9 @@ check_app_stack_limit(dcontext_t *dcontext)
     do {
         check_pc -= PAGE_SIZE;
         res = query_virtual_memory(check_pc, &mbi, sizeof(mbi));
-    } while (res == sizeof(mbi) && !TEST(PAGE_GUARD, mbi.Protect) &&
+    } while (res == sizeof(mbi) && !TESTANY(PAGE_GUARD, mbi.Protect) &&
              check_pc > (byte *)(ptr_uint_t)PAGE_SIZE);
-    if (res == sizeof(mbi) && TEST(PAGE_GUARD, mbi.Protect) &&
+    if (res == sizeof(mbi) && TESTANY(PAGE_GUARD, mbi.Protect) &&
         check_pc + PAGE_SIZE < start_pc) {
         LOG(THREAD, LOG_LOADER, 2,
             "updated stored TEB.StackLimit from " PFX " to " PFX "\n", start_pc,
@@ -996,7 +999,7 @@ privload_map_and_relocate(const char *filename, size_t *size DR_PARAM_OUT,
     byte *(*map_func)(file_t, size_t *, uint64, app_pc, uint, map_flags_t);
     bool (*unmap_func)(file_t, size_t);
     ASSERT(size != NULL);
-    ASSERT_OWN_RECURSIVE_LOCK(!TEST(MODLOAD_NOT_PRIVLIB, flags), &privload_lock);
+    ASSERT_OWN_RECURSIVE_LOCK(!TESTANY(MODLOAD_NOT_PRIVLIB, flags), &privload_lock);
 
     /* On win32 OS_EXECUTE is required to create a section w/ rwx
      * permissions, which is in turn required to map a view w/ rwx
@@ -1017,7 +1020,7 @@ privload_map_and_relocate(const char *filename, size_t *size DR_PARAM_OUT,
      * to have app execute from their .text.  We do want other
      * privately-loaded libs to be on the DR-areas list (though that
      * means that if we mess up and the app executes their code, we throw
-     * an app exception: FIXME: should we raise a better error message?
+     * an app exception: XXX: should we raise a better error message?
      */
     *size = 0; /* map at full size */
     if (dynamo_heap_initialized && !standalone_library) {
@@ -1055,7 +1058,7 @@ privload_map_and_relocate(const char *filename, size_t *size DR_PARAM_OUT,
         return NULL;
     }
 #ifdef X64
-    if (TEST(MODLOAD_REACHABLE, flags)) {
+    if (TESTANY(MODLOAD_REACHABLE, flags)) {
         bool reloc = module_file_relocatable(map);
         (*unmap_func)(map, *size);
         map = NULL;
@@ -1195,7 +1198,7 @@ privload_process_imports(privmod_t *mod)
         LOG(GLOBAL, LOG_LOADER, 2, "%s: %s imports from %s\n", __FUNCTION__, mod->name,
             impname);
 
-        /* FIXME i#233: support bound imports: for now ignoring */
+        /* XXX i#233: support bound imports: for now ignoring */
         if (imports->TimeDateStamp == -1) {
             /* Imports are bound via "new bind": need to walk
              * IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT =>
@@ -1221,7 +1224,7 @@ privload_process_imports(privmod_t *mod)
             mod->is_client = true;
 
         /* walk the lookup table and address table in lockstep */
-        /* FIXME: should check readability: if had no-dcontext try (i#350) could just
+        /* XXX: should check readability: if had no-dcontext try (i#350) could just
          * do try/except around whole thing
          */
         lookup = (IMAGE_THUNK_DATA *)RVA_TO_VA(mod->base, imports->OriginalFirstThunk);
@@ -1259,7 +1262,7 @@ privload_process_imports(privmod_t *mod)
      * has an extra 10 bytes in the dir->Size for unknown reasons so suppressing
      */
 
-    /* FIXME i#233: support delay-load: IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT */
+    /* XXX i#233: support delay-load: IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT */
 
     return true;
 }
@@ -1310,7 +1313,7 @@ privload_process_one_import(privmod_t *mod, privmod_t *impmod, IMAGE_THUNK_DATA 
     const char *forwpath = NULL;
 
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
-    if (TEST(IMAGE_ORDINAL_FLAG, lookup->u1.Function)) {
+    if (TESTANY(IMAGE_ORDINAL_FLAG, lookup->u1.Function)) {
         /* XXX: for 64-bit this is a 64-bit type: should we widen through
          * get_proc_address_by_ordinal()?
          */
@@ -1321,7 +1324,7 @@ privload_process_one_import(privmod_t *mod, privmod_t *impmod, IMAGE_THUNK_DATA 
         /* import by name */
         IMAGE_IMPORT_BY_NAME *name = (IMAGE_IMPORT_BY_NAME *)RVA_TO_VA(
             mod->base, (lookup->u1.AddressOfData & ~(IMAGE_ORDINAL_FLAG)));
-        /* FIXME optimization i#233:
+        /* XXX optimization i#233:
          * - try name->Hint first
          * - build hashtables for quick lookup instead of repeatedly walking
          *   export tables
@@ -1461,6 +1464,14 @@ privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
     /* Then, call the module entry point. */
     app_pc entry = get_module_entry(privmod->base);
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
+    if (str_case_prefix(privmod->name, "combase")) {
+        /* XXX i#6962: combase.dll calls HandlePossibleBadComBaseDllLoad which runs
+         * int3 which DR somehow does not intercept, resulting in silent crash. For now
+         * we skip it.
+         */
+        call_routines = false;
+        SYSLOG_INTERNAL_INFO_ONCE("skipping combase initializer (i#6962)");
+    }
     /* get_module_entry adds base => returns base instead of NULL */
     if (call_routines && entry != NULL && entry != privmod->base &&
         /* We call the TLS routines for the externally_loaded executable for
@@ -1507,7 +1518,7 @@ privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
              * is working so far; if that changes we'll have to dig into it.
              */
             SYSLOG_INTERNAL_WARNING(
-                "ignoring failure of private library %s entry (call reason=%d)\n",
+                "ignoring failure of private library %s entry (call reason=%d)",
                 privmod->name, reason);
             res = TRUE;
         }
@@ -1880,7 +1891,7 @@ privload_locate_and_load(const char *impname, privmod_t *dependent, bool reachab
             return mod; /* if fails to load, don't keep searching */
         }
     }
-    /* 5) dirs on PATH: FIXME: not supported yet */
+    /* 5) dirs on PATH: XXX: not supported yet */
 
     if (mod == NULL) {
         /* There's a SYSLOG in loader_init(), but we want the name of the missing
@@ -2741,7 +2752,7 @@ privload_bootstrap_dynamorio_imports(byte *dr_base, byte *ntdll_base)
         while (lookup->u1.Function != 0) {
             IMAGE_IMPORT_BY_NAME *name = (IMAGE_IMPORT_BY_NAME *)RVA_TO_VA(
                 dr_base, (lookup->u1.AddressOfData & ~(IMAGE_ORDINAL_FLAG)));
-            if (TEST(IMAGE_ORDINAL_FLAG, lookup->u1.Function))
+            if (TESTANY(IMAGE_ORDINAL_FLAG, lookup->u1.Function))
                 return false; /* no ordinal support */
 
             func = privload_bootstrap_get_export(ntdll_base, (const char *)name->Name);

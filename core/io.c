@@ -1,5 +1,6 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -38,7 +39,7 @@
  * io.c - routines for i/o to avoid library dependencies
  */
 
-/* FIXME: failure modes should be more graceful than failing asserts in most places */
+/* XXX: failure modes should be more graceful than failing asserts in most places */
 
 #ifndef NOT_DYNAMORIO_CORE
 #    include "globals.h"
@@ -50,7 +51,7 @@ typedef unsigned long ulong;
 void
 dr_fpu_exception_init(void);
 #endif
-#include <stdarg.h> /* for varargs */
+#include "stdarg_wrapper.h" /* for varargs */
 
 #ifdef UNIX
 #    ifdef MACOS
@@ -58,7 +59,9 @@ dr_fpu_exception_init(void);
 #        define _EXTERNALIZE_CTYPE_INLINES_TOP_
 #        define _EXTERNALIZE_CTYPE_INLINES_
 #    endif
-#    include <wchar.h>
+#    ifndef LINUX_KERNEL
+#        include <wchar.h>
+#    endif
 #endif
 
 #ifdef NOT_DYNAMORIO_CORE_PROPER
@@ -89,6 +92,7 @@ const static double zerof = 0.0;
 #    define neg_inf (-1.0 / zerof)
 #endif
 
+#ifndef LINUX_KERNEL
 /* assumes that d > 0 */
 long /* exported to utils.c */
 double2int_trunc(double d)
@@ -116,6 +120,7 @@ double2int(double d)
     else
         return i;
 }
+#endif
 
 #ifdef WINDOWS
 /*****************************************************************************
@@ -457,7 +462,7 @@ d_r_parse_int(const char *sp, uint64 *res_out, uint base, uint width, bool is_si
          */
         if (d >= base)
             break;
-        /* FIXME: Check for overflow. */
+        /* XXX: Check for overflow. */
         /* XXX: int64 multiply is inefficient on 32-bit. */
         res = res * base + d;
     }
@@ -574,7 +579,6 @@ d_r_vsscanf(const char *str, const char *fmt, va_list ap)
                 break;
             /* XXX: Modifiers we could add support for:
              * - j, z, t: C99 modifiers for intmax_t, size_t, and ptrdiff_t.
-             * - [] scan sets: These are complicated and better to avoid.
              * - .*: For dynamically sized strings.  Not part of C scanf.
              * - n$: Store the result into the nth pointer arg after fmt.
              */
@@ -739,8 +743,8 @@ d_r_sscanf(const char *str, const char *fmt, ...)
  * cross-arch.  We need %ll to parse 64-bit ints on 32-bit and drop the %l to
  * parse 32-bit ints on x64.
  */
-#    define MAPS_LINE_FORMAT4 "%08x-%08x %s %08x %*s %llu %4096s"
-#    define MAPS_LINE_FORMAT8 "%016llx-%016llx %s %016llx %*s %llu %4096s"
+#    define MAPS_LINE_FORMAT4 "%08x-%08x %s %08x %x:%x %llu %4096s"
+#    define MAPS_LINE_FORMAT8 "%016llx-%016llx %s %016llx %x:%x %llu %4096s"
 
 static void
 test_sscanf_maps_x86(void)
@@ -748,6 +752,7 @@ test_sscanf_maps_x86(void)
     char line_copy[1024];
     uint start, end;
     uint offset;
+    uint device_major, device_minor;
     uint64 inode;
     char perm[16];
     char comment[4096];
@@ -756,13 +761,15 @@ test_sscanf_maps_x86(void)
                             "                            /lib32/libc-2.11.1.so";
 
     strncpy(line_copy, maps_line, BUFFER_SIZE_ELEMENTS(line_copy));
-    len = d_r_sscanf(line_copy, MAPS_LINE_FORMAT4, &start, &end, perm, &offset, &inode,
-                     comment);
-    EXPECT(len, 6);
+    len = d_r_sscanf(line_copy, MAPS_LINE_FORMAT4, &start, &end, perm, &offset,
+                     &device_major, &device_minor, &inode, comment);
+    EXPECT(len, 8);
     /* Do int64 comparisons directly.  EXPECT casts to ptr_uint_t. */
     EXPECT(start, 0xf75c3000UL);
     EXPECT(end, 0xf75c4000UL);
     EXPECT(offset, 0x00155000UL);
+    EXPECT(device_major, 0xfcU);
+    EXPECT(device_minor, 0);
     EXPECT((inode == 1840387ULL), 1);
     EXPECT(strcmp(perm, "rw-p"), 0);
     EXPECT(strcmp(comment, "/lib32/libc-2.11.1.so"), 0);
@@ -776,6 +783,7 @@ test_sscanf_maps_x64(void)
     char line_copy[1024];
     uint64 start, end;
     uint64 offset;
+    uint device_major, device_minor;
     uint64 inode;
     char perm[16];
     char comment[4096];
@@ -784,13 +792,15 @@ test_sscanf_maps_x64(void)
                             "1839331                     /lib/libc-2.11.1.so";
 
     strncpy(line_copy, maps_line, BUFFER_SIZE_ELEMENTS(line_copy));
-    len = d_r_sscanf(line_copy, MAPS_LINE_FORMAT8, &start, &end, perm, &offset, &inode,
-                     comment);
-    EXPECT(len, 6);
+    len = d_r_sscanf(line_copy, MAPS_LINE_FORMAT8, &start, &end, perm, &offset,
+                     &device_major, &device_minor, &inode, comment);
+    EXPECT(len, 8);
     /* Do int64 comparisons directly.  EXPECT casts to ptr_uint_t. */
     EXPECT((start == 0x7f94a6757000ULL), 1);
     EXPECT((end == 0x7f94a6758000ULL), 1);
     EXPECT((offset == 0x00017d000ULL), 1);
+    EXPECT(device_major, 0xfcU);
+    EXPECT(device_minor, 0);
     EXPECT((inode == 1839331ULL), 1);
     EXPECT(strcmp(perm, "rw-p"), 0);
     EXPECT(strcmp(comment, "/lib/libc-2.11.1.so"), 0);
@@ -900,7 +910,7 @@ test_sscanf_all_specs(void)
     EXPECT(res, 1);
     EXPECT(strcmp(str, "line\v"), 0);
 
-    /* FIXME: When parse_int has range checking, we should add tests for parsing
+    /* XXX: When parse_int has range checking, we should add tests for parsing
      * integers that overflow their requested integer sizes.
      */
 }
@@ -923,13 +933,13 @@ typedef void (*memset_t)(void *dst, int src, size_t n);
 
 /* Force compiler to not optimize away our own memcpy and memset.
  */
-__attribute__((noinline)) static void *
+static NOINLINE void *
 our_memcpy(void *dst, const void *src, size_t n)
 {
     return memcpy(dst, src, n);
 }
 
-__attribute__((noinline)) static void *
+static NOINLINE void *
 our_memset(void *dst, int src, size_t n)
 {
     return memset(dst, src, n);
@@ -969,6 +979,7 @@ test_our_memcpy(void)
     test_memcpy_offset_size(2, 2, 2);
     test_memcpy_offset_size(1, 1, 3);
     test_memcpy_offset_size(2, 2, 3);
+    test_memcpy_offset_size(3, 3, 15);
     /* Test a variety of offsets. */
     for (i = 0; i < 16; i++) {
         for (j = 0; j < 16; j++) {
@@ -1014,6 +1025,53 @@ test_our_memset(void)
     /* Check that memset returns dst. */
     ret = our_memset(&i, -1, sizeof(i));
     EXPECT(ret == &i, 1);
+
+    /* Further testing of larger values, targeted at the aarch64
+     * DC ZVA where we have a fastpath for setting >128-byte buffers to 0.
+     * We use a 1024-sized buffer to be large enough for cross-arch
+     * tests where QEMU reports a 512-byte DC ZVA block size.
+     */
+    char buf[1024];
+
+    /* Setup: fill with "42" which will the hit more-trusted slowpath. */
+    char *res = memset(buf, 42, BUFFER_SIZE_BYTES(buf));
+    EXPECT_EQ(res, buf); /* Test return value. */
+    for (int i = 0; i < BUFFER_SIZE_BYTES(buf); i++)
+        EXPECT_EQ(buf[i], 42);
+    /* Now test fastpath. */
+    res = memset(buf + 1, 0, BUFFER_SIZE_BYTES(buf) - 2);
+    EXPECT_EQ(res, buf + 1);
+    /* Ensure no underflow or overflow. */
+    EXPECT_EQ(buf[0], 42);
+    EXPECT_EQ(buf[BUFFER_SIZE_BYTES(buf) - 1], 42);
+    for (int i = 1; i < BUFFER_SIZE_BYTES(buf) - 2; i++)
+        EXPECT_EQ(buf[i], 0);
+
+    /* Re-fill with "42". */
+    res = memset(buf, 42, BUFFER_SIZE_BYTES(buf));
+    EXPECT_EQ(res, buf);
+    /* Test aligned-to-64, the typical DC ZVA block size, with extra at end. */
+    char *aligned = (char *)ALIGN_FORWARD(&buf[65], 64);
+    const size_t ALIGN_COPY_SIZE = 180;
+    res = memset(aligned, 0, ALIGN_COPY_SIZE);
+    EXPECT_EQ(res, aligned);
+    EXPECT_EQ(*(aligned - 1), 42);
+    EXPECT_EQ(*(aligned + ALIGN_COPY_SIZE), 42);
+    for (int i = 0; i < ALIGN_COPY_SIZE; i++)
+        EXPECT_EQ(*(aligned + i), 0);
+
+    /* Re-fill with "42". */
+    res = memset(buf, 42, BUFFER_SIZE_BYTES(buf));
+    EXPECT_EQ(res, buf);
+    /* Test aligned to 64 with nothing extra at the end. */
+    const size_t ALIGN_COPY_ALIGN_SIZE = 128;
+    res = memset(aligned, 0, ALIGN_COPY_ALIGN_SIZE);
+    EXPECT_EQ(res, aligned);
+    EXPECT_EQ(*(aligned - 1), 42);
+    EXPECT_EQ(*(aligned + ALIGN_COPY_ALIGN_SIZE), 42);
+    for (int i = 0; i < ALIGN_COPY_ALIGN_SIZE; i++)
+        EXPECT_EQ(*(aligned + i), 0);
+    print_file(STDERR, "functional memset tests passed\n");
 }
 
 static void

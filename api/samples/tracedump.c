@@ -61,7 +61,7 @@ dis(void *drcontext, app_pc pc, app_pc display_pc)
 /* We use an array of SEPARATE_STUB_MAX_SIZE */
 #define STUB_STRUCT_MAX_SIZE (sizeof(tracedump_stub_data_t) + SEPARATE_STUB_MAX_SIZE)
 #define STUBIDX(stubs, i) \
-    ((tracedump_stub_data_t *)(((byte *)stubs) + (i)*STUB_STRUCT_MAX_SIZE))
+    ((tracedump_stub_data_t *)(((byte *)stubs) + (i) * STUB_STRUCT_MAX_SIZE))
 
 static void
 read_data(file_t f, void *drcontext)

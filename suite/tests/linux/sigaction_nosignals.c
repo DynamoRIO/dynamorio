@@ -392,7 +392,7 @@ tests_edge(void)
  */
 
 int
-main()
+main(int argc, const char *argv[])
 {
     tests_rw();
     tests_prot();

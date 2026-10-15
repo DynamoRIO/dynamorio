@@ -160,7 +160,7 @@ generate_inst(byte *encode_pc, size_t *skipped_insts)
 }
 
 static void
-generate_code()
+generate_code(void)
 {
     /* Account for the generated insts and the final return. */
     max_code_size = (NUM_INSTS + 1) * 4;

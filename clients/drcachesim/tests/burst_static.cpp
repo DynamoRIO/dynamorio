@@ -1,5 +1,6 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc. All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,6 +35,7 @@
  * a "burst" of execution in the middle of the application.  It then detaches.
  */
 
+#include "test_helpers.h"
 /* We deliberately do not include configure.h here to simulate what an
  * actual app will look like.  configure_DynamoRIO_static sets DR_APP_EXPORTS
  * for us.
@@ -43,6 +45,7 @@
 #include <iostream>
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -76,10 +79,22 @@ test_main(int argc, const char *argv[])
     static int iter_start = outer_iters / 3;
     static int iter_stop = iter_start + 4;
 
-    /* We also test -rstats_to_stderr */
-    if (!my_setenv("DYNAMORIO_OPTIONS",
-                   "-stderr_mask 0xc -rstats_to_stderr "
-                   "-client_lib ';;-offline'"))
+    const bool use_lz4 = argc > 1 && strcmp(argv[1], "-lz4") == 0;
+    const char *dynamorio_options;
+    if (use_lz4) {
+        /* This app is shared with the non-lz4 test, so we pass a distinct subdir
+         * prefix to keep the two tests' output directories apart.
+         */
+        dynamorio_options = "-stderr_mask 0xc -rstats_to_stderr "
+                            "-client_lib ';;-offline -raw_compress lz4 "
+                            "-subdir_prefix "
+                            "drmemtrace.tool.drcacheoff.burst_static-lz4'";
+    } else {
+        dynamorio_options = "-stderr_mask 0xc -rstats_to_stderr "
+                            "-client_lib ';;-offline -raw_compress none'";
+    }
+    /* We also test -rstats_to_stderr. */
+    if (!my_setenv("DYNAMORIO_OPTIONS", dynamorio_options))
         std::cerr << "failed to set env var!\n";
 
     /* We use an outer loop to test re-attaching (i#2157). */
@@ -109,7 +124,7 @@ test_main(int argc, const char *argv[])
     return 0;
 }
 
-/* FIXME i#2099: the weak symbol is not supported on Windows. */
+/* XXX i#2099: the weak symbol is not supported on Windows. */
 #if defined(UNIX) && defined(TEST_APP_DR_CLIENT_MAIN)
 #    ifdef __cplusplus
 extern "C" {
@@ -137,3 +152,12 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 
 } // namespace drmemtrace
 } // namespace dynamorio
+
+// Used by our build-and-test to test external use (where there's no test_helpers).
+#ifdef DEFINE_MAIN
+int
+main(int argc, const char *argv[])
+{
+    return dynamorio::drmemtrace::test_main(argc, argv);
+}
+#endif

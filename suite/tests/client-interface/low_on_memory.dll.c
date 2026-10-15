@@ -61,7 +61,7 @@ static node_t *head;
 static const uintptr_t user_value = 9909;
 
 static void
-insert_new_node()
+insert_new_node(void)
 {
     node_t **node = &head;
 
@@ -90,22 +90,29 @@ module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
 }
 
 static void
-low_on_memory_event()
+free_nodes(void)
+{
+    node_t *node = head;
+    while (node != NULL) {
+        node_t *temp = node;
+        node = node->next;
+        dr_global_free(temp, sizeof(node_t));
+    }
+
+    head = NULL;
+}
+
+static void
+low_on_memory_event(void)
 {
     if (!is_clear) {
         if (head == NULL)
             dr_fprintf(STDERR, "clear mismatch!\n");
 
-        node_t *node = head;
-        while (node != NULL) {
-            node_t *temp = node;
-            node = node->next;
-            dr_global_free(temp, sizeof(node_t));
-        }
+        free_nodes();
 
         dr_fprintf(STDERR, "low on memory event!\n");
         is_clear = true;
-        head = NULL;
 
         dr_fprintf(STDERR, "priority A\n");
     } else {
@@ -138,12 +145,14 @@ exit_event(void)
     if (!is_clear)
         dr_fprintf(STDERR, "was not cleared!\n");
 
+    free_nodes();
+
     if (!drmgr_unregister_low_on_memory_event(low_on_memory_event) ||
         !drmgr_unregister_low_on_memory_event_user_data(low_on_memory_event_user))
         dr_fprintf(STDERR, "unregister failed!\n");
 
     drmgr_unregister_module_load_event(module_load_event);
-    dr_unregister_exit_event(exit_event);
+    drmgr_unregister_exit_event(exit_event);
 
     dr_flush_file(STDOUT);
 
@@ -168,7 +177,7 @@ dr_init(client_id_t id)
     insert_new_node();
 
     drmgr_register_module_load_event(module_load_event);
-    dr_register_exit_event(exit_event);
+    drmgr_register_exit_event(exit_event);
 
     drmgr_priority_t priority = { sizeof(priority), "low-on-memory", NULL, NULL, 0 };
     drmgr_priority_t priority_user = { sizeof(priority), "low-on-memory-user", NULL, NULL,

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,6 +36,7 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cassert>
 #include <iostream>
 #include <limits>
@@ -43,6 +44,7 @@
 #include <set>
 #include <string>
 #include <thread>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -65,6 +67,17 @@
 #    include "reader/snappy_file_reader.h"
 #endif
 #include "common/utils.h"
+
+#undef VPRINT
+// Make printing available in release build by not using ifdef DEBUG here.
+// The usefulness for diagnostics outweighs any overhead from extra branches.
+#define VPRINT(analyzer, level, ...)                            \
+    do {                                                        \
+        if ((analyzer)->verbosity_ >= (level)) {                \
+            fprintf(stderr, "%s ", (analyzer)->output_prefix_); \
+            fprintf(stderr, __VA_ARGS__);                       \
+        }                                                       \
+    } while (0)
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -141,7 +154,7 @@ analyzer_t::create_idle_marker()
     memref_t record = {}; // Zero the other fields.
     record.marker.type = TRACE_TYPE_MARKER;
     record.marker.marker_type = TRACE_MARKER_TYPE_CORE_IDLE;
-    record.marker.tid = INVALID_THREAD_ID;
+    record.marker.tid = IDLE_THREAD_ID;
     return record;
 }
 
@@ -240,12 +253,14 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
         return false;
     }
     std::vector<typename sched_type_t::range_t> regions;
-    if (skip_instrs_ > 0) {
+    if (skip_instrs_ > 0 || exit_after_instrs_ > 0) {
         // TODO i#5843: For serial mode with multiple inputs this is not doing the
         // right thing: this is skipping in every input stream, while the documented
         // behavior is supposed to be an output stream skip.  Once we have that
         // capability in the scheduler we should switch to that.
-        regions.emplace_back(skip_instrs_ + 1, 0);
+        regions.emplace_back(skip_instrs_ + 1,
+                             exit_after_instrs_ == 0 ? 0
+                                                     : skip_instrs_ + exit_after_instrs_);
     }
     std::vector<typename sched_type_t::input_workload_t> workloads;
     for (const std::string &path : trace_paths) {
@@ -363,18 +378,23 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
         sched_ops.kernel_syscall_trace_path = options.kernel_syscall_trace_path;
     }
     sched_mapping_ = options.mapping;
-    if (scheduler_.init(workloads, output_count, std::move(sched_ops)) !=
+    if (sched_mapping_ == sched_type_t::MAP_TO_ANY_OUTPUT && worker_count_ > 0 &&
+        max_allowed_imbalance_ >= 1.) {
+        load_balance_ = true;
+    }
+    scheduler_ = std::make_unique<scheduler_tmpl_t<RecordType, ReaderType>>();
+    if (scheduler_->init(workloads, output_count, std::move(sched_ops)) !=
         sched_type_t::STATUS_SUCCESS) {
         ERRMSG("Failed to initialize scheduler: %s\n",
-               scheduler_.get_error_string().c_str());
+               scheduler_->get_error_string().c_str());
         return false;
     }
 
     for (int i = 0; i < worker_count_; ++i) {
-        worker_data_.push_back(analyzer_worker_data_t(i, scheduler_.get_stream(i)));
+        worker_data_.push_back(analyzer_worker_data_t(i, scheduler_->get_stream(i)));
         if (options.read_inputs_in_init) {
             // The docs say we can query the filetype up front.
-            uint64_t filetype = scheduler_.get_stream(i)->get_filetype();
+            uint64_t filetype = scheduler_->get_stream(i)->get_filetype();
             VPRINT(this, 2, "Worker %d filetype %" PRIx64 "\n", i, filetype);
             if (TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, filetype)) {
                 if (i == 0 && shard_type_ == SHARD_BY_CORE) {
@@ -573,6 +593,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
         if (!worker.error.empty())
             return;
     }
+    std::unordered_set<int> tool_exited;
     while (true) {
         RecordType record;
         // The current time is used for time quanta; for instr quanta, it's ignored and
@@ -585,14 +606,18 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
         } else if (status == sched_type_t::STATUS_IDLE) {
             assert(shard_type_ == SHARD_BY_CORE);
             record = create_idle_marker();
-        } else if (status != sched_type_t::STATUS_OK) {
+            ++worker.activity_count;
+        } else if (status == sched_type_t::STATUS_OK) {
+            if (record_is_instr(record))
+                ++worker.activity_count;
+        } else {
             if (status != sched_type_t::STATUS_EOF) {
                 if (status == sched_type_t::STATUS_REGION_INVALID) {
                     worker.error =
                         "Too-far -skip_instrs for: " + worker.stream->get_stream_name();
                 } else {
-                    worker.error =
-                        "Failed to read from trace: " + worker.stream->get_stream_name();
+                    worker.error = "Failed on " + worker.stream->get_stream_name() +
+                        ": " + worker.stream->get_error_string();
                 }
             } else if (interval_microseconds_ != 0 || interval_instr_count_ != 0) {
                 if (!process_interval(worker.shard_data[0].cur_interval_index,
@@ -604,6 +629,15 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
             }
             return;
         }
+        // For zipfiles, we could jump chunk to chunk and use the record ordinal
+        // marker, but this option is rarely used so we do a simple walk here.
+        // Users should use skip_instrs for fast skipping.
+        // We also do not present the prior timestamp when we get there.
+        // Nor do we count anything the scheduler doesn't add to the ordinals:
+        // dynamically injected synthetic records.
+        if (skip_records_ > 0 &&
+            skip_records_ >= worker.stream->get_output_record_ordinal())
+            continue;
         uint64_t prev_interval_index;
         uint64_t prev_interval_init_instr_count;
         if ((record_is_timestamp(record) || record_is_instr(record)) &&
@@ -615,13 +649,38 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
             return;
         }
         for (int i = 0; i < num_tools_; ++i) {
+            if (tool_exited.find(i) != tool_exited.end())
+                continue;
             if (!tools_[i]->process_memref(record)) {
                 worker.error = tools_[i]->get_error_string();
-                VPRINT(this, 1, "Worker %d hit memref error %s on trace shard %s\n",
-                       worker.index, worker.error.c_str(),
-                       worker.stream->get_stream_name().c_str());
-                return;
+                if (worker.error.empty()) {
+                    VPRINT(this, 1, "Worker %d tool %d exiting early on trace shard %s\n",
+                           worker.index, i, worker.stream->get_stream_name().c_str());
+                    tool_exited.insert(i);
+                    if (static_cast<int>(tool_exited.size()) >= num_tools_) {
+                        VPRINT(this, 1,
+                               "Worker %d all tools exited early on trace shard %s\n",
+                               worker.index, worker.stream->get_stream_name().c_str());
+                        return;
+                    }
+                } else {
+                    VPRINT(this, 1, "Worker %d hit memref error %s on trace shard %s\n",
+                           worker.index, worker.error.c_str(),
+                           worker.stream->get_stream_name().c_str());
+                    return;
+                }
             }
+        }
+        if (exit_after_records_ > 0 &&
+            // We can't use get_record_ordinal() because it's the input
+            // ordinal due to SCHEDULER_USE_INPUT_ORDINALS.  We do not want to
+            // include skipped records here.
+            worker.stream->get_output_record_ordinal() >=
+                skip_records_ + exit_after_records_) {
+            VPRINT(this, 1,
+                   "Worker %d exiting after requested record count on shard %s\n",
+                   worker.index, worker.stream->get_stream_name().c_str());
+            return;
         }
     }
 }
@@ -662,6 +721,63 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_shard_exit(
     }
     return true;
 }
+template <typename RecordType, typename ReaderType>
+void
+analyzer_tmpl_t<RecordType, ReaderType>::check_load_balance(
+    analyzer_worker_data_t *worker)
+{
+    // Only update the shared atomic value and read other threads' values every
+    // so often to reduce overhead.
+    if (worker->activity_count - worker->prev_ord_balance_check >=
+        load_balance_cadence_) {
+        worker->shared_activity_count.store(worker->activity_count,
+                                            std::memory_order_release);
+        worker->prev_ord_balance_check = worker->activity_count;
+        int64_t min_activity = std::numeric_limits<int64_t>::max();
+        const analyzer_worker_data_t *min_worker = nullptr;
+        for (const auto &worker_data : worker_data_) {
+            // We can't wait for a finished worker (this only happens when
+            // all inputs, or exit_if_fraction_inputs_left inputs, are at EOF).
+            if (worker_data.exited.load(std::memory_order_acquire))
+                continue;
+            int64_t worker_activity =
+                worker_data.shared_activity_count.load(std::memory_order_acquire);
+            if (worker_activity < min_activity) {
+                min_activity = worker_activity;
+                min_worker = &worker_data;
+            }
+        }
+        if (worker->activity_count <= max_allowed_imbalance_ * min_activity) {
+            VPRINT(this, 3,
+                   "Worker %d @%" PRId64 " NOT waiting for slowest %d @%" PRId64 "\n",
+                   worker->index, worker->activity_count, min_worker->index,
+                   min_activity);
+            return;
+        }
+        constexpr int LOG_EVERY = 100;
+        if (worker->imbalance_wait_count % LOG_EVERY == 0) {
+            VPRINT(
+                this, 1, "Worker %d @%" PRId64 " waiting for slowest %d @%" PRId64 "\n",
+                worker->index, worker->activity_count, min_worker->index, min_activity);
+        }
+        ++worker->imbalance_wait_count;
+        int iters = 0;
+        // Don't stay here too long: return back to the main code to process
+        // exits and other conditions, even if the imbalance is not fully restored yet.
+        // We'll come back here if it's not, or if another worker has become the slowest,
+        // and try again.
+        constexpr int MAX_ITERS = 100;
+        while (worker->activity_count > max_allowed_imbalance_ * min_activity &&
+               ++iters < MAX_ITERS) {
+            // A yield is not sufficient when the slower worker is competing on another
+            // core while the faster worker has no competition and will just run again
+            // with a yield: we need to give the slower worker *time*.
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            min_activity =
+                min_worker->shared_activity_count.load(std::memory_order_acquire);
+        }
+    }
+}
 
 template <typename RecordType, typename ReaderType>
 bool
@@ -677,6 +793,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks_internal(
     // The current time is used for time quanta; for instr quanta, it's ignored and
     // we pass 0.
     uint64_t cur_micros = sched_by_time_ ? get_current_microseconds() : 0;
+    std::unordered_set<int> tool_exited;
     for (typename sched_type_t::stream_status_t status =
              worker->stream->next_record(record, cur_micros);
          status != sched_type_t::STATUS_EOF;
@@ -698,13 +815,22 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks_internal(
             // We synthesize a record here.  If we wanted this to count toward output
             // stream ordinals we would need to add a scheduler API to inject it.
             record = create_idle_marker();
-        } else if (status != sched_type_t::STATUS_OK) {
+            ++worker->activity_count;
+            if (load_balance_)
+                check_load_balance(worker);
+        } else if (status == sched_type_t::STATUS_OK) {
+            if (record_is_instr(record)) {
+                ++worker->activity_count;
+                if (load_balance_)
+                    check_load_balance(worker);
+            }
+        } else {
             if (status == sched_type_t::STATUS_REGION_INVALID) {
                 worker->error =
                     "Too-far -skip_instrs for: " + worker->stream->get_stream_name();
             } else {
-                worker->error =
-                    "Failed to read from trace: " + worker->stream->get_stream_name();
+                worker->error = "Failed on " + worker->stream->get_stream_name() + ": " +
+                    worker->stream->get_error_string();
             }
             return false;
         }
@@ -729,6 +855,13 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks_internal(
             else if (record_has_tid(record, tid))
                 worker->shard_data[shard_index].shard_id = tid;
         }
+        // See comment in process_serial() on skip_records.
+        // Parallel skipping is not well-supported: we skip in each worker, not each
+        // shard, and even each shard (as -skip_instrs does today) may not be what the
+        // user wants: XXX i#7230: Is there a better usage mode for parallel skipping?
+        if (skip_records_ > 0 &&
+            skip_records_ >= worker->stream->get_output_record_ordinal())
+            continue;
         uint64_t prev_interval_index;
         uint64_t prev_interval_init_instr_count;
         if ((record_is_timestamp(record) || record_is_instr(record)) &&
@@ -740,20 +873,46 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks_internal(
             return false;
         }
         for (int i = 0; i < num_tools_; ++i) {
+            if (tool_exited.find(i) != tool_exited.end())
+                continue;
             if (!tools_[i]->parallel_shard_memref(
                     worker->shard_data[shard_index].tool_data[i].shard_data, record)) {
                 worker->error = tools_[i]->parallel_shard_error(
                     worker->shard_data[shard_index].tool_data[i].shard_data);
-                VPRINT(this, 1, "Worker %d hit shard memref error %s on trace shard %s\n",
-                       worker->index, worker->error.c_str(),
-                       worker->stream->get_stream_name().c_str());
-                return false;
+                if (worker->error.empty()) {
+                    VPRINT(this, 1, "Worker %d tool %d exiting early on trace shard %s\n",
+                           worker->index, i, worker->stream->get_stream_name().c_str());
+                    tool_exited.insert(i);
+                    if (static_cast<int>(tool_exited.size()) >= num_tools_) {
+                        VPRINT(this, 1,
+                               "Worker %d all tools exited early on trace shard %s\n",
+                               worker->index, worker->stream->get_stream_name().c_str());
+                        return true;
+                    }
+                } else {
+                    VPRINT(this, 1,
+                           "Worker %d hit shard memref error %s on trace shard %s\n",
+                           worker->index, worker->error.c_str(),
+                           worker->stream->get_stream_name().c_str());
+                    return false;
+                }
             }
         }
         if (record_is_thread_final(record) && shard_type_ != SHARD_BY_CORE) {
             if (!process_shard_exit(worker, shard_index)) {
                 return false;
             }
+        }
+        if (exit_after_records_ > 0 &&
+            // We can't use get_record_ordinal() because it's the input
+            // ordinal due to SCHEDULER_USE_INPUT_ORDINALS.  We do not want to
+            // include skipped records here.
+            worker->stream->get_output_record_ordinal() >=
+                skip_records_ + exit_after_records_) {
+            VPRINT(this, 1,
+                   "Worker %d exiting after requested record count on shard %s\n",
+                   worker->index, worker->stream->get_stream_name().c_str());
+            return true;
         }
     }
     if (shard_type_ == SHARD_BY_CORE) {
@@ -809,6 +968,9 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
             }
         }
     }
+    VPRINT(this, 1, "Worker %d finished; waited %" PRId64 " times for load balancing\n",
+           worker->index, worker->imbalance_wait_count);
+    worker->exited.store(true, std::memory_order_release);
 }
 
 template <typename RecordType, typename ReaderType>

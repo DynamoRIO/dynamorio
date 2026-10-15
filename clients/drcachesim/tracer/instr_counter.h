@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * **********************************************************/
 
@@ -32,7 +32,7 @@
  */
 
 #ifndef _INSTR_COUNTER_
-#define _INSTR_COUNTER_ 1
+#define _INSTR_COUNTER_
 
 #include <atomic>
 
@@ -72,7 +72,7 @@ void
 event_inscount_thread_init(void *drcontext);
 
 void
-event_inscount_init();
+event_inscount_init(client_id_t id);
 
 } // namespace drmemtrace
 } // namespace dynamorio

@@ -58,6 +58,7 @@ int
 main(int argc, const char *argv[])
 {
     int arg_offs = 1;
+    int result = 0;
     long long counter = 0;
     bool for_attach = false, block = false;
     while (arg_offs < argc && argv[arg_offs][0] == '-') {
@@ -100,10 +101,12 @@ main(int argc, const char *argv[])
             protect_mem((void *)signal_handler, 1, ALLOW_READ | ALLOW_EXEC);
         }
         /* Don't spin forever to avoid hosing machines if test harness somehow
-         * fails to kill.  15 billion syscalls takes ~ 1 minute.
+         * fails to kill. Add call to rand() so that modern compilers can't
+         * optimize away the loop. Loop should last about a minute.
          */
         counter++;
-        if (counter > 15 * 1024 * 1024 * 1024LL) {
+        result += rand() % 100;
+        if (counter > 3 * 1024 * 1024 * 1024LL) {
             print("hit max iters\n");
             break;
         }
@@ -124,6 +127,10 @@ main(int argc, const char *argv[])
              */
             if (res == -1 && errno != EINTR)
                 perror("select error");
+
+            // If the select timed out, exit.
+            if (res == 0)
+                break;
 
             /* XXX i#38: We may want a test of an auto-restart syscall as well
              * once the injector handles that.

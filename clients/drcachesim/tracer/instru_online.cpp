@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -45,6 +45,7 @@
 #include "drreg.h"
 #include "drutil.h"
 #include "drvector.h"
+#include "raw2trace_shared.h"
 #include "trace_entry.h"
 #include "instru.h"
 
@@ -87,9 +88,9 @@ online_instru_t::get_instr_count(byte *buf_ptr) const
     trace_entry_t *entry = (trace_entry_t *)buf_ptr;
     if (!type_is_instr((trace_type_t)entry->type))
         return 0;
-    // TODO i#3995: We should *not* count "non-fetched" instrs so we'll match
+    // TODO i#3995: We should *not* count "maybe-fetched" instrs so we'll match
     // hardware performance counters.
-    // Xref i#4948 and i#4915 on getting rid of "non-fetched" instrs.
+    // Xref i#4948 on getting rid of "maybe-fetched" instrs.
     if (entry->type == TRACE_TYPE_INSTR_BUNDLE)
         return entry->size;
     return 1;
@@ -107,6 +108,20 @@ online_instru_t::set_entry_addr(byte *buf_ptr, addr_t addr)
 {
     trace_entry_t *entry = (trace_entry_t *)buf_ptr;
     entry->addr = addr;
+}
+
+void
+online_instru_t::fill_with_sentinel(byte *start, size_t size, ptr_int_t sentinel)
+{
+    for (size_t i = 0; i + sizeof_entry() <= size; i += sizeof_entry()) {
+        // Our records are of type 12-byte (8-byte for 32-bit) trace_entry_t.
+        *(ptr_int_t *)(start + i) = sentinel;
+#ifdef X64
+        *(int *)(start + i + 8) = 0;
+#else
+        *(int *)(start + i + 4) = 0;
+#endif
+    }
 }
 
 int
@@ -414,7 +429,7 @@ online_instru_t::instrument_instr(void *drcontext, void *tag, void *bb_field,
     drreg_status_t res =
         drreg_reserve_register(drcontext, ilist, where, reg_vector_, &reg_tmp);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
-    ushort type = instr_to_instr_type(app, repstr_expanded);
+    ushort type = ir_utils_t::instr_to_instr_type(app, repstr_expanded);
     ushort size = (ushort)instr_length(drcontext, app);
     insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp, type, size,
                               adjust);
@@ -482,6 +497,15 @@ online_instru_t::instrument_rseq_entry(void *drcontext, instrlist_t *ilist,
 {
     // TODO i#5953: Design a way to roll back records already sent to the analyzer.
     // For now we live with discontinuities with online mode.
+    return adjust;
+}
+
+int
+online_instru_t::instrument_gather_base(void *drcontext, instrlist_t *ilist,
+                                        instr_t *where, reg_id_t reg_ptr, int adjust,
+                                        opnd_t ref)
+{
+    // Skipped memrefs are not supported in online mode.
     return adjust;
 }
 

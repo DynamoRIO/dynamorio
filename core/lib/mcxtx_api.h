@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -297,11 +297,11 @@
     /** Storage for #MCXT_NUM_OPMASK_SLOTS mask registers as part of AVX-512. */
     dr_opmask_t opmask[MCXT_NUM_OPMASK_SLOTS];
 #elif defined(RISCV64)
-    /* FIXME i#3544: add rest of machine context and register aliases. */
+    /* XXX i#3544: add rest of machine context and register aliases. */
     /* Any changes in order here must be mirrored in arch/riscv64.asm offsets.
      */
     union {
-        /* FIXME i#3544: This is hard-wired to zero so could be removed */
+        /* XXX i#3544: This is hard-wired to zero so could be removed */
         reg_t x0;   /**< The x0 register. */
         reg_t zero; /**< The hard-wired zero register. */
     }; /**< The anonymous union of alternative names for x0/zero register. */

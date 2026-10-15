@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /* A priority queue with constant-time search and removal from the middle. */
 
 #ifndef _DRMEMTRACE_FLEXIBLE_QUEUE_H_
-#define _DRMEMTRACE_FLEXIBLE_QUEUE_H_ 1
+#define _DRMEMTRACE_FLEXIBLE_QUEUE_H_
 
 /**
  * @file drmemtrace/flexible_queue.h

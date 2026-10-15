@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 # **********************************************************
-# Copyright (c) 2021-2022 Google, Inc.  All rights reserved.
+# Copyright (c) 2021-2025 Google, Inc.  All rights reserved.
 # Copyright (c) 2006 VMware, Inc.  All rights reserved.
 # **********************************************************
 
@@ -62,14 +62,14 @@
 
 # copy&paste from bugtitle.pl
 
-# FIXME: should merge with the logic from wld/wld.pl
+# XXX: should merge with the logic from wld/wld.pl
 # about having an allowlist database on DLLs
 
 
 # adding only exe's that should be seen only once!
 # so that we can detect a c:\temp\services.exe as rogue
 
-# FIXME: not yet used
+# XXX: not yet used
 %seen_known = ();
 
 # should add more entries from config/applications.html or even have a
@@ -128,7 +128,7 @@ while ($#ARGV >= 0) {
     # make it easy for users w/ non-globbing shell and non-globbing perl to
     # pass *, w/o double-globbing and messing up escaped chars for other users
     if (!$noglob && ($globall || $filearg =~ /\*/)) {
-        # FIXME: must convert from \ to / BEFORE the glob -- yet don't
+        # XXX: must convert from \ to / BEFORE the glob -- yet don't
         # want to ruin escaped chars!  It's a tradeoff: is \* a directory delimiter
         # followed by metachar *, or is it an escaped * trying to be literal?
         # In everyday usage we assume no escaped *'s!
@@ -195,7 +195,7 @@ sub get_external_data
     $desc = `$command` if (!$just_show);
     print "$command \n" if ($just_show);
 
-# FIXME: note processlibrary tries to find a substring if they can't find an exact match
+# XXX: note processlibrary tries to find a substring if they can't find an exact match
 # so we have to verify that the process name they are returning is the one we really asked for
 # for the time being leaving users to worry about it by being more verbose
     return $desc;

@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -58,7 +58,7 @@
 #    include "../rct.h" /* rct_add_rip_rel_addr */
 #endif
 
-#ifdef UNIX
+#if defined(UNIX) && !defined(LINUX_KERNEL)
 #    include <sys/syscall.h>
 #endif
 
@@ -598,9 +598,9 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
         num_args, NUM_REGPARM, IF_X64_ELSE(total_pre_push, 0), param_stack, total_stack);
 
     for (i = 0; i < num_args; i++) {
-        /* FIXME PR 302951: we need to handle state restoration if any
+        /* XXX PR 302951: we need to handle state restoration if any
          * of these args references app memory.  We should pull the state from
-         * the priv_mcontext_t on the stack if in a clean call.  FIXME: what if not?
+         * the priv_mcontext_t on the stack if in a clean call.  XXX: what if not?
          */
         opnd_t arg = args[i];
         CLIENT_ASSERT(opnd_get_size(arg) == OPSZ_PTR ||
@@ -646,7 +646,7 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                             if (opnd_uses_reg(arg, d_r_regparms[0])) {
                                 xsp_scratch = REG_XAX;
                                 ASSERT(!opnd_uses_reg(arg, REG_XAX)); /* can't use 3 */
-                                /* FIXME: rather than putting xsp into mcontext
+                                /* XXX: rather than putting xsp into mcontext
                                  * slot, better to just do local get from dcontext
                                  * like we do for 32-bit below? */
                                 POST(ilist, prev,
@@ -759,7 +759,7 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                             scratch = d_r_regparms[0];
                         else {
                             /* This happens on Mac.
-                             * FIXME i#1370: not safe if later arg uses xax:
+                             * XXX i#1370: not safe if later arg uses xax:
                              * local spill?  Review how d_r_regparms[0] is preserved.
                              */
                             scratch = REG_XAX;
@@ -1208,13 +1208,13 @@ insert_push_cs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
  * We also have to modify the xcx spill from tls to private dcontext when
  * adding a shared basic block to a trace.
  *
- * FIXME: if we do make non-trace-head basic blocks valid indirect branch
+ * XXX: if we do make non-trace-head basic blocks valid indirect branch
  * targets, we should have the private ibl have special code to test the
  * flags and copy xcx to the tls slot if necessary.
  */
-#define SAVE_TO_DC_OR_TLS(dc, flags, reg, tls_offs, dc_offs)          \
-    ((DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, (flags))) \
-         ? instr_create_save_to_tls(dc, reg, tls_offs)                \
+#define SAVE_TO_DC_OR_TLS(dc, flags, reg, tls_offs, dc_offs)             \
+    ((DYNAMO_OPTION(private_ib_in_tls) || TESTANY(FRAG_SHARED, (flags))) \
+         ? instr_create_save_to_tls(dc, reg, tls_offs)                   \
          : instr_create_save_to_dcontext((dc), (reg), (dc_offs)))
 
 #define SAVE_TO_DC_OR_TLS_OR_REG(dc, flags, reg, tls_offs, dc_offs, dest_reg)       \
@@ -1223,16 +1223,16 @@ insert_push_cs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          ? INSTR_CREATE_mov_ld(dc, opnd_create_reg(dest_reg), opnd_create_reg(reg)) \
          : SAVE_TO_DC_OR_TLS(dc, flags, reg, tls_offs, dc_offs))
 
-#define RESTORE_FROM_DC_OR_TLS(dc, flags, reg, tls_offs, dc_offs)     \
-    ((DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, (flags))) \
-         ? instr_create_restore_from_tls(dc, reg, tls_offs)           \
+#define RESTORE_FROM_DC_OR_TLS(dc, flags, reg, tls_offs, dc_offs)        \
+    ((DYNAMO_OPTION(private_ib_in_tls) || TESTANY(FRAG_SHARED, (flags))) \
+         ? instr_create_restore_from_tls(dc, reg, tls_offs)              \
          : instr_create_restore_from_dcontext((dc), (reg), (dc_offs)))
 
 static void
 mangle_far_direct_helper(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                          instr_t *next_instr, uint flags)
 {
-    /* FIXME i#823: we do not support other than flat 0-based CS, DS, SS, and ES.
+    /* XXX i#823: we do not support other than flat 0-based CS, DS, SS, and ES.
      * If the app wants to change segments in a WOW64 process, we will
      * do the right thing for standard cs selector values (xref i#49).
      * For other cs changes or in other modes, we do go through far_ibl
@@ -1303,11 +1303,11 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* assumption: target's raw bits are meaningful */
         target = instr_get_raw_bits(tgt);
         ASSERT(target != 0);
-        /* FIXME case 6962: for far instr, we ignore the segment and
+        /* XXX case 6962: for far instr, we ignore the segment and
          * assume it matches current cs */
     } else if (opnd_is_far_pc(instr_get_target(instr))) {
         target = opnd_get_pc(instr_get_target(instr));
-        /* FIXME case 6962: we ignore the segment and assume it matches current cs */
+        /* XXX case 6962: we ignore the segment and assume it matches current cs */
     } else
         ASSERT_NOT_REACHED();
 
@@ -1328,7 +1328,7 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          * is also 0-based.  To properly issue new segments, we'd need a special
          * ibl that ends in a far cti, and all prior address manipulations would
          * need to be relative to the new segment, w/o messing up current segment.
-         * FIXME: can we do better without too much work?
+         * XXX: can we do better without too much work?
          * XXX: yes, for wow64: i#823: TODO mangle this like a far direct jmp
          */
         SYSLOG_INTERNAL_WARNING_ONCE("Encountered a far direct call");
@@ -1453,7 +1453,7 @@ mangle_far_indirect_helper(dcontext_t *dcontext, instrlist_t *ilist, instr_t *in
     reg_id_t reg_target = REG_NULL;
     ASSERT(instr_get_opcode(instr) == OP_jmp_far_ind ||
            instr_get_opcode(instr) == OP_call_far_ind);
-    /* FIXME i#823: we do not support other than flat 0-based CS, DS, SS, and ES.
+    /* XXX i#823: we do not support other than flat 0-based CS, DS, SS, and ES.
      * If the app wants to change segments in a WOW64 process, we will
      * do the right thing for standard cs selector values (xref i#49).
      * For other cs changes or in other modes, we do go through far_ibl
@@ -1496,7 +1496,7 @@ mangle_far_indirect_helper(dcontext_t *dcontext, instrlist_t *ilist, instr_t *in
         opnd_set_size(&sel, OPSZ_2);
 
         /* all scratch space should be in TLS only */
-        ASSERT(TEST(FRAG_SHARED, flags) || DYNAMO_OPTION(private_ib_in_tls));
+        ASSERT(TESTANY(FRAG_SHARED, flags) || DYNAMO_OPTION(private_ib_in_tls));
         PRE(ilist, instr,
             SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, REG_XBX, MANGLE_FAR_SPILL_SLOT,
                                      XBX_OFFSET, REG_R10));
@@ -1539,10 +1539,10 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      * inserts a direct exit stub.
      */
     /* If this call is marked for conversion, do minimal processing.
-     * FIXME Just a note that converted calls are not subjected to any of
+     * XXX Just a note that converted calls are not subjected to any of
      * the specialized builds' processing further down.
      */
-    if (TEST(INSTR_IND_CALL_DIRECT, instr->flags)) {
+    if (TESTANY(INSTR_IND_CALL_DIRECT, instr->flags)) {
         /* convert the call to a push of the return address */
         insert_push_retaddr(dcontext, ilist, instr, retaddr, pushsz);
         /* remove the call */
@@ -1630,7 +1630,7 @@ mangle_far_return_save_selector(dcontext_t *dcontext, instrlist_t *ilist, instr_
          */
         /* We could do a pop but state xl8 is already set up to restore lea */
         /* all scratch space should be in TLS only */
-        ASSERT(TEST(FRAG_SHARED, flags) || DYNAMO_OPTION(private_ib_in_tls));
+        ASSERT(TESTANY(FRAG_SHARED, flags) || DYNAMO_OPTION(private_ib_in_tls));
         PRE(ilist, instr,
             SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, REG_XBX, MANGLE_FAR_SPILL_SLOT,
                                      XBX_OFFSET, REG_R10));
@@ -1726,14 +1726,14 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         }
     }
 
-    if (TEST(INSTR_CLOBBER_RETADDR, instr->flags)) {
+    if (TESTANY(INSTR_CLOBBER_RETADDR, instr->flags)) {
         /* we put the value in the offset field earlier */
         ptr_uint_t val = (ptr_uint_t)instr->offset;
         insert_mov_ptr_uint_beyond_TOS(dcontext, ilist, instr, val, retsz);
     }
 
     if (instr_get_opcode(instr) == OP_ret_far) {
-        /* FIXME i#823: we do not support other than flat 0-based CS, DS, SS, and ES.
+        /* XXX i#823: we do not support other than flat 0-based CS, DS, SS, and ES.
          * If the app wants to change segments in a WOW64 process, we will
          * do the right thing for standard cs selector values (xref i#49).
          * For other cs changes or in other modes, we do go through far_ibl
@@ -1899,7 +1899,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      * because no branch can simultaneously use 3 registers, right?
      * Maximum is 2, in something like "jmp *(edi,ebx,4)"?
      * If it is possible, need to make sure stealing's use of ecx
-     * doesn't conflict w/ our use = FIXME
+     * doesn't conflict w/ our use = XXX
      */
     return next_instr;
 }
@@ -2019,13 +2019,13 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags, instr_
         PRE(ilist, next_instr,
             INSTR_CREATE_mov_st(dcontext, opnd_create_reg(REG_XCX),
                                 opnd_create_reg(REG_XDX)));
-    } else if (TEST(INSTR_BRANCH_SPECIAL_EXIT, instr->flags)) {
+    } else if (TESTANY(INSTR_BRANCH_SPECIAL_EXIT, instr->flags)) {
         int num = instr_get_interrupt_number(instr);
         ASSERT(instr_get_opcode(instr) == OP_int);
         if (num == 0x81 || num == 0x82) {
             int reason = (num == 0x81) ? EXIT_REASON_NI_SYSCALL_INT_0x81
                                        : EXIT_REASON_NI_SYSCALL_INT_0x82;
-            if (DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, flags)) {
+            if (DYNAMO_OPTION(private_ib_in_tls) || TESTANY(FRAG_SHARED, flags)) {
                 insert_shared_get_dcontext(dcontext, ilist, instr, true /*save_xdi*/);
                 PRE(ilist, instr,
                     INSTR_CREATE_mov_st(
@@ -2048,14 +2048,14 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags, instr_
      * in do_syscall
      */
 
-    /* FIXME: for ignorable syscalls,
+    /* XXX: for ignorable syscalls,
      * do we need support for exiting mid-fragment prior to a syscall
      * like we do on Linux, to bound time in cache?
      */
 
     if (does_syscall_ret_to_callsite()) {
         uint len = instr_length(dcontext, instr);
-        if (TEST(INSTR_SHARED_SYSCALL, instr->flags)) {
+        if (TESTANY(INSTR_SHARED_SYSCALL, instr->flags)) {
             ASSERT(DYNAMO_OPTION(shared_syscalls));
             /* this syscall will be performed by the shared_syscall code
              * we just need to place a return address into the dcontext
@@ -2065,7 +2065,7 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags, instr_
 #    ifdef X64
                 ASSERT(instr_raw_bits_valid(instr));
                 /* PR 244741: no 64-bit store-immed-to-mem
-                 * FIXME: would be nice to move this to the stub and
+                 * XXX: would be nice to move this to the stub and
                  * use the dead rbx register!
                  */
                 PRE(ilist, instr,
@@ -2094,7 +2094,7 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags, instr_
         /* Handle ignorable syscall.  non-ignorable system calls are
          * destroyed and removed from the list at the end of this func.
          */
-        else if (!TEST(INSTR_NI_SYSCALL, instr->flags)) {
+        else if (!TESTANY(INSTR_NI_SYSCALL, instr->flags)) {
             if (get_syscall_method() == SYSCALL_METHOD_INT && DYNAMO_OPTION(sygate_int)) {
                 /* for Sygate need to mangle into a call to int_syscall_addr
                  * is anyone going to get screwed up by this change
@@ -2118,13 +2118,13 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags, instr_
          * page at 0x7ffe0000 can't be made writable anyway, so hooking
          * isn't possible.
          */
-        if (TEST(INSTR_SHARED_SYSCALL, instr->flags)) {
+        if (TESTANY(INSTR_SHARED_SYSCALL, instr->flags)) {
             ASSERT(DYNAMO_OPTION(shared_syscalls));
         }
         /* Handle ignorable syscall.  non-ignorable system calls are
          * destroyed and removed from the list at the end of this func.
          */
-        else if (!TEST(INSTR_NI_SYSCALL, instr->flags)) {
+        else if (!TESTANY(INSTR_NI_SYSCALL, instr->flags)) {
 
             instr_t *mov_imm;
 
@@ -2137,7 +2137,7 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags, instr_
             ASSERT_NOT_IMPLEMENTED(!DYNAMO_OPTION(sygate_sysenter));
             /* PR 253943: we don't support sysenter in x64 */
             IF_X64(ASSERT_NOT_IMPLEMENTED(false)); /* can't have 8-byte imm-to-mem */
-            /* FIXME PR 303413: we won't properly translate a fault in our
+            /* XXX PR 303413: we won't properly translate a fault in our
              * app stack reference here.  It's marked as our own mangling
              * so we'll at least return failure from our translate routine.
              */
@@ -2156,7 +2156,7 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags, instr_
     } else {
         SYSLOG_INTERNAL_ERROR("unsupported system call method");
         LOG(THREAD, LOG_INTERP, 1, "don't know convention for this syscall method\n");
-        if (!TEST(INSTR_NI_SYSCALL, instr->flags))
+        if (!TESTANY(INSTR_NI_SYSCALL, instr->flags))
             return;
         ASSERT_NOT_IMPLEMENTED(false);
     }
@@ -2217,7 +2217,7 @@ void
 mangle_single_step(dcontext_t *dcontext, instrlist_t *ilist, uint flags, instr_t *instr)
 {
     /* Sets exit reason dynamically. */
-    if (DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, flags)) {
+    if (DYNAMO_OPTION(private_ib_in_tls) || TESTANY(FRAG_SHARED, flags)) {
         insert_shared_get_dcontext(dcontext, ilist, instr, true /*save_xdi*/);
         PRE(ilist, instr,
             INSTR_CREATE_mov_st(
@@ -2253,7 +2253,7 @@ float_pc_update(dcontext_t *dcontext)
         dcontext->upcontext.upcontext.exit_reason == EXIT_REASON_FLOAT_PC_XSAVE64) {
         /* Check whether the FPU state was saved */
         uint64 header_bv = *(uint64 *)(state + FXSAVE_SIZE);
-        if (!TEST(XCR0_FP, header_bv)) {
+        if (!TESTANY(XCR0_FP, header_bv)) {
             LOG(THREAD, LOG_INTERP, 2, "%s: xsave did not save FP state => nop\n",
                 __FUNCTION__);
         }
@@ -2352,7 +2352,7 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             dr_instr_category_t type;
             if (instr_is_app(prev) && instr_is_floating_type(prev, &type)) {
                 bool control_instr = false;
-                if (TEST(DR_INSTR_CATEGORY_STATE, type) /* quick check */ &&
+                if (TESTANY(DR_INSTR_CATEGORY_STATE, type) /* quick check */ &&
                     /* Check the list from Intel Vol 1 8.1.8 */
                     (op == OP_fnclex || op == OP_fldcw || op == OP_fnstcw ||
                      op == OP_fnstsw || op == OP_fnstenv || op == OP_fldenv ||
@@ -2398,12 +2398,12 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          * XXX: we can't recover the loss of coarse-grained: we live with that.
          */
         exit_is_normal = true;
-        ASSERT_CURIOSITY(!TEST(FRAG_CANNOT_BE_TRACE, *flags) ||
+        ASSERT_CURIOSITY(!TESTANY(FRAG_CANNOT_BE_TRACE, *flags) ||
                          /* i#1562: it could be marked as no-trace for other reasons */
-                         TEST(FRAG_SELFMOD_SANDBOXED, *flags));
+                         TESTANY(FRAG_SELFMOD_SANDBOXED, *flags));
     } else {
         int reason = 0;
-        CLIENT_ASSERT(!TEST(FRAG_IS_TRACE, *flags),
+        CLIENT_ASSERT(!TESTANY(FRAG_IS_TRACE, *flags),
                       "removing an FPU instr in a trace with an FPU state save "
                       "is not supported");
         switch (op) {
@@ -2419,7 +2419,7 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         case OP_xsaveopt64: reason = EXIT_REASON_FLOAT_PC_XSAVE64; break;
         default: ASSERT_NOT_REACHED();
         }
-        if (DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, *flags)) {
+        if (DYNAMO_OPTION(private_ib_in_tls) || TESTANY(FRAG_SHARED, *flags)) {
             insert_shared_get_dcontext(dcontext, ilist, instr, true /*save_xdi*/);
             PRE(ilist, instr,
                 INSTR_CREATE_mov_st(
@@ -2456,7 +2456,7 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             instr_create_save_to_tls(dcontext, REG_XDI, FLOAT_PC_STATE_SLOT));
 
         /* Restore app %xdi */
-        if (TEST(FRAG_SHARED, *flags))
+        if (TESTANY(FRAG_SHARED, *flags))
             insert_shared_restore_dcontext_reg(dcontext, ilist, instr);
         else {
             PRE(ilist, instr,
@@ -2475,7 +2475,7 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* XXX: there could be some other reason this was marked
          * cannot-be-trace that we're undoing here...
          */
-        if (TEST(FRAG_CANNOT_BE_TRACE, *flags))
+        if (TESTANY(FRAG_CANNOT_BE_TRACE, *flags))
             *flags &= ~FRAG_CANNOT_BE_TRACE;
     }
 }
@@ -2487,7 +2487,7 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 
 /* values returned by cpuid for Mobile Pentium MMX processor (family 5, model 8)
  * minus mmx (==0x00800000 in CPUID_1_EDX)
- * FIXME: change model number to a Pentium w/o MMX!
+ * XXX: change model number to a Pentium w/o MMX!
  */
 #    define CPUID_0_EAX 0x00000001
 #    define CPUID_0_EBX 0x756e6547
@@ -2521,7 +2521,7 @@ mangle_cpuid(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         goto cpuid_give_up;
     d_r_loginst(dcontext, 2, prev, "prior to cpuid");
 
-    /* FIXME: maybe should insert code to dispatch on eax, rather than
+    /* XXX: maybe should insert code to dispatch on eax, rather than
      * this hack, which is based on photoshop, which either does
      * "xor eax,eax" or "xor eax,eax; inc eax"
      */
@@ -2639,8 +2639,8 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     instr_get_rel_addr_target(instr, &tgt);
     STATS_INC(rip_rel_instrs);
 #    ifdef RCT_IND_BRANCH
-    if (TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
-        TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))) {
+    if (TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
+        TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))) {
         /* PR 215408: record addresses taken via rip-relative instrs */
         rct_add_rip_rel_addr(dcontext, tgt _IF_DEBUG(instr_get_translation(instr)));
     }
@@ -2694,7 +2694,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             int si = -1, di = -1;
             opnd_t relop, newop;
             bool spill = true;
-            /* FIXME PR 253446: for mbr, should share the xcx spill */
+            /* XXX PR 253446: for mbr, should share the xcx spill */
             reg_id_t scratch_reg = REG_XAX;
             si = instr_get_rel_addr_src_idx(instr);
             di = instr_get_rel_addr_dst_idx(instr);
@@ -3023,7 +3023,7 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         instr_set_dst(instr, di, newop);
     /* we need the whole spill...restore region to all be marked mangle */
     instr_set_our_mangling(instr, true);
-    /* FIXME: i#107 we should check the bound and raise signal if out of bound. */
+    /* XXX: i#107 we should check the bound and raise signal if out of bound. */
     DOLOG(3, LOG_INTERP,
           { d_r_loginst(dcontext, 3, instr, "re-wrote app tls reference"); });
 
@@ -3111,7 +3111,7 @@ mangle_annotation_helper(dcontext_t *dcontext, instr_t *label, instrlist_t *ilis
         instr_create_restore_from_dcontext((dc), (reg), (dc_offs))
 #endif
 
-static void
+void
 sandbox_rep_instr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *next,
                   app_pc start_pc, app_pc end_pc /* end is open */)
 {
@@ -3174,7 +3174,7 @@ sandbox_rep_instr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, inst
     instr_t *next_app = next;
     DOLOG(3, LOG_INTERP, { d_r_loginst(dcontext, 3, instr, "writes memory"); });
 
-    ASSERT(!instr_is_call_indirect(instr)); /* FIXME: can you have REP on on CALL's */
+    ASSERT(!instr_is_call_indirect(instr)); /* XXX: can you have REP on on CALL's */
 
     /* skip meta instrs to find next app instr (xref PR 472190) */
     while (next_app != NULL && instr_is_meta(next_app))
@@ -3279,9 +3279,10 @@ sandbox_rep_instr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, inst
     PRE(ilist, next, ok2);
 }
 
-static void
+void
 sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *next,
-              opnd_t op, app_pc start_pc, app_pc end_pc /* end is open */)
+              opnd_t op, app_pc start_pc, app_pc end_pc /* end is open */,
+              app_pc after_write)
 {
     /* can only test for equality w/o modifying flags, so save them
      * if (addr < end_pc && addr+opndsize > start_pc) => self-write
@@ -3307,49 +3308,14 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
      * if x64 && (start_pc > 4GB || end_pc > 4GB): restore xcx
      */
     instr_t *ok = INSTR_CREATE_label(dcontext), *jmp;
-    app_pc after_write = NULL;
     uint opndsize = opnd_size_in_bytes(opnd_get_size(op));
     uint flags =
         instr_eflags_to_fragment_eflags(forward_eflags_analysis(dcontext, ilist, next));
     bool use_tls = IF_X64_ELSE(true, false);
     IF_X64(bool x86_to_x64_ibl_opt = DYNAMO_OPTION(x86_to_x64_ibl_opt);)
-    instr_t *next_app = next;
     instr_t *get_addr_at = next;
     int opcode = instr_get_opcode(instr);
     DOLOG(3, LOG_INTERP, { d_r_loginst(dcontext, 3, instr, "writes memory"); });
-
-    /* skip meta instrs to find next app instr (xref PR 472190) */
-    while (next_app != NULL && instr_is_meta(next_app))
-        next_app = instr_get_next(next_app);
-
-    if (next_app != NULL) {
-        /* client may have inserted non-meta instrs, so use translation first
-         * (xref PR 472190)
-         */
-        if (instr_get_app_pc(next_app) != NULL)
-            after_write = instr_get_app_pc(next_app);
-        else if (!instr_raw_bits_valid(next_app)) {
-            /* next must be the final artificially added jmp! */
-            ASSERT(instr_is_ubr(next_app) && instr_get_next(next_app) == NULL);
-            /* for sure this is the last jmp out, but it
-             * doesn't have to be a direct jmp but instead
-             * it could be the exit branch we add as an
-             * for an indirect call - which is the only ind branch
-             * that writes to memory
-             * CALL* already means that we're leaving the block and it cannot be a selfmod
-             * instruction even though it writes to memory
-             */
-            DOLOG(4, LOG_INTERP,
-                  { d_r_loginst(dcontext, 4, next_app, "next app instr"); });
-            after_write = opnd_get_pc(instr_get_target(next_app));
-            LOG(THREAD, LOG_INTERP, 4, "after_write = " PFX " next should be final jmp\n",
-                after_write);
-        } else
-            after_write = instr_get_raw_bits(next_app);
-    } else {
-        ASSERT_NOT_TESTED();
-        after_write = end_pc;
-    }
 
     if (opcode == OP_ins || opcode == OP_movs || opcode == OP_stos) {
         /* These instrs modify their own addressing register so we must
@@ -3363,7 +3329,7 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
     PRE(ilist, get_addr_at,
         SAVE_TO_DC_OR_TLS(dcontext, REG_XBX, TLS_XBX_SLOT, XBX_OFFSET));
     /* XXX: Basically reimplementing drutil_insert_get_mem_addr(). */
-    /* FIXME i#986: Sandbox far writes.  Not a hypothetical problem!  NaCl uses
+    /* XXX i#986: Sandbox far writes.  Not a hypothetical problem!  NaCl uses
      * segments for its x86 sandbox, although they are 0 based with a limit.
      * qq.exe has them in sandboxed code.
      */
@@ -3473,17 +3439,7 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
 #endif
 }
 
-static bool
-sandbox_top_of_bb_check_s2ro(dcontext_t *dcontext, app_pc start_pc)
-{
-    return (DYNAMO_OPTION(sandbox2ro_threshold) > 0 &&
-            /* we can't make stack regions ro so don't put in the instrumentation */
-            !is_address_on_stack(dcontext, start_pc) &&
-            /* case 9098 we don't want to ever make RO untrackable driver areas */
-            !is_driver_address(start_pc));
-}
-
-static void
+void
 sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist, bool s2ro, uint flags,
                   app_pc start_pc, app_pc end_pc, /* end is open */
                   bool for_cache,
@@ -3495,7 +3451,7 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist, bool s2ro, uint flag
      * copy we saved, stored in cache right after fragment itself.  leave its
      * start address blank here, will be touched up after emitting this ilist.
      *
-     * FIXME case 8165/PR 212600: optimize this: move reg restores to
+     * XXX case 8165/PR 212600: optimize this: move reg restores to
      * custom fcache_return, use cmpsd instead of cmpsb, etc.
      *
      * if eflags live entering this bb:
@@ -3617,7 +3573,7 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist, bool s2ro, uint flag
             INSTR_CREATE_cmp(dcontext, OPND_CREATE_ABSMEM(counter, OPSZ_4),
                              OPND_CREATE_INT_32OR8(thresh)));
 #endif
-        if (TEST(FRAG_WRITES_EFLAGS_6, flags) IF_X64(&&false)) {
+        if (TESTANY(FRAG_WRITES_EFLAGS_6, flags) IF_X64(&&false)) {
             jmp = INSTR_CREATE_jcc(dcontext, OP_jge, opnd_create_pc(start_pc));
             instr_branch_set_special_exit(jmp, true);
             /* an exit cti, not a meta instr */
@@ -3631,7 +3587,7 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist, bool s2ro, uint flag
             PRE(ilist, instr,
                 RESTORE_FROM_DC_OR_TLS(dcontext, REG_XCX, TLS_XCX_SLOT, XCX_OFFSET));
 #endif
-            if (!TEST(FRAG_WRITES_EFLAGS_6, flags)) {
+            if (!TESTANY(FRAG_WRITES_EFLAGS_6, flags)) {
                 ASSERT(restore_eflags_and_exit == NULL);
                 restore_eflags_and_exit = INSTR_CREATE_label(dcontext);
                 PRE(ilist, instr,
@@ -3744,7 +3700,7 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist, bool s2ro, uint flag
         RESTORE_FROM_DC_OR_TLS(dcontext, REG_XSI, TLS_XBX_SLOT, XSI_OFFSET));
     PRE(ilist, instr,
         RESTORE_FROM_DC_OR_TLS(dcontext, REG_XDI, TLS_XDX_SLOT, XDI_OFFSET));
-    if (!TEST(FRAG_WRITES_EFLAGS_6, flags)) {
+    if (!TESTANY(FRAG_WRITES_EFLAGS_6, flags)) {
         instr_t *start_bb = INSTR_CREATE_label(dcontext);
         PRE(ilist, instr, INSTR_CREATE_jcc(dcontext, OP_je, opnd_create_instr(start_bb)));
         if (restore_eflags_and_exit != NULL) /* somebody needs this label */
@@ -3768,121 +3724,6 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist, bool s2ro, uint flag
                           !use_tls _IF_X64(X64_CACHE_MODE_DC(dcontext) &&
                                            !X64_MODE_DC(dcontext) && x86_to_x64_ibl_opt));
     /* fall-through to bb start */
-}
-
-/* returns false if failed to add sandboxing b/c of a problematic ilist --
- * invalid instrs, elided ctis, etc.
- */
-bool
-insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
-                       app_pc start_pc, app_pc end_pc, /* end is open */
-                       bool record_translation, bool for_cache)
-{
-    instr_t *instr, *next;
-
-    if (!INTERNAL_OPTION(hw_cache_consistency))
-        return true; /* nothing to do */
-
-    /* this code assumes bb covers single, contiguous region */
-    ASSERT((flags & FRAG_HAS_DIRECT_CTI) == 0);
-
-    /* store first instr so loop below will skip top check */
-    instr = instrlist_first_expanded(dcontext, ilist);
-    instrlist_set_our_mangling(ilist, true); /* PR 267260 */
-    if (record_translation) {
-        /* skip client instrumentation, if any, as is done below */
-        while (instr != NULL && instr_is_meta(instr))
-            instr = instr_get_next_expanded(dcontext, ilist, instr);
-        /* make sure inserted instrs translate to the proper original instr */
-        ASSERT(instr != NULL && instr_get_translation(instr) != NULL);
-        instrlist_set_translation_target(ilist, instr_get_translation(instr));
-    }
-
-    sandbox_top_of_bb(dcontext, ilist, sandbox_top_of_bb_check_s2ro(dcontext, start_pc),
-                      flags, start_pc, end_pc, for_cache, NULL, NULL, NULL);
-
-    if (INTERNAL_OPTION(sandbox_writes)) {
-        for (; instr != NULL; instr = next) {
-            int i, opcode;
-            opnd_t op;
-
-            opcode = instr_get_opcode(instr);
-            if (!instr_valid(instr)) {
-                /* invalid instr -- best to truncate block here, easiest way
-                 * to do that and get all flags right is to re-build it,
-                 * but this time we'll use full decode so we'll avoid the discrepancy
-                 * between fast and full decode on invalid instr detection.
-                 */
-                if (record_translation)
-                    instrlist_set_translation_target(ilist, NULL);
-                instrlist_set_our_mangling(ilist, false); /* PR 267260 */
-                return false;
-            }
-
-            /* don't mangle anything that mangle inserts! */
-            next = instr_get_next_expanded(dcontext, ilist, instr);
-            if (instr_is_meta(instr))
-                continue;
-            if (record_translation) {
-                /* make sure inserted instrs translate to the proper original instr */
-                ASSERT(instr_get_translation(instr) != NULL);
-                instrlist_set_translation_target(ilist, instr_get_translation(instr));
-            }
-
-            if (opcode == OP_rep_ins || opcode == OP_rep_movs || opcode == OP_rep_stos) {
-                sandbox_rep_instr(dcontext, ilist, instr, next, start_pc, end_pc);
-                continue;
-            }
-
-            /* FIXME case 8165: optimize for multiple push/pop */
-            for (i = 0; i < instr_num_dsts(instr); i++) {
-                op = instr_get_dst(instr, i);
-                if (opnd_is_memory_reference(op)) {
-                    /* ignore CALL* since last anyways */
-                    if (instr_is_call_indirect(instr)) {
-                        ASSERT(next != NULL && !instr_raw_bits_valid(next));
-                        /* FIXME case 8165: why do we ever care about the last
-                         * instruction modifying anything?
-                         */
-                        /* conversion of IAT calls (but not elision)
-                         * transforms this into a direct CALL,
-                         * in that case 'next' is a direct jmp
-                         * fall through, so has no exit flags
-                         */
-                        ASSERT(EXIT_IS_CALL(instr_exit_branch_type(next)) ||
-                               (DYNAMO_OPTION(IAT_convert) &&
-                                TEST(INSTR_IND_CALL_DIRECT, instr->flags)));
-
-                        LOG(THREAD, LOG_INTERP, 3,
-                            " ignoring CALL* at end of fragment\n");
-                        /* This test could be done outside of this loop on
-                         * destinations, but since it is rare it is faster
-                         * to do it here.  Using continue instead of break in case
-                         * it gets moved out.
-                         */
-                        continue;
-                    }
-                    if (opnd_is_abs_addr(op) IF_X64(|| opnd_is_rel_addr(op))) {
-                        app_pc abs_addr = opnd_get_addr(op);
-                        uint size = opnd_size_in_bytes(opnd_get_size(op));
-                        if (!POINTER_OVERFLOW_ON_ADD(abs_addr, size) &&
-                            (abs_addr + size < start_pc || abs_addr >= end_pc)) {
-                            /* This is an absolute memory reference that points
-                             * outside the current basic block and doesn't need
-                             * sandboxing.
-                             */
-                            continue;
-                        }
-                    }
-                    sandbox_write(dcontext, ilist, instr, next, op, start_pc, end_pc);
-                }
-            }
-        }
-    }
-    if (record_translation)
-        instrlist_set_translation_target(ilist, NULL);
-    instrlist_set_our_mangling(ilist, false); /* PR 267260 */
-    return true;
 }
 
 /* Offsets within selfmod sandbox top-of-bb code that we patch once
@@ -3964,7 +3805,7 @@ set_selfmod_sandbox_offsets(dcontext_t *dcontext)
 }
 
 void
-finalize_selfmod_sandbox(dcontext_t *dcontext, fragment_t *f)
+finalize_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, fragment_t *f)
 {
     cache_pc copy_pc = FRAGMENT_SELFMOD_COPY_PC(f);
     byte *pc;
@@ -3973,9 +3814,9 @@ finalize_selfmod_sandbox(dcontext_t *dcontext, fragment_t *f)
     int k = ((ptr_uint_t)f->tag) > UINT_MAX ? 1 : 0;
 #endif
     i = (sandbox_top_of_bb_check_s2ro(dcontext, f->tag)) ? 1 : 0;
-    j = (TEST(FRAG_WRITES_EFLAGS_6, f->flags)
+    j = (TESTANY(FRAG_WRITES_EFLAGS_6, f->flags)
              ? 0
-             : (TEST(FRAG_WRITES_EFLAGS_OF, f->flags) ? 1 : 2));
+             : (TESTANY(FRAG_WRITES_EFLAGS_OF, f->flags) ? 1 : 2));
     pc = FCACHE_ENTRY_PC(f) + selfmod_copy_start_offs[i][j] IF_X64([k]);
     /* The copy start gets updated after sandbox_top_of_bb. */
     *((cache_pc *)vmcode_get_writable_addr(pc)) = copy_pc;

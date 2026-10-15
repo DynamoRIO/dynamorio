@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,7 +40,7 @@
  */
 
 #ifndef _NTDLL_SHARED_H_
-#define _NTDLL_SHARED_H_ 1
+#define _NTDLL_SHARED_H_
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>

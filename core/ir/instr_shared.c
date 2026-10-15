@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -61,7 +61,7 @@
 #include "opcode_api.h"
 #include "opnd.h"
 #include "instr_create_shared.h"
-/* FIXME i#1551: refactor this file and avoid this x86-specific include in base arch/ */
+/* XXX i#1551: refactor this file and avoid this x86-specific include in base arch/ */
 #include "x86/decode_private.h"
 
 #ifdef DEBUG
@@ -129,7 +129,7 @@ instr_clone(void *drcontext, instr_t *orig)
     /* We could heap-allocate an instr_noalloc_t but it's intended for use in a
      * signal handler or other places where we don't want any heap allocation.
      */
-    CLIENT_ASSERT(!TEST(INSTR_IS_NOALLOC_STRUCT, orig->flags),
+    CLIENT_ASSERT(!TESTANY(INSTR_IS_NOALLOC_STRUCT, orig->flags),
                   "Cloning an instr_noalloc_t is not supported.");
 
     instr_t *instr = (instr_t *)heap_alloc(dcontext, sizeof(instr_t) HEAPACCT(ACCT_IR));
@@ -213,9 +213,9 @@ instr_free(void *drcontext, instr_t *instr)
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     if (instr_is_label(instr) && instr_get_label_callback(instr) != NULL)
         (*instr->label_cb)(dcontext, instr);
-    if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))
+    if (TESTANY(INSTR_IS_NOALLOC_STRUCT, instr->flags))
         return;
-    if (TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags)) {
+    if (TESTANY(INSTR_RAW_BITS_ALLOCATED, instr->flags)) {
         instr_free_raw_bits(dcontext, instr);
     }
     if (instr->num_dsts > 0) { /* checking num_dsts, not dsts, b/c of label data */
@@ -236,7 +236,7 @@ instr_free(void *drcontext, instr_t *instr)
 int
 instr_mem_usage(instr_t *instr)
 {
-    if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))
+    if (TESTANY(INSTR_IS_NOALLOC_STRUCT, instr->flags))
         return sizeof(instr_noalloc_t);
     int usage = 0;
     if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) != 0) {
@@ -262,7 +262,7 @@ instr_reset(void *drcontext, instr_t *instr)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_free(dcontext, instr);
-    if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
+    if (TESTANY(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
         instr_init(dcontext, instr);
         instr->flags |= INSTR_IS_NOALLOC_STRUCT;
     } else {
@@ -356,7 +356,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
 {
     byte *buf;
     byte stack_buf[MAX_INSTR_LENGTH];
-    if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
+    if (TESTANY(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
         /* We have no choice: we live with no persistent caching if the stack is
          * too far away, because the instr's raw bits will be on the stack.
          * (We can't use encode_buf here bc the re-rel below does not support
@@ -384,7 +384,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
         nxt = instr_encode_ignore_reachability(dcontext, instr, buf);
         if (nxt == NULL) {
 #ifdef AARCH64
-            /* We do not use instr_info_t encoding info on AArch64. FIXME i#1569 */
+            /* We do not use instr_info_t encoding info on AArch64. XXX i#1569 */
             SYSLOG_INTERNAL_WARNING("cannot encode %s",
                                     get_opcode_name(instr_get_opcode(instr)));
 #else
@@ -394,7 +394,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
                                                                 _IF_ARM(false))
                                         ->name);
 #endif
-            if (!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))
+            if (!TESTANY(INSTR_IS_NOALLOC_STRUCT, instr->flags))
                 heap_reachable_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
             return 0;
         }
@@ -424,7 +424,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
          * we rely on the INSTR_RIP_REL_VALID flag being invalidated whenever
          * the raw bits are.
          */
-        bool rip_rel_valid = TEST(INSTR_RIP_REL_VALID, instr->flags);
+        bool rip_rel_valid = TESTANY(INSTR_RIP_REL_VALID, instr->flags);
 #endif
         byte *tmp;
         CLIENT_ASSERT(!instr_raw_bits_valid(instr),
@@ -443,7 +443,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
         instr->bytes = tmp;
         instr_set_operands_valid(instr, valid);
     }
-    if (!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))
+    if (!TESTANY(INSTR_IS_NOALLOC_STRUCT, instr->flags))
         heap_reachable_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
     return len;
 }
@@ -637,7 +637,7 @@ instr_set_num_opnds(void *drcontext, instr_t *instr, int instr_num_dsts,
         CLIENT_ASSERT_TRUNCATE(instr->num_dsts, byte, instr_num_dsts,
                                "instr_set_num_opnds: too many dsts");
         instr->num_dsts = (byte)instr_num_dsts;
-        if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
+        if (TESTANY(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
             instr_noalloc_t *noalloc = (instr_noalloc_t *)instr;
             noalloc->instr.dsts = noalloc->dsts;
         } else {
@@ -650,7 +650,7 @@ instr_set_num_opnds(void *drcontext, instr_t *instr, int instr_num_dsts,
         if (instr_num_srcs > 1) {
             CLIENT_ASSERT(instr->num_srcs <= 1 && instr->srcs == NULL,
                           "instr_set_num_opnds: srcs are already set");
-            if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
+            if (TESTANY(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
                 instr_noalloc_t *noalloc = (instr_noalloc_t *)instr;
                 noalloc->instr.srcs = noalloc->srcs;
             } else {
@@ -701,7 +701,7 @@ instr_remove_srcs(void *drcontext, instr_t *instr, uint start, uint end)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     opnd_t *new_srcs;
-    CLIENT_ASSERT(!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags),
+    CLIENT_ASSERT(!TESTANY(INSTR_IS_NOALLOC_STRUCT, instr->flags),
                   /* We could implement, but it does not seem an important use case. */
                   "instr_remove_srcs not supported for instr_noalloc_t");
     CLIENT_ASSERT(start >= 0 && end <= instr->num_srcs && start < end,
@@ -734,7 +734,7 @@ instr_remove_dsts(void *drcontext, instr_t *instr, uint start, uint end)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     opnd_t *new_dsts;
-    CLIENT_ASSERT(!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags),
+    CLIENT_ASSERT(!TESTANY(INSTR_IS_NOALLOC_STRUCT, instr->flags),
                   /* We could implement, but it does not seem an important use case. */
                   "instr_remove_srcs not supported for instr_noalloc_t");
     CLIENT_ASSERT(start >= 0 && end <= instr->num_dsts && start < end,
@@ -929,7 +929,7 @@ instr_set_predicate(instr_t *instr, dr_pred_type_t pred)
 bool
 instr_branch_is_padded(instr_t *instr)
 {
-    return TEST(INSTR_BRANCH_PADDED, instr->flags);
+    return TESTANY(INSTR_BRANCH_PADDED, instr->flags);
 }
 
 void
@@ -945,7 +945,7 @@ instr_branch_set_padded(instr_t *instr, bool val)
 bool
 instr_branch_special_exit(instr_t *instr)
 {
-    return TEST(INSTR_BRANCH_SPECIAL_EXIT, instr->flags);
+    return TESTANY(INSTR_BRANCH_SPECIAL_EXIT, instr->flags);
 }
 
 /* If val is true, indicates that instr is a special exit cti.
@@ -1038,12 +1038,12 @@ uint
 instr_eflags_conditionally(uint full_eflags, dr_pred_type_t pred,
                            dr_opnd_query_flags_t flags)
 {
-    if (!TEST(DR_QUERY_INCLUDE_COND_SRCS, flags) && instr_predicate_is_cond(pred) &&
+    if (!TESTANY(DR_QUERY_INCLUDE_COND_SRCS, flags) && instr_predicate_is_cond(pred) &&
         !instr_predicate_reads_srcs(pred)) {
         /* i#1836: the predicate itself reads some flags */
         full_eflags &= ~EFLAGS_READ_NON_PRED;
     }
-    if (!TEST(DR_QUERY_INCLUDE_COND_DSTS, flags) && instr_predicate_is_cond(pred) &&
+    if (!TESTANY(DR_QUERY_INCLUDE_COND_DSTS, flags) && instr_predicate_is_cond(pred) &&
         !instr_predicate_writes_eflags(pred))
         full_eflags &= ~EFLAGS_WRITE_ALL;
     return full_eflags;
@@ -1077,7 +1077,7 @@ instr_get_eflags(instr_t *instr, dr_opnd_query_flags_t flags)
             instr_free_raw_bits(dcontext, instr);
             CLIENT_ASSERT(!instr_raw_bits_valid(instr), "internal encoding buf error");
         }
-        /* even if decode fails, set valid to true -- ok?  FIXME */
+        /* even if decode fails, set valid to true -- ok?  XXX */
         instr_set_eflags_valid(instr, true);
     }
     return instr_eflags_conditionally(instr->eflags, instr_get_predicate(instr), flags);
@@ -1217,7 +1217,7 @@ instr_free_raw_bits(void *drcontext, instr_t *instr)
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) == 0)
         return;
-    if (!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))
+    if (!TESTANY(INSTR_IS_NOALLOC_STRUCT, instr->flags))
         heap_reachable_free(dcontext, instr->bytes, instr->length HEAPACCT(ACCT_IR));
     instr->bytes = NULL;
     instr->flags &= ~INSTR_RAW_BITS_VALID;
@@ -1233,11 +1233,11 @@ instr_allocate_raw_bits(void *drcontext, instr_t *instr, uint num_bytes)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     byte *original_bits = NULL;
-    if (TEST(INSTR_RAW_BITS_VALID, instr->flags))
+    if (TESTANY(INSTR_RAW_BITS_VALID, instr->flags))
         original_bits = instr->bytes;
-    if (!TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags) || instr->length != num_bytes) {
+    if (!TESTANY(INSTR_RAW_BITS_ALLOCATED, instr->flags) || instr->length != num_bytes) {
         byte *new_bits;
-        if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
+        if (TESTANY(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
             /* This may not be reachable, so re-relativization is limited. */
             instr_noalloc_t *noalloc = (instr_noalloc_t *)instr;
             CLIENT_ASSERT(num_bytes <= sizeof(noalloc->encode_buf),
@@ -1276,7 +1276,7 @@ instr_set_label_callback(instr_t *instr, instr_label_callback_t cb)
     CLIENT_ASSERT(instr_is_label(instr),
                   "only set callback functions for label instructions");
     CLIENT_ASSERT(instr->label_cb == NULL, "label callback function is already set");
-    CLIENT_ASSERT(!TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags),
+    CLIENT_ASSERT(!TESTANY(INSTR_RAW_BITS_ALLOCATED, instr->flags),
                   "instruction's raw bits occupying label callback memory");
     instr->label_cb = cb;
 }
@@ -1287,7 +1287,7 @@ instr_clear_label_callback(instr_t *instr)
     CLIENT_ASSERT(instr_is_label(instr),
                   "only set callback functions for label instructions");
     CLIENT_ASSERT(instr->label_cb != NULL, "label callback function not set");
-    CLIENT_ASSERT(!TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags),
+    CLIENT_ASSERT(!TESTANY(INSTR_RAW_BITS_ALLOCATED, instr->flags),
                   "instruction's raw bits occupying label callback memory");
     instr->label_cb = NULL;
 }
@@ -1297,7 +1297,7 @@ instr_get_label_callback(instr_t *instr)
 {
     CLIENT_ASSERT(instr_is_label(instr),
                   "only label instructions have a callback function");
-    CLIENT_ASSERT(!TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags),
+    CLIENT_ASSERT(!TESTANY(INSTR_RAW_BITS_ALLOCATED, instr->flags),
                   "instruction's raw bits occupying label callback memory");
     return instr->label_cb;
 }
@@ -1446,7 +1446,7 @@ instr_set_encoding_hint(instr_t *instr, dr_encoding_hint_type_t hint)
 bool
 instr_has_encoding_hint(instr_t *instr, dr_encoding_hint_type_t hint)
 {
-    return TEST(hint, instr->encoding_hints);
+    return TESTANY(hint, instr->encoding_hints);
 }
 
 /***********************************************************************/
@@ -1475,7 +1475,7 @@ instr_expand(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
 
     /* make it easy for iterators: handle NULL
      * assume that if opcode is valid, is at Level 2, so not a bundle
-     * do not expand meta-instrs -- FIXME: is that the right thing to do?
+     * do not expand meta-instrs -- XXX: is that the right thing to do?
      */
     if (instr == NULL || instr_opcode_valid(instr) || instr_is_meta(instr) ||
         /* if an invalid instr (not just undecoded) do not try to expand */
@@ -1577,7 +1577,7 @@ instr_is_level_0(instr_t *instr)
     dcontext_t *dcontext = get_thread_private_dcontext();
     dr_isa_mode_t old_mode;
     /* assume that if opcode is valid, is at Level 2, so not a bundle
-     * do not expand meta-instrs -- FIXME: is that the right to do? */
+     * do not expand meta-instrs -- XXX: is that the right to do? */
     if (instr == NULL || instr_opcode_valid(instr) || instr_is_meta(instr) ||
         /* if an invalid instr (not just undecoded) do not try to expand */
         !instr_valid(instr))
@@ -1807,7 +1807,7 @@ instrlist_decode_cti(dcontext_t *dcontext, instrlist_t *ilist)
     for (instr = instrlist_first(ilist); instr != NULL; instr = instr_get_next(instr)) {
         /* N.B.: if we change exit cti's to have instr_t targets, we have to
          * change other modules like emit to handle that!
-         * FIXME
+         * XXX
          */
         if (!instr_is_exit_cti(instr) &&
             instr_opcode_valid(instr) && /* decode_cti only filled in cti opcodes */
@@ -2029,7 +2029,7 @@ instr_reads_from_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags)
     int i;
     opnd_t opnd;
 
-    if (!TEST(DR_QUERY_INCLUDE_COND_SRCS, flags) && instr_is_predicated(instr) &&
+    if (!TESTANY(DR_QUERY_INCLUDE_COND_SRCS, flags) && instr_is_predicated(instr) &&
         !instr_predicate_reads_srcs(instr_get_predicate(instr)))
         return false;
 
@@ -2055,7 +2055,7 @@ instr_reads_from_exact_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t f
     int i;
     opnd_t opnd;
 
-    if (!TEST(DR_QUERY_INCLUDE_COND_SRCS, flags) && instr_is_predicated(instr) &&
+    if (!TESTANY(DR_QUERY_INCLUDE_COND_SRCS, flags) && instr_is_predicated(instr) &&
         !instr_predicate_reads_srcs(instr_get_predicate(instr)))
         return false;
 
@@ -2094,7 +2094,7 @@ instr_writes_to_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags)
     int i;
     opnd_t opnd;
 
-    if (!TEST(DR_QUERY_INCLUDE_COND_DSTS, flags) && instr_is_predicated(instr))
+    if (!TESTANY(DR_QUERY_INCLUDE_COND_DSTS, flags) && instr_is_predicated(instr))
         return false;
 
     for (i = 0; i < instr_num_dsts(instr); i++) {
@@ -2112,7 +2112,7 @@ instr_writes_to_exact_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t fl
     int i;
     opnd_t opnd;
 
-    if (!TEST(DR_QUERY_INCLUDE_COND_DSTS, flags) && instr_is_predicated(instr))
+    if (!TESTANY(DR_QUERY_INCLUDE_COND_DSTS, flags) && instr_is_predicated(instr))
         return false;
 
     for (i = 0; i < instr_num_dsts(instr); i++) {
@@ -2263,7 +2263,7 @@ instr_zeroes_ymmh(instr_t *instr)
      * Moreover, EVEX encoded instructions clear upper ZMM bits, but also
      * YMM bits if an XMM reg is used.
      */
-    if (!TEST(REQUIRES_VEX, info->flags) && !TEST(REQUIRES_EVEX, info->flags))
+    if (!TESTANY(REQUIRES_VEX, info->flags) && !TESTANY(REQUIRES_EVEX, info->flags))
         return false;
 
     /* Handle zeroall special case. */
@@ -2286,7 +2286,7 @@ instr_zeroes_zmmh(instr_t *instr)
     const instr_info_t *info = get_encoding_info(instr);
     if (info == NULL)
         return false;
-    if (!TEST(REQUIRES_VEX, info->flags) && !TEST(REQUIRES_EVEX, info->flags))
+    if (!TESTANY(REQUIRES_VEX, info->flags) && !TESTANY(REQUIRES_EVEX, info->flags))
         return false;
     /* Handle special cases, namely zeroupper and zeroall. */
     /* XXX: DR ir should actually have these two instructions have all SIMD vector regs
@@ -2350,7 +2350,7 @@ instr_is_xrstor(instr_t *instr)
 bool
 instr_rip_rel_valid(instr_t *instr)
 {
-    return instr_raw_bits_valid(instr) && TEST(INSTR_RIP_REL_VALID, instr->flags);
+    return instr_raw_bits_valid(instr) && TESTANY(INSTR_RIP_REL_VALID, instr->flags);
 }
 
 void
@@ -2582,7 +2582,7 @@ instr_get_rel_addr_src_idx(instr_t *instr)
 bool
 instr_is_our_mangling(instr_t *instr)
 {
-    return TEST(INSTR_OUR_MANGLING, instr->flags);
+    return TESTANY(INSTR_OUR_MANGLING, instr->flags);
 }
 
 void
@@ -2597,9 +2597,9 @@ instr_set_our_mangling(instr_t *instr, bool ours)
 bool
 instr_is_our_mangling_epilogue(instr_t *instr)
 {
-    ASSERT(!TEST(INSTR_OUR_MANGLING_EPILOGUE, instr->flags) ||
+    ASSERT(!TESTANY(INSTR_OUR_MANGLING_EPILOGUE, instr->flags) ||
            instr_is_our_mangling(instr));
-    return TEST(INSTR_OUR_MANGLING_EPILOGUE, instr->flags);
+    return TESTANY(INSTR_OUR_MANGLING_EPILOGUE, instr->flags);
 }
 
 void
@@ -3217,7 +3217,7 @@ instr_convert_short_meta_jmp_to_long(void *drcontext, instrlist_t *ilist, instr_
  * instr_t creation routines
  * To use 16-bit data sizes, must call set_prefix after creating instr
  * To support this, all relevant registers must be of eAX form!
- * FIXME: how do that?
+ * XXX: how do that?
  * will an all-operand replacement work, or do some instrs have some
  * var-size regs but some const-size also?
  *
@@ -3230,7 +3230,7 @@ instr_convert_short_meta_jmp_to_long(void *drcontext, instrlist_t *ilist, instr_
  * opcode complaints:
  * OP_imm vs. OP_st
  * OP_ret: build routines have to separate ret_imm and ret_far_imm
- * others, see FIXME's in instr_create_api.h
+ * others, see XXX's in instr_create_api.h
  */
 
 instr_t *
@@ -4038,7 +4038,7 @@ instr_t *
 instr_create_jump_via_dcontext(dcontext_t *dcontext, int offs)
 {
 #    if defined(AARCH64) || defined(RISCV64)
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 i#3544 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 i#3544 */
     return 0;
 #    else
     opnd_t memopnd = opnd_create_dcontext_field(dcontext, offs);
@@ -4056,43 +4056,66 @@ instr_create_restore_dynamo_stack(dcontext_t *dcontext)
     return instr_create_restore_from_dcontext(dcontext, REG_XSP, DSTACK_OFFSET);
 }
 
-/* make sure to keep in sync w/ emit_utils.c's insert_spill_or_restore() */
+/* Make sure to keep in sync w/ emit_utils.c's insert_tls_spill_or_restore(). */
 bool
 instr_raw_is_tls_spill(byte *pc, reg_id_t reg, ushort offs)
 {
 #    ifdef X86
-    ASSERT_NOT_IMPLEMENTED(reg != REG_XAX);
 #        ifdef X64
-    /* match insert_jmp_to_ibl */
+    /* Match the compact user-space RAX addr32 moffs form:
+     *   67 65 48 a3 88 00 00 00        addr32 mov %rax -> %gs:0x88
+     */
+    if (reg == REG_XAX && *pc == ADDR_PREFIX_OPCODE && *(pc + 1) == TLS_SEG_OPCODE &&
+        *(pc + 2) == (REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG) &&
+        *(pc + 3) == MOV_XAX2MEM_OPCODE && *((int *)(pc + 4)) == os_tls_offset(offs))
+        return true;
+    /* Match the sign-extended disp32 form for all registers, including RAX:
+     *   65 48 89 1c 25 88 00 00 00     mov %rbx -> %gs:0x88
+     *   65 48 89 04 25 f8 ff ff ff     mov %rax -> %gs:-0x8
+     */
     if (*pc == TLS_SEG_OPCODE &&
         *(pc + 1) == (REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG) &&
         *(pc + 2) == MOV_REG2MEM_OPCODE &&
         /* 0x1c for ebx, 0x0c for ecx, 0x04 for eax */
         *(pc + 3) == MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), 4 /*rm*/) &&
-        *(pc + 4) == 0x25 && *((uint *)(pc + 5)) == (uint)os_tls_offset(offs))
+        *(pc + 4) == SIB_DISP32 && *((int *)(pc + 5)) == os_tls_offset(offs))
         return true;
-        /* we also check for 32-bit.  we could take in flags and only check for one
-         * version, but we're not worried about false positives.
-         */
+    /* we also check for 32-bit.  we could take in flags and only check for one
+     * version, but we're not worried about false positives.
+     */
 #        endif
-    /* looking for:   67 64 89 1e e4 0e    addr16 mov    %ebx -> %fs:0xee4   */
-    /* ASSUMPTION: when addr16 prefix is used, prefix order is fixed */
+    /* The 32-bit RAX form uses moffs instead of ModRM:
+     *   67 64 a3 e4 0e                 addr16 mov %eax -> %fs:0xee4
+     *   64 a3 e4 0e 00 00              mov %eax -> %fs:0xee4
+     */
+    if (reg == REG_XAX) {
+        return (*pc == ADDR_PREFIX_OPCODE && *(pc + 1) == TLS_SEG_OPCODE &&
+                *(pc + 2) == MOV_XAX2MEM_OPCODE &&
+                *((ushort *)(pc + 3)) == os_tls_offset(offs)) ||
+            (*pc == TLS_SEG_OPCODE && *(pc + 1) == MOV_XAX2MEM_OPCODE &&
+             *((int *)(pc + 2)) == os_tls_offset(offs));
+    }
+    /* ASSUMPTION: when addr16 prefix is used, prefix order is fixed.
+     *   67 64 89 1e e4 0e              addr16 mov %ebx -> %fs:0xee4
+     */
     return (*pc == ADDR_PREFIX_OPCODE && *(pc + 1) == TLS_SEG_OPCODE &&
             *(pc + 2) == MOV_REG2MEM_OPCODE &&
-            /* 0x1e for ebx, 0x0e for ecx, 0x06 for eax */
+            /* 0x1e for ebx, 0x0e for ecx */
             *(pc + 3) == MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), 6 /*rm*/) &&
             *((ushort *)(pc + 4)) == os_tls_offset(offs)) ||
-        /* PR 209709: allow for no addr16 prefix */
+        /* Without addr16 the absolute disp32 uses rm=5, and follows ModRM:
+         *   64 89 1d e4 0e 00 00         mov %ebx -> %fs:0xee4
+         */
         (*pc == TLS_SEG_OPCODE && *(pc + 1) == MOV_REG2MEM_OPCODE &&
-         /* 0x1e for ebx, 0x0e for ecx, 0x06 for eax */
-         *(pc + 2) == MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), 6 /*rm*/) &&
-         *((uint *)(pc + 4)) == os_tls_offset(offs));
+         /* 0x1d for ebx, 0x0d for ecx */
+         *(pc + 2) == MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), 5 /*rm*/) &&
+         *((int *)(pc + 3)) == os_tls_offset(offs));
 #    elif defined(AARCHXX)
-    /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
+    /* TODO i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 #    elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented. */
+    /* XXX i#3544: Not implemented. */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 #    endif /* X86/ARM/RISCV64 */
@@ -4184,11 +4207,11 @@ instr_is_tls_xcx_spill(instr_t *instr)
     } else
         return instr_is_tls_spill(instr, REG_ECX, MANGLE_XCX_SPILL_SLOT);
 #    elif defined(AARCHXX)
-    /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
+    /* TODO i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 #    elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 #    endif
@@ -4242,7 +4265,7 @@ instr_check_mcontext_spill_restore(dcontext_t *dcontext, instr_t *instr, bool *s
 
 static bool
 instr_is_reg_spill_or_restore_ex(void *drcontext, instr_t *instr, bool DR_only, bool *tls,
-                                 bool *spill, reg_id_t *reg, uint *offs_out)
+                                 bool *spill, reg_id_t *reg, int *offs_out)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     int check_disp = 0; /* init to satisfy some compilers */
@@ -4293,13 +4316,18 @@ bool
 instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls, bool *spill,
                               reg_id_t *reg, uint *offs)
 {
-    return instr_is_reg_spill_or_restore_ex(drcontext, instr, false, tls, spill, reg,
-                                            offs);
+    int signed_offs;
+    bool found = instr_is_reg_spill_or_restore_ex(drcontext, instr, false, tls, spill,
+                                                  reg, &signed_offs);
+    /* Preserve the public uint API's displacement bits, including negative offsets. */
+    if (found && offs != NULL)
+        *offs = (uint)signed_offs;
+    return found;
 }
 
 bool
 instr_is_DR_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls, bool *spill,
-                                 reg_id_t *reg, uint *offs)
+                                 reg_id_t *reg, int *offs)
 {
     return instr_is_reg_spill_or_restore_ex(drcontext, instr, true, tls, spill, reg,
                                             offs);
@@ -4374,13 +4402,13 @@ move_mm_reg_opcode(bool aligned16, bool aligned32)
         return (aligned16 ? OP_movaps : OP_movups);
     }
 #    elif defined(ARM)
-    /* FIXME i#1551: which one we should return, OP_vmov, OP_vldr, or OP_vstr? */
+    /* XXX i#1551: which one we should return, OP_vmov, OP_vldr, or OP_vstr? */
     return OP_vmov;
 #    elif defined(AARCH64)
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return 0;
 #    elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return 0;
 #    endif /* X86/ARM/RISCV64 */

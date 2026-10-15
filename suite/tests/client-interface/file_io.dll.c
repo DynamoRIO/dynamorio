@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -33,24 +33,19 @@
 
 #include "dr_api.h"
 
-#include "client_tools.h" /* For BUFFER_SIZE_ELEMENTS */
+#include "dr_project_wide_defines.h" /* For BUFFER_SIZE_ELEMENTS and TEST*. */
+#include "client_tools.h"
 
 #include <string.h>
 
 #ifdef WINDOWS
 #    include <windows.h>
 #else
+#    include <fcntl.h>
 #    include <stdlib.h>
 #    include <unistd.h>
 #    include <time.h>
 #endif
-
-/* check if all bits in mask are set in var */
-#define TESTALL(mask, var) (((mask) & (var)) == (mask))
-/* check if any bit in mask is set in var */
-#define TESTANY(mask, var) (((mask) & (var)) != 0)
-/* check if a single bit is set in var */
-#define TEST TESTANY
 
 static void
 test_dr_rename_delete(void);
@@ -64,6 +59,8 @@ static void
 test_times(void);
 static void
 test_vfprintf(void);
+static void
+test_redirect(void);
 
 byte *
 find_prot_edge(const byte *start, uint prot_flag)
@@ -106,7 +103,7 @@ static file_t file;
 static client_id_t client_id;
 
 bool
-dummy_func()
+dummy_func(void)
 {
     return true;
 }
@@ -212,17 +209,19 @@ dr_init(client_id_t id)
 
     if (!dr_query_memory((byte *)dummy_func, &base_pc, &size, &prot))
         dr_fprintf(STDERR, "ERROR : can't find dummy_func mem region\n");
-    dr_fprintf(STDERR, "dummy_func is %s%s%s\n", TEST(DR_MEMPROT_READ, prot) ? "r" : "",
-               TEST(DR_MEMPROT_WRITE, prot) ? "w" : "",
-               TEST(DR_MEMPROT_EXEC, prot) ? "x" : "");
+    dr_fprintf(STDERR, "dummy_func is %s%s%s\n",
+               TESTANY(DR_MEMPROT_READ, prot) ? "r" : "",
+               TESTANY(DR_MEMPROT_WRITE, prot) ? "w" : "",
+               TESTANY(DR_MEMPROT_EXEC, prot) ? "x" : "");
     if (base_pc > (byte *)dummy_func || base_pc + size < (byte *)dummy_func)
         dr_fprintf(STDERR, "dummy_func region mismatch");
 
     memset(writable_buf, 0, sizeof(writable_buf)); /* strip off write copy */
     if (!dr_query_memory(writable_buf + 100, &base_pc, &size, &prot))
         dr_fprintf(STDERR, "ERROR : can't find dummy_func mem region\n");
-    dr_fprintf(STDERR, "writable_buf is %s%s%s\n", TEST(DR_MEMPROT_READ, prot) ? "r" : "",
-               TEST(DR_MEMPROT_WRITE, prot) ? "w" : "",
+    dr_fprintf(STDERR, "writable_buf is %s%s%s\n",
+               TESTANY(DR_MEMPROT_READ, prot) ? "r" : "",
+               TESTANY(DR_MEMPROT_WRITE, prot) ? "w" : "",
 #ifdef UNIX
                /* Linux sometimes (probably depends on version and hardware NX
                 * support) lists all readable regions as also exectuable in the
@@ -230,7 +229,7 @@ dr_init(client_id_t id)
                 * matching the template file easier. */
                ""
 #else
-               TEST(DR_MEMPROT_EXEC, prot) ? "x" : ""
+               TESTANY(DR_MEMPROT_EXEC, prot) ? "x" : ""
 #endif
     );
     if (base_pc > writable_buf || base_pc + size < writable_buf)
@@ -241,8 +240,9 @@ dr_init(client_id_t id)
 
     if (!dr_query_memory(read_only_buf + 100, &base_pc, &size, &prot))
         dr_fprintf(STDERR, "ERROR : can't find dummy_func mem region\n");
-    dr_fprintf(STDERR, "read_only_buf is %s%s\n", TEST(DR_MEMPROT_READ, prot) ? "r" : "",
-               TEST(DR_MEMPROT_WRITE, prot) ? "w" : "");
+    dr_fprintf(STDERR, "read_only_buf is %s%s\n",
+               TESTANY(DR_MEMPROT_READ, prot) ? "r" : "",
+               TESTANY(DR_MEMPROT_WRITE, prot) ? "w" : "");
     if (base_pc > read_only_buf || base_pc + size < read_only_buf)
         dr_fprintf(STDERR, "read_only_buf region mismatch");
     if (base_pc + size < read_only_buf + sizeof(read_only_buf))
@@ -319,6 +319,8 @@ dr_init(client_id_t id)
     test_times();
 
     test_vfprintf();
+
+    test_redirect();
 }
 
 /* Creates a closed, unique temporary file and returns its filename.
@@ -450,10 +452,13 @@ test_relative(void)
     if (!dr_get_current_directory(cwd, BUFFER_SIZE_ELEMENTS(cwd)))
         dr_fprintf(STDERR, "failed to get current directory\n");
 
-    test_relative_path("./foo");
-    test_relative_path("../foo");
+    /* Pick a unique name to avoid clashing with a manually created "foo"
+     * directory in the build dir.
+     */
+    test_relative_path("./client.file_io.foo");
+    test_relative_path("../client.file_io.foo");
     /* we should be in <build_dir>/suite/tests, so ok to go up two levels */
-    test_relative_path("../../foo");
+    test_relative_path("../../client.file_io.foo");
 
     ok = dr_create_dir("newdir");
     if (!ok)
@@ -534,4 +539,29 @@ static void
 test_vfprintf(void)
 {
     test_vfprintf_helper(STDERR, "vfprintf check: %d\n", 1234);
+}
+
+static void
+test_redirect(void)
+{
+#ifdef LINUX
+    /* Test the private loader correctly passing libc open() flags (i#7562). */
+    char path[MAXIMUM_PATH];
+    const char *contents = "abcdefg";
+    get_temp_filename(path);
+    file_t fd = dr_open_file(path, DR_FILE_WRITE_OVERWRITE);
+    dr_write_file(fd, contents, strlen(contents));
+    dr_close_file(fd);
+    /* Now open with libc open() and O_RDWR as a regression test with the trigger
+     * of the i#7562 bug where O_RDWR leads to file truncation (now fixed).
+     */
+    int libc_fd = open(path, O_RDWR, 0666);
+    /* Ensure it's not truncated. */
+    char buf[64] = {};
+    ssize_t amount = read(libc_fd, buf, strlen(contents) + 1);
+    NULL_TERMINATE_BUFFER(buf);
+    if (strcmp(buf, contents) != 0)
+        dr_fprintf(STDERR, "libc view != DR view\n");
+    close(libc_fd);
+#endif
 }

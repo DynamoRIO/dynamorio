@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -924,7 +924,7 @@ is_parent_of_qualified_config_group(ConfigGroup *config)
     if (run_under == NULL)
         return FALSE;
 
-    return TEST(RUNUNDER_COMMANDLINE_DISPATCH, _wtoi(run_under));
+    return TESTANY(RUNUNDER_COMMANDLINE_DISPATCH, _wtoi(run_under));
 }
 
 ConfigGroup *
@@ -1168,7 +1168,7 @@ set_autoinjection_ex(BOOL inject, DWORD flags, const WCHAR *blocklist,
     if (NULL != current_list)
         wcsncpy(current_list, curlist, maxchars);
 
-    if (using_system32 && TEST(APPINIT_SYS32_CLEAR_OTHERS, flags)) {
+    if (using_system32 && TESTANY(APPINIT_SYS32_CLEAR_OTHERS, flags)) {
         /* if we're using system32, and the clear flag is set, clear it */
         curlist[0] = L'\0';
     }
@@ -1210,7 +1210,7 @@ set_autoinjection_ex(BOOL inject, DWORD flags, const WCHAR *blocklist,
              */
             CopyFile(src_path, dst_path, FALSE /*don't fail if exists*/);
         } else {
-            /* FIXME: do we want to use delete_file_rename_in_use?
+            /* XXX: do we want to use delete_file_rename_in_use?
              * this should only be called at uninstall or by
              *  tools users, so there shouldn't be any problem
              *  leaving one .tmp file around...
@@ -1254,36 +1254,36 @@ set_autoinjection_ex(BOOL inject, DWORD flags, const WCHAR *blocklist,
         } else {
             /* force overwrite if someone cared enough to set one of these */
             force_overwrite =
-                TEST((APPINIT_FORCE_TO_FRONT | APPINIT_FORCE_TO_BACK), flags);
+                TESTANY((APPINIT_FORCE_TO_FRONT | APPINIT_FORCE_TO_BACK), flags);
         }
         /* always overwrite if asked to */
-        force_overwrite = force_overwrite | TEST(APPINIT_OVERWRITE, flags);
+        force_overwrite = force_overwrite | TESTANY(APPINIT_OVERWRITE, flags);
 
-        /* add !TEST(APPINIT_FORCE_TO_BACK, flags) so that we favor adding
+        /* add !TESTANY(APPINIT_FORCE_TO_BACK, flags) so that we favor adding
          *  to the front if neither are set. */
         list = add_to_file_list(list, preinject_name, TRUE,
-                                TEST(APPINIT_FORCE_TO_FRONT, flags) ||
-                                    !TEST(APPINIT_FORCE_TO_BACK, flags),
+                                TESTANY(APPINIT_FORCE_TO_FRONT, flags) ||
+                                    !TESTANY(APPINIT_FORCE_TO_BACK, flags),
                                 force_overwrite, APPINIT_SEPARATOR_CHAR);
     } else {
         remove_from_file_list(list, preinject_name, APPINIT_SEPARATOR_CHAR);
     }
 
-    if (TEST(APPINIT_USE_ALLOWLIST, flags)) {
+    if (TESTANY(APPINIT_USE_ALLOWLIST, flags)) {
         if (NULL == allowlist)
             res = ERROR_INVALID_PARAMETER;
         else
-            list_ok_ =
-                allowlist_filter(list, allowlist, TEST(APPINIT_CHECK_LISTS_ONLY, flags),
-                                 APPINIT_SEPARATOR_CHAR);
-    } else if (TEST(APPINIT_USE_BLOCKLIST, flags)) {
+            list_ok_ = allowlist_filter(list, allowlist,
+                                        TESTANY(APPINIT_CHECK_LISTS_ONLY, flags),
+                                        APPINIT_SEPARATOR_CHAR);
+    } else if (TESTANY(APPINIT_USE_BLOCKLIST, flags)) {
         /* else if since allowlist subsumes blocklist */
         if (NULL == blocklist)
             res = ERROR_INVALID_PARAMETER;
         else
-            list_ok_ =
-                blocklist_filter(list, blocklist, TEST(APPINIT_CHECK_LISTS_ONLY, flags),
-                                 APPINIT_SEPARATOR_CHAR);
+            list_ok_ = blocklist_filter(list, blocklist,
+                                        TESTANY(APPINIT_CHECK_LISTS_ONLY, flags),
+                                        APPINIT_SEPARATOR_CHAR);
     }
 
     if (list_error != NULL && !list_ok_)
@@ -1292,14 +1292,14 @@ set_autoinjection_ex(BOOL inject, DWORD flags, const WCHAR *blocklist,
     if (res == ERROR_INVALID_PARAMETER)
         return res;
 
-    if (!list_ok_ && TEST(APPINIT_BAIL_ON_LIST_VIOLATION, flags))
+    if (!list_ok_ && TESTANY(APPINIT_BAIL_ON_LIST_VIOLATION, flags))
         remove_from_file_list(list, preinject_name, APPINIT_SEPARATOR_CHAR);
 
     /* now, system32 flag checks */
     if (using_system32) {
 
         /* not yet supported */
-        if (TEST(APPINIT_SYS32_USE_LENGTH_WORKAROUND, flags))
+        if (TESTANY(APPINIT_SYS32_USE_LENGTH_WORKAROUND, flags))
             return ERROR_INVALID_PARAMETER;
 
         if (wcslen(list) > APPINIT_SYSTEM32_LENGTH_LIMIT) {
@@ -1307,11 +1307,11 @@ set_autoinjection_ex(BOOL inject, DWORD flags, const WCHAR *blocklist,
             if (list_error != NULL)
                 *list_error = ERROR_LENGTH_VIOLATION;
 
-            if (TEST(APPINIT_SYS32_FAIL_ON_LENGTH_ERROR, flags)) {
+            if (TESTANY(APPINIT_SYS32_FAIL_ON_LENGTH_ERROR, flags)) {
                 remove_from_file_list(list, preinject_name, APPINIT_SEPARATOR_CHAR);
             } else {
                 /* truncate, if the flags specify it. */
-                if (TEST(APPINIT_SYS32_TRUNCATE, flags)) {
+                if (TESTANY(APPINIT_SYS32_TRUNCATE, flags)) {
                     list[APPINIT_SYSTEM32_LENGTH_LIMIT] = L'\0';
                 }
             }
@@ -1357,7 +1357,7 @@ unset_autoinjection()
 /* NOTE: that this returns the current status -- which on NT
  *  is not necessarily the actual status, which is cached by the
  *  os at boot time.
- * FIXME: add a helper method for determining the status of
+ * XXX: add a helper method for determining the status of
  *  appinit that is being used for the current boot session. */
 BOOL
 is_autoinjection_set()
@@ -1428,7 +1428,7 @@ set_loadappinit_value(DWORD value)
 
     if (is_win7()) {
         /* Disable the reqt for a signature.
-         * FIXME i#323: better to sign drpreinject so we don't have to
+         * XXX i#323: better to sign drpreinject so we don't have to
          * relax security!
          */
         DWORD disable = 0;
@@ -1632,7 +1632,7 @@ copy_earlyhelper_dlls(const WCHAR *dir)
     if (!CopyFile(src_path, dst_path, FALSE /*don't fail if exists*/))
         return GetLastError();
 
-    /* FIXME PR 232738: add a param for removing the files */
+    /* XXX PR 232738: add a param for removing the files */
 
     return ERROR_SUCCESS;
 }
@@ -1795,7 +1795,7 @@ main()
         DO_ASSERT(wcslen(list1) == wcslen(list2));
     }
 
-    /* autoinject (FIXME: needs more..) */
+    /* autoinject (XXX: needs more..) */
     {
         res = get_config_parameter(INJECT_ALL_KEY_L, TRUE, INJECT_ALL_SUBKEY_L, buf,
                                    MAX_PARAM_LEN);
@@ -1805,7 +1805,7 @@ main()
                                    L"foo.dll;bar.dll;home.dll");
         DO_ASSERT(res == ERROR_SUCCESS);
 
-        /* FIXME: should all full automated tests of all
+        /* XXX: should all full automated tests of all
          *  APPINIT_FLAGS etc. */
         // res = set_autoinjection_ex(TRUE, );
         // DO_ASSERT(res == ERROR_SUCCESS);

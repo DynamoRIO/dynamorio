@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -148,20 +148,20 @@ main(int argc, char **argv)
     print("  ext_edx = 0x%08x\n  ext_ecx = 0x%08x\n", ext_edx, ext_ecx);
     print("  sext_ebx = 0x%08x\n", sext_ebx);
     print("Major ISA features:\n");
-    if (TEST(FEAT_EDX_MMX, feat_edx))
+    if (TESTANY(FEAT_EDX_MMX, feat_edx))
         print("  MMX\n");
-    if (TEST(FEAT_EDX_SSE, feat_edx))
+    if (TESTANY(FEAT_EDX_SSE, feat_edx))
         print("  SSE\n");
-    if (TEST(FEAT_EDX_SSE2, feat_edx))
+    if (TESTANY(FEAT_EDX_SSE2, feat_edx))
         print("  SSE2\n");
-    if (TEST(FEAT_ECX_SSE3, feat_ecx))
+    if (TESTANY(FEAT_ECX_SSE3, feat_ecx))
         print("  SSE3\n");
-    if (TEST(FEAT_ECX_SSSE3, feat_ecx))
+    if (TESTANY(FEAT_ECX_SSSE3, feat_ecx))
         print("  SSSE3\n");
-    if (TEST(FEAT_ECX_SSE41, feat_ecx))
+    if (TESTANY(FEAT_ECX_SSE41, feat_ecx))
         print("  SSE41\n");
-    if (TEST(FEAT_ECX_SSE42, feat_ecx))
+    if (TESTANY(FEAT_ECX_SSE42, feat_ecx))
         print("  SSE42\n");
-    if (TEST(FEAT_ECX_AVX, feat_ecx))
+    if (TESTANY(FEAT_ECX_AVX, feat_ecx))
         print("  AVX\n");
 }

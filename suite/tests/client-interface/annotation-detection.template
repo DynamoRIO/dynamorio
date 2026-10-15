@@ -46,9 +46,6 @@ get_area(): s with c: 360326.775900
       <test_three_args(): 1008 * 119 * 30864 = -592768768>
       <test_two_args(): 1006, 6>
 Triangle [4.300000 x 5.200000 x 6.100000] area: 360326.775900 (364680)
-#ifdef WINDOWS
-      <test_two_args(): 1011, 5>
-#endif
       <test_two_args(): 1007, 4>
       <test_three_args(): 1008 * 119 * 30864 = -592768768>
       <test_two_args(): 1006, 6>
@@ -57,6 +54,9 @@ Triangle [4.300000 x 5.200000 x 6.100000] area: 360326.775900 (364680)
       <test_two_args(): 1002, 49>
       <test_two_args(): 1001, 7>
       <test_two_args(): 1001, 7>
+#ifdef WINDOWS
+      <test_two_args(): 1011, 5>
+#endif
       <test_three_args(): 1013 * 49 * 5 = 248185>
 #ifdef UNIX
       <test_two_args(): 1011, 5>

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -35,6 +35,7 @@
 #    error 64-bit not yet supported (issue #118)
 #endif
 
+#include "dr_project_wide_defines.h"
 #include <windows.h>
 #include <stdio.h>
 #include <assert.h>
@@ -56,24 +57,6 @@ static int verbose = 1;
     } while (0)
 
 #define WARN(...) INFO(0, __VA_ARGS__)
-
-/* alignment helpers */
-#define ALIGNED(x, alignment) ((((uint)x) & ((alignment)-1)) == 0)
-#define ALIGN_FORWARD(x, alignment) ((((uint)x) + ((alignment)-1)) & (~((alignment)-1)))
-#define ALIGN_BACKWARD(x, alignment) (((uint)x) & (~((alignment)-1)))
-#define PAD(length, alignment) (ALIGN_FORWARD((length), (alignment)) - (length))
-
-/* check if all bits in mask are set in var */
-#define TESTALL(mask, var) (((mask) & (var)) == (mask))
-/* check if any bit in mask is set in var */
-#define TESTANY(mask, var) (((mask) & (var)) != 0)
-/* check if a single bit is set in var */
-#define TEST TESTANY
-
-#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
-#define BUFFER_LAST_ELEMENT(buf) buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
 
 typedef int bool;
 typedef unsigned int uint;
@@ -548,7 +531,7 @@ print_descriptor(DESCRIPTOR_TABLE_ENTRY *entry)
 
     /* The definition for LDT_ENTRY combines the S and type fields
      * into a five bit field. */
-    if (TEST(0x10, descr->HighWord.Bits.Type)) {
+    if (TESTANY(0x10, descr->HighWord.Bits.Type)) {
         PRINT("%s ", types[descr->HighWord.Bits.Type & 0xf]);
     } else {
         PRINT("System               ");
@@ -855,12 +838,12 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                 allocation_size += mbi.RegionSize;
                 /* scan past data */
                 if (prot_is_readable(mbi.Protect)) {
-                    /* FIXME : hack, rc1 core doesn't check for guard page so
+                    /* XXX : hack, rc1 core doesn't check for guard page so
                      * sometimes memory is copied and sometimes it isn't if
                      * is guard! (why?), post rc1 should check
                      * MEM_COMMIT && !guard && is_readable */
                     assert(mbi.State == MEM_COMMIT);
-                    if (!TEST(PAGE_GUARD, mbi.Protect)) {
+                    if (!TESTANY(PAGE_GUARD, mbi.Protect)) {
                         res = fseek(file, mbi.RegionSize, SEEK_CUR);
                         assert(res == 0);
                     } else {
@@ -907,7 +890,7 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                          allocation_base, allocation_size);
                 }
                 target = allocation_base;
-                /* FIXME : why can't we use VirtualAllocEx? it fails with
+                /* XXX : why can't we use VirtualAllocEx? it fails with
                  * code 487 == INVALID_ADDRESS */
                 res = nt_remote_allocate_virtual_memory(
                     hProc, &target, allocation_size, allocation_protect, MEMORY_COMMIT);
@@ -963,7 +946,8 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                 } else {
                     uint old_prot;
                     assert(mbi.State = MEM_COMMIT);
-                    if (!TEST(PAGE_GUARD, mbi.Protect) && prot_is_readable(mbi.Protect)) {
+                    if (!TESTANY(PAGE_GUARD, mbi.Protect) &&
+                        prot_is_readable(mbi.Protect)) {
                         uint i;
                         /* copy over memory */
                         res = VirtualProtectEx(hProc, TARGET_ADDR, mbi.RegionSize,
@@ -991,7 +975,7 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                         }
                     } else {
 #if RC1_HACK
-                        /* FIXME : rc1 hack, might have memory from guard page
+                        /* XXX : rc1 hack, might have memory from guard page
                          * somehow */
                         fpos_t hack_pos;
                         MEMORY_BASIC_INFORMATION hack_mbi;
@@ -1036,7 +1020,8 @@ usage(const char *msg)
  * used to generate the .ldmp file, prints out a mapping of thread_ids from
  * the dump to the new process.
  * ldmp.exe <.ldmp file> <windows path to dummy.exe (absolute, local drive)> */
-DWORD __cdecl main(DWORD argc, char *argv[], char *envp[])
+DWORD __cdecl
+main(DWORD argc, char *argv[], char *envp[])
 {
     FILE *file;
     HANDLE hProc;
@@ -1093,7 +1078,7 @@ DWORD __cdecl main(DWORD argc, char *argv[], char *envp[])
         res = fscanf(file, "0x%08x", &length);
         assert(res == 1);
         length = length + 1; /* newline after length, see comment above */
-        /* FIXME - should never happen, but we could handle by doing this in
+        /* XXX - should never happen, but we could handle by doing this in
          * pieces */
         assert(length < sizeof(buf));
         if (length >= sizeof(buf))

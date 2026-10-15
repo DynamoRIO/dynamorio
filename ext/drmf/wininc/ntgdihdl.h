@@ -100,7 +100,7 @@
 
 /* Handle macros */
 #define GDI_HANDLE_CREATE(i, t) \
-    ((HANDLE)(((i)&GDI_HANDLE_INDEX_MASK) | ((t)&GDI_HANDLE_TYPE_MASK)))
+    ((HANDLE)(((i) & GDI_HANDLE_INDEX_MASK) | ((t) & GDI_HANDLE_TYPE_MASK)))
 
 #define GDI_HANDLE_GET_INDEX(h) (((ULONG_PTR)(h)) & GDI_HANDLE_INDEX_MASK)
 

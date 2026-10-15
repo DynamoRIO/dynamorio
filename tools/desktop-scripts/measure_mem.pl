@@ -33,7 +33,7 @@
 # NOTE: ASSUMES drview is in path
 # NOTE: ASSUMES c:\desktop-nightly\boot_data_scripts and
 #               c:\desktop-nightly\boot_data exist  #TODO do a mkdir
-# NOTE: ASSUMES this script is in c:\desktop-nightly\boot_data_scripts #FIXME
+# NOTE: ASSUMES this script is in c:\desktop-nightly\boot_data_scripts #XXX
 # NOTE: USES: lionfish_core_srv_exes.txt
 #
 # usage: perl measure_mem.pl --int 3 --boot 57 --summary zzz --nightly $(cygpath /tmp) --name test8r

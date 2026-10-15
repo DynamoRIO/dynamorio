@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -58,8 +58,6 @@ The [11.3.0 release](https://github.com/DynamoRIO/dynamorio/releases/tag/release
 
   - [DynamoRIO-ARM-Linux-EABIHF-11.3.0.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_11.3.0-1/DynamoRIO-ARM-Linux-EABIHF-11.3.0.tar.gz)
 
-  - [DynamoRIO-ARM-Android-EABI-11.3.0.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_11.3.0-1/DynamoRIO-ARM-Android-EABI-11.3.0.tar.gz)
-
   - [DynamoRIO-AArch64-Linux-11.3.0.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_11.3.0-1/DynamoRIO-AArch64-Linux-11.3.0.tar.gz)
 
 The [11.2.0 release](https://github.com/DynamoRIO/dynamorio/releases/tag/release_11.2.0):
@@ -69,8 +67,6 @@ The [11.2.0 release](https://github.com/DynamoRIO/dynamorio/releases/tag/release
   - [DynamoRIO-Linux-11.2.0.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_11.2.0/DynamoRIO-Linux-11.2.0.tar.gz)
 
   - [DynamoRIO-ARM-Linux-EABIHF-11.2.0.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_11.2.0/DynamoRIO-ARM-Linux-EABIHF-11.2.0.tar.gz)
-
-  - [DynamoRIO-ARM-Android-EABI-11.2.0.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_11.2.0/DynamoRIO-ARM-Android-EABI-11.2.0.tar.gz)
 
   - [DynamoRIO-AArch64-Linux-11.2.0.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_11.2.0/DynamoRIO-AArch64-Linux-11.2.0.tar.gz)
 

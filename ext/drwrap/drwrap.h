@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2023 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /* drwrap: DynamoRIO Function Wrapping and Replacing Extension
@@ -23,7 +23,7 @@
 /* DynamoRIO Function Wrapping and Replacing Extension */
 
 #ifndef _DRWRAP_H_
-#define _DRWRAP_H_ 1
+#define _DRWRAP_H_
 
 /**
  * @file drwrap.h

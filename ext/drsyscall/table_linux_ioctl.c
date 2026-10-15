@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -27,8 +27,8 @@
 #include "table_defines.h"
 
 /* From "man ioctl_list" */
-/* FIXME: "Some ioctls take a pointer to a structure which contains
- * additional pointers."  These are marked below with "FIXME: more".
+/* XXX: "Some ioctls take a pointer to a structure which contains
+ * additional pointers."  These are marked below with "XXX: more".
  * They are listed in the man page but I'm too lazy to add them just now.
  * Some of the ioctls marked "more" take additional arguments as well.
  */
@@ -93,7 +93,7 @@ syscall_info_t syscall_ioctl_info[] = {
       OK,
       RLONG,
       3,
-      { FD_REQ, { 2, sizeof(char), R, INT_TYPE } } }, /* FIXME: more */
+      { FD_REQ, { 2, sizeof(char), R, INT_TYPE } } }, /* XXX: more */
     { IOCTL(TIOCCONS), OK, RLONG, 3, { FD_REQ, /* void */ } },
     { IOCTL(TIOCGSERIAL),
       OK,
@@ -111,7 +111,7 @@ syscall_info_t syscall_ioctl_info[] = {
     { IOCTL(TIOCSETD), OK, RLONG, 3, { FD_REQ, { 2, sizeof(int), R, INT_TYPE } } },
     { IOCTL(TIOCGETD), OK, RLONG, 3, { FD_REQ, { 2, sizeof(int), W, INT_TYPE } } },
     { IOCTL(TCSBRKP), OK, RLONG, 3, { FD_REQ, /* int */ } },
-#if 0 /* FIXME: struct not in my headers */
+#if 0 /* XXX: struct not in my headers */
     {IOCTL(TIOCTTYGSTRUCT), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct tty_struct), W}}},
 #endif
     { IOCTL(FIONCLEX), OK, RLONG, 3, { FD_REQ, /* void */ } },
@@ -122,7 +122,7 @@ syscall_info_t syscall_ioctl_info[] = {
     { IOCTL(TIOCSERSWILD), OK, RLONG, 3, { FD_REQ, { 2, sizeof(int), R, INT_TYPE } } },
     { IOCTL(TIOCGLCKTRMIOS), OK, RLONG, 3, { FD_REQ, { 2, sizeof(struct termios), W } } },
     { IOCTL(TIOCSLCKTRMIOS), OK, RLONG, 3, { FD_REQ, { 2, sizeof(struct termios), R } } },
-#if 0 /* FIXME: struct not in my headers */
+#if 0 /* XXX: struct not in my headers */
     {IOCTL(TIOCSERGSTRUCT), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct async_struct), W}}},
 #endif
     { IOCTL(TIOCSERGETLSR), OK, RLONG, 3, { FD_REQ, { 2, sizeof(int), W, INT_TYPE } } },
@@ -154,7 +154,7 @@ syscall_info_t syscall_ioctl_info[] = {
       3,
       { FD_REQ, { 2, sizeof(struct sockaddr_ax25), R } } },
     { IOCTL(SIOCAX25NOUID), OK, RLONG, 3, { FD_REQ, { 2, sizeof(int), R, INT_TYPE } } },
-#if 0 /* FIXME: define not in my headers */
+#if 0 /* XXX: define not in my headers */
     {IOCTL(SIOCAX25DIGCTL), OK, RLONG, 3, {FD_REQ, {2, sizeof(int), R, INT_TYPE}}},
     {IOCTL(SIOCAX25GETPARMS), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct ax25_parms_struct),
                                                        R|W}}},
@@ -204,17 +204,17 @@ syscall_info_t syscall_ioctl_info[] = {
       OK,
       RLONG,
       3,
-      { FD_REQ, { 2, sizeof(struct cdrom_msf), R } } }, /* FIXME: more */
+      { FD_REQ, { 2, sizeof(struct cdrom_msf), R } } }, /* XXX: more */
     { IOCTL(CDROMREADMODE1),
       OK,
       RLONG,
       3,
-      { FD_REQ, { 2, sizeof(struct cdrom_msf), R } } }, /* FIXME: more */
+      { FD_REQ, { 2, sizeof(struct cdrom_msf), R } } }, /* XXX: more */
     { IOCTL(CDROMREADAUDIO),
       OK,
       RLONG,
       3,
-      { FD_REQ, { 2, sizeof(struct cdrom_read_audio), R } } }, /* FIXME: more */
+      { FD_REQ, { 2, sizeof(struct cdrom_read_audio), R } } }, /* XXX: more */
     { IOCTL(CDROMEJECT_SW), OK, RLONG, 3, { FD_REQ, /* int */ } },
     { IOCTL(CDROMMULTISESSION),
       OK,
@@ -232,16 +232,16 @@ syscall_info_t syscall_ioctl_info[] = {
       OK,
       RLONG,
       3,
-      { FD_REQ, { 2, sizeof(struct cdrom_msf), R } } }, /* FIXME: more */
+      { FD_REQ, { 2, sizeof(struct cdrom_msf), R } } }, /* XXX: more */
     { IOCTL(CDROMREADCOOKED),
       OK,
       RLONG,
       3,
-      { FD_REQ, { 2, sizeof(struct cdrom_msf), R } } }, /* FIXME: more */
+      { FD_REQ, { 2, sizeof(struct cdrom_msf), R } } }, /* XXX: more */
     { IOCTL(CDROMSEEK), OK, RLONG, 3, { FD_REQ, { 2, sizeof(struct cdrom_msf), R } } },
 
 // <include/linux/cm206.h>
-#if 0 /* FIXME: define not in my headers */
+#if 0 /* XXX: define not in my headers */
     {IOCTL(CM206CTL_GET_STAT), OK, RLONG, 3, {FD_REQ, /* int */}},
     {IOCTL(CM206CTL_GET_LAST_STAT), OK, RLONG, 3, {FD_REQ, /* int */}},
 #endif
@@ -340,7 +340,7 @@ syscall_info_t syscall_ioctl_info[] = {
       OK,
       RLONG,
       3,
-      { FD_REQ, { 2, sizeof(struct floppy_raw_cmd), R | W } } }, /* FIXME: more */
+      { FD_REQ, { 2, sizeof(struct floppy_raw_cmd), R | W } } }, /* XXX: more */
     { IOCTL(FDTWADDLE), OK, RLONG, 3, { FD_REQ, /* void */ } },
 
     // <include/linux/fs.h>
@@ -384,7 +384,7 @@ syscall_info_t syscall_ioctl_info[] = {
       RLONG,
       3,
       { FD_REQ, { 2, sizeof(int), W, INT_TYPE } } },
-#if 0 /* FIXME: define not in my headers */
+#if 0 /* XXX: define not in my headers */
     {IOCTL(HDIO_GET_CHIPSET), OK, RLONG, 3, {FD_REQ, {2, sizeof(int), W, INT_TYPE}}},
 #endif
     { IOCTL(HDIO_GET_NOWERR), OK, RLONG, 3, { FD_REQ, { 2, sizeof(int), W, INT_TYPE } } },
@@ -397,32 +397,32 @@ syscall_info_t syscall_ioctl_info[] = {
     { IOCTL(HDIO_SET_MULTCOUNT), OK, RLONG, 3, { FD_REQ, /* int */ } },
     { IOCTL(HDIO_SET_UNMASKINTR), OK, RLONG, 3, { FD_REQ, /* int */ } },
     { IOCTL(HDIO_SET_KEEPSETTINGS), OK, RLONG, 3, { FD_REQ, /* int */ } },
-#if 0 /* FIXME: define not in my headers */
+#if 0 /* XXX: define not in my headers */
     {IOCTL(HDIO_SET_CHIPSET), OK, RLONG, 3, {FD_REQ, /* int */}},
 #endif
     { IOCTL(HDIO_SET_NOWERR), OK, RLONG, 3, { FD_REQ, /* int */ } },
     { IOCTL(HDIO_SET_DMA), OK, RLONG, 3, { FD_REQ, /* int */ } },
 
-#if 0 /* FIXME: having problems including header */
+#if 0 /* XXX: having problems including header */
     // <include/linux/if_eql.h>
     {IOCTL(EQL_ENSLAVE), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct ifreq), R|W}}
-      /* FIXME: more */},
+      /* XXX: more */},
     {IOCTL(EQL_EMANCIPATE), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct ifreq), R|W}}
-      /* FIXME: more */},
+      /* XXX: more */},
     {IOCTL(EQL_GETSLAVECFG), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct ifreq), R|W}}
-      /* FIXME: more */},
+      /* XXX: more */},
     {IOCTL(EQL_SETSLAVECFG), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct ifreq), R|W}}
-      /* FIXME: more */},
+      /* XXX: more */},
     {IOCTL(EQL_GETMASTRCFG), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct ifreq), R|W}}
-      /* FIXME: more */},
+      /* XXX: more */},
     {IOCTL(EQL_SETMASTRCFG), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct ifreq), R|W}}
-      /* FIXME: more */},
+      /* XXX: more */},
 #endif
 
     // <include/linux/if_plip.h>
     { IOCTL(SIOCDEVPLIP), OK, RLONG, 3, { FD_REQ, { 2, sizeof(struct ifreq), R | W } } },
 
-#if 0 /* FIXME: having problems including header */
+#if 0 /* XXX: having problems including header */
     // <include/linux/if_ppp.h>
     {IOCTL(PPPIOCGFLAGS), OK, RLONG, 3, {FD_REQ, {2, sizeof(int), W, INT_TYPE}}},
     {IOCTL(PPPIOCSFLAGS), OK, RLONG, 3, {FD_REQ, {2, sizeof(int), R, INT_TYPE}}},
@@ -443,7 +443,7 @@ syscall_info_t syscall_ioctl_info[] = {
     {IOCTL(PPPIOCSMAXCID), OK, RLONG, 3, {FD_REQ, {2, sizeof(int), R, INT_TYPE}}},
 #endif
 
-#if 0 /* FIXME: identical to ax25 1st 3 */
+#if 0 /* XXX: identical to ax25 1st 3 */
     // <include/linux/ipx.h>
     {IOCTL(SIOCAIPXITFCRT), OK, RLONG, 3, {FD_REQ, {2, sizeof(char), R, INT_TYPE}}},
     {IOCTL(SIOCAIPXPRISLT), OK, RLONG, 3, {FD_REQ, {2, sizeof(char), R, INT_TYPE}}},
@@ -454,11 +454,11 @@ syscall_info_t syscall_ioctl_info[] = {
     // <include/linux/kd.h>
     { IOCTL(GIO_FONT), OK, RLONG, 3, { FD_REQ, { 2, sizeof(char[8192]), W } } },
     { IOCTL(PIO_FONT), OK, RLONG, 3, { FD_REQ, { 2, sizeof(char[8192]), R } } },
-#if 0 /* FIXME: struct not in my defines */
+#if 0 /* XXX: struct not in my defines */
     {IOCTL(GIO_FONTX), OK, RLONG, 3,
-      {FD_REQ, {2, sizeof(struct console_font_desc), R|W}}}, /* FIXME: more */
+      {FD_REQ, {2, sizeof(struct console_font_desc), R|W}}}, /* XXX: more */
     {IOCTL(PIO_FONTX), OK, RLONG, 3,
-      {FD_REQ, {2, sizeof(struct console_font_desc), R}}}, /* FIXME: more */
+      {FD_REQ, {2, sizeof(struct console_font_desc), R}}}, /* XXX: more */
 #endif
     { IOCTL(GIO_CMAP), OK, RLONG, 3, { FD_REQ, { 2, sizeof(char[48]), W } } },
     { IOCTL(PIO_CMAP), OK, RLONG, 3, { FD_REQ, /* const struct { char [48]; } */ } },
@@ -467,14 +467,14 @@ syscall_info_t syscall_ioctl_info[] = {
     { IOCTL(KDGETLED), OK, RLONG, 3, { FD_REQ, { 2, sizeof(char), W, INT_TYPE } } },
     { IOCTL(KDSETLED), OK, RLONG, 3, { FD_REQ, /* int */ } },
     { IOCTL(KDGKBTYPE), OK, RLONG, 3, { FD_REQ, { 2, sizeof(char), W, INT_TYPE } } },
-    { IOCTL(KDADDIO), OK, RLONG, 3, { FD_REQ, /* int */ } },    /* FIXME: more */
-    { IOCTL(KDDELIO), OK, RLONG, 3, { FD_REQ, /* int */ } },    /* FIXME: more */
-    { IOCTL(KDENABIO), OK, RLONG, 3, { FD_REQ, /* void */ } },  /* FIXME: more */
-    { IOCTL(KDDISABIO), OK, RLONG, 3, { FD_REQ, /* void */ } }, /* FIXME: more */
+    { IOCTL(KDADDIO), OK, RLONG, 3, { FD_REQ, /* int */ } },    /* XXX: more */
+    { IOCTL(KDDELIO), OK, RLONG, 3, { FD_REQ, /* int */ } },    /* XXX: more */
+    { IOCTL(KDENABIO), OK, RLONG, 3, { FD_REQ, /* void */ } },  /* XXX: more */
+    { IOCTL(KDDISABIO), OK, RLONG, 3, { FD_REQ, /* void */ } }, /* XXX: more */
     { IOCTL(KDSETMODE), OK, RLONG, 3, { FD_REQ, /* int */ } },
     { IOCTL(KDGETMODE), OK, RLONG, 3, { FD_REQ, { 2, sizeof(int), W, INT_TYPE } } },
-    { IOCTL(KDMAPDISP), OK, RLONG, 3, { FD_REQ, /* void */ } },   /* FIXME: more */
-    { IOCTL(KDUNMAPDISP), OK, RLONG, 3, { FD_REQ, /* void */ } }, /* FIXME: more */
+    { IOCTL(KDMAPDISP), OK, RLONG, 3, { FD_REQ, /* void */ } },   /* XXX: more */
+    { IOCTL(KDUNMAPDISP), OK, RLONG, 3, { FD_REQ, /* void */ } }, /* XXX: more */
     { IOCTL(GIO_SCRNMAP), OK, RLONG, 3, { FD_REQ, { 2, sizeof(char[E_TABSZ]), W } } },
     { IOCTL(PIO_SCRNMAP), OK, RLONG, 3, { FD_REQ, { 2, sizeof(char[E_TABSZ]), R } } },
     { IOCTL(GIO_UNISCRNMAP), OK, RLONG, 3, { FD_REQ, { 2, sizeof(short[E_TABSZ]), W } } },
@@ -483,12 +483,12 @@ syscall_info_t syscall_ioctl_info[] = {
       OK,
       RLONG,
       3,
-      { FD_REQ, { 2, sizeof(struct unimapdesc), R | W } } }, /* FIXME: more */
+      { FD_REQ, { 2, sizeof(struct unimapdesc), R | W } } }, /* XXX: more */
     { IOCTL(PIO_UNIMAP),
       OK,
       RLONG,
       3,
-      { FD_REQ, { 2, sizeof(struct unimapdesc), R } } }, /* FIXME: more */
+      { FD_REQ, { 2, sizeof(struct unimapdesc), R } } }, /* XXX: more */
     { IOCTL(PIO_UNIMAPCLR),
       OK,
       RLONG,
@@ -525,11 +525,11 @@ syscall_info_t syscall_ioctl_info[] = {
     { IOCTL(LPABORTOPEN), OK, RLONG, 3, { FD_REQ, /* int */ } },
     { IOCTL(LPGETSTATUS), OK, RLONG, 3, { FD_REQ, { 2, sizeof(int), W, INT_TYPE } } },
     { IOCTL(LPRESET), OK, RLONG, 3, { FD_REQ, /* void */ } },
-#if 0 /* FIXME: define not in my headers */
+#if 0 /* XXX: define not in my headers */
     {IOCTL(LPGETSTATS), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct lp_stats), W}}},
 #endif
 
-#if 0 /* FIXME: identical to ax25 1st 2 */
+#if 0 /* XXX: identical to ax25 1st 2 */
     // <include/linux/mroute.h>
     {IOCTL(SIOCGETVIFCNT), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct sioc_vif_req), R|W}}},
     {IOCTL(SIOCGETSGCNT), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct sioc_sg_req), R|W}}},
@@ -552,7 +552,7 @@ syscall_info_t syscall_ioctl_info[] = {
       { FD_REQ, { 2, sizeof(struct mtconfiginfo), R } } },
 #endif
 
-#if 0 /* FIXME: define not in my headers */
+#if 0 /* XXX: define not in my headers */
     // <include/linux/netrom.h>
     {IOCTL(SIOCNRGETPARMS), OK, RLONG, 3,
       {FD_REQ, {2, sizeof(struct nr_parms_struct), R|W}}},
@@ -562,13 +562,13 @@ syscall_info_t syscall_ioctl_info[] = {
     {IOCTL(SIOCNRRTCTL), OK, RLONG, 3, {FD_REQ, {2, sizeof(int), R, INT_TYPE}}},
 #endif
 
-#if 0 /* FIXME: define not in my headers */
+#if 0 /* XXX: define not in my headers */
     // <include/linux/sbpcd.h>
     {IOCTL(DDIOCSDBG), OK, RLONG, 3, {FD_REQ, {2, sizeof(int), R, INT_TYPE}}},
     {IOCTL(CDROMAUDIOBUFSIZ), OK, RLONG, 3, {FD_REQ, /* int */}},
 #endif
 
-#if 0 /* FIXME: define not in my headers */
+#if 0 /* XXX: define not in my headers */
     // <include/linux/scc.h>
     {IOCTL(TIOCSCCINI), OK, RLONG, 3, {FD_REQ, /* void */}},
     {IOCTL(TIOCCHANINI), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct scc_modem), R}}},
@@ -577,14 +577,14 @@ syscall_info_t syscall_ioctl_info[] = {
     {IOCTL(TIOCSCCSTAT), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct scc_stat), W}}},
 #endif
 
-#if 0 /* FIXME: define not in my headers */
+#if 0 /* XXX: define not in my headers */
     // <include/linux/scsi.h>
     {IOCTL(SCSI_IOCTL_GET_IDLUN), OK, RLONG, 3,
       {FD_REQ, {2, sizeof(struct { int [2]; }), W}}},
     {IOCTL(SCSI_IOCTL_TAGGED_ENABLE), OK, RLONG, 3, {FD_REQ, /* void */}},
     {IOCTL(SCSI_IOCTL_TAGGED_DISABLE), OK, RLONG, 3, {FD_REQ, /* void */}},
     {IOCTL(SCSI_IOCTL_PROBE_HOST), OK, RLONG, 3,
-      {FD_REQ, {2, sizeof(int), R, INT_TYPE}}}, /* FIXME: more */
+      {FD_REQ, {2, sizeof(int), R, INT_TYPE}}}, /* XXX: more */
 #endif
 
     // <include/linux/smb_fs.h>
@@ -599,12 +599,12 @@ syscall_info_t syscall_ioctl_info[] = {
       OK,
       RLONG,
       3,
-      { FD_REQ, { 2, sizeof(struct rtentry), R } } }, /* FIXME: more */
+      { FD_REQ, { 2, sizeof(struct rtentry), R } } }, /* XXX: more */
     { IOCTL(SIOCDELRT),
       OK,
       RLONG,
       3,
-      { FD_REQ, { 2, sizeof(struct rtentry), R } } }, /* FIXME: more */
+      { FD_REQ, { 2, sizeof(struct rtentry), R } } }, /* XXX: more */
     { IOCTL(SIOCGIFCONF), OK, RLONG, 3, { FD_REQ, /* handled manually */ } },
     { IOCTL(SIOCGIFNAME), OK, RLONG, 3, { FD_REQ, /* char [] */ } },
     { IOCTL(SIOCSIFLINK), OK, RLONG, 3, { FD_REQ, /* void */ } },
@@ -640,14 +640,14 @@ syscall_info_t syscall_ioctl_info[] = {
     { IOCTL(SIOCSIFMEM), OK, RLONG, 3, { FD_REQ, { 2, sizeof(struct ifreq), R } } },
     { IOCTL(SIOCGIFMTU), OK, RLONG, 3, { FD_REQ, { 2, sizeof(struct ifreq), R | W } } },
     { IOCTL(SIOCSIFMTU), OK, RLONG, 3, { FD_REQ, { 2, sizeof(struct ifreq), R } } },
-#if 0 /* FIXME: define not in my headers */
+#if 0 /* XXX: define not in my headers */
     {IOCTL(OLD_SIOCGIFHWADDR), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct ifreq), R|W}}},
 #endif
     { IOCTL(SIOCSIFHWADDR),
       OK,
       RLONG,
       3,
-      { FD_REQ, { 2, sizeof(struct ifreq), R } } }, /* FIXME: more */
+      { FD_REQ, { 2, sizeof(struct ifreq), R } } }, /* XXX: more */
     { IOCTL(SIOCGIFENCAP), OK, RLONG, 3, { FD_REQ, { 2, sizeof(int), W, INT_TYPE } } },
     { IOCTL(SIOCSIFENCAP), OK, RLONG, 3, { FD_REQ, { 2, sizeof(int), R, INT_TYPE } } },
     { IOCTL(SIOCGIFHWADDR),
@@ -659,7 +659,7 @@ syscall_info_t syscall_ioctl_info[] = {
     { IOCTL(SIOCSIFSLAVE), OK, RLONG, 3, { FD_REQ, /* void */ } },
     { IOCTL(SIOCADDMULTI), OK, RLONG, 3, { FD_REQ, { 2, sizeof(struct ifreq), R } } },
     { IOCTL(SIOCDELMULTI), OK, RLONG, 3, { FD_REQ, { 2, sizeof(struct ifreq), R } } },
-#if 0 /* FIXME: define not in my headers */
+#if 0 /* XXX: define not in my headers */
     {IOCTL(SIOCADDRTOLD), OK, RLONG, 3, {FD_REQ, /* void */}},
     {IOCTL(SIOCDELRTOLD), OK, RLONG, 3, {FD_REQ, /* void */}},
 #endif
@@ -741,7 +741,7 @@ syscall_info_t syscall_ioctl_info[] = {
       RLONG,
       3,
       { FD_REQ, { 2, sizeof(int), R, INT_TYPE } } },
-#if 0 /* FIXME: define not in my headers */
+#if 0 /* XXX: define not in my headers */
     {IOCTL(SNDCTL_PMGR_ACCESS), OK, RLONG, 3,
       {FD_REQ, {2, sizeof(struct patmgr_info), R|W}}},
 #endif
@@ -756,7 +756,7 @@ syscall_info_t syscall_ioctl_info[] = {
       RLONG,
       3,
       { FD_REQ, { 2, sizeof(int), R | W, INT_TYPE } } },
-#if 0 /* FIXME: identical to TCSETS and subsequent 2 */
+#if 0 /* XXX: identical to TCSETS and subsequent 2 */
     {IOCTL(SNDCTL_TMR_START), OK, RLONG, 3, {FD_REQ, /* void */}},
     {IOCTL(SNDCTL_TMR_STOP), OK, RLONG, 3, {FD_REQ, /* void */}},
     {IOCTL(SNDCTL_TMR_CONTINUE), OK, RLONG, 3, {FD_REQ, /* void */}},
@@ -781,7 +781,7 @@ syscall_info_t syscall_ioctl_info[] = {
       RLONG,
       3,
       { FD_REQ, { 2, sizeof(int), R | W, INT_TYPE } } },
-#if 0 /* FIXME: define not in my headers */
+#if 0 /* XXX: define not in my headers */
     {IOCTL(SNDCTL_PMGR_IFACE), OK, RLONG, 3,
       {FD_REQ, {2, sizeof(struct patmgr_info), R|W}}},
 #endif
@@ -795,7 +795,7 @@ syscall_info_t syscall_ioctl_info[] = {
       RLONG,
       3,
       { FD_REQ, { 2, sizeof(int), R, INT_TYPE } } },
-#if 0 /* FIXME: struct not in my headers */
+#if 0 /* XXX: struct not in my headers */
     {IOCTL(SNDCTL_MIDI_MPUCMD), OK, RLONG, 3,
       {FD_REQ, {2, sizeof(struct mpu_command_rec), R|W}}},
 #endif
@@ -1014,7 +1014,7 @@ syscall_info_t syscall_ioctl_info[] = {
       RLONG,
       3,
       { FD_REQ, { 2, sizeof(int), W, INT_TYPE } } },
-#if 0 /* FIXME: identical to SOUND_MIXER_READ_MUTE */
+#if 0 /* XXX: identical to SOUND_MIXER_READ_MUTE */
     {IOCTL(SOUND_MIXER_READ_ENHANCE), OK, RLONG, 3,
       {FD_REQ, {2, sizeof(int), W, INT_TYPE}}},
     {IOCTL(SOUND_MIXER_READ_LOUD), OK, RLONG, 3, {FD_REQ, {2, sizeof(int), W, INT_TYPE}}},
@@ -1134,7 +1134,7 @@ syscall_info_t syscall_ioctl_info[] = {
       RLONG,
       3,
       { FD_REQ, { 2, sizeof(int), R | W, INT_TYPE } } },
-#if 0 /* FIXME: identical to SOUND_MIXER_WRITE_MUTE */
+#if 0 /* XXX: identical to SOUND_MIXER_WRITE_MUTE */
     {IOCTL(SOUND_MIXER_WRITE_ENHANCE), OK, RLONG, 3,
       {FD_REQ, {2, sizeof(int), R|W, INT_TYPE}}},
     {IOCTL(SOUND_MIXER_WRITE_LOUD), OK, RLONG, 3,
@@ -1146,7 +1146,7 @@ syscall_info_t syscall_ioctl_info[] = {
       3,
       { FD_REQ, { 2, sizeof(int), R | W, INT_TYPE } } },
 
-#if 0 /* FIXME: define not in my headers */
+#if 0 /* XXX: define not in my headers */
     // <include/linux/umsdos_fs.h>
     {IOCTL(UMSDOS_READDIR_DOS), OK, RLONG, 3,
       {FD_REQ, {2, sizeof(struct umsdos_ioctl), R|W}}},

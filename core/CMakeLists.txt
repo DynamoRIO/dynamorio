@@ -78,6 +78,14 @@ if (AARCH64)
     COMMAND ${CMAKE_COMMAND}
     ARGS -E copy ${PROJECT_BINARY_DIR}/opcode_api.h
     ${aarch64_exported_opcodes} VERBATIM)
+  # Export the generated isa feature header.
+  set(aarch64_exported_isa_features ${BUILD_INCLUDE}/dr_ir_isa_features_aarch64.h)
+  add_custom_target(gen_aarch64_isa_features DEPENDS ${aarch64_exported_isa_features})
+  add_custom_command(OUTPUT ${aarch64_exported_isa_features}
+    DEPENDS ${PROJECT_BINARY_DIR}/isa_features.h
+    COMMAND ${CMAKE_COMMAND}
+    ARGS -E copy ${PROJECT_BINARY_DIR}/isa_features.h
+    ${aarch64_exported_isa_features} VERBATIM)
 endif ()
 
 if (RISCV64)
@@ -252,7 +260,7 @@ endif ()
 
 if (WIN32 AND NOT X64)
   # PR 219380: to avoid __ftol2_sse from libc
-  # FIXME: There is no supported way to suppress a "command line" warning
+  # XXX: There is no supported way to suppress a "command line" warning
   # used to do:
   #   $(BUILD)/io.obj: FILTER_CC = 2>&1 | $(GREP) -v "D9035 : option 'QIfist'";
   # we just live with it for now:
@@ -314,7 +322,6 @@ set(ARCH_SRCS
   arch/arch.c
   arch/emit_utils_shared.c
   arch/${ARCH_NAME}/emit_utils.c
-  arch/${ARCH_NAME_SHARED}/emit_utils.c
   # TODO i#1684: Link with drdecode rather than compiling all the same files.
   ${DECODER_SRCS}
   arch/interp.c
@@ -324,13 +331,19 @@ set(ARCH_SRCS
   arch/${ARCH_NAME_SHARED}/mangle.c
   arch/clean_call_opt_shared.c
   arch/${ARCH_NAME}/clean_call_opt.c
-  arch/x86_code.c
+  arch/asm_aux.c
   ${arch_core_asm_src}
   ${archshared_core_asm_src}
   arch/${ARCH_NAME}/optimize.c
   arch/sideline.c
   arch/retcheck.c
   )
+
+# Avoid duplicate files in ARCH_SRCS when ARCH_NAME and ARCH_NAME_SHARED are the same.
+# Currently they differ only on ARM/AArch64.
+if (NOT "${ARCH_NAME}" STREQUAL "${ARCH_NAME_SHARED}")
+  set(ARCH_SRCS ${ARCH_SRCS} arch/${ARCH_NAME_SHARED}/emit_utils.c)
+endif ()
 
 if (X86 AND X64)
   set(ARCH_SRCS ${ARCH_SRCS} arch/${ARCH_NAME}/x86_to_x64.c)
@@ -340,6 +353,12 @@ endif (X86 AND X64)
 if (AARCHXX)
   set(ARCH_SRCS ${ARCH_SRCS} arch/asm_offsets.c)
 endif (AARCHXX)
+
+# The kernel module reuses CORE_SRCS and ARCH_SRCS, so this must come after
+# both lists are complete.
+if (BUILD_KERNEL_MODULE)
+  add_subdirectory(kernel_linux)
+endif ()
 
 if (WIN32)
   # i#894: Win8 WDK ntdll.lib does not list Ki routines so we make our own .lib.
@@ -398,6 +417,12 @@ if (UNIX)
       if (AARCH64 OR (X86 AND X64))
         set(OS_SRCS ${OS_SRCS} unix/coredump.c)
       endif ()
+      # Architecture neutral builds on AArch64 and x86 for ptrace helpers
+      # referenced by core/unix.os.c. But ptrace takeover is currently only
+      # implemented on AArch64.
+      if (AARCH64 OR X86)
+        set(OS_SRCS ${OS_SRCS} unix/ptrace_lib.c unix/ptrace_attach.c)
+      endif ()
     endif ()
     set(OS_SRCS ${OS_SRCS} unix/memquery_linux.c)
     set(OS_SRCS ${OS_SRCS} unix/memquery.c)
@@ -421,7 +446,11 @@ if (UNIX)
     set(OS_SRCS ${OS_SRCS} unix/memquery.c)
     set(OS_SRCS ${OS_SRCS} unix/module_macho.c)
     set(OS_SRCS ${OS_SRCS} unix/ksynch_macos.c)
-    set(OS_SRCS ${OS_SRCS} unix/tls_macos.c)
+    if (AARCH64)
+      set(OS_SRCS ${OS_SRCS} unix/tls_macos_aarch64.c)
+    elseif (X86)
+      set(OS_SRCS ${OS_SRCS} unix/tls_macos_x86.c)
+    endif()
     set(OS_SRCS ${OS_SRCS} unix/signal_macos.c)
     set(OS_SRCS ${OS_SRCS} unix/native_macho.c)
     # XXX i#1286: implement nudge_macos.c
@@ -964,7 +993,7 @@ set_target_properties(${PRELOAD_NAME} PROPERTIES
   COMPILE_DEFINITIONS "NOT_DYNAMORIO_CORE_PROPER;RC_IS_PRELOAD;DR_NO_FAST_IR")
 
 if (UNIX)
-  # FIXME case 69/1891: -z initfirst = initialize first at runtime (before libc)
+  # XXX case 69/1891: -z initfirst = initialize first at runtime (before libc)
   set_target_properties(${PRELOAD_NAME} PROPERTIES
     LINK_FLAGS "-nostartfiles")
   if (APPLE)
@@ -1193,6 +1222,7 @@ endif ()
 # Do not put core/ into the include dirs as our link.h will conflict
 # with /usr/include/link.h!
 include_directories(BEFORE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${CMAKE_CURRENT_SOURCE_DIR}/lib
   ${CMAKE_CURRENT_SOURCE_DIR}/arch
   ${CMAKE_CURRENT_SOURCE_DIR}/ir
@@ -1229,6 +1259,10 @@ DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/instrlist_api.h dr_ir_instrlist.
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/dr_ir_opcodes.h dr_ir_opcodes.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/x86/opcode_api.h dr_ir_opcodes_x86.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/arm/opcode_api.h dr_ir_opcodes_arm.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/x86/isa_features.h dr_ir_isa_features_x86.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/arm/isa_features.h dr_ir_isa_features_arm.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/riscv64/isa_features.h dr_ir_isa_features_riscv64.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/dr_ir_isa_features.h dr_ir_isa_features.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/instr_create_shared_api.h dr_ir_macros.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/x86/instr_create_api.h dr_ir_macros_x86.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/arm/instr_create_api.h dr_ir_macros_arm.h)

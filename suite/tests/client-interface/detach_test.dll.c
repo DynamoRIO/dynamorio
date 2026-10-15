@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2021-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -49,7 +49,7 @@ dr_exit(void)
 #ifdef WINDOWS
     dr_fprintf(STDERR, "done\n");
 #else
-        /* The app prints 'done' for us. */
+    /* The app prints 'done' for us. */
 #endif
 }
 

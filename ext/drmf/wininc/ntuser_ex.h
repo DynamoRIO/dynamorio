@@ -10,7 +10,7 @@
  ****************************************************************************/
 
 #ifndef _NTUSER_EX_
-#define _NTUSER_EX_ 1
+#define _NTUSER_EX_
 
 /* The data structure used for NtUserBuildPropList.
  * ReactOS has this as PROPLISTITEM but that does not match true Windows.

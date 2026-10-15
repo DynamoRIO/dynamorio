@@ -50,10 +50,10 @@
  * Initially obtained via mksystable.pl on VS2008 ntgdi.h.
  * That version was checked in separately to track manual changes.
  *
- * FIXME i#485: issues with table that are not yet resolved:
+ * XXX i#485: issues with table that are not yet resolved:
  *
  * + OUT params with no size where size comes from prior syscall
- *   return value (see FIXMEs in table below): so have to watch pairs
+ *   return value (see XXXs in table below): so have to watch pairs
  *   of calls (but what if app is able to compute max size some other
  *   way, maybe caching older call?), unless willing to only check for
  *   unaddr in post-syscall and thus after potential write to
@@ -73,11 +73,11 @@
  * + the REALIZATION_INFO struct is much larger on win7
  */
 
-/* FIXME i#1089: fill in info on all the inlined args for all of
+/* XXX i#1089: fill in info on all the inlined args for all of
  * syscalls in this file.
  */
 
-/* FIXME i#1093: figure out the failure codes for all the int and uint return values */
+/* XXX i#1093: figure out the failure codes for all the int and uint return values */
 
 extern drsys_sysnum_t sysnum_GdiCreatePaletteInternal;
 extern drsys_sysnum_t sysnum_GdiCheckBitmapBits;
@@ -3192,9 +3192,9 @@ syscall_info_t syscall_gdi32_info[] = {
       2,
       {
           { 0, sizeof(HDC), SYSARG_INLINED, DRSYS_TYPE_HANDLE },
-          { 1, RET, W, /*FIXME i#485: pre size from prior syscall ret*/ },
+          { 1, RET, W, /*XXX i#485: pre size from prior syscall ret*/ },
       } },
-    /* FIXME i#485: the REALIZATION_INFO struct is much larger on win7 */
+    /* XXX i#485: the REALIZATION_INFO struct is much larger on win7 */
     { { 0, 0 },
       "NtGdiGetRealizationInfo",
       UNKNOWN,
@@ -3720,7 +3720,7 @@ syscall_info_t syscall_gdi32_info[] = {
       {
           { 0, sizeof(FONTOBJ), R | HT, DRSYS_TYPE_STRUCT },
           { 1, RET, W | SYSARG_SIZE_IN_ELEMENTS,
-            sizeof(HGLYPH) /*FIXME i#485: pre size from prior syscall ret*/ },
+            sizeof(HGLYPH) /*XXX i#485: pre size from prior syscall ret*/ },
       } },
     { { 0, 0 },
       "NtGdiFONTOBJ_pvTrueTypeFontFile",
@@ -3896,7 +3896,7 @@ syscall_info_t syscall_gdi32_info[] = {
       4,
       {
           { 0, RET, W | SYSARG_SIZE_IN_ELEMENTS,
-            sizeof(PALETTEENTRY) /*FIXME i#485: pre size from prior syscall ret*/ },
+            sizeof(PALETTEENTRY) /*XXX i#485: pre size from prior syscall ret*/ },
           { 1, sizeof(USHORT), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
           { 2, sizeof(USHORT), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
           { 3, sizeof(USHORT), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
@@ -3908,7 +3908,7 @@ syscall_info_t syscall_gdi32_info[] = {
       6,
       {
           { 0, RET, W | SYSARG_SIZE_IN_ELEMENTS,
-            sizeof(PALETTEENTRY) /*FIXME i#485: pre size from prior syscall ret*/ },
+            sizeof(PALETTEENTRY) /*XXX i#485: pre size from prior syscall ret*/ },
           { 1, sizeof(BOOL), SYSARG_INLINED, DRSYS_TYPE_BOOL },
           { 2, sizeof(BYTE), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
           { 3, sizeof(USHORT), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
@@ -4122,7 +4122,7 @@ syscall_info_t syscall_gdi32_info[] = {
     },
 
     /***************************************************/
-    /* FIXME i#1095: fill in the unknown info, esp Vista+ */
+    /* XXX i#1095: fill in the unknown info, esp Vista+ */
     { { 0, 0 },
       "NtGdiAddFontResourceW",
       OK,
@@ -4744,7 +4744,7 @@ syscall_info_t syscall_gdi32_info[] = {
       4,
       {
           { 0, sizeof(HLSURF), SYSARG_INLINED, DRSYS_TYPE_HANDLE },
-          /* FIXME: what's the info class?
+          /* XXX: what's the info class?
            * {1, sizeof(HLSURF_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT},
            */
           { 2, -3, R | SYSARG_LENGTH_INOUT | HT, DRSYS_TYPE_STRUCT },
@@ -4757,7 +4757,7 @@ syscall_info_t syscall_gdi32_info[] = {
       4,
       {
           { 0, sizeof(HLSURF), SYSARG_INLINED, DRSYS_TYPE_HANDLE },
-          /* FIXME: what's the info class?
+          /* XXX: what's the info class?
            *{1, sizeof(HLSURF_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT},
            */
           { 2, -3, R | HT, DRSYS_TYPE_STRUCT },
@@ -4766,7 +4766,7 @@ syscall_info_t syscall_gdi32_info[] = {
 
     /***************************************************/
     /* Added in Win8 */
-    /* FIXME i#1153: fill in details */
+    /* XXX i#1153: fill in details */
     {
         { WIN8, 0 },
         "NtGdiCreateBitmapFromDxSurface2",
@@ -4994,7 +4994,7 @@ syscall_info_t syscall_gdi32_info[] = {
 
     /***************************************************/
     /* Added in Windows 8.1 */
-    /* FIXME i#1360: fill in details */
+    /* XXX i#1360: fill in details */
     {
         { WIN81, 0 },
         "NtGdiDdDDICacheHybridQueryValue",
@@ -5068,7 +5068,7 @@ syscall_info_t syscall_gdi32_info[] = {
 
     /***************************************************/
     /* Added in Windows 10 */
-    /* FIXME i#1750: fill in details */
+    /* XXX i#1750: fill in details */
     {
         { WIN10, 0 },
         "NtGdiDdDDIAbandonSwapChain",
@@ -5385,7 +5385,7 @@ syscall_info_t syscall_gdi32_info[] = {
         1,
     },
     /* Added in Windows 10 1511 */
-    /* FIXME i#1750: fill in details */
+    /* XXX i#1750: fill in details */
     {
         { WIN11, 0 },
         "NtGdiDdDDIFlushHeapTransitions",
@@ -5415,7 +5415,7 @@ syscall_info_t syscall_gdi32_info[] = {
         1,
     },
     /* Added in Windows 10 1607 */
-    /* FIXME i#1750: fill in details */
+    /* XXX i#1750: fill in details */
     {
         { WIN12, 0 },
         "NtGdiCreateOPMProtectedOutput",
@@ -5494,7 +5494,7 @@ syscall_info_t syscall_gdi32_info[] = {
         1,
     },
     /* Added in Windows 10 1703 */
-    /* FIXME i#1750: fill in details */
+    /* XXX i#1750: fill in details */
     {
         { WIN13, 0 },
         "NtGdiAddInitialFonts",
@@ -5640,7 +5640,7 @@ syscall_info_t syscall_gdi32_info[] = {
         DRSYS_TYPE_UNKNOWN,
     },
     /* Added in Windows 10 1709 */
-    /* FIXME i#1750: fill in details */
+    /* XXX i#1750: fill in details */
     {
         { WIN14, 0 },
         "NtGdiDdDDIAddSurfaceToSwapChain",
@@ -5756,7 +5756,7 @@ syscall_info_t syscall_gdi32_info[] = {
         DRSYS_TYPE_UNKNOWN,
     },
     /* Added in Windows 10 1709 */
-    /* FIXME i#1750: fill in details */
+    /* XXX i#1750: fill in details */
     {
         { WIN15, 0 },
         "NtGdiDdDDIGetProcessDeviceRemovalSupport",

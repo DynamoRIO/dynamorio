@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,7 +32,7 @@
  */
 
 #ifndef _DR_OS_UTILS_H_
-#define _DR_OS_UTILS_H_ 1
+#define _DR_OS_UTILS_H_
 
 /**
  * @file dr_os_utils.h
@@ -64,6 +64,18 @@ typedef enum {
     DR_STATE_GO_NATIVE = ~0,                  /**< Switch all state.  Use with care. */
 #endif
 } dr_state_flags_t;
+
+DR_API
+/**
+ * Returns whether DR was injected into a pre-existing process, whether
+ * externally triggered or internally triggered (via dr_app_start() or
+ * related functions).  If the current process was launched by DR *and*
+ * DR presented its very first instruction to clients, returns false.
+ * On Windows, the default injection returns true here as it does not
+ * take over prior to the very first instruction.
+ */
+bool
+dr_attached_midrun(void);
 
 DR_API
 /**
@@ -384,7 +396,7 @@ dr_convert_pid_to_handle(process_id_t pid);
  */
 typedef void *dr_auxlib_handle_t;
 /** An exported routine in a loaded client auxiliary library. */
-typedef void (*dr_auxlib_routine_ptr_t)();
+typedef void (*dr_auxlib_routine_ptr_t)(void);
 #if defined(WINDOWS) && !defined(X64)
 /**
  * A handle to a loaded 64-bit client auxiliary library.  This is a different
@@ -624,7 +636,7 @@ DR_API
 bool
 dr_memory_is_readable(const byte *pc, size_t size);
 
-/* FIXME - this is a real view of memory including changes made for dr cache consistency,
+/* XXX - this is a real view of memory including changes made for dr cache consistency,
  * but what we really want to show the client is the apps view of memory (which would
  * requires fixing correcting the view and fixing up exceptions for areas we made read
  * only) - see PR 198873 */

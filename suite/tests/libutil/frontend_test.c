@@ -40,7 +40,7 @@
 #define DBGHELP_LIB "dbghelp.dll"
 
 int
-main()
+main(int argc, const char *argv[])
 {
     bool dir_exists;
     int res;

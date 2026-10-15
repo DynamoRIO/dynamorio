@@ -31767,6 +31767,41 @@ GLOBAL_LABEL(FUNCNAME:)
         RAW(00) RAW(00)
         RAW(00) RAW(00)
 
+        /* x86_64_cet.s */
+
+        RAW(f3) RAW(41) RAW(0f) RAW(ae) RAW(ec)
+        RAW(f3) RAW(48) RAW(0f) RAW(ae) RAW(e8)
+        RAW(f3) RAW(41) RAW(0f) RAW(1e) RAW(cc)
+        RAW(f3) RAW(48) RAW(0f) RAW(1e) RAW(c8)
+        RAW(f3) RAW(0f) RAW(01) RAW(ea)
+        RAW(f3) RAW(41) RAW(0f) RAW(01) RAW(2c) RAW(24)
+        RAW(41) RAW(0f) RAW(38) RAW(f6) RAW(04) RAW(24)
+        RAW(4a) RAW(0f) RAW(38) RAW(f6) RAW(14) RAW(39)
+        RAW(66) RAW(41) RAW(0f) RAW(38) RAW(f5) RAW(04) RAW(24)
+        RAW(66) RAW(48) RAW(0f) RAW(38) RAW(f5) RAW(0c) RAW(03)
+        RAW(f3) RAW(0f) RAW(01) RAW(e8)
+        RAW(f3) RAW(42) RAW(0f) RAW(ae) RAW(34) RAW(26)
+        RAW(f3) RAW(0f) RAW(1e) RAW(fa)
+        RAW(f3) RAW(0f) RAW(1e) RAW(fb)
+        RAW(f3) RAW(41) RAW(0f) RAW(ae) RAW(ec)
+        RAW(f3) RAW(48) RAW(0f) RAW(ae) RAW(e8)
+        RAW(f3) RAW(41) RAW(0f) RAW(1e) RAW(cc)
+        RAW(f3) RAW(48) RAW(0f) RAW(1e) RAW(c8)
+        RAW(f3) RAW(0f) RAW(01) RAW(ea)
+        RAW(f3) RAW(41) RAW(0f) RAW(01) RAW(2c) RAW(24)
+        RAW(41) RAW(0f) RAW(38) RAW(f6) RAW(04) RAW(24)
+        RAW(44) RAW(0f) RAW(38) RAW(f6) RAW(20)
+        RAW(4a) RAW(0f) RAW(38) RAW(f6) RAW(14) RAW(39)
+        RAW(4a) RAW(0f) RAW(38) RAW(f6) RAW(0c) RAW(3a)
+        RAW(66) RAW(41) RAW(0f) RAW(38) RAW(f5) RAW(04) RAW(24)
+        RAW(66) RAW(44) RAW(0f) RAW(38) RAW(f5) RAW(20)
+        RAW(66) RAW(48) RAW(0f) RAW(38) RAW(f5) RAW(0c) RAW(03)
+        RAW(66) RAW(48) RAW(0f) RAW(38) RAW(f5) RAW(1c) RAW(01)
+        RAW(f3) RAW(0f) RAW(01) RAW(e8)
+        RAW(f3) RAW(42) RAW(0f) RAW(ae) RAW(34) RAW(26)
+        RAW(f3) RAW(0f) RAW(1e) RAW(fa)
+        RAW(f3) RAW(0f) RAW(1e) RAW(fb)
+
         /* x86_64_cldemote.s */
 
         RAW(0f) RAW(1c) RAW(01)
@@ -32646,6 +32681,13 @@ GLOBAL_LABEL(FUNCNAME:)
         RAW(00) RAW(00) RAW(00) RAW(90)
         RAW(c4) RAW(c3) RAW(e1) RAW(6d) RAW(64) RAW(0d) RAW(00)
         RAW(b0)
+
+        /* x86_64_fred.s */
+
+        RAW(f2) RAW(0f) RAW(01) RAW(ca)
+        RAW(f3) RAW(0f) RAW(01) RAW(ca)
+        RAW(f2) RAW(0f) RAW(01) RAW(ca)
+        RAW(f3) RAW(0f) RAW(01) RAW(ca)
 
         /* x86_64_fsgs.s */
 
@@ -34611,6 +34653,22 @@ GLOBAL_LABEL(FUNCNAME:)
         /* x86_64_localpic.s */
 
         RAW(48) RAW(8b) RAW(05) RAW(00) RAW(00) RAW(00) RAW(00)
+
+        /* x86_64_lkgs.s */
+
+        RAW(f2) RAW(41) RAW(0f) RAW(00) RAW(f4)
+        RAW(f2) RAW(41) RAW(0f) RAW(00) RAW(f4)
+        RAW(f2) RAW(41) RAW(0f) RAW(00) RAW(f4)
+        RAW(f2) RAW(42) RAW(0f) RAW(00) RAW(b4) RAW(f5) RAW(00) RAW(00) RAW(00) RAW(10)
+        RAW(f2) RAW(41) RAW(0f) RAW(00) RAW(31)
+        RAW(f2) RAW(0f) RAW(00) RAW(b1) RAW(fe) RAW(00) RAW(00) RAW(00)
+        RAW(f2) RAW(0f) RAW(00) RAW(b2) RAW(00) RAW(ff) RAW(ff) RAW(ff)
+        RAW(f2) RAW(41) RAW(0f) RAW(00) RAW(f4)
+        RAW(f2) RAW(41) RAW(0f) RAW(00) RAW(f4)
+        RAW(f2) RAW(42) RAW(0f) RAW(00) RAW(b4) RAW(f5) RAW(00) RAW(00) RAW(00) RAW(10)
+        RAW(f2) RAW(41) RAW(0f) RAW(00) RAW(31)
+        RAW(f2) RAW(0f) RAW(00) RAW(b1) RAW(fe) RAW(00) RAW(00) RAW(00)
+        RAW(f2) RAW(0f) RAW(00) RAW(b2) RAW(00) RAW(ff) RAW(ff) RAW(ff)
 
         /* x86_64_lock_1.s */
 

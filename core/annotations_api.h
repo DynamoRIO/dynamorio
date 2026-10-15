@@ -31,7 +31,7 @@
  */
 
 #ifndef _DR_ANNOTATION_H_
-#define _DR_ANNOTATION_H_ 1
+#define _DR_ANNOTATION_H_
 
 #include "dr_tools.h"
 

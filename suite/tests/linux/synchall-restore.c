@@ -62,7 +62,7 @@
 #define INTS_PER_ZMM 16
 
 NOINLINE void
-dummy2()
+dummy2(void)
 {
     for (int i = 0; i < 10; i++) {
         asm volatile("add %rdi, %rdi");
@@ -72,12 +72,13 @@ dummy2()
 static void *child_started;
 
 void *
-thread()
+thread(void *unused)
 {
     signal_cond_var(child_started);
     for (int i = 0; i < 100000; i++) {
         dummy2();
     }
+    return NULL;
 }
 
 int

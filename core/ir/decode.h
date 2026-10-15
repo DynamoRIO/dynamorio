@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -61,7 +61,11 @@
  */
 #    define PREFIX_SEG_FS 0x20
 #    define PREFIX_SEG_GS 0x40
-/* Prefix used for AVX-512 */
+/* Generic prefix used only by decode_cti() and used as a rough method to detect AVX-512
+ * in instr_may_write_avx512_register() and build_bb_ilist(), but it's too broad.  Full
+ * decode does *not* set this prefix and instead we use precise operand checks for
+ * AVX-512 detection when we have operand info.
+ */
 #    define PREFIX_EVEX 0x000100000
 #endif
 

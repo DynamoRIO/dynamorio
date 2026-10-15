@@ -11,8 +11,10 @@ Output format:
          120          63: W0.T1992554 <marker: timestamp 13352268558646604>
          121          63: W0.T1992554 <marker: W0.T1992554 on core 10>
          122          64: W0.T1992554 ifetch       4 byte(s) @ 0x0000000000401028 48 83 eb 01          sub    $0x0000000000000001 %rbx -> %rbx
+         123          65: W0.T1992554 ifetch       4 byte(s) @ 0x000000000040102c 48 83 fb 00          cmp    %rbx $0x0000000000000000
+         124          66: W0.T1992554 ifetch       2 byte(s) @ 0x0000000000401030 75 d9                jnz    $0x000000000040100b (taken)
 View tool results:
-              2 : total instructions
+              4 : total instructions
 
 ===========================================================================
 Trace invariant checks passed

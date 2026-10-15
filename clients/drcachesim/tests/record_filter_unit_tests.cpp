@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,6 +39,7 @@
 #include "tools/basic_counts.h"
 #include "tools/filter/null_filter.h"
 #include "tools/filter/cache_filter.h"
+#include "tools/filter/kernel_filter.h"
 #include "tools/filter/record_filter.h"
 #include "tools/filter/trim_filter.h"
 #include "tools/filter/type_filter.h"
@@ -52,6 +53,7 @@
 #include <inttypes.h>
 #include <fstream>
 #include <set>
+#include <sstream>
 #include <vector>
 
 namespace dynamorio {
@@ -202,25 +204,28 @@ get_basic_counts(const std::string &trace_dir)
     return counts;
 }
 
-static void
-print_entry(trace_entry_t entry)
+static std::string
+entry_as_string(trace_entry_t entry)
 {
-    fprintf(stderr, "%s:%d:%" PRIxPTR, trace_type_names[entry.type], entry.size,
-            entry.addr);
+    std::ostringstream entry_string;
+    entry_string << trace_type_names[entry.type] << ":" << entry.size << ":" << std::hex
+                 << entry.addr << std::dec;
+    return entry_string.str();
 }
 
-bool
+static std::string
 process_entries_and_check_result(test_record_filter_t *record_filter,
                                  const std::vector<test_case_t> &entries, int index)
 {
+    std::ostringstream error_string;
     record_filter->initialize_stream(nullptr);
     auto stream = std::unique_ptr<local_stream_t>(new local_stream_t());
     void *shard_data =
         record_filter->parallel_shard_init_stream(0, nullptr, stream.get());
     if (!*record_filter) {
-        fprintf(stderr, "Filtering init failed: %s\n",
-                record_filter->get_error_string().c_str());
-        return false;
+        error_string << "Filtering init failed: " << record_filter->get_error_string();
+        fprintf(stderr, "%s\n", error_string.str().c_str());
+        return error_string.str();
     }
     // Process each trace entry.
     for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
@@ -230,18 +235,21 @@ process_entries_and_check_result(test_record_filter_t *record_filter,
             stream->set_last_timestamp(entries[i].entry.addr);
         if (entries[i].input &&
             !record_filter->parallel_shard_memref(shard_data, entries[i].entry)) {
-            fprintf(stderr, "Filtering failed on entry %d: %s\n", i,
-                    record_filter->parallel_shard_error(shard_data).c_str());
-            return false;
+            error_string << "Filtering failed on entry " << i << ": "
+                         << record_filter->parallel_shard_error(shard_data);
+            fprintf(stderr, "%s\n", error_string.str().c_str());
+            return error_string.str();
         }
     }
     if (!record_filter->parallel_shard_exit(shard_data) || !*record_filter) {
-        fprintf(stderr, "Filtering exit failed\n");
-        return false;
+        error_string << "Filtering exit failed";
+        fprintf(stderr, "%s\n", error_string.str().c_str());
+        return error_string.str();
     }
     if (!record_filter->print_results()) {
-        fprintf(stderr, "Filtering results failed\n");
-        return false;
+        error_string << "Filtering results failed";
+        fprintf(stderr, "%s\n", error_string.str().c_str());
+        return error_string.str();
     }
 
     std::vector<trace_entry_t> filtered = record_filter->get_output_entries();
@@ -250,15 +258,11 @@ process_entries_and_check_result(test_record_filter_t *record_filter,
     for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
         if (!entries[i].input)
             continue;
-        fprintf(stderr, "  %d: ", i);
-        print_entry(entries[i].entry);
-        fprintf(stderr, "\n");
+        fprintf(stderr, "  %d: %s\n", i, entry_as_string(entries[i].entry).c_str());
     }
     fprintf(stderr, "Output:\n");
     for (int i = 0; i < static_cast<int>(filtered.size()); ++i) {
-        fprintf(stderr, "  %d: ", i);
-        print_entry(filtered[i]);
-        fprintf(stderr, "\n");
+        fprintf(stderr, "  %d: %s\n", i, entry_as_string(filtered[i]).c_str());
     }
     // Check filtered output entries.
     int j = 0;
@@ -266,31 +270,28 @@ process_entries_and_check_result(test_record_filter_t *record_filter,
         if (!entries[i].output[index])
             continue;
         if (j >= static_cast<int>(filtered.size())) {
-            fprintf(stderr,
-                    "Too few entries in filtered output (iter=%d). Expected: ", index);
-            print_entry(entries[i].entry);
-            fprintf(stderr, "\n");
-            return false;
+            error_string << "Too few entries in filtered output (iter=" << index
+                         << "). Expected: " << entry_as_string(entries[i].entry);
+            fprintf(stderr, "%s\n", error_string.str().c_str());
+            return error_string.str();
         }
         if (memcmp(&filtered[j], &entries[i].entry, sizeof(trace_entry_t)) != 0) {
-            fprintf(stderr,
-                    "Wrong filter result for iter=%d, at pos=%d. Expected: ", index, i);
-            print_entry(entries[i].entry);
-            fprintf(stderr, ", got: ");
-            print_entry(filtered[j]);
-            fprintf(stderr, "\n");
-            return false;
+            error_string << "Wrong filter result for iter=" << index << ", at pos=" << i
+                         << ". Expected: " << entry_as_string(entries[i].entry)
+                         << ", got: " << entry_as_string(filtered[j]);
+            fprintf(stderr, "%s\n", error_string.str().c_str());
+            return error_string.str();
         }
         ++j;
     }
     if (j < static_cast<int>(filtered.size())) {
-        fprintf(stderr, "Got %d extra entries in filtered output (iter=%d). Next one: ",
-                static_cast<int>(filtered.size()) - j, index);
-        print_entry(filtered[j]);
-        fprintf(stderr, "\n");
-        return false;
+        error_string << "Got " << (static_cast<int>(filtered.size()) - j)
+                     << " extra entries in filtered output (iter=" << index
+                     << "). Next one: " << entry_as_string(filtered[j]);
+        fprintf(stderr, "%s\n", error_string.str().c_str());
+        return error_string.str();
     }
-    return true;
+    return "";
 }
 
 /* Test changes in instruction encodings.
@@ -425,7 +426,7 @@ test_encodings2regdeps_filter()
 
     /* Run the test.
      */
-    if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+    if (!process_entries_and_check_result(record_filter.get(), entries, 0).empty())
         return false;
 
     fprintf(stderr, "test_encodings2regdeps_filter passed\n");
@@ -594,7 +595,7 @@ test_func_id_filter()
 
     /* Run the test.
      */
-    if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+    if (!process_entries_and_check_result(record_filter.get(), entries, 0).empty())
         return false;
 
     fprintf(stderr, "test_func_id_filter passed\n");
@@ -606,70 +607,143 @@ test_modify_marker_value_filter()
 {
     constexpr addr_t PC = 0x7f6fdd3ec360;
     constexpr addr_t ENCODING = 0xe78948;
-    constexpr uint64_t NEW_PAGE_SIZE_MARKER_VALUE = 0x800; // 2k pages.
-    std::vector<test_case_t> entries = {
-        // Trace shard header.
-        { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, true, { true } },
-        { { TRACE_TYPE_MARKER,
-            TRACE_MARKER_TYPE_FILETYPE,
-            { OFFLINE_FILE_TYPE_ARCH_X86_64 | OFFLINE_FILE_TYPE_ENCODINGS |
-              OFFLINE_FILE_TYPE_SYSCALL_NUMBERS | OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS } },
-          true,
-          { true } },
-        { { TRACE_TYPE_THREAD, 0, { 0x4 } }, true, { true } },
-        { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
-          true,
-          { true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PAGE_SIZE, { 0x1000 } }, // 4k pages.
-          true,
-          { false } },
-        // Overwrite the value of TRACE_MARKER_TYPE_PAGE_SIZE with 0x800 == 2048 == 2k
-        // page size.
-        { { TRACE_TYPE_MARKER,
-            TRACE_MARKER_TYPE_PAGE_SIZE,
-            { NEW_PAGE_SIZE_MARKER_VALUE } },
-          false,
-          { true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } }, true, { true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { false } },
-        // Overwrite the value of TRACE_MARKER_TYPE_CPU_ID with ((uintptr_t)-1).
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { INVALID_CPU_MARKER_VALUE } },
-          false,
-          { true } },
-        // We need at least one instruction with encodings to make record_filter output
-        // the trace.
-        { { TRACE_TYPE_ENCODING, 3, { ENCODING } }, true, { true } },
-        { { TRACE_TYPE_INSTR, 3, { PC } }, true, { true } },
+    {
+        // Test modifying the page size marker.
+        constexpr uint64_t NEW_PAGE_SIZE_MARKER_VALUE = 0x800; // 2k pages.
+        std::vector<test_case_t> entries = {
+            // Trace shard header.
+            { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, true, { true } },
+            { { TRACE_TYPE_MARKER,
+                TRACE_MARKER_TYPE_FILETYPE,
+                { OFFLINE_FILE_TYPE_ARCH_X86_64 | OFFLINE_FILE_TYPE_ENCODINGS |
+                  OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
+                  OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS } },
+              true,
+              { true } },
+            { { TRACE_TYPE_THREAD, 0, { 0x4 } }, true, { true } },
+            { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
+              true,
+              { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PAGE_SIZE, { 0x1000 } }, // 4k pages.
+              true,
+              { false } },
+            // Overwrite the value of TRACE_MARKER_TYPE_PAGE_SIZE with 0x800 == 2048 == 2k
+            // page size.
+            { { TRACE_TYPE_MARKER,
+                TRACE_MARKER_TYPE_PAGE_SIZE,
+                { NEW_PAGE_SIZE_MARKER_VALUE } },
+              false,
+              { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } },
+              true,
+              { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { false } },
+            // Overwrite the value of TRACE_MARKER_TYPE_CPU_ID with ((uintptr_t)-1).
+            { { TRACE_TYPE_MARKER,
+                TRACE_MARKER_TYPE_CPU_ID,
+                { INVALID_CPU_MARKER_VALUE } },
+              false,
+              { true } },
+            // We need at least one instruction with encodings to make record_filter
+            // output
+            // the trace.
+            { { TRACE_TYPE_ENCODING, 3, { ENCODING } }, true, { true } },
+            { { TRACE_TYPE_INSTR, 3, { PC } }, true, { true } },
 
-        { { TRACE_TYPE_FOOTER, 0, { 0x0 } }, true, { true } },
-    };
+            { { TRACE_TYPE_FOOTER, 0, { 0x0 } }, true, { true } },
+        };
 
-    // Construct modify_marker_value_filter_t. We change TRACE_MARKER_TYPE_CPU_ID values
-    // with INVALID_CPU_MARKER_VALUE == ((uintptr_t)-1) and TRACE_MARKER_TYPE_PAGE_SIZE
-    // with 2k.
-    std::vector<uint64_t> modify_marker_value_pairs_list = { TRACE_MARKER_TYPE_CPU_ID,
-                                                             INVALID_CPU_MARKER_VALUE,
-                                                             TRACE_MARKER_TYPE_PAGE_SIZE,
-                                                             NEW_PAGE_SIZE_MARKER_VALUE };
-    std::vector<std::unique_ptr<record_filter_func_t>> filters;
-    auto modify_marker_value_filter = std::unique_ptr<record_filter_func_t>(
-        new dynamorio::drmemtrace::modify_marker_value_filter_t(
-            modify_marker_value_pairs_list));
-    if (!modify_marker_value_filter->get_error_string().empty()) {
-        fprintf(stderr, "Couldn't construct a modify_marker_value_filter %s",
-                modify_marker_value_filter->get_error_string().c_str());
-        return false;
+        // Construct modify_marker_value_filter_t. We change TRACE_MARKER_TYPE_CPU_ID
+        // values with INVALID_CPU_MARKER_VALUE == ((uintptr_t)-1) and
+        // TRACE_MARKER_TYPE_PAGE_SIZE with 2k.
+        std::vector<uint64_t> modify_marker_value_pairs_list = {
+            TRACE_MARKER_TYPE_CPU_ID, INVALID_CPU_MARKER_VALUE,
+            TRACE_MARKER_TYPE_PAGE_SIZE, NEW_PAGE_SIZE_MARKER_VALUE
+        };
+        std::vector<std::unique_ptr<record_filter_func_t>> filters;
+        auto modify_marker_value_filter = std::unique_ptr<record_filter_func_t>(
+            new dynamorio::drmemtrace::modify_marker_value_filter_t(
+                modify_marker_value_pairs_list));
+        if (!modify_marker_value_filter->get_error_string().empty()) {
+            fprintf(stderr, "Couldn't construct a modify_marker_value_filter %s",
+                    modify_marker_value_filter->get_error_string().c_str());
+            return false;
+        }
+        filters.push_back(std::move(modify_marker_value_filter));
+
+        // Construct record_filter_t.
+        test_record_filter_t record_filter(std::move(filters), 0, /*write_archive=*/true);
+
+        // Run the test.
+        if (!process_entries_and_check_result(&record_filter, entries, 0).empty())
+            return false;
     }
-    filters.push_back(std::move(modify_marker_value_filter));
+    {
+        // Test modifying the version marker, which should also change the header.
+        constexpr uint64_t OLD_VERSION = 7;
+        constexpr uint64_t NEW_VERSION = 8;
+        std::vector<test_case_t> entries = {
+            // Trace shard header, which should be updated.
+            { { TRACE_TYPE_HEADER, 0, { OLD_VERSION } }, true, { false } },
+            { { TRACE_TYPE_HEADER, 0, { NEW_VERSION } }, false, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { OLD_VERSION } },
+              true,
+              { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { NEW_VERSION } },
+              false,
+              { true } },
+            { { TRACE_TYPE_MARKER,
+                TRACE_MARKER_TYPE_FILETYPE,
+                { OFFLINE_FILE_TYPE_ARCH_X86_64 | OFFLINE_FILE_TYPE_ENCODINGS |
+                  OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
+                  OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS } },
+              true,
+              { true } },
+            { { TRACE_TYPE_THREAD, 0, { 0x4 } }, true, { true } },
+            { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
+              true,
+              { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PAGE_SIZE, { 0x1000 } },
+              true,
+              { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } },
+              true,
+              { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { true } },
+            // We need at least one instruction with encodings to make record_filter
+            // output
+            // the trace.
+            { { TRACE_TYPE_ENCODING, 3, { ENCODING } }, true, { true } },
+            { { TRACE_TYPE_INSTR, 3, { PC } }, true, { true } },
 
-    // Construct record_filter_t.
-    test_record_filter_t record_filter(std::move(filters), 0, /*write_archive=*/true);
+            { { TRACE_TYPE_FOOTER, 0, { 0x0 } }, true, { true } },
+        };
 
-    // Run the test.
-    if (!process_entries_and_check_result(&record_filter, entries, 0))
-        return false;
+        // Construct modify_marker_value_filter_t.
+        std::vector<uint64_t> modify_marker_value_pairs_list = {
+            TRACE_MARKER_TYPE_VERSION, NEW_VERSION
+        };
+        std::vector<std::unique_ptr<record_filter_func_t>> filters;
+        auto modify_marker_value_filter = std::unique_ptr<record_filter_func_t>(
+            new dynamorio::drmemtrace::modify_marker_value_filter_t(
+                modify_marker_value_pairs_list));
+        if (!modify_marker_value_filter->get_error_string().empty()) {
+            fprintf(stderr, "Couldn't construct a modify_marker_value_filter %s",
+                    modify_marker_value_filter->get_error_string().c_str());
+            return false;
+        }
+        filters.push_back(std::move(modify_marker_value_filter));
+
+        // Construct record_filter_t.
+        test_record_filter_t record_filter(std::move(filters), 0, /*write_archive=*/true);
+
+        // Run the test.
+        if (!process_entries_and_check_result(&record_filter, entries, 0).empty())
+            return false;
+    }
 
     fprintf(stderr, "test_modify_marker_value_filter passed\n");
     return true;
@@ -833,7 +907,7 @@ test_cache_and_type_filter()
         uint64_t stop_timestamp = k == 0 ? 0 : 0xabcdee;
         auto record_filter = std::unique_ptr<test_record_filter_t>(
             new test_record_filter_t(std::move(filters), stop_timestamp));
-        if (!process_entries_and_check_result(record_filter.get(), entries, k))
+        if (!process_entries_and_check_result(record_filter.get(), entries, k).empty())
             return false;
     }
     fprintf(stderr, "test_cache_and_type_filter passed\n");
@@ -911,7 +985,7 @@ test_chunk_update()
         filters.push_back(std::move(filter));
         auto record_filter = std::unique_ptr<test_record_filter_t>(
             new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
-        if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+        if (!process_entries_and_check_result(record_filter.get(), entries, 0).empty())
             return false;
     }
     {
@@ -1028,7 +1102,7 @@ test_chunk_update()
         filters.push_back(std::move(filter));
         auto record_filter = std::unique_ptr<test_record_filter_t>(
             new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
-        if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+        if (!process_entries_and_check_result(record_filter.get(), entries, 0).empty())
             return false;
     }
     fprintf(stderr, "test_chunk_update passed\n");
@@ -1043,20 +1117,313 @@ test_trim_filter()
     constexpr addr_t ENCODING_A = 0x4321;
     constexpr addr_t PC_B = 0x5678;
     constexpr addr_t ENCODING_B = 0x8765;
+    constexpr addr_t WINDOW_ID_0 = 0x0;
+    constexpr addr_t WINDOW_ID_1 = 0x1;
     {
-        // Test invalid parameters.
+        // Test invalid parameters: trim_before_timestamp > trim_after_timestamp.
+        constexpr uint64_t TRIM_BEFORE_TIMESTAMP = 150;
+        constexpr uint64_t TRIM_AFTER_TIMESTAMP = 149;
         auto filter = std::unique_ptr<record_filter_func_t>(
-            new dynamorio::drmemtrace::trim_filter_t(150, 149));
-        if (filter->get_error_string().empty()) {
+            new dynamorio::drmemtrace::trim_filter_t(TRIM_BEFORE_TIMESTAMP,
+                                                     TRIM_AFTER_TIMESTAMP));
+        std::string expected_error_string =
+            "trim_before_timestamp = " + std::to_string(TRIM_BEFORE_TIMESTAMP) +
+            " must be less than trim_after_timestamp = " +
+            std::to_string(TRIM_AFTER_TIMESTAMP) + ". ";
+        if (filter->get_error_string() != expected_error_string) {
             fprintf(stderr, "Failed to return an error on invalid params");
             return false;
         }
-        auto filter2 = std::unique_ptr<record_filter_func_t>(
-            new dynamorio::drmemtrace::trim_filter_t(150, 150));
-        if (filter2->get_error_string().empty()) {
+    }
+    {
+        // Test invalid parameters: trim_before_timestamp == trim_after_timestamp.
+        constexpr uint64_t TRIM_BEFORE_TIMESTAMP = 150;
+        constexpr uint64_t TRIM_AFTER_TIMESTAMP = 150;
+        auto filter = std::unique_ptr<record_filter_func_t>(
+            new dynamorio::drmemtrace::trim_filter_t(TRIM_BEFORE_TIMESTAMP,
+                                                     TRIM_AFTER_TIMESTAMP));
+        std::string expected_error_string =
+            "trim_before_timestamp = " + std::to_string(TRIM_BEFORE_TIMESTAMP) +
+            " must be less than trim_after_timestamp = " +
+            std::to_string(TRIM_AFTER_TIMESTAMP) + ". ";
+        if (filter->get_error_string() != expected_error_string) {
             fprintf(stderr, "Failed to return an error on invalid params");
             return false;
         }
+    }
+    {
+        // Test invalid parameters: trim_before_instr > trim_after_instr.
+        constexpr uint64_t TRIM_BEFORE_INSTR = 250;
+        constexpr uint64_t TRIM_AFTER_INSTR = 249;
+        auto filter = std::unique_ptr<record_filter_func_t>(
+            new dynamorio::drmemtrace::trim_filter_t(0, 0, TRIM_BEFORE_INSTR,
+                                                     TRIM_AFTER_INSTR));
+        std::string expected_error_string =
+            "trim_before_instr = " + std::to_string(TRIM_BEFORE_INSTR) +
+            " must be less than trim_after_instr = " + std::to_string(TRIM_AFTER_INSTR) +
+            ".";
+        if (filter->get_error_string() != expected_error_string) {
+            fprintf(stderr, "Failed to return an error on invalid params");
+            return false;
+        }
+    }
+    {
+        // Test invalid parameters: trimming by timestamp and instruction ordinal at the
+        // same time.
+        constexpr uint64_t TRIM_BEFORE_TIMESTAMP = 150;
+        constexpr uint64_t TRIM_AFTER_TIMESTAMP = 149;
+        constexpr uint64_t TRIM_BEFORE_INSTR = 250;
+        constexpr uint64_t TRIM_AFTER_INSTR = 249;
+        auto filter = std::unique_ptr<record_filter_func_t>(
+            new dynamorio::drmemtrace::trim_filter_t(
+                TRIM_BEFORE_TIMESTAMP, TRIM_AFTER_TIMESTAMP, TRIM_BEFORE_INSTR,
+                TRIM_AFTER_INSTR));
+        std::string expected_error_string =
+            "trim_[before | after]_timestamp and trim_[before | after]_instr cannot be "
+            "used at the same time";
+        if (filter->get_error_string() != expected_error_string) {
+            fprintf(stderr, "Failed to return an error on invalid params");
+            return false;
+        }
+    }
+    {
+        constexpr uint64_t TRIM_BEFORE_INSTR = 1;
+        constexpr uint64_t TRIM_AFTER_INSTR = 3;
+        // Test trimming of a trace using instruction ordinals.
+        std::vector<test_case_t> entries = {
+            // Header.
+            { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, true, { true } },
+            { { TRACE_TYPE_MARKER,
+                TRACE_MARKER_TYPE_FILETYPE,
+                { OFFLINE_FILE_TYPE_ENCODINGS } },
+              true,
+              { true } },
+            { { TRACE_TYPE_THREAD, 0, { TID } }, true, { true } },
+            { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
+              true,
+              { true } },
+            // Chunk 1.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, { 5 } },
+              true,
+              { true } },
+            // Removal of trim_before_instr = 1 starts here.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 1 } },
+              true,
+              { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0 } }, true, { false } },
+            { { TRACE_TYPE_ENCODING, 2, { ENCODING_A } }, true, { false } },
+            // instruction ordinal = 1 (removed).
+            { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { false } },
+            // Removal of trim_before_instr = 1 ends here.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 2 } }, true, { true } },
+            { { TRACE_TYPE_ENCODING, 2, { ENCODING_A } }, false, { true } },
+            // instruction ordinal = 2.
+            { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 3 } }, true, { true } },
+            // instruction ordinal = 3.
+            { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+            // Removal of trim_after_instr_instr = 3 starts here.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 4 } },
+              true,
+              { false } },
+            // instruction ordinal = 4 (removed).
+            { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 5 } },
+              true,
+              { false } },
+            // instruction ordinal = 5 (removed).
+            { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { false } },
+            // Removal of trim_after_instr_instr = 3 ends here.
+            // These footer records should remain.
+            { { TRACE_TYPE_THREAD_EXIT, 0, { TID } }, true, { true } },
+            { { TRACE_TYPE_FOOTER, 0, { 0xa2 } }, true, { true } },
+        };
+        std::vector<std::unique_ptr<record_filter_func_t>> filters;
+        auto filter = std::unique_ptr<record_filter_func_t>(
+            new dynamorio::drmemtrace::trim_filter_t(0, 0, TRIM_BEFORE_INSTR,
+                                                     TRIM_AFTER_INSTR));
+        if (!filter->get_error_string().empty()) {
+            fprintf(stderr, "Couldn't construct a trim_filter %s",
+                    filter->get_error_string().c_str());
+            return false;
+        }
+        filters.push_back(std::move(filter));
+        auto record_filter = std::unique_ptr<test_record_filter_t>(
+            new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
+        if (!process_entries_and_check_result(record_filter.get(), entries, 0).empty())
+            return false;
+    }
+    {
+        // Test trimming of a multi windows trace.
+        std::vector<test_case_t> entries = {
+            // Header.
+            { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, true, { true } },
+            { { TRACE_TYPE_MARKER,
+                TRACE_MARKER_TYPE_FILETYPE,
+                { OFFLINE_FILE_TYPE_ENCODINGS } },
+              true,
+              { true } },
+            { { TRACE_TYPE_THREAD, 0, { TID } }, true, { true } },
+            { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
+              true,
+              { true } },
+            // Chunk 1.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, { 2 } },
+              true,
+              { true } },
+            // Removal before timestamp starts here.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 40 } },
+              true,
+              { false } },
+            // This is a window-trace. Even though we already started trimming, we always
+            // emit the first window marker.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_WINDOW_ID, { WINDOW_ID_0 } },
+              true,
+              { true } },
+            // Error: we cannot have multiple windows in the same trace when trimming.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_WINDOW_ID, { WINDOW_ID_1 } },
+              true,
+              { false } },
+            // Removal before timestamp ends here.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 100 } },
+              true,
+              { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0 } }, true, { true } },
+            { { TRACE_TYPE_ENCODING, 2, { ENCODING_A } }, true, { true } },
+            { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+            // Removal after timestamp starts here.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 200 } },
+              true,
+              { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0 } }, true, { false } },
+            { { TRACE_TYPE_ENCODING, 2, { ENCODING_B } }, true, { false } },
+            { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 0 } },
+              true,
+              { false } },
+            // Chunk 2.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL, { 12 } },
+              true,
+              { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 200 } },
+              true,
+              { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0 } }, true, { false } },
+            { { TRACE_TYPE_ENCODING, 2, { ENCODING_B } }, true, { false } },
+            // Removal after timestamp ends here.
+            { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { false } },
+            // These footer records should remain.
+            { { TRACE_TYPE_THREAD_EXIT, 0, { TID } }, true, { true } },
+            { { TRACE_TYPE_FOOTER, 0, { 0xa2 } }, true, { true } },
+        };
+        std::vector<std::unique_ptr<record_filter_func_t>> filters;
+        auto filter = std::unique_ptr<record_filter_func_t>(
+            new dynamorio::drmemtrace::trim_filter_t(50, 150));
+        if (!filter->get_error_string().empty()) {
+            fprintf(stderr, "Couldn't construct a trim_filter %s",
+                    filter->get_error_string().c_str());
+            return false;
+        }
+        filters.push_back(std::move(filter));
+        auto record_filter = std::unique_ptr<test_record_filter_t>(
+            new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
+        std::string error_string =
+            process_entries_and_check_result(record_filter.get(), entries, 0);
+        // The trimming should fail, as the trace contains multiple windows with different
+        // IDs.
+        if (error_string.empty())
+            return false;
+        std::ostringstream expected_error_string;
+        expected_error_string << "Filtering failed on entry 9: Filter error: "
+                                 "Trimming a trace with multiple windows is not "
+                                 "supported. Previous window_id = "
+                              << WINDOW_ID_0 << ", current window_id = " << WINDOW_ID_1;
+        if (error_string != expected_error_string.str())
+            return false;
+    }
+    {
+        // Test trimming of a single window trace.
+        std::vector<test_case_t> entries = {
+            // Header.
+            { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, true, { true } },
+            { { TRACE_TYPE_MARKER,
+                TRACE_MARKER_TYPE_FILETYPE,
+                { OFFLINE_FILE_TYPE_ENCODINGS } },
+              true,
+              { true } },
+            { { TRACE_TYPE_THREAD, 0, { TID } }, true, { true } },
+            { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
+              true,
+              { true } },
+            // Chunk 1.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, { 2 } },
+              true,
+              { true } },
+            // Removal before timestamp starts here.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 40 } },
+              true,
+              { false } },
+            // This is a window-trace. Even though we already started trimming, we always
+            // emit the first window marker.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_WINDOW_ID, { WINDOW_ID_0 } },
+              true,
+              { true } },
+            // We won't emit following window markers because we are in a removed region
+            // of the trace.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_WINDOW_ID, { WINDOW_ID_0 } },
+              true,
+              { false } },
+            // Removal before timestamp ends here.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 100 } },
+              true,
+              { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0 } }, true, { true } },
+            { { TRACE_TYPE_ENCODING, 2, { ENCODING_A } }, true, { true } },
+            { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+            // Removal after timestamp starts here.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 200 } },
+              true,
+              { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0 } }, true, { false } },
+            { { TRACE_TYPE_ENCODING, 2, { ENCODING_B } }, true, { false } },
+            { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 0 } },
+              true,
+              { false } },
+            // Chunk 2.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL, { 12 } },
+              true,
+              { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 200 } },
+              true,
+              { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0 } }, true, { false } },
+            { { TRACE_TYPE_ENCODING, 2, { ENCODING_B } }, true, { false } },
+            // Removal after timestamp ends here.
+            { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { false } },
+            // These footer records should remain.
+            { { TRACE_TYPE_THREAD_EXIT, 0, { TID } }, true, { true } },
+            { { TRACE_TYPE_FOOTER, 0, { 0xa2 } }, true, { true } },
+        };
+        std::vector<std::unique_ptr<record_filter_func_t>> filters;
+        auto filter = std::unique_ptr<record_filter_func_t>(
+            new dynamorio::drmemtrace::trim_filter_t(50, 150));
+        if (!filter->get_error_string().empty()) {
+            fprintf(stderr, "Couldn't construct a trim_filter %s",
+                    filter->get_error_string().c_str());
+            return false;
+        }
+        filters.push_back(std::move(filter));
+        auto record_filter = std::unique_ptr<test_record_filter_t>(
+            new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
+        if (!process_entries_and_check_result(record_filter.get(), entries, 0).empty())
+            return false;
     }
     {
         // Test removing from mid-way in the 1st chunk to the very end.
@@ -1119,7 +1486,7 @@ test_trim_filter()
         filters.push_back(std::move(filter));
         auto record_filter = std::unique_ptr<test_record_filter_t>(
             new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
-        if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+        if (!process_entries_and_check_result(record_filter.get(), entries, 0).empty())
             return false;
     }
     {
@@ -1225,7 +1592,7 @@ test_trim_filter()
         filters.push_back(std::move(filter));
         auto record_filter = std::unique_ptr<test_record_filter_t>(
             new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
-        if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+        if (!process_entries_and_check_result(record_filter.get(), entries, 0).empty())
             return false;
     }
     {
@@ -1276,7 +1643,7 @@ test_trim_filter()
         filters.push_back(std::move(filter));
         auto record_filter = std::unique_ptr<test_record_filter_t>(
             new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
-        if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+        if (!process_entries_and_check_result(record_filter.get(), entries, 0).empty())
             return false;
     }
     {
@@ -1389,7 +1756,7 @@ test_trim_filter()
         filters.push_back(std::move(type_filter));
         auto record_filter = std::unique_ptr<test_record_filter_t>(
             new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
-        if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+        if (!process_entries_and_check_result(record_filter.get(), entries, 0).empty())
             return false;
     }
     fprintf(stderr, "test_trim_filter passed\n");
@@ -1506,9 +1873,210 @@ test_wait_filter()
     std::vector<std::unique_ptr<record_filter_func_t>> filters;
     auto record_filter = std::unique_ptr<test_record_filter_t>(
         new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
-    if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+    if (!process_entries_and_check_result(record_filter.get(), entries, 0).empty())
         return false;
     fprintf(stderr, "test_wait_filter passed\n");
+    return true;
+}
+
+static bool
+test_kernel_filter()
+{
+    // Test removal of kernel system call and context switch trace content.
+    constexpr addr_t TID = 5;
+    constexpr addr_t PC_A = 0x1234;
+    constexpr addr_t ENCODING_A = 0x4321;
+    constexpr addr_t PC_B = 0xabcd;
+    constexpr addr_t ENCODING_B = 0xdbca;
+    std::vector<test_case_t> entries = {
+        { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, true, { true } },
+        { { TRACE_TYPE_MARKER,
+            TRACE_MARKER_TYPE_FILETYPE,
+            { OFFLINE_FILE_TYPE_ARCH_X86_64 | OFFLINE_FILE_TYPE_ENCODINGS |
+              OFFLINE_FILE_TYPE_KERNEL_SYSCALLS } },
+          true,
+          { false } },
+        { { TRACE_TYPE_MARKER,
+            TRACE_MARKER_TYPE_FILETYPE,
+            { OFFLINE_FILE_TYPE_ARCH_X86_64 | OFFLINE_FILE_TYPE_ENCODINGS } },
+          false,
+          { true } },
+        { { TRACE_TYPE_THREAD, 0, { TID } }, true, { true } },
+        { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
+          true,
+          { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 100 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0 } }, true, { true } },
+        { { TRACE_TYPE_ENCODING, 2, { ENCODING_A } }, true, { true } },
+        { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL, { 1 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, { 1 } },
+          true,
+          { false } },
+        { { TRACE_TYPE_ENCODING, 2, { ENCODING_B } }, true, { false } },
+        { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, { 1 } },
+          true,
+          { false } },
+
+        { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, { 1 } },
+          true,
+          { false } },
+        { { TRACE_TYPE_ENCODING, 2, { ENCODING_B } }, true, { false } },
+        { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, { 1 } },
+          true,
+          { false } },
+        { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+
+        // Kernel trace between hardware_event and hardware_context_return markers.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_HARDWARE_EVENT, { 1 } },
+          true,
+          { false } },
+        { { TRACE_TYPE_ENCODING, 2, { ENCODING_B } }, true, { false } },
+        { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, { 1 } },
+          true,
+          { false } },
+
+        { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+
+        // Kernel trace between syscall markers and nested hardware_event markers.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, { 1 } },
+          true,
+          { false } },
+        { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_HARDWARE_EVENT, { 1 } },
+          true,
+          { false } },
+        { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, { 1 } },
+          true,
+          { false } },
+        { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, { 1 } },
+          true,
+          { false } },
+
+        { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+        { { TRACE_TYPE_THREAD_EXIT, 0, { TID } }, true, { true } },
+        { { TRACE_TYPE_FOOTER, 0, { 0xa2 } }, true, { true } },
+    };
+    std::vector<std::unique_ptr<record_filter_func_t>> filters;
+    auto kernel_filter = std::unique_ptr<record_filter_func_t>(
+        new dynamorio::drmemtrace::kernel_filter_t());
+    filters.push_back(std::move(kernel_filter));
+    auto record_filter = std::unique_ptr<test_record_filter_t>(
+        new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
+    if (!process_entries_and_check_result(record_filter.get(), entries, 0).empty())
+        return false;
+    fprintf(stderr, "test_kernel_filter passed\n");
+    return true;
+}
+
+static bool
+test_kernel_filter_except_syscalls()
+{
+    // Test keeping syscall content while removing other kernel content.
+    constexpr addr_t TID = 5;
+    constexpr addr_t PC_A = 0x1234;
+    constexpr addr_t ENCODING_A = 0x4321;
+    constexpr addr_t PC_B = 0xabcd;
+    constexpr addr_t ENCODING_B = 0xdbca;
+    std::vector<test_case_t> entries = {
+        { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, true, { true } },
+        { { TRACE_TYPE_MARKER,
+            TRACE_MARKER_TYPE_FILETYPE,
+            { OFFLINE_FILE_TYPE_ARCH_X86_64 | OFFLINE_FILE_TYPE_ENCODINGS |
+              OFFLINE_FILE_TYPE_KERNEL_SYSCALLS } },
+          true,
+          { true } },
+        { { TRACE_TYPE_THREAD, 0, { TID } }, true, { true } },
+        { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
+          true,
+          { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 100 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0 } }, true, { true } },
+        { { TRACE_TYPE_ENCODING, 2, { ENCODING_A } }, true, { true } },
+        { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL, { 1 } }, true, { true } },
+        // Syscall trace - preserved.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, { 1 } },
+          true,
+          { true } },
+        { { TRACE_TYPE_ENCODING, 2, { ENCODING_B } }, true, { true } },
+        { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, { 1 } },
+          true,
+          { true } },
+
+        { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+
+        // Context switch trace - removed.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, { 1 } },
+          true,
+          { false } },
+        { { TRACE_TYPE_ENCODING, 2, { ENCODING_B } }, true, { false } },
+        { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, { 1 } },
+          true,
+          { false } },
+        { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+
+        // Kernel trace between hardware_event and hardware_context_return markers -
+        // removed.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_HARDWARE_EVENT, { 1 } },
+          true,
+          { false } },
+        { { TRACE_TYPE_ENCODING, 2, { ENCODING_B } }, true, { false } },
+        { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, { 1 } },
+          true,
+          { false } },
+
+        { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+
+        // Kernel trace between syscall markers and nested hardware_event markers -
+        // preserved.
+        // This is the only nesting of kernel trace marker pairs that's currently
+        // expected.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, { 1 } },
+          true,
+          { true } },
+        { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_HARDWARE_EVENT, { 1 } },
+          true,
+          { true } },
+        { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, { 1 } },
+          true,
+          { true } },
+        { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, { 1 } },
+          true,
+          { true } },
+
+        { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+        { { TRACE_TYPE_THREAD_EXIT, 0, { TID } }, true, { true } },
+        { { TRACE_TYPE_FOOTER, 0, { 0xa2 } }, true, { true } },
+    };
+    std::vector<std::unique_ptr<record_filter_func_t>> filters;
+    auto kernel_filter = std::unique_ptr<record_filter_func_t>(
+        new dynamorio::drmemtrace::kernel_filter_t(/*keep_syscalls=*/true));
+    filters.push_back(std::move(kernel_filter));
+    auto record_filter = std::unique_ptr<test_record_filter_t>(
+        new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
+    if (!process_entries_and_check_result(record_filter.get(), entries, 0).empty())
+        return false;
+    fprintf(stderr, "test_kernel_filter_except_syscalls passed\n");
     return true;
 }
 
@@ -1525,7 +2093,8 @@ test_main(int argc, const char *argv[])
     dr_standalone_init();
     if (!test_cache_and_type_filter() || !test_chunk_update() || !test_trim_filter() ||
         !test_null_filter() || !test_wait_filter() || !test_encodings2regdeps_filter() ||
-        !test_func_id_filter() || !test_modify_marker_value_filter())
+        !test_func_id_filter() || !test_modify_marker_value_filter() ||
+        !test_kernel_filter() || !test_kernel_filter_except_syscalls())
         return 1;
     fprintf(stderr, "All done!\n");
     dr_standalone_exit();

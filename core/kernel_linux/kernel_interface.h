@@ -1,0 +1,136 @@
+/* **********************************************************
+ * Copyright (c) 2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013 Peter Feiner.  All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+#ifndef _KERNEL_INTERFACE_H_
+#define _KERNEL_INTERFACE_H_
+
+#include <linux/types.h>
+
+int
+kernel_module_init(size_t dr_heap_size);
+
+void
+kernel_module_exit(void);
+
+size_t
+kernel_get_heap_size(void);
+
+void *
+kernel_allocate_heap(size_t size);
+
+void *
+kernel_find_symbol(const char *name, size_t *size);
+
+int
+kernel_get_cpu_id(void);
+
+int
+kernel_get_online_processor_count(void);
+
+/* Reports the per-CPU buffer capacity and alignment in bytes. Both output pointers
+ * must be non-NULL. Does not require preemption to be disabled.
+ */
+void
+kernel_get_cpu_local_state_layout(size_t *size, size_t *alignment);
+
+/* Returns the current CPU's buffer as an ordinary pointer. The caller must keep
+ * preemption disabled for the entire duration of access through the returned pointer.
+ * Storage is initially zero and remains allocated until module unload.
+ * This function never returns NULL: the module loader allocates dr_cpu_local_storage
+ * before module initialization, and fails the module load if it cannot allocate.
+ */
+void *
+kernel_get_cpu_local_state(void);
+
+/* Returns the gs-relative displacement of the buffer returned by
+ * kernel_get_cpu_local_state(). That is its raw __percpu address on x86-64 SMP.
+ */
+int
+kernel_get_cpu_local_state_segment_offset(void);
+
+size_t
+kernel_get_page_size(void);
+
+void *
+kernel_get_image_start(void);
+
+void *
+kernel_get_image_end(void);
+
+char *
+kernel_get_module_name(void);
+
+void *
+kernel_get_module_text_start(void);
+
+void *
+kernel_get_module_text_end(void);
+
+/* Returns whether the |size| bytes at |addr| can be read without faulting.  Handles both
+ * kernel and user addresses.  Acquires no locks and never sleeps, so it is safe to call
+ * in any context.  A zero |size| returns true.
+ */
+bool
+kernel_is_readable_without_fault(const void *addr, size_t size);
+
+unsigned int
+kernel_query_time_seconds(void);
+
+unsigned long long
+kernel_query_time_nanos(void);
+
+__attribute__((format(__printf__, 1, 2))) void
+kernel_printk(const char *fmt, ...);
+
+__attribute__((noreturn)) void
+kernel_panic(const char *message);
+
+#define KERNEL_ENV_NAME_MAX 64
+#define KERNEL_ENV_VALUE_MAX 2048
+
+/* Sets the environment variable |name| to |value|, overwriting the value of any existing
+ * entry with the same name. Returns 0 on success, -EINVAL for a NULL/empty name, a name
+ * containing '=', or a NULL value, -E2BIG if the name or value exceeds the maximum
+ * length, and -ENOSPC if the table is full and no entry with |name| exists.
+ */
+int
+kernel_setenv(const char *name, const char *value);
+
+/* Returns the value of the environment variable |name|, or NULL if it is not set.
+ * Malformed names (NULL, empty, or containing '=') also return NULL, mirroring
+ * our_getenv() in core/unix/os.c.
+ */
+const char *
+kernel_getenv(const char *name);
+
+#endif /* _KERNEL_INTERFACE_H_ */

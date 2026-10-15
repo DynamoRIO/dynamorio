@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /*
  * signal_macos.c - MacOS-specific signal code
  *
- * FIXME i#58: NYI (see comments below as well):
+ * TODO i#58: NYI (see comments below as well):
  * + many pieces are not at all implemented, but it should be straightforward
  * + longer-term i#1291: use raw syscalls instead of libSystem wrappers
  */
@@ -145,7 +145,7 @@ sysnum_is_not_restartable(int sysnum)
 void
 save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: MacOS signal handling NYI */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#58: MacOS signal handling NYI */
 }
 
 void
@@ -367,7 +367,7 @@ bool
 send_nudge_signal(process_id_t pid, uint action_mask, client_id_t client_id,
                   uint64 client_arg)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1286: MacOS nudges NYI */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1286: MacOS nudges NYI */
     return false;
 }
 

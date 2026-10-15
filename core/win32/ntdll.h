@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,7 +45,7 @@
  */
 
 #ifndef _NTDLL_H_
-#define _NTDLL_H_ 1
+#define _NTDLL_H_
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -86,13 +86,13 @@
  */
 
 #define NT_CURRENT_PROCESS ((HANDLE)PTR_UINT_MINUS_1)
-#define NT_CURRENT_THREAD ((HANDLE)(ptr_uint_t)-2)
+#define NT_CURRENT_THREAD ((HANDLE)(ptr_uint_t) - 2)
 
 /* This macro is defined in wincon.h, but requires _WIN32_WINNT be XP+. _WIN32_WINNT is
  * defined in globals.h to _WIN32_WINNT_NT4, thus the need for this re-definition.
  */
 #ifndef ATTACH_PARENT_PROCESS
-#    define ATTACH_PARENT_PROCESS ((DWORD)-1)
+#    define ATTACH_PARENT_PROCESS ((DWORD) - 1)
 #endif
 
 #ifdef X64
@@ -460,7 +460,7 @@ typedef struct _PROCESS_DEVICEMAP_INFORMATION {
 } PROCESS_DEVICEMAP_INFORMATION, *PPROCESS_DEVICEMAP_INFORMATION;
 
 #if defined(NOT_DYNAMORIO_CORE)
-#    ifndef bool
+#    if !defined(DR_BOOL_DEFINED)
 typedef char bool;
 #    endif /* bool */
 typedef unsigned __int64 uint64;
@@ -2112,7 +2112,7 @@ void
 nt_stop_profile(HANDLE profile_handle);
 #endif
 
-/* avoid needing x86_code.c from x86.asm from get_own_context_helper() */
+/* avoid needing asm_aux.c from x86.asm from get_own_context_helper() */
 #if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
 /* Executable name must be in kernel object name form
  * (e.g., \SystemRoot\System32\notepad.exe, or \??\c:\foo\bar.exe)
@@ -2146,7 +2146,7 @@ our_create_thread_wrapper(void *param);
 /* NOTE : this isn't equivalent to nt_get_context(NT_CURRENT_THREAD, cxt)
  * (where the returned context is undefined) so use this to get the context
  * of the current thread */
-/* FIXME : no support for float/mmx/sse/debug,
+/* XXX : no support for float/mmx/sse/debug,
  *         also if integer or control does both
  * Xref PR 264138 where we have to preserve xmm registers: however, no
  * current uses need to get our own xmm registers, so we don't.
@@ -2258,7 +2258,7 @@ get_module_exports_directory_check(app_pc base_addr,
  * internally we use module_base_t which can be freely converted to HMODULE,
  * HANDLE, byte*, and app_pc.
  */
-/* FIXME: This duplicates the typedef in module_shared.h, but we can't include
+/* XXX: This duplicates the typedef in module_shared.h, but we can't include
  * that into drpreinject or drinjectlib.
  */
 struct _module_handle_t;

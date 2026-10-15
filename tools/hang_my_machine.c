@@ -37,7 +37,8 @@
 #define MB_SERVICE_NOTIFICATION 0x00200000L
 
 /* calls detach for the passed in process id */
-DWORD __cdecl main(DWORD argc, char *argv[], char *envp[])
+DWORD __cdecl
+main(DWORD argc, char *argv[], char *envp[])
 {
     int i;
     for (i = 0; i < 100; i++) {

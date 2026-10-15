@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2022 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2026 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,7 +44,7 @@
 #include "drmgr.h"
 #include "drvector.h"
 #include "drreg.h"
-#include "../ext_utils.h"
+#include "dr_project_wide_defines.h"
 #include <string.h>
 #include <limits.h>
 #include <stddef.h> /* offsetof */
@@ -112,7 +112,7 @@ typedef struct _reg_info_t {
 /* We use this in per_thread_t.slot_use[] and other places */
 #define DR_REG_EFLAGS DR_REG_INVALID
 
-#define GPR_IDX(reg) ((reg)-DR_REG_START_GPR)
+#define GPR_IDX(reg) ((reg) - DR_REG_START_GPR)
 
 typedef struct _per_thread_t {
     instr_t *cur_instr;
@@ -195,7 +195,7 @@ static bool
 has_pending_slot_usage_by_prior_pass(void *drcontext, per_thread_t *pt,
                                      instrlist_t *ilist, instr_t *where, uint slot)
 {
-    if (!TEST(DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS, pt->bb_props))
+    if (!TESTANY(DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS, pt->bb_props))
         return false;
     for (instr_t *in = where; in != NULL; in = instr_get_next(in)) {
         uint used_slot;
@@ -408,7 +408,7 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
         if (xfer)
             aflags_cur = EFLAGS_READ_ARITH; /* assume flags are read before written */
         else {
-            uint aflags_read, aflags_w2r;
+            ptr_uint_t aflags_read, aflags_w2r;
             if (index == 0)
                 aflags_cur = EFLAGS_READ_ARITH; /* assume flags are read before written */
             else {
@@ -542,8 +542,8 @@ drreg_insert_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst,
                 /* i#1954: for complex bbs we must restore before the next app instr */
                 (!pt->reg[GPR_IDX(reg)].in_use &&
                  ((pt->bb_has_internal_flow &&
-                   !TEST(DRREG_IGNORE_CONTROL_FLOW, pt->bb_props)) ||
-                  TEST(DRREG_CONTAINS_SPANNING_CONTROL_FLOW, pt->bb_props))) ||
+                   !TESTANY(DRREG_IGNORE_CONTROL_FLOW, pt->bb_props)) ||
+                  TESTANY(DRREG_CONTAINS_SPANNING_CONTROL_FLOW, pt->bb_props))) ||
                 /* If we're out of our own slots and are using a DR slot, we have to
                  * restore now b/c DR slots are not guaranteed across app instrs.
                  */
@@ -742,7 +742,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
      * like an app instr.
      */
     bool do_last_spill = drmgr_is_last_instr(drcontext, inst) &&
-        !TEST(DRREG_USER_RESTORES_AT_BB_END, pt->bb_props);
+        !TESTANY(DRREG_USER_RESTORES_AT_BB_END, pt->bb_props);
     res = drreg_insert_restore_all(drcontext, bb, inst, do_last_spill, restored_for_read);
     if (res != DRREG_SUCCESS)
         drreg_report_error(res, "failed to restore for reads");
@@ -800,8 +800,8 @@ drreg_event_clean_call_insertion(void *drcontext, instrlist_t *ilist, instr_t *w
     }
     bool restored_for_read[DR_NUM_GPR_REGS];
     drreg_status_t res;
-    if (TEST(DR_CLEANCALL_READS_APP_CONTEXT, call_flags)) {
-        if (TEST(DR_CLEANCALL_MULTIPATH, call_flags)) {
+    if (TESTANY(DR_CLEANCALL_READS_APP_CONTEXT, call_flags)) {
+        if (TESTANY(DR_CLEANCALL_MULTIPATH, call_flags)) {
             LOG(drcontext, DR_LOG_ALL, 3,
                 "%s: restoring statelessly for cleancall to read app regs\n",
                 __FUNCTION__);
@@ -816,8 +816,8 @@ drreg_event_clean_call_insertion(void *drcontext, instrlist_t *ilist, instr_t *w
         if (res != DRREG_SUCCESS)
             drreg_report_error(res, "failed to restore for clean call");
     }
-    if (TEST(DR_CLEANCALL_WRITES_APP_CONTEXT, call_flags)) {
-        if (TEST(DR_CLEANCALL_MULTIPATH, call_flags)) {
+    if (TESTANY(DR_CLEANCALL_WRITES_APP_CONTEXT, call_flags)) {
+        if (TESTANY(DR_CLEANCALL_MULTIPATH, call_flags)) {
             /* We do not support this, partly b/c it is rare and complex.
              * We would need some kind of stateless re-spill.
              */
@@ -1088,7 +1088,7 @@ drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
         if (res != DRREG_SUCCESS)
             return res;
     }
-    /* FIXME i#3827: ever_spilled is not being reset. */
+    /* XXX i#3827: ever_spilled is not being reset. */
     /* XXX i#2585: drreg should predicate spills and restores as appropriate */
     instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
     res =
@@ -1270,8 +1270,8 @@ drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_
         *restore_needed = (res == DRREG_SUCCESS);
     if (res != DRREG_SUCCESS && res != DRREG_ERROR_NO_APP_VALUE)
         return res;
-        /* XXX i#511: if we add .xchg support for GPR's we'll need to check them all here.
-         */
+    /* XXX i#511: if we add .xchg support for GPR's we'll need to check them all here.
+     */
 #ifdef X86
     if (res != DRREG_ERROR_NO_APP_VALUE && reg != DR_REG_NULL && pt->aflags.xchg == reg) {
         ASSERT(reg == DR_REG_XAX, "xax is the only x86 reg that may have spilled aflags");
@@ -1614,7 +1614,7 @@ drreg_spill_aflags(void *drcontext, instrlist_t *ilist, instr_t *where, per_thre
         ASSERT(pt->slot_use[xax_slot] == DR_REG_XAX, "slot should be for xax");
     }
     PRE(ilist, where, INSTR_CREATE_lahf(drcontext));
-    if (TEST(EFLAGS_READ_OF, aflags)) {
+    if (TESTANY(EFLAGS_READ_OF, aflags)) {
         PRE(ilist, where,
             INSTR_CREATE_setcc(drcontext, OP_seto, opnd_create_reg(DR_REG_AL)));
     }
@@ -1702,7 +1702,7 @@ drreg_restore_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
         ASSERT(pt->aflags.slot != MAX_SPILLS, "Aflags slot not reserved");
         restore_reg(drcontext, pt, DR_REG_XAX, pt->aflags.slot, ilist, where, release);
     }
-    if (TEST(EFLAGS_READ_OF, aflags)) {
+    if (TESTANY(EFLAGS_READ_OF, aflags)) {
         /* i#2351: DR's "add 0x7f, %al" is destructive.  Instead we use a
          * cmp so we can avoid messing up the value in al, which is
          * required for keeping the flags in xax.
@@ -1945,7 +1945,7 @@ is_our_spill_or_restore(void *drcontext, instr_t *instr, bool *spill DR_PARAM_OU
             }
 #ifdef X86
             if (slot > max_DR_slot - 1) {
-                /* FIXME i#2933: We rule out the 3rd DR TLS slot b/c it's used by
+                /* XXX i#2933: We rule out the 3rd DR TLS slot b/c it's used by
                  * DR for purposes where there's no restore paired with a spill.
                  * Another tool component could also use the other slots that way,
                  * though: we need a more foolproof solution.  For now we have a hole

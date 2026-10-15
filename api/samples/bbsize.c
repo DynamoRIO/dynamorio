@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -50,7 +50,7 @@
 #endif
 
 #define ALIGN_FORWARD(x, alignment) \
-    ((((ptr_uint_t)x) + ((alignment)-1)) & (~((alignment)-1)))
+    ((((ptr_uint_t)x) + ((alignment) - 1)) & (~((alignment) - 1)))
 
 static void *stats_mutex; /* for multithread support */
 static int num_bb;
@@ -74,7 +74,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     drmgr_init();
     stats_mutex = dr_mutex_create();
     drmgr_register_bb_instrumentation_event(event_bb_analysis, NULL, NULL);
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
 #ifdef SHOW_RESULTS
     if (dr_is_notify_on()) {
 #    ifdef WINDOWS
@@ -118,7 +118,8 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     byte fp_raw[DR_FPSTATE_BUF_SIZE + DR_FPSTATE_ALIGN];
     byte *fp_align = (byte *)ALIGN_FORWARD(fp_raw, DR_FPSTATE_ALIGN);
 
-    if (translating)
+    /* Skip trace-building blocks: they are not standalone app basic blocks. */
+    if (translating || for_trace)
         return DR_EMIT_DEFAULT;
 
     proc_save_fpstate(fp_align);

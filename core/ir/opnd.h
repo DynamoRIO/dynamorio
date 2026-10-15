@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -38,7 +38,7 @@
 /* file "opnd.h" -- opnd_t definitions and utilities */
 
 #ifndef _OPND_H_
-#define _OPND_H_ 1
+#define _OPND_H_
 
 #ifdef WINDOWS
 /* disabled warning for
@@ -81,7 +81,9 @@
  */
 /* Inlining macro controls. */
 #ifndef INSTR_INLINE
-#    ifdef DR_FAST_IR
+#    ifdef LINUX_KERNEL
+#        define INSTR_INLINE static inline
+#    elif defined(DR_FAST_IR)
 #        define INSTR_INLINE inline
 #    else
 #        define INSTR_INLINE
@@ -260,7 +262,7 @@ enum {
     REGPARM_1 = REG_RDX,
     REGPARM_2 = REG_R8,
     REGPARM_3 = REG_R9,
-    REGPARM_MINSTACK = 4 * sizeof(XSP_SZ),
+    REGPARM_MINSTACK = 4 * XSP_SZ,
     REDZONE_SIZE = 0,
 #        endif
     /* In fact, for Windows the stack pointer is supposed to be
@@ -276,7 +278,7 @@ enum {
 #        ifdef MACOS
     REGPARM_END_ALIGN = 16,
 #        else
-    REGPARM_END_ALIGN = sizeof(XSP_SZ),
+    REGPARM_END_ALIGN = XSP_SZ,
 #        endif
 #    endif /* 64/32 */
 #elif defined(AARCHXX)
@@ -291,13 +293,14 @@ enum {
     REGPARM_6 = DR_REG_R6,
     REGPARM_7 = DR_REG_R7,
     NUM_REGPARM = 8,
+    REGPARM_END_ALIGN = 16,
 #    else
     DR_SYSNUM_REG = DR_REG_R7,
     NUM_REGPARM = 4,
+    REGPARM_END_ALIGN = 8,
 #    endif /* 64/32 */
     REDZONE_SIZE = 0,
     REGPARM_MINSTACK = 0,
-    REGPARM_END_ALIGN = 8,
 #elif defined(RISCV64)
     DR_SYSNUM_REG = DR_REG_A7,
     REGPARM_0 = DR_REG_A0,

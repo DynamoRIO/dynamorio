@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2012-2022 Google, Inc.    All rights reserved.
+# Copyright (c) 2012-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -96,7 +96,7 @@ file(READ "${outfile}" string)
 # Be sure to quote ${string} to avoid interpretation (semicolons removed, etc.)
 # i#113: be sure to quote all paths to handle spaces
 
-# FIXME i#59: if epstopdf and latex are available, set "GENERATE_LATEX" to "YES"
+# XXX i#59: if epstopdf and latex are available, set "GENERATE_LATEX" to "YES"
 
 # To control the ordering of the top-level pages (where we don't have \subpage
 # to control ordering) we specify them explicitly in the order we want before

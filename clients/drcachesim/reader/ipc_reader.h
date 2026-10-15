@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,7 +36,7 @@
  */
 
 #ifndef _IPC_READER_H_
-#define _IPC_READER_H_ 1
+#define _IPC_READER_H_
 
 #include "reader.h"
 #include "../common/memref.h"

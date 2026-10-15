@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2024-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _V2P_READER_UNIT_TEST_H_
-#define _V2P_READER_UNIT_TEST_H_ 1
+#define _V2P_READER_UNIT_TEST_H_
 
 #include <string>
 

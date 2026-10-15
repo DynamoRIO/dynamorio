@@ -184,7 +184,7 @@ foreach (xml ${all_xml})
         string(REGEX REPLACE "</Measurement>" "%</Measurement>" string "${string}")
         string(REGEX MATCHALL "Status=\"failed\">[^%]*%</Measurement>"
           failures "${string}")
-        # FIXME: have a list of known failures and label w/ " (known: i#XX)"
+        # XXX: have a list of known failures and label w/ " (known: i#XX)"
         set(num_flaky 0)
         foreach (failure ${failures})
           # show key failures like crashes and asserts

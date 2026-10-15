@@ -20,7 +20,7 @@
  */
 
 #ifndef _DRMEMORY_FRAMEWORK_H_
-#define _DRMEMORY_FRAMEWORK_H_ 1
+#define _DRMEMORY_FRAMEWORK_H_
 
 /* Dr. Memory Framework shared header */
 

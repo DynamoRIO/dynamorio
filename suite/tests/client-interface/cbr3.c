@@ -32,11 +32,13 @@
 
 #include <stdio.h>
 
-__declspec(dllexport, noinline) void start_instrument()
+__declspec(dllexport, noinline) void
+start_instrument()
 {
 }
 
-__declspec(dllexport, noinline) void stop_instrument()
+__declspec(dllexport, noinline) void
+stop_instrument()
 {
 }
 

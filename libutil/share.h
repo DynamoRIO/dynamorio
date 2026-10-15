@@ -60,7 +60,7 @@ extern "C" {
 #    define NOT_DYNAMORIO_CORE
 #endif
 
-/* FIXME: this should be stripped out of the core at some point...*/
+/* XXX: this should be stripped out of the core at some point...*/
 #ifndef HOT_PATCHING_INTERFACE
 #    define HOT_PATCHING_INTERFACE
 #endif

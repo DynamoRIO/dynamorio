@@ -55,12 +55,12 @@ jobs:
       matrix:
         # This job will run in parallel.
         include:
-          - os: ah-ubuntu_20_04-c6g_4x-50
+          - os: ah-ubuntu_24_04-c6g_4x-50
             sve: false
-          - os: ah-ubuntu_20_04-c7g_4x-50
+          - os: ah-ubuntu_24_04-c7g_4x-50
             sve: true
             sve_length: 256
-          - os: ah-ubuntu_20_04-c7g_4x-50
+          - os: ah-ubuntu_24_04-c7g_4x-50
             sve: true
             sve_length: 128
     runs-on: ${{ matrix.os }}

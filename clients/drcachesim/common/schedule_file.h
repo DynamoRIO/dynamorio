@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2024-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,7 +35,7 @@
  */
 
 #ifndef _SCHEDULE_FILE_H_
-#define _SCHEDULE_FILE_H_ 1
+#define _SCHEDULE_FILE_H_
 
 #include <cstdint>
 #include <fstream>

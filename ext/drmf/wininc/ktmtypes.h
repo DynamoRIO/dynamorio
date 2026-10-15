@@ -10,7 +10,7 @@
  ****************************************************************************/
 
 #ifndef _KTMTYPES_
-#define _KTMTYPES_ 1
+#define _KTMTYPES_
 
 /* Data types added since VS2005, typically in SDK6.0a.
  * We assume that cl 14.00 is not being used in conjunction with SDK6.0a

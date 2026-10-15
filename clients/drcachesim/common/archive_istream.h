@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,7 +36,7 @@
  */
 
 #ifndef _ARCHIVE_ISTREAM_H_
-#define _ARCHIVE_ISTREAM_H_ 1
+#define _ARCHIVE_ISTREAM_H_
 
 #include <fstream>
 

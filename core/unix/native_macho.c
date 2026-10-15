@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 /* Intercepts module transitions for native execution for Mach-O modules.
- * FIXME i#1287: all of this is NYI!
+ * TODO i#1287: all of this is NYI!
  */
 
 #include "../globals.h"
@@ -42,13 +42,13 @@
 void
 native_module_hook(module_area_t *ma, bool at_map)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1287: implement for MacOS */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1287: implement for MacOS */
 }
 
 void
 native_module_unhook(module_area_t *ma)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1287: implement for MacOS */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1287: implement for MacOS */
 }
 
 /* Our replacement for _dl_fixup.
@@ -56,34 +56,34 @@ native_module_unhook(module_area_t *ma)
 void *
 dynamorio_dl_fixup(void *l_map, uint reloc_arg)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1287: implement for MacOS */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1287: implement for MacOS */
     return NULL;
 }
 
 void
 native_module_init(void)
 {
-    /* FIXME i#1287: implement for MacOS */
+    /* XXX i#1287: implement for MacOS */
 }
 
 void
 native_module_exit(void)
 {
-    /* FIXME i#1287: implement for MacOS */
+    /* XXX i#1287: implement for MacOS */
 }
 
 /* called on unloading a non-native module */
 void
 native_module_nonnative_mod_unload(module_area_t *ma)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1287: implement for MacOS */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1287: implement for MacOS */
 }
 
 /* get (create if not exist) a ret_stub for the return target: tgt */
 app_pc
 native_module_get_ret_stub(dcontext_t *dcontext, app_pc tgt)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1287: implement for MacOS */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1287: implement for MacOS */
     return NULL;
 }
 
@@ -91,12 +91,12 @@ native_module_get_ret_stub(dcontext_t *dcontext, app_pc tgt)
 void
 native_module_at_runtime_resolve_ret(app_pc xsp, int ret_imm)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1287: implement for MacOS */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1287: implement for MacOS */
 }
 
 bool
 native_exec_replace_next_tag(dcontext_t *dcontext)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1287: implement for MacOS */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1287: implement for MacOS */
     return false;
 }

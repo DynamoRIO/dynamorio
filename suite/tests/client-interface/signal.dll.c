@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -188,7 +188,7 @@ test_syscall_auto_restart(void)
     close(pipefd[1]);
     dr_event_wait(child_dead);
 #elif defined(MACOS)
-    /* FIXME i#58: dr_create_client_thread is NYI, and we need the
+    /* TODO i#58: dr_create_client_thread is NYI, and we need the
      * thread port to use SYS___pthread_kill.
      */
     kill(getpid(), SIGCHLD);

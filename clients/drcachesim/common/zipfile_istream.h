@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,7 +36,7 @@
  */
 
 #ifndef _ZIPFILE_ISTREAM_H_
-#define _ZIPFILE_ISTREAM_H_ 1
+#define _ZIPFILE_ISTREAM_H_
 
 #ifndef HAS_ZIP
 #    error HAS_ZIP is required

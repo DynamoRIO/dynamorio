@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -187,12 +187,16 @@ get_pc_by_symbol(const module_data_t *mod, const char *symbol)
     } else if (op_record_dynsym_only.get_value()) {
         NOTIFY(2, "Failed to find symbol %s in .dynsym; not recording it\n", symbol);
         return NULL;
+    } else if (mod->full_path == nullptr) {
+        NOTIFY(2, "Missing module path for base pc=%p; cannot look up symbols\n",
+               mod->start);
+        return nullptr;
     } else {
         // If failed to find the symbol in the dynamic symbol table, then we try to find
         // it in the module loaded by reading the module file in mod->full_path.
         // NOTE: mod->full_path could be invalid in the case where the original
         // module file is remapped and deleted (e.g. hugepage_text).
-        // FIXME: find a way to find the PC of the symbol even if the original module file
+        // XXX: find a way to find the PC of the symbol even if the original module file
         // is deleted.
         size_t offset;
         drsym_error_t err =
@@ -216,7 +220,7 @@ static inline const char *
 get_module_basename(const module_data_t *mod)
 {
     const char *mod_name = dr_module_preferred_name(mod);
-    if (mod_name == nullptr) {
+    if (mod_name == nullptr && mod->full_path != nullptr) {
         const char *slash = strrchr(mod->full_path, '/');
 #ifdef WINDOWS
         const char *bslash = strrchr(mod->full_path, '\\');
@@ -321,7 +325,8 @@ instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
         }
         NULL_TERMINATE_BUFFER(qual);
         size_t sz = strlen(qual);
-        if (write_file_func(funclist_fd, qual, sz) != static_cast<ssize_t>(sz))
+        if (funclist_fd != INVALID_FILE &&
+            write_file_func(funclist_fd, qual, sz) != static_cast<ssize_t>(sz))
             NOTIFY(0, "Failed to write to funclist file\n");
     }
     dr_mutex_unlock(funcs_wrapped_lock);

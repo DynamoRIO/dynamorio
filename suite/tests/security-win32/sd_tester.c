@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2004 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -129,7 +129,7 @@ main(int argc, char **argv)
         buffer_test("heap");
         buffer_test("newheap");
 #ifndef X64
-        /* disabling b/c messes up the print: "success" comes out as "Ðuccess" */
+        /* disabling b/c messes up the print: "success" has 's' as a non-utf8 char */
         buffer_test("crtheap");
 #endif
         buffer_test("virtual");

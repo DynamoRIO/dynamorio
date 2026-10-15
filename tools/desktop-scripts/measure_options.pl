@@ -33,7 +33,7 @@
 # NOTE: ASSUMES drview, drcontrol, svccntrl and perl are in path
 # NOTE: ASSUMES c:\desktop-nightly\boot_data_scripts and
 #               c:\desktop-nightly\boot_data exist  #TODO do a mkdir
-# NOTE: ASSUMES this script is in c:\desktop-nightly\boot_data_scripts #FIXME
+# NOTE: ASSUMES this script is in c:\desktop-nightly\boot_data_scripts #XXX
 #
 # NOTE: USES: BOOTNUM_FILE, uptime.vbs
 #

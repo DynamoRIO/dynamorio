@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,7 +34,7 @@
  */
 
 #ifndef _PREFETCH_ANALYZER_H_
-#define _PREFETCH_ANALYZER_H_ 1
+#define _PREFETCH_ANALYZER_H_
 
 #include "../analysis_tool.h"
 #include "../common/memref.h"

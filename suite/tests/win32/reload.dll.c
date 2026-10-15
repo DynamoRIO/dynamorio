@@ -48,7 +48,8 @@ fact(int n)
     return n * fact(n - 1);
 }
 
-int __declspec(dllexport) import_me(int x)
+int __declspec(dllexport)
+import_me(int x)
 {
 #ifdef NIGHTLY_REGRESSION
     print("in import %d\n", x);

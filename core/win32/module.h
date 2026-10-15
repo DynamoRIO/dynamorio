@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -37,7 +37,7 @@
 #include "ntdll.h"
 
 #include "../fragment.h" /* for rct_module_table_t, is inlined so need struct definition
-                       * FIXME - remove this header dependency */
+                       * XXX - remove this header dependency */
 
 #define OS_IMAGE_READ IMAGE_SCN_MEM_READ
 #define OS_IMAGE_WRITE IMAGE_SCN_MEM_WRITE
@@ -72,17 +72,17 @@ typedef struct _os_module_data_t {
      */
     HANDLE noclobber_section_handle;
 
-    /* FIXME: the loader also maintains Name and Path that may be
+    /* XXX: the loader also maintains Name and Path that may be
      * different than PE name */
 
-    /* FIXME: this structure should replace the now deprecated
+    /* XXX: this structure should replace the now deprecated
      * module_info_t since all of its once advanced features have been
      * incorporated in vmarea vectors
      */
 
 #if defined(RETURN_AFTER_CALL) || defined(RCT_IND_BRANCH)
     /* case 9672: we split our RCT and RAC targets into per-module tables.
-     * FIXME: once we have a module list on linux, move these to module_data.
+     * XXX: once we have a module list on linux, move these to module_data.
      */
     rct_module_table_t rct_table[RCT_NUM_TYPES];
 #endif

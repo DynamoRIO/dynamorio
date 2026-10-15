@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -58,6 +58,7 @@
 #include "utils.h"
 #include "null_filter.h"
 #include "cache_filter.h"
+#include "kernel_filter.h"
 #include "trim_filter.h"
 #include "type_filter.h"
 #include "encodings2regdeps_filter.h"
@@ -121,9 +122,16 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                           int cache_filter_size, const std::string &remove_trace_types,
                           const std::string &remove_marker_types,
                           uint64_t trim_before_timestamp, uint64_t trim_after_timestamp,
+                          uint64_t trim_before_instr, uint64_t trim_after_instr,
                           bool encodings2regdeps, const std::string &keep_func_ids,
-                          const std::string &modify_marker_value, unsigned int verbose)
+                          const std::string &modify_marker_value, bool filter_kernel,
+                          bool filter_kernel_except_syscalls, unsigned int verbose)
 {
+    if (filter_kernel && filter_kernel_except_syscalls) {
+        ERRMSG("Usage error: cannot specify both -filter_kernel and "
+               "-filter_kernel_except_syscalls.\n");
+        return nullptr;
+    }
     std::vector<
         std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>>
         filter_funcs;
@@ -146,11 +154,13 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                 new dynamorio::drmemtrace::type_filter_t(filter_trace_types,
                                                          filter_marker_types)));
     }
-    if (trim_before_timestamp > 0 || trim_after_timestamp > 0) {
+    if (trim_before_timestamp > 0 || trim_after_timestamp > 0 || trim_before_instr > 0 ||
+        trim_after_instr > 0) {
         filter_funcs.emplace_back(
             std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
-                new dynamorio::drmemtrace::trim_filter_t(trim_before_timestamp,
-                                                         trim_after_timestamp)));
+                new dynamorio::drmemtrace::trim_filter_t(
+                    trim_before_timestamp, trim_after_timestamp, trim_before_instr,
+                    trim_after_instr)));
     }
     if (encodings2regdeps) {
         filter_funcs.emplace_back(
@@ -171,7 +181,12 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                 new dynamorio::drmemtrace::modify_marker_value_filter_t(
                     modify_marker_value_pairs_list)));
     }
-
+    if (filter_kernel || filter_kernel_except_syscalls) {
+        filter_funcs.emplace_back(
+            std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
+                new dynamorio::drmemtrace::kernel_filter_t(
+                    /*keep_syscalls=*/filter_kernel_except_syscalls)));
+    }
     // TODO i#5675: Add other filters.
 
     return new dynamorio::drmemtrace::record_filter_t(output_dir, std::move(filter_funcs),
@@ -352,8 +367,8 @@ record_filter_t::open_new_chunk(per_shard_t *shard)
     }
 
     std::ostringstream stream;
-    stream << TRACE_CHUNK_PREFIX << std::setfill('0') << std::setw(4)
-           << shard->chunk_ordinal;
+    stream << TRACE_CHUNK_PREFIX << std::setfill('0')
+           << std::setw(TRACE_CHUNK_SUFFIX_WIDTH) << shard->chunk_ordinal;
     err = shard->archive_writer->open_new_component(stream.str());
     if (!err.empty())
         return err;

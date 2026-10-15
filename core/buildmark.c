@@ -34,7 +34,10 @@
 
 #include "globals.h"
 
-#if defined(__DATE__) && defined(__TIME__)
+/* Avoid __DATE__ and __TIME__ in kernel builds to avoid errors from
+ * -Werror=date-time and to support reproducible builds.
+ */
+#if defined(__DATE__) && defined(__TIME__) && !defined(LINUX_KERNEL)
 const char dynamorio_buildmark[] = __DATE__ " " __TIME__;
 #else
 const char dynamorio_buildmark[] = "unknown";

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -46,13 +46,13 @@
 
 #include "configure.h"
 #if defined(NOT_DYNAMORIO_CORE)
+#    include "dr_project_wide_defines.h"
 #    define ASSERT(x)
 #    define ASSERT_NOT_REACHED()
 #    define ASSERT_NOT_IMPLEMENTED(x)
 #    define DODEBUG(x)
 #    define DOCHECK(n, x)
 #    define DECLARE_NEVERPROT_VAR(var, ...) var = __VA_ARGS__;
-#    define ALIGN_BACKWARD(x, alignment) (((ULONG_PTR)x) & (~((alignment)-1)))
 #    define PAGE_SIZE 4096
 #else
 /* we include globals.h mainly for ASSERT, even though we're
@@ -118,7 +118,7 @@ typedef struct _pe_symbol_export_iterator_t {
  * from pc to pc+size-1 are readable and that reading from there won't
  * generate an exception.  this is a stronger check than
  * !not_readable() below.
- * FIXME : beware of multi-thread races, just because this returns true,
+ * XXX : beware of multi-thread races, just because this returns true,
  * doesn't mean another thread can't make the region unreadable between the
  * check here and the actual read later.  See d_r_safe_read() as an alt.
  */
@@ -223,7 +223,7 @@ get_module_exports_directory_common(app_pc base_addr,
 #endif
         expdir = OPT_HDR(nt, DataDirectory) + IMAGE_DIRECTORY_ENTRY_EXPORT;
 
-        /* avoid preinject link issues: we don't have is_readable_pe_base */
+    /* avoid preinject link issues: we don't have is_readable_pe_base */
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
     /* callers should have done this in release builds */
     ASSERT(is_readable_pe_base(base_addr));
@@ -334,7 +334,7 @@ get_module_exports_directory_check_common(app_pc base_addr,
  * Only one of name and ordinal should be specified: the other should be
  * NULL (name) or UINT_MAX (ordinal).
  * NOTE - will return NULL for forwarded exports, exports pointing outside of
- * the module and for exports not in a code section (FIXME - is this the
+ * the module and for exports not in a code section (XXX - is this the
  * behavior we want?). Name is case insensitive.
  */
 static generic_func_t
@@ -365,10 +365,10 @@ get_proc_address_common(module_base_t lib, const char *name,
     if (lib == NULL || (ordinal == UINT_MAX && (name == NULL || *name == '\0')))
         return NULL;
 
-        /* avoid non-core issues: we don't have get_allocation_size or is_readable_pe_base
-         */
+    /* avoid non-core issues: we don't have get_allocation_size or is_readable_pe_base
+     */
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
-    /* FIXME - get_allocation_size and is_readable_pe_base are expensive
+    /* XXX - get_allocation_size and is_readable_pe_base are expensive
      * operations, we could put the onus on the caller to only pass in a
      * valid module_handle_t/pe_base and just assert instead if performance of
      * this routine becomes a concern, esp. since the caller has likely
@@ -434,7 +434,7 @@ get_proc_address_common(module_base_t lib, const char *name,
          */
         ord -= exports->Base;
     } else {
-        /* FIXME - linear walk, if this routine becomes performance critical we
+        /* XXX - linear walk, if this routine becomes performance critical we
          * we should use a binary search. */
         bool match = false;
         for (i = 0; i < exports->NumberOfNames; i++) {
@@ -442,7 +442,7 @@ get_proc_address_common(module_base_t lib, const char *name,
             ASSERT_CURIOSITY((app_pc)export_name > module_base && /* sanity check */
                                  (app_pc)export_name < module_base + module_size ||
                              EXEMPT_TEST("win32.partial_map.exe"));
-            /* FIXME - xref case 9717, we haven't verified that export_name string is
+            /* XXX - xref case 9717, we haven't verified that export_name string is
              * safely readable (might not be the case for improperly formed or partially
              * mapped module) and the try will only protect us if we have a thread_private
              * dcontext. Could use is_string_readable_without_exception(), but that may be
@@ -480,7 +480,7 @@ get_proc_address_common(module_base_t lib, const char *name,
     /* avoid non-core issues: we don't have module_size */
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
     if (func < module_base || func >= module_base + module_size) {
-        /* FIXME - export isn't in the module, should we still return
+        /* XXX - export isn't in the module, should we still return
          * it?  Will shimeng.dll or the like ever do this to replace
          * a function?  For now we return NULL. Xref case 9717, can also
          * happen for a partial map in which case NULL is the right thing
@@ -501,7 +501,7 @@ get_proc_address_common(module_base_t lib, const char *name,
     }
 #endif
     if (func >= (app_pc)exports && func < (app_pc)exports + exports_size) {
-        /* FIXME - is forwarded function, should we still return it
+        /* XXX - is forwarded function, should we still return it
          * or return the target? Check - what does GetProcAddress do?
          * For now we return NULL. Looking up the target would require
          * a get_module_handle call which might not be safe here.
@@ -713,7 +713,7 @@ dr_symbol_export_iterator_stop(dr_symbol_export_iterator_t *dr_iter)
  * get_ldr_module_by_pc in module.c for code to grab the ldr lock (which is
  * also unsafe).  Here we presume that we already own the ldr lock and that
  * the ldr list is consistent, which should be the case for preinject (the only
- * user).  FIXME stick this in module.c with get_ldr_module_by_pc, would need
+ * user).  XXX stick this in module.c with get_ldr_module_by_pc, would need
  * to get module.c compiled into preinjector which is a significant hassle.
  */
 LDR_MODULE *
@@ -781,7 +781,7 @@ ldr_module_statically_linked(LDR_MODULE *mod)
     win8plus = (get_os_version() >= WINDOWS_VERSION_8);
 #    endif
     if (win8plus) {
-        return (mod->LoadCount == -1 || TEST(LDR_PROCESS_STATIC_IMPORT, mod->Flags) ||
+        return (mod->LoadCount == -1 || TESTANY(LDR_PROCESS_STATIC_IMPORT, mod->Flags) ||
                 mod->LoadReason == LoadReasonStaticDependency ||
                 mod->LoadReason == LoadReasonStaticForwarderDependency);
     } else
@@ -983,7 +983,7 @@ get_ldr_module_64(const wchar_t *name, uint64 base, LDR_MODULE_64 *out)
  * get_ldr_module_by_pc in module.c for code to grab the ldr lock (which is
  * also unsafe).  Here we presume that we already own the ldr lock and that
  * the ldr list is consistent, which should be the case for preinject (the only
- * user).  FIXME stick this in module.c with get_ldr_module_by_pc, would need
+ * user).  XXX stick this in module.c with get_ldr_module_by_pc, would need
  * to get module.c compiled into preinjector which is a significant hassle.
  *
  * This is now used by more than just preinjector, and it's up to the caller
@@ -1145,10 +1145,10 @@ load_library_64(const char *path)
             /* The WOW64 x64 loader on Vista+ does not seem to
              * call any entry points so we do so here.
              *
-             * FIXME i#979: we should walk the Ldr list afterward to see what
+             * XXX i#979: we should walk the Ldr list afterward to see what
              * dependent libs were loaded so we can call their entry points.
              *
-             * FIXME i#979: we should check for the Ldr entry existing already to
+             * XXX i#979: we should check for the Ldr entry existing already to
              * avoid calling the entry point twice!
              */
             LDR_MODULE_64 mod;
@@ -1200,12 +1200,19 @@ nt_get_context64_size(void)
         ASSERT(ntdll64 != 0);
         ntdll64_RtlGetExtendedContextLength =
             get_proc_address_64(ntdll64, "RtlGetExtendedContextLength");
-        invoke_func64_t args = { ntdll64_RtlGetExtendedContextLength, CONTEXT_XSTATE,
-                                 len_param };
-        NTSTATUS res = switch_modes_and_call(&args);
-        ASSERT(NT_SUCCESS(res));
-        /* Add 16 so we can align it forward to 16. */
-        context64_size = len + 16;
+        bool extended = false;
+        if (ntdll64_RtlGetExtendedContextLength != 0) {
+            invoke_func64_t args = { ntdll64_RtlGetExtendedContextLength, CONTEXT_XSTATE,
+                                     len_param };
+            extended = NT_SUCCESS(switch_modes_and_call(&args));
+        }
+        if (extended && len > 0) {
+            /* Add 16 so we can align it forward to 16. */
+            context64_size = len + 16;
+        } else {
+            /* Fall back to plain CONTEXT_64 size; add 16 to align forward to 16. */
+            context64_size = sizeof(CONTEXT_64) + 16;
+        }
     }
     return context64_size;
 }

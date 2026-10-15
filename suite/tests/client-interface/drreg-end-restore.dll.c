@@ -76,7 +76,7 @@ dr_init(client_id_t id)
     drmgr_init();
     res = drreg_init(&ops);
     CHECK(res == DRREG_SUCCESS, "drreg init failed");
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
 
     ok = drmgr_register_bb_instrumentation_ex_event(event_bb_app2app, event_bb_analysis,
                                                     event_bb_insert, NULL, &priority);
@@ -130,7 +130,7 @@ get_val_from_ctx(void *drcontext, reg_id_t reg_id)
 }
 
 static void
-set_reg_val()
+set_reg_val(void)
 {
     void *drcontext = dr_get_current_drcontext();
     void *val = (void *)get_val_from_ctx(drcontext, TEST_REG);
@@ -138,7 +138,7 @@ set_reg_val()
 }
 
 static void
-check_reg_val()
+check_reg_val(void)
 {
     void *drcontext = dr_get_current_drcontext();
     reg_t val = get_val_from_ctx(drcontext, TEST_REG);

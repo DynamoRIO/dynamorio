@@ -40,6 +40,7 @@
 #include "policy_fifo.h"
 #include "policy_lfu.h"
 #include "policy_lru.h"
+#include "policy_rrip.h"
 #include "options.h"
 
 namespace dynamorio {
@@ -47,7 +48,8 @@ namespace drmemtrace {
 
 std::unique_ptr<cache_replacement_policy_t>
 create_cache_replacement_policy(const std::string &policy, int num_sets,
-                                int associativity)
+                                int associativity,
+                                std::unique_ptr<cache_replacement_policy_config_t> config)
 {
     // default LRU
     if (policy.empty() || policy == REPLACE_POLICY_LRU) {
@@ -62,6 +64,19 @@ create_cache_replacement_policy(const std::string &policy, int num_sets,
     if (policy == REPLACE_POLICY_BIT_PLRU) {
         return std::unique_ptr<policy_bit_plru_t>(
             new policy_bit_plru_t(num_sets, associativity));
+    }
+    if (policy == REPLACE_POLICY_RRIP) {
+        const rrip_config_t *rrip_conf = dynamic_cast<rrip_config_t *>(config.get());
+        if (rrip_conf) {
+            // Configuration specified. Use it.
+            return std::unique_ptr<policy_rrip_t>(new policy_rrip_t(
+                num_sets, associativity, rrip_conf->rrpv_bits, rrip_conf->rrpv_period,
+                rrip_conf->rrpv_long_per_period));
+        } else {
+            // Configuration missed. Use default parameters.
+            return std::unique_ptr<policy_rrip_t>(
+                new policy_rrip_t(num_sets, associativity));
+        }
     }
     return nullptr;
 }

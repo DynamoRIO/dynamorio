@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -37,7 +37,7 @@
 
 #define MINSERT instrlist_meta_preinsert
 
-/* FIXME - module events are not supported on Linux */
+/* XXX - module events are not supported on Linux */
 
 #ifdef WINDOWS
 static app_pc start = NULL;
@@ -207,7 +207,7 @@ callback(void *tag, app_pc next_pc)
             *(volatile uint *)NULL = 0; /* ASSERT_NOT_REACHED() */
         } else if (use_unlink) {
             /* Test dr_unlink_flush_region() half the time (if available).
-             * FIXME - extend once we add unlink callback. */
+             * XXX - extend once we add unlink callback. */
             delay_flush_at_next_build = true;
             dr_unlink_flush_region(tag, 1);
         }
@@ -263,6 +263,14 @@ check_for_marker(instr_t *first_inst)
                 if (third != NULL && instr_get_opcode(third) == OP_yield)
                     return true;
             }
+#elif defined(RISCV64)
+            /* For RISCV64 look for an uncompressed nop followed by two compressed
+             * ones */
+            if (instr_get_opcode(second) == OP_c_nop) {
+                instr_t *third = instr_get_next(second);
+                if (third != NULL && instr_get_opcode(third) == OP_c_nop)
+                    return true;
+            }
 #endif
         }
     }
@@ -276,9 +284,9 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
     if (!translating)
         increment(tag);
 
-        /* I'm looking for a specific BB in the test .exe.  I've marked
-         * it with a couple nops.
-         */
+    /* I'm looking for a specific BB in the test .exe.  I've marked
+     * it with a couple nops.
+     */
 #ifdef WINDOWS
     if ((app_pc)tag >= start && (app_pc)tag < end) {
 #endif

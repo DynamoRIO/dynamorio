@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2005 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,8 +40,10 @@
 #include "thread.h"
 
 /* from nativeterminate.dll.dll */
-__declspec(dllimport) __stdcall import_me1(int x);
-__declspec(dllimport) __stdcall import_me_die(int x);
+__declspec(dllimport) __stdcall
+import_me1(int x);
+__declspec(dllimport) __stdcall
+import_me_die(int x);
 
 int
 main()

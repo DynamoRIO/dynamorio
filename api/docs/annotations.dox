@@ -67,7 +67,7 @@ invoked anyway.
 #define ANNOTATION_FUNCTION_CLOBBER_LIST "%rax","%rcx","%rdx","%rsi","%rdi","%r8","%r9"
 #define _CALL_TYPE
 #define DR_ANNOTATION_ATTRIBUTES \
-    __attribute__((noinline, visibility("hidden") _CALL_TYPE))
+    __attribute__((__noinline__, visibility("hidden") _CALL_TYPE))
 #define DR_DEFINE_ANNOTATION(return_type, annotation, parameters, body) \
     const char *annotation##_label = "dynamorio-annotation:"#annotation; \
     DR_ANNOTATION_ATTRIBUTES return_type annotation parameters \

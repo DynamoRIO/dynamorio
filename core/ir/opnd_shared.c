@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * Copyright (c) 2025 Foundation of Research and Technology, Hellas.
  * **********************************************************/
@@ -42,7 +42,7 @@
 #include "encode_api.h"
 #include "opnd.h"
 #include "arch.h"
-/* FIXME i#1551: refactor this file and avoid this x86-specific include in base arch/ */
+/* XXX i#1551: refactor this file and avoid this x86-specific include in base arch/ */
 #ifndef AARCH64
 #    include "x86/decode_private.h"
 #endif
@@ -342,7 +342,7 @@ enum {
 opnd_size_t
 opnd_get_vector_element_size(opnd_t opnd)
 {
-    if (!TEST(DR_OPND_IS_VECTOR, opnd.aux.flags))
+    if (!TESTANY(DR_OPND_IS_VECTOR, opnd.aux.flags))
         return OPSZ_NA;
 
     switch (opnd.kind) {
@@ -440,7 +440,7 @@ opnd_invert_immed_int(opnd_t opnd)
 bool
 opnd_is_immed_int64(opnd_t opnd)
 {
-    return (opnd_is_immed_int(opnd) && TEST(DR_OPND_MULTI_PART, opnd_get_flags(opnd)));
+    return (opnd_is_immed_int(opnd) && TESTANY(DR_OPND_MULTI_PART, opnd_get_flags(opnd)));
 }
 
 /* NOTE: requires caller to be under PRESERVE_FLOATING_POINT_STATE */
@@ -451,7 +451,10 @@ opnd_create_immed_float(float i)
     opnd.kind = IMMED_FLOAT_kind;
     /* Note that manipulating floats and doubles by copying in this way can
      * result in using FP load/store instructions which can trigger any pending
-     * FP exception (i#386).
+     * FP exception (i#386). This concern applies only to managed DynamoRIO
+     * modes where FP state is preserved.
+     * In standalone decoder mode, floating-point state is not managed and
+     * proc_save_fpstate()/proc_restore_fpstate() are no-ops.
      */
     opnd.value.immed_float = i;
     /* currently only used for implicit constants that have no size */
@@ -472,7 +475,10 @@ opnd_create_immed_double(double i)
     opnd.kind = IMMED_DOUBLE_kind;
     /* Note that manipulating floats and doubles by copying in this way can
      * result in using FP load/store instructions which can trigger any pending
-     * FP exception (i#386).
+     * FP exception (i#386). This concern applies only to managed DynamoRIO
+     * modes where FP state is preserved.
+     * In standalone decoder mode, floating-point state is not managed and
+     * proc_save_fpstate()/proc_restore_fpstate() are no-ops.
      */
     opnd.value.immed_double = i;
     /* currently only used for implicit constants that have no size */
@@ -526,6 +532,7 @@ opnd_get_immed_int64(opnd_t opnd)
         (uint64)(uint)opnd.value.immed_int_multi_part.low;
 }
 
+#ifndef LINUX_KERNEL
 /* NOTE: requires caller to be under PRESERVE_FLOATING_POINT_STATE */
 float
 opnd_get_immed_float(opnd_t opnd)
@@ -538,7 +545,7 @@ opnd_get_immed_float(opnd_t opnd)
     return opnd.value.immed_float;
 }
 
-#ifndef WINDOWS
+#    ifndef WINDOWS
 /* XXX i#4488: x87 floating point immediates should be double precision.
  * Type double currently not included for Windows because sizeof(opnd_t) does
  * not equal EXPECTED_SIZEOF_OPND, triggering the ASSERT in d_r_arch_init().
@@ -550,7 +557,8 @@ opnd_get_immed_double(opnd_t opnd)
                   "opnd_get_immed_double called on non-immed-float");
     return opnd.value.immed_double;
 }
-#endif
+#    endif
+#endif /* !LINUX_KERNEL */
 
 /* address operands */
 
@@ -711,13 +719,13 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
                                     "opnd_create_*base_disp*: invalid base");
     CLIENT_ASSERT_BITFIELD_TRUNCATE(REG_SPECIFIER_BITS, index_reg,
                                     "opnd_create_*base_disp*: invalid index");
-    IF_X86_ELSE({ opnd.aux.segment = seg; },
-                {
-                    opnd.aux.flags = 0;
-                    CLIENT_ASSERT(
-                        disp == 0 || index_reg == REG_NULL,
-                        "opnd_create_*base_disp*: cannot have both disp and index");
-                });
+    IF_X86_ELSE(
+        { opnd.aux.segment = seg; },
+        {
+            opnd.aux.flags = 0;
+            CLIENT_ASSERT(disp == 0 || index_reg == REG_NULL,
+                          "opnd_create_*base_disp*: cannot have both disp and index");
+        });
     opnd_set_disp_helper(&opnd, disp);
     opnd.value.base_disp.base_reg = base_reg;
 #ifdef X86
@@ -982,9 +990,7 @@ uint
 opnd_size_to_shift_amount(opnd_size_t size)
 {
     switch (size) {
-    default:
-        ASSERT(false);
-        /* fall-through */
+    default: ASSERT(false); return 0;
     case OPSZ_1: return 0;
     case OPSZ_2: return 1;
     case OPSZ_4: return 2;
@@ -1455,7 +1461,7 @@ opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
 opnd_t
 opnd_create_increment_reg(opnd_t opnd, uint increment)
 {
-    opnd_t inc_opnd DR_IF_DEBUG(= { 0 }); /* FIXME: Needed until i#417 is fixed. */
+    opnd_t inc_opnd DR_IF_DEBUG(= { 0 }); /* XXX: Needed until i#417 is fixed. */
     CLIENT_ASSERT(opnd_is_reg(opnd), "opnd_create_increment_reg: not a register");
 
     reg_id_t reg = opnd.value.reg_and_element_size.reg;
@@ -1589,7 +1595,7 @@ opnd_replace_reg_resize(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
                 new_s, new_b, new_i, sc, disp, size, opnd_is_disp_encode_zero(*opnd),
                 opnd_is_disp_force_full(*opnd), opnd_is_disp_short_addr(*opnd));
 #elif defined(RISCV64)
-            /* FIXME i#3544: RISC-V has no support for base + idx * scale + disp.
+            /* XXX i#3544: RISC-V has no support for base + idx * scale + disp.
              * We could support base + disp as long as disp == +/-1MB.
              * If needed, instructions with this operand should be transformed
              * to:
@@ -2207,19 +2213,19 @@ reg_get_value_ex(reg_id_t reg, dr_mcontext_t *mc, DR_PARAM_OUT byte *val)
     if (reg >= DR_REG_START_MMX && reg <= DR_REG_STOP_MMX) {
         get_mmx_val((uint64 *)val, reg - DR_REG_START_MMX);
     } else if (reg >= DR_REG_START_XMM && reg <= DR_REG_STOP_XMM) {
-        if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
+        if (!TESTANY(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
             return false;
         memcpy(val, &mc->simd[reg - DR_REG_START_XMM], XMM_REG_SIZE);
     } else if (reg >= DR_REG_START_YMM && reg <= DR_REG_STOP_YMM) {
-        if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
+        if (!TESTANY(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
             return false;
         memcpy(val, &mc->simd[reg - DR_REG_START_YMM], YMM_REG_SIZE);
     } else if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM) {
-        if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
+        if (!TESTANY(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
             return false;
         memcpy(val, &mc->simd[reg - DR_REG_START_ZMM], ZMM_REG_SIZE);
     } else if (reg >= DR_REG_START_OPMASK && reg <= DR_REG_STOP_OPMASK) {
-        if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
+        if (!TESTANY(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
             return false;
         memcpy(val, &mc->opmask[reg - DR_REG_START_OPMASK], OPMASK_AVX512BW_REG_SIZE);
     } else {
@@ -2228,12 +2234,12 @@ reg_get_value_ex(reg_id_t reg, dr_mcontext_t *mc, DR_PARAM_OUT byte *val)
     }
 #elif defined(AARCH64)
     if (reg >= DR_REG_START_Z && reg <= DR_REG_STOP_Z) {
-        if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
+        if (!TESTANY(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
             return false;
         memcpy(val, &mc->simd[reg - DR_REG_START_Z],
                opnd_size_in_bytes(reg_get_size(reg)));
     } else if (reg >= DR_REG_START_P && reg <= DR_REG_STOP_P) {
-        if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
+        if (!TESTANY(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
             return false;
         memcpy(val, &mc->svep[reg - DR_REG_START_P],
                opnd_size_in_bytes(reg_get_size(reg)));
@@ -2392,7 +2398,7 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
             break;
         case DR_SHIFT_RRX:
             scaled_index = (index_val >> 1) |
-                (TEST(EFLAGS_C, mc->cpsr) ? (1 << (sizeof(reg_t) * 8 - 1)) : 0);
+                (TESTANY(EFLAGS_C, mc->cpsr) ? (1 << (sizeof(reg_t) * 8 - 1)) : 0);
             break;
         default: scaled_index = index_val;
         }
@@ -2538,13 +2544,19 @@ reg_is_extended(reg_id_t reg)
 bool
 reg_is_avx512_extended(reg_id_t reg)
 {
-    /* Note that we do consider spl, bpl, sil, and dil to be "extended" */
     return ((reg >= DR_REG_START_XMM + 16 && reg <= DR_REG_STOP_XMM) ||
             (reg >= DR_REG_START_YMM + 16 && reg <= DR_REG_STOP_YMM) ||
             (reg >= DR_REG_START_ZMM + 16 && reg <= DR_REG_STOP_ZMM));
 }
 #    endif
 #endif
+
+bool
+reg_is_avx512(reg_id_t reg)
+{
+    return reg_is_strictly_zmm(reg) ||
+        reg_is_opmask(reg) IF_X86_64(|| reg_is_avx512_extended(reg));
+}
 
 reg_id_t
 reg_32_to_opsz(reg_id_t reg, opnd_size_t sz)
@@ -2905,7 +2917,7 @@ dcontext_opnd_common(dcontext_t *dcontext, bool absolute, reg_id_t basereg, int 
     /* offs is not raw offset, but includes upcontext size, so we
      * can tell unprotected from normal
      */
-    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask) &&
+    if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask) &&
         offs < sizeof(unprotected_context_t)) {
         return opnd_create_base_disp(
             absolute ? REG_NULL : (basereg == REG_NULL ? REG_DCXT_PROT : basereg),
@@ -2974,7 +2986,7 @@ update_dcontext_address(opnd_t op, dcontext_t *old_dcontext, dcontext_t *new_dco
     }
     /* some fields are in a separate memory region! */
     else {
-        CLIENT_ASSERT(TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask),
+        CLIENT_ASSERT(TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask),
                       "update_dcontext_address: inconsistent layout");
         IF_X64(ASSERT_NOT_IMPLEMENTED(false));
         offs = opnd_get_disp(op) -

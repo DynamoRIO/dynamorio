@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -57,7 +57,7 @@
 #endif
 
 /* cache_line_size is exported for efficient access.
- * FIXME: In case the processor doesn't support the
+ * XXX: In case the processor doesn't support the
  * cpuid instruction, use a default value of 32.
  * (see case 463 for discussion)
  */
@@ -103,13 +103,14 @@ proc_set_cache_size(uint val, uint *dst)
     case 8: *dst = CACHE_SIZE_8_KB; break;
     case 16: *dst = CACHE_SIZE_16_KB; break;
     case 32: *dst = CACHE_SIZE_32_KB; break;
+    case 48: *dst = CACHE_SIZE_48_KB; break;
     case 64: *dst = CACHE_SIZE_64_KB; break;
     case 128: *dst = CACHE_SIZE_128_KB; break;
     case 256: *dst = CACHE_SIZE_256_KB; break;
     case 512: *dst = CACHE_SIZE_512_KB; break;
     case 1024: *dst = CACHE_SIZE_1_MB; break;
     case 2048: *dst = CACHE_SIZE_2_MB; break;
-    default: SYSLOG_INTERNAL_ERROR("Unknown processor cache size"); break;
+    default: SYSLOG_INTERNAL_ERROR("Unknown processor cache size %u", val); break;
     }
 }
 
@@ -189,7 +190,7 @@ proc_get_type(void)
     return cpu_info.type;
 }
 
-/* FIXME: Add MODEL_ constants to proc.h?? */
+/* XXX: Add MODEL_ constants to proc.h?? */
 uint
 proc_get_model(void)
 {
@@ -255,9 +256,10 @@ proc_get_L2_cache_size(void)
 const char *
 proc_get_cache_size_str(cache_size_t size)
 {
-    static const char *strings[] = { "8 KB",   "16 KB",  "32 KB", "64 KB", "128 KB",
-                                     "256 KB", "512 KB", "1 MB",  "2 MB",  "unknown" };
-    CLIENT_ASSERT(size <= CACHE_SIZE_UNKNOWN, "proc_get_cache_size_str: invalid size");
+    static const char *strings[] = { "8 KB",   "16 KB",   "32 KB",  "64 KB",
+                                     "128 KB", "256 KB",  "512 KB", "1 MB",
+                                     "2 MB",   "unknown", "48 KB" };
+    CLIENT_ASSERT(size <= CACHE_SIZE_48_KB, "proc_get_cache_size_str: invalid size");
     return strings[size];
 }
 
@@ -285,7 +287,7 @@ proc_bump_to_end_of_cache_line(ptr_uint_t sz)
     return ((sz + cache_line_size) & ~mask);
 }
 
-/* yes same result as PAGE_START...FIXME: get rid of one of them? */
+/* yes same result as PAGE_START...XXX: get rid of one of them? */
 void *
 proc_get_containing_page(void *addr)
 {

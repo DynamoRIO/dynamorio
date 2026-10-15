@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,7 +34,7 @@
  */
 
 #ifndef _PREFETCHER_H_
-#define _PREFETCHER_H_ 1
+#define _PREFETCHER_H_
 
 #include "caching_device.h"
 #include "memref.h"

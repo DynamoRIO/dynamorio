@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -1765,7 +1765,7 @@ const instr_info_t A32_ext_imm5[][2] = {
 };
 
 const instr_info_t A32_nopred_opc8[] = {
-    /* FIXME i#1551: add A32_nopred_opc8[] table for top bits 0xf */
+    /* XXX i#1551: add A32_nopred_opc8[] table for top bits 0xf */
 };
 
 /****************************************************************************

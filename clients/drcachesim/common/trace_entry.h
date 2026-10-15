@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -41,17 +41,17 @@
  */
 
 #ifndef _TRACE_ENTRY_H_
-#define _TRACE_ENTRY_H_ 1
+#define _TRACE_ENTRY_H_
 
 #include <memory>
 #include <stddef.h>
 #include <stdint.h>
 
-#include "utils.h"
-
 #if defined(BUILD_PT_TRACER) || defined(BUILD_PT_POST_PROCESSOR)
 #    include "drpttracer_shared.h"
 #endif
+
+#include "utils.h"
 
 /**
  * @file drmemtrace/trace_entry.h
@@ -102,7 +102,7 @@ typedef enum {
      * post-syscall timestamp actually containing the pre-syscall time.
      */
     TRACE_ENTRY_VERSION_FREQUENT_TIMESTAMPS = 6,
-    /*
+    /**
      * The trace supports #TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION. The marker is used
      * to indicate an instruction started to execute but didn't retire. The instruction
      * was either preempted by an asynchronous signal or caused a fault. The instruction
@@ -115,10 +115,16 @@ typedef enum {
      * instruction is available in a subsequent
      * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT marker.
      */
-    TRACE_ENTRY_VERSION_RETIRED_INSTRUCTIONS_ONLY =
-        7, /**< Trace version which has only retired instructions in drmemtraces.*/
+    TRACE_ENTRY_VERSION_RETIRED_INSTRUCTIONS_ONLY = 7,
+    /**
+     * The trace completely omits #TRACE_TYPE_INSTR_NO_FETCH records. Repeated string
+     * instructions consist of a single instruction record of the new type
+     * #TRACE_TYPE_INSTR_REPEATED followed by consecutive memory access records
+     * with no further instruction fetch record for any subsequent iteration.
+     */
+    TRACE_ENTRY_VERSION_NO_UNFETCHED_INSTRUCTIONS = 8,
     /** The latest version of the trace format. */
-    TRACE_ENTRY_VERSION = TRACE_ENTRY_VERSION_RETIRED_INSTRUCTIONS_ONLY,
+    TRACE_ENTRY_VERSION = TRACE_ENTRY_VERSION_NO_UNFETCHED_INSTRUCTIONS,
 } trace_version_t;
 
 /** The type of a trace entry in a #memref_t structure. */
@@ -240,10 +246,13 @@ typedef enum {
      * For core simulators, a trace includes instructions that do not incur
      * instruction cache fetches, such as on each subsequent iteration of a
      * rep string loop on x86.
+     *
+     * \deprecated This record only appears in legacy traces with a version
+     * less than #TRACE_ENTRY_VERSION_NO_UNFETCHED_INSTRUCTIONS.
      */
     TRACE_TYPE_INSTR_NO_FETCH,
-    // An internal value used for online traces and turned by reader_t into
-    // either TRACE_TYPE_INSTR or TRACE_TYPE_INSTR_NO_FETCH.
+    // An internal value used for online traces which is either turned into
+    // #TRACE_TYPE_INSTR or removed by reader_t.
     // Enum value == 30.
     TRACE_TYPE_INSTR_MAYBE_FETCH,
 
@@ -264,6 +273,7 @@ typedef enum {
     TRACE_TYPE_PREFETCH_INSTR_L2,    /**< Instr prefetch to L2 cache. */
     TRACE_TYPE_PREFETCH_INSTR_L2_NT, /**< Non-temporal instr prefetch to L2 cache. */
     TRACE_TYPE_PREFETCH_INSTR_L3,    /**< Instr prefetch to L3 cache. */
+    // Enum value == 40.
     TRACE_TYPE_PREFETCH_INSTR_L3_NT, /**< Non-temporal instr prefetch to L3 cache. */
 
     TRACE_TYPE_PREFETCH_WRITE_L1,    /**< Store prefetch to L1 cache. */
@@ -274,9 +284,6 @@ typedef enum {
     TRACE_TYPE_PREFETCH_WRITE_L3_NT, /**< Non-temporal store prefetch to L3 cache. */
 
     // Internal value for encoding bytes.
-    // Currently this is only used for offline traces with OFFLINE_FILE_TYPE_ENCODINGS.
-    // XXX i#5520: Add to online traces, but under an option since extra
-    // encoding entries add runtime overhead.
     TRACE_TYPE_ENCODING,
 
     /**
@@ -290,11 +297,24 @@ typedef enum {
      */
     TRACE_TYPE_INSTR_UNTAKEN_JUMP,
 
+    // Enum value == 50.
     /** An invalid record, meant for use as a sentinel value. */
     TRACE_TYPE_INVALID,
 
+    /**
+     * We separate out the x86 string loop instructions (from
+     * #TRACE_ENTRY_VERSION_NO_UNFETCHED_INSTRUCTIONS onward) to make it easier
+     * to handle their potentially very long sequences of load/store records.
+     */
+    TRACE_TYPE_INSTR_REPEATED,
+
     // Update trace_type_names[] when adding here.
 } trace_type_t;
+
+/**
+ * A thread id sentinel for an idle core with no software thread.
+ */
+constexpr int IDLE_THREAD_ID = -1;
 
 /** The sub-type for TRACE_TYPE_MARKER. */
 /* For offline traces, we are not able to place a marker accurately in the middle
@@ -317,12 +337,16 @@ typedef enum {
      * marker of type #TRACE_MARKER_TYPE_RSEQ_ABORT.
      * A signal handler is optionally further identified by a subsequent marker
      * of type #TRACE_MARKER_TYPE_SIGNAL_NUMBER.
+     * This marker will not be present in traces with the
+     * #OFFLINE_FILE_TYPE_WHOLE_SYSTEM file type bit.
      */
     TRACE_MARKER_TYPE_KERNEL_EVENT,
     /**
      * The subsequent instruction is the target of a system call that changes the
      * context: a signal return on UNIX, or a callback return or NtContinue or
      * NtSetContextThread on Windows.
+     * This marker will not be present in traces with the
+     * #OFFLINE_FILE_TYPE_WHOLE_SYSTEM file type bit.
      */
     TRACE_MARKER_TYPE_KERNEL_XFER,
     // XXX i#5634: Add 64-bit marker value support to 32-bit to avoid truncating.
@@ -351,7 +375,7 @@ typedef enum {
      * This marker is also used to record parameter values for certain system calls such
      * as for #OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS or -record_syscall.  These use
      * large identifiers equal to
-     * #func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE plus the system
+     * #dynamorio::drmemtrace::func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE plus the system
      * call number (for 32-bit marker values just the bottom 16 bits of the system call
      * number are added to the base).  These identifiers are not stored in the function
      * list file (drmemtrace_get_funclist_path()).  The system call number used is the
@@ -406,6 +430,7 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_FILETYPE,
 
+    // Enum value == 10.
     /**
      * The marker value contains the traced processor's cache line size in
      * bytes.
@@ -415,7 +440,8 @@ typedef enum {
     /**
      * The marker value contains the count of dynamic instruction executions in
      * this software thread since the start of the trace.  This marker type is only
-     * present in online-cache-filtered traces and is placed at thread exit.
+     * present in online-cache-filtered traces and is placed at each thread buffer
+     * boundary and at thread exit.
      */
     TRACE_MARKER_TYPE_INSTRUCTION_COUNT,
 
@@ -491,6 +517,7 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_SYSCALL_IDX,
 
+    // Enum value == 20.
     /**
      * This top-level marker identifies the instruction count in each chunk
      * of the output file.  This is the granularity of a fast seek.
@@ -564,11 +591,16 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
 
-    // Internal marker present just before each indirect branch instruction in offline
-    // non-i-filtered traces.  The marker value holds the actual target of the
-    // branch.  The reader converts this to the memref_t "indirect_branch_target" field.
+    /**
+     * Internal marker present just before each indirect branch instruction in offline
+     * non-i-filtered traces.  The marker value holds the actual target of the
+     * branch.  The reader converts this to the instr.indirect_branch_target field in
+     * #memref_t and does not pass it on, so #memref_t analysis tools never see this
+     * marker.
+     */
     TRACE_MARKER_TYPE_BRANCH_TARGET,
 
+    // Enum value == 30.
     // Although it is only for Mac that syscall success requires more than the
     // main return value register, we include the failure marker for all platforms
     // as mmap is complex and it is simpler to not have Mac-only code paths.
@@ -627,21 +659,23 @@ typedef enum {
      * is roughly the time where a regular record could have been read and passed
      * along.  This idle marker indicates that a core actually had no work to do,
      * as opposed to #TRACE_MARKER_TYPE_CORE_WAIT which is an artifact of an
-     * imposed re-created schedule.
+     * imposed re-created schedule.  When presented as a
+     * #dynamorio::drmemtrace::memref_t record, the tid field will be set to
+     * #dynamorio::drmemtrace::IDLE_THREAD_ID.
      */
     TRACE_MARKER_TYPE_CORE_IDLE,
 
     /**
      * Indicates a point in the trace where context switch's kernel trace starts.
      * The value of the marker is set to the switch type enum value from
-     * #dynamorio::drmemtrace::scheduler_tmpl_t::switch_type_t.
+     * #dynamorio::drmemtrace::switch_type_t.
      */
     TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
 
     /**
      * Indicates a point in the trace where a context switch's kernel trace ends.
      * The value of the marker is set to the switch type enum value from
-     * #dynamorio::drmemtrace::scheduler_tmpl_t::switch_type_t.
+     * #dynamorio::drmemtrace::switch_type_t.
      */
     TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
 
@@ -705,6 +739,7 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT,
 
+    // Enum value == 40.
     /**
      * This marker is emitted prior to the invocation of a signal handler,
      * after the #TRACE_MARKER_TYPE_KERNEL_EVENT record for the handler.
@@ -726,6 +761,79 @@ typedef enum {
      * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT marker.
      */
     TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION,
+
+    /**
+     * This marker is used in raw offline traces to indicate the endpoint of the
+     * final block in a thread at detach, or the interruption point of a block by a
+     * relocation performed by DR.  This marker is not visible in a final trace: it
+     * is consumed during post-processing.  The marker value is the PC in the block
+     * where execution stopped (i.e., this PC itself was not executed; raw2trace will
+     * end the block before this PC and add an uncompleted marker).
+     */
+    TRACE_MARKER_TYPE_MIDBLOCK_END_PC,
+
+    /**
+     * This marker is used to indicate an occurrence of a discontinuity in regular
+     * execution flow caused by an exception, interrupt, or system call, in traces with
+     * the #OFFLINE_FILE_TYPE_WHOLE_SYSTEM file type bit.  It is used in traces that
+     * record the whole-system view of events; it is loosely similar to the
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT marker that is used to
+     * indicate discontinuities in the regular user-mode view traces.  The value of
+     * this marker contains the program counter at the interruption point.  If the
+     * interruption point is just after a branch, this value is the target of that
+     * branch.
+     */
+    TRACE_MARKER_TYPE_HARDWARE_EVENT,
+
+    /**
+     * This marker is used to indicate an occurrence of a hardware context return
+     * event, such as an eret on AArch64 or iret on x86, in traces with the
+     * #OFFLINE_FILE_TYPE_WHOLE_SYSTEM file type bit.  Such instructions perform
+     * various implicit operations, which may include restoring state, and modifying
+     * the exception/ring level.  It is used in traces that record the whole
+     * system view of events; it is loosely similar to the
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_XFER marker that is used to
+     * indicate control-altering syscalls which includes user event (UNIX signal,
+     * Windows callback, exception, or APC) handler returns that match up to prior
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT markers in the
+     * regular user-mode view traces. Note that this may not be present on other cases
+     * that change the privilege level (e.g., far branch on x86; syscall gateways). The
+     * marker value does not hold any information currently.
+     */
+    TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN,
+
+    /**
+     * Appears only in offline raw records. This is turned into
+     * #TRACE_MARKER_TYPE_KERNEL_EVENT in post-processing.  Its purpose is to have a
+     * non-canonical value in bits 48..55 of offline_entry_t (unlike
+     * #TRACE_MARKER_TYPE_KERNEL_EVENT which has 0 in 48..55) so we can distinguish it
+     * from an address with the top byte set and ignored.
+     */
+    TRACE_MARKER_TYPE_KERNEL_EVENT_RAW,
+
+    // TODO i#7914: Once we've implemented support for all masked/predicated memrefs,
+    // increment the trace version.
+    /**
+     * Appears after an instruction fetch entry for an instruction with predicated,
+     * conditional, or masked memory references.  For each memory reference that did
+     * not actually occur as it was masked out or predicated false, this marker will
+     * be included.  The marker value is the memory address that would have been
+     * referenced.  For instructions with multiple memory references, these markers
+     * will appear at the same position a record for a real reference would appear:
+     * so for a contiguous scatter/gather these markers may be interleaved with
+     * regular records with the full set of markers and regular records fully
+     * covering all possible references.  Neither the memory reference size nor type
+     * (read or write) is included: it is assumed that they can be inferred from the
+     * instruction fetch entry.  This marker is meant for use by simulators for
+     * prefetching or other purposes performed by hardware before the mask or
+     * predication is resolved.  Online traces do not contain these markers; only
+     * offline.
+     */
+    TRACE_MARKER_TYPE_SKIPPED_MEMREF,
+
+    // XXX: When adding a new type, if its value is an address, add it to
+    // scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_canonicalize_addresses()
+    // for auto-canonicalization support.
 
     // ...
     // These values are reserved for future built-in marker types.
@@ -758,20 +866,23 @@ extern const char *const trace_type_names[];
 
 /**
  * Returns whether the type represents an instruction fetch.
- * Deliberately excludes TRACE_TYPE_INSTR_NO_FETCH and TRACE_TYPE_INSTR_BUNDLE.
+ * Deliberately excludes #TRACE_TYPE_INSTR_NO_FETCH and TRACE_TYPE_INSTR_BUNDLE.
+ * #TRACE_TYPE_INSTR_NO_FETCH is now deprecated and only present in legacy
+ * traces.
  */
 static inline bool
 type_is_instr(const trace_type_t type)
 {
     return (type >= TRACE_TYPE_INSTR && type <= TRACE_TYPE_INSTR_RETURN) ||
         type == TRACE_TYPE_INSTR_SYSENTER || type == TRACE_TYPE_INSTR_TAKEN_JUMP ||
-        type == TRACE_TYPE_INSTR_UNTAKEN_JUMP;
+        type == TRACE_TYPE_INSTR_UNTAKEN_JUMP || type == TRACE_TYPE_INSTR_REPEATED;
 }
 
 /**
  * Returns whether \p type represents any type of instruction record whether an
  * instruction fetch or operation hint. This is a superset of type_is_instr() and includes
- * #TRACE_TYPE_INSTR_NO_FETCH.
+ * #TRACE_TYPE_INSTR_NO_FETCH. Note that #TRACE_TYPE_INSTR_NO_FETCH is now deprecated
+ * and only present in legacy traces.
  */
 static inline bool
 is_any_instr_type(const trace_type_t type)
@@ -861,10 +972,13 @@ marker_type_is_function_marker(const trace_marker_type_t mark)
     return mark >= TRACE_MARKER_TYPE_FUNC_ID && mark <= TRACE_MARKER_TYPE_FUNC_RETVAL;
 }
 
-// The longest instruction on any architecture.
-// This matches DR's MAX_INSTR_LENGTH for x86 but we want the same
-// size for all architectures and DR's define is available ifdef X86 only.
-#define MAX_ENCODING_LENGTH 17
+// The longest instruction we support on any architecture.  We shrink DR's
+// MAX_INSTR_LENGTH for x86 from 17 down to 15 since 15 seems to be a modern limit as
+// documented in the Intel Software Developer's Manual 2.3.11 "AVX Instruction
+// Length".  We do not make this arch-specific as we want the same size for all
+// architectures to support cross-arch analysis.  We do not reference DR's define as
+// it is only available ifdef X86.
+#define MAX_ENCODING_LENGTH 15
 
 /**
  * This is the data format generated by the online tracer and produced after
@@ -915,29 +1029,87 @@ typedef struct _trace_entry_t trace_entry_t;
 // reconstructing the trace_entry_t format that the readers expect via a
 // post-processing step before feeding it to analysis tools.
 
+// We use a single 64-bit record entry defined as a union to cover all record types.
+// The offline_type_t enum stored in the type field, along with other logic to handle
+// non-canonical top bits (described right below), identifies the union alternative.
 // We target 64-bit addresses and do not bother to shrink the module or timestamp
 // entries for 32-bit apps.
 // We assume that a 64-bit address has far fewer real bits, typically
-// 48 bits, and that the top bits 48..63 are always identical.  Thus we can store
-// a type field in those top bits.
-// For the most common, a memref, we have both all 0's and all 1's be its
-// type to reduce instrumentation overhead.
-// The type simply identifies which union alternative:
+// 48 bits, and that certain bits must be identical to be "canonical" and avoid
+// a fault.
+// Often all 48..63 are identical, including 61..63 where we store our type field.
+// For the most common record type, a memref (load or store address), we have both
+// all 0's and all 1's be its type to reduce instrumentation overhead.
+//
+// We support top address bits being non-canonical in the following manner:
+// + Top Byte Ignore (AArch64) or Upper Address Ignore (AMD): we support the full
+//   top byte 56..63 being anything.
+// + Linear Address Masking (Intel x86_64): we support both LAM_U48 with bits
+//   48..62 (looks like Top Byte Ignore to us) and LAM_U57 with bits 57..62 as
+//   any value.
+// We need to distinguish a memref (OFFLINE_TYPE_MEMREF{,_HIGH}) whose top bits make
+// it look like another type.
+// We do not worry about the following types as they never appear where we expect
+// a memref (they should always be separated by at least a timestamp):
+// (XXX i#1734: If this were to change: we would ensure we can identify block
+// boundaries by knowing the memref count or adding a record in order to separate these.)
+// + OFFLINE_TYPE_THREAD
+// + OFFLINE_TYPE_PID
+// + OFFLINE_TYPE_EXTENDED subtypes OFFLINE_EXT_TYPE_HEADER_DEPRECATED,
+//   OFFLINE_EXT_TYPE_FOOTER, and OFFLINE_EXT_TYPE_HEADER
+// We also do not worry about these:
+// + OFFLINE_TYPE_IFLUSH: Only used for AArch32 where addresses are only 32 bits.
+// + OFFLINE_TYPE_EXTENDED subtype OFFLINE_EXT_TYPE_MEMINFO: a read (==0) would have
+//   canonical 48..55: but this is used for filtering and always precedes addresses,
+//   so it should never be confused with an address.
+// For the remaining types: for the top byte being non-canonical where bits 48..55
+// still must be all 0's or 1's, we avoid other types from ever being legitimate values
+// when 48..55 are all 0's or '1s as follows:
+// + OFFLINE_TYPE_PC: A PC record: instr_count is 12 bits: 5 in top byte; 7 as top
+//   bits of 48..55. Bit 48 is top bit of modidx: which can be set as that's part of
+//   PC_MODIDX_INVALID. So for 48..55 to be all 0's: count is multiple of 128, or
+//   count is 0. 0 is only used for filtered, where a PC entry with count 0 precedes
+//   each memref, so we can distinguish by record order. To be all 1's: count must be
+//   at least 127. We avoid this by ensuring -max_bb_instrs is 126.
+// + OFFLINE_TYPE_TIMESTAMP: A timestamp with 0's in 48..55 and 0's in top bits would
+//   be older than 0x8001000000000000 which is 12/2/1609; with 0's in 48..55 and at
+//   least one 1 in top bits would be at least 0x8100000000000000 which is 5/31/3884;
+//   with 1's in 48..55 would be at least 0x00ff000000000000 which is 7/1/3875. So it
+//   seems reasonable to exclude any seeming timestamp with a canonical 48..55:
+//   assume it's an address.
+// + OFFLINE_TYPE_EXTENDED subtype OFFLINE_EXT_TYPE_MARKER:
+//   offline_entry_t.extended.valueB is bits 48..55 so we need to distinguish marker
+//   types 0 and all 1's. There is no all 1's; 0 is TRACE_MARKER_TYPE_KERNEL_EVENT
+//   which we no longer use in raw records: we use TRACE_MARKER_TYPE_KERNEL_EVENT_RAW
+//   and convert it in raw2trace.
+// The final piece is distinguishing LAM_U48 where bits 48..55 do not need to all
+// be the same.  However, here the top bit 63 must match bit 47, with both being 0
+// for user-mode addresses.  We assume kernel code never uses these top bits for
+// metadata, and so if all our types have 1 for the top bit we should be all set.
+// We add OFFLINE_TYPE_PC_TOP_BIT for the PC; OFFLINE_TYPE_TIMESTAMP and
+// OFFLINE_TYPE_EXTENDED already have the top bit set.
 typedef enum {
     OFFLINE_TYPE_MEMREF, // We rely on this being 0.
     OFFLINE_TYPE_PC,
     OFFLINE_TYPE_THREAD,
     OFFLINE_TYPE_PID,
     OFFLINE_TYPE_TIMESTAMP,
+#ifdef X64
+    // Identical to OFFLINE_TYPE_PC but the top bit is set, which allows distinguishing
+    // from an address with non-canonical bits 48..62 (Intel's Linear Address Masking
+    // in LAM_U48 mode).
+    OFFLINE_TYPE_PC_TOP_BIT,
+#else
     // An ARM SYS_cacheflush: always has two addr entries for [start, end).
     OFFLINE_TYPE_IFLUSH,
+#endif
     // The ext field identifies this further.
     OFFLINE_TYPE_EXTENDED,
     OFFLINE_TYPE_MEMREF_HIGH = 7,
 } offline_type_t;
 
 // Sub-type when the primary type is OFFLINE_TYPE_EXTENDED.
-// These differ in what they store in offline_entry_t.extended.value.
+// These differ in what they store in offline_entry_t.extended.value{A,B}.
 typedef enum {
     // The initial entry in trace files with version older than
     // OFFLINE_FILE_VERSION_HEADER_FIELDS_SWAP.  The valueA field holds the
@@ -957,6 +1129,14 @@ typedef enum {
     // field holds the type (OFFLINE_FILE_TYPE*), while valueB holds the
     // version (OFFLINE_FILE_VERSION*).
     OFFLINE_EXT_TYPE_HEADER,
+    // valueB holds the address of the base of a contiguous scatter/gather operation.
+    // This is used to produce TRACE_MARKER_TYPE_SKIPPED_MEMREF records.
+    // valueB is set to 1 to avoid this being confused with an address (see
+    // Top Byte Ignore comments).
+    // Since valueB only holds 48 bits this does not preserve the top bits.
+    // TODO i#7914: Store a different sentinel in valueB when the top bits
+    // in canonical form should be 1's.
+    OFFLINE_EXT_TYPE_SCATTER_GATHER_BASE,
 } offline_ext_type_t;
 
 #define EXT_VALUE_A_BITS 48
@@ -984,7 +1164,17 @@ typedef enum {
 #define OFFLINE_FILE_VERSION_XFER_ABS_PC \
     7 /**< Use the absolute PC for kernel interruption PC for 64-bit mode.*/
 #define OFFLINE_FILE_VERSION_NO_OP 8 /**< There are no changes in this version.*/
-#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_NO_OP
+/** x86 push and pop bases are elided. */
+#define OFFLINE_FILE_VERSION_ELIDE_X86_PUSH 9
+/** Rep string loops are not unrolled for unfiltered traces. */
+#define OFFLINE_FILE_VERSION_REPSTR_LOOP 10
+/** All immediate-add-subtract GPR bases are elided. */
+#define OFFLINE_FILE_VERSION_ELIDE_IMMED_BASE 11
+/** AArch64 stack pointer bases are elided. */
+#define OFFLINE_FILE_VERSION_ELIDE_AARCH64_SP 12
+/** Rep string loops are never unrolled, even for filtered traces. */
+#define OFFLINE_FILE_VERSION_REPSTR_LOOP_ALL 13
+#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_REPSTR_LOOP_ALL
 
 /**
  * Bitfields used to describe the high-level characteristics of both an
@@ -1028,9 +1218,9 @@ typedef enum {
      * return values for kernel locks (SYS_futex on Linux) using the function tracing
      * markers #TRACE_MARKER_TYPE_FUNC_ID, #TRACE_MARKER_TYPE_FUNC_ARG, and
      * #TRACE_MARKER_TYPE_FUNC_RETVAL with an identifier equal to
-     * #func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE plus the system call number (or its
-     * bottom 16 bits for 32-bit marker values).  These identifiers are not stored in the
-     * function list file (drmemtrace_get_funclist_path()).
+     * #dynamorio::drmemtrace::func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE plus the system
+     * call number (or its bottom 16 bits for 32-bit marker values).  These identifiers
+     * are not stored in the function list file (drmemtrace_get_funclist_path()).
      *
      * The #TRACE_MARKER_TYPE_FUNC_RETVAL for system calls is
      * either 0 (failure) or 1 (success).
@@ -1053,20 +1243,50 @@ typedef enum {
      */
     OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP = 0x2000,
     /**
-     * Indicates an offline trace that contains trace templates for some system calls.
+     * Indicates an offline trace that contains trace templates for kernel system
+     * calls or kernel context switches. We currently use the same file type for
+     * both kinds of trace templates, but each template file must have only one kind.
+     *
+     * For kernel system call traces:
      * The individual traces are enclosed within a pair of
      * #TRACE_MARKER_TYPE_SYSCALL_TRACE_START and #TRACE_MARKER_TYPE_SYSCALL_TRACE_END
      * markers which also specify what system call the contained trace belongs to. This
-     * file can be used to create an #OFFLINE_FILE_TYPE_KERNEL_SYSCALLS trace with
-     * -syscall_template_file to raw2trace, with -sched_syscall_file to the
-     * drmemtrace analyzer framework, and also with #dynamorio::drmemtrace::
-     * scheduler_tmpl_t::scheduler_options_t.kernel_syscall_trace_path and #dynamorio::
+     * file can be used to create an #OFFLINE_FILE_TYPE_KERNEL_SYSCALLS trace by passing
+     * -syscall_template_file to raw2trace, by passing -sched_syscall_file to the
+     * drmemtrace analyzer framework, or by providing #dynamorio::drmemtrace::
+     * scheduler_tmpl_t::scheduler_options_t.kernel_syscall_trace_path or #dynamorio::
      * drmemtrace::scheduler_tmpl_t::scheduler_options_t.kernel_syscall_reader to the
      * scheduler. Each system call trace template uses the regular drmemtrace format,
      * including using paired #TRACE_MARKER_TYPE_KERNEL_EVENT and
      * #TRACE_MARKER_TYPE_KERNEL_XFER markers to represent kernel interrupts during
-     * system call execution. See the sample file written by the burst_syscall_inject.cpp
-     * test for more details on the expected format for the system call template file.
+     * system call execution. Each system call trace should end with an indirect
+     * branch instruction (e.g., iret/sysret/sysexit on x86, or eret on AArch64) which
+     * must be preceded by a #TRACE_MARKER_TYPE_BRANCH_TARGET marker with any value;
+     * the marker's value will be appropriately set to point to the next instr in the
+     * thread's trace when the trace template is injected.
+     *
+     * The file may also include a "default" trace that can be used for system calls that
+     * do not have any trace specified in this file. The default trace has the sysnum
+     * set to #DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM in the enclosing markers in the
+     * trace template file. When this trace is injected by the scheduler for some
+     * syscall, the value in the enclosing markers will be changed to that syscall num.
+     *
+     * See the sample file written by the burst_syscall_inject.cpp test for more
+     * details on the expected format for the system call template file.
+     *
+     * For kernel context switch traces:
+     * The individual traces are enclosed within a pair of
+     * #TRACE_MARKER_TYPE_CONTEXT_SWITCH_START and
+     * #TRACE_MARKER_TYPE_CONTEXT_SWITCH_END markers which also specify what kind of
+     * context switch the trace is for (see the enum
+     * #dynamorio::drmemtrace::switch_type_t). This
+     * file can be used to create a dynamic #OFFLINE_FILE_TYPE_KERNEL_SYSCALLS trace
+     * by passing -sched_switch_file to the drmemtrace analyzer framework, or by
+     * providing #dynamorio::drmemtrace::scheduler_tmpl_t::
+     * scheduler_options_t.kernel_switch_trace_path or #dynamorio::
+     * drmemtrace::scheduler_tmpl_t::scheduler_options_t.kernel_switch_reader to the
+     * scheduler. Each context switch trace template uses the regular drmemtrace format,
+     * similar to the syscall trace templates described above.
      *
      * TODO i#6495: Add support for reading a zipfile where each trace template is in
      * a separate component. This will make it easier to manually append, update, or
@@ -1102,6 +1322,19 @@ typedef enum {
      * hence encoding size and instruction fetch size may not match.
      */
     OFFLINE_FILE_TYPE_ARCH_REGDEPS = 0x20000,
+    /**
+     * Trace that denotes the whole-system view of events.  Such traces are derived from
+     * techniques that see the hardware centric view, such as Intel-PT, ETM, and
+     * QEMU-TCG, which is unlike regular drmemtraces that see the user mode centric
+     * view.  They may include events from the user and kernel components of the traced
+     * system, representing the target application and possibly other user/kernel
+     * processes on the system. Such traces have additional trace entries that are only
+     * relevant to them, such as the
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_HARDWARE_EVENT and
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN markers.  They
+     * may not support all the features available in the regular drmemtraces.
+     */
+    OFFLINE_FILE_TYPE_WHOLE_SYSTEM = 0x40000,
     /**
      * All possible architecture types, including synthetic ones.
      */
@@ -1147,6 +1380,27 @@ build_target_arch_type()
 }
 #endif
 
+/**
+ * Returns whether the given #trace_entry_t has a PC value, and returns it
+ * in the \p pc arg.
+ */
+static inline bool
+entry_has_pc(const trace_entry_t &entry, uint64_t &pc)
+{
+    if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
+        pc = entry.addr;
+        return true;
+    }
+    if (static_cast<trace_type_t>(entry.type) == TRACE_TYPE_MARKER &&
+        (static_cast<trace_marker_type_t>(entry.size) == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+         static_cast<trace_marker_type_t>(entry.size) ==
+             TRACE_MARKER_TYPE_HARDWARE_EVENT)) {
+        pc = entry.addr;
+        return true;
+    }
+    return false;
+}
+
 // This structure may be big- or little-endian, but when converted to trace_entry_t
 // it must be converted to litte-endian.
 START_PACKED_STRUCTURE
@@ -1162,6 +1416,11 @@ struct _offline_entry_t {
             // This describes the entire basic block.
             uint64_t modoffs : PC_MODOFFS_BITS;
             uint64_t modidx : PC_MODIDX_BITS;
+            // This is the count of instructions in the block.
+            // However, they may not all have exited if interrupted mid-block
+            // by a kernel event (e.g., a signal) or DR not finishing the block
+            // (e.g., on detach or some thread relocation like a synchronous flush);
+            // in those cases the trace has markers indicating where the block ended.
             uint64_t instr_count : PC_INSTR_COUNT_BITS;
             uint64_t type : PC_TYPE_BITS;
         } pc;
@@ -1487,6 +1746,20 @@ typedef struct _pt_data_buf_t pt_data_buf_t;
 #endif // defined(BUILD_PT_TRACER) || defined(BUILD_PT_POST_PROCESSOR)
 
 /**
+ * Value used by the system call trace template files (having the type
+ * #OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES) in the
+ * #TRACE_MARKER_TYPE_SYSCALL_TRACE_START and
+ * #TRACE_MARKER_TYPE_SYSCALL_TRACE_END markers to denote a trace to
+ * be used for syscalls that have no other trace available in the
+ * template file.
+ *
+ * We chose this value to not collide with any actual syscall number
+ * on any platform, and also differ from other possible sentinels
+ * like -1 on 32-bit.
+ */
+constexpr int DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM = 0x0fffffff;
+
+/**
  * The name of the file in -offline mode where module data is written.
  * Its creation can be customized using drmemtrace_custom_module_data()
  * and then modified before passing to raw2trace via
@@ -1544,6 +1817,27 @@ typedef struct _pt_data_buf_t pt_data_buf_t;
  * the number of pages, and the number of bytes mapped.
  */
 #define DRMEMTRACE_V2P_FILENAME "v2p.textproto"
+
+/**
+ * Types of scheduler context switch. Used in the content specified to
+ * #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t::
+ * kernel_switch_trace_path and kernel_switch_reader.
+ * The enum value is the subfile component name in the archive_istream_t.
+ */
+enum switch_type_t {
+    /** Invalid value. */
+    SWITCH_INVALID = 0,
+    /** Generic thread context switch. */
+    SWITCH_THREAD,
+    /**
+     * Generic process context switch.  A workload is considered a process.
+     */
+    SWITCH_PROCESS,
+    /**
+     * Holds the count of different types of context switches.
+     */
+    SWITCH_LAST_VALID_ENUM = SWITCH_PROCESS,
+};
 
 } // namespace drmemtrace
 } // namespace dynamorio

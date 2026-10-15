@@ -10,7 +10,7 @@
  ****************************************************************************/
 
 #ifndef _NTUSER_WIN8_
-#define _NTUSER_WIN8_ 1
+#define _NTUSER_WIN8_
 
 /* Observed called from IMM32!IsLegacyIMEDisabled.  Both fields are written
  * with 0 in all observed instances.

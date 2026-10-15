@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -573,7 +573,7 @@ bb_bitmap_lookup(module_table_t *table, uint addr)
 {
     byte *bm = table->bb_table.bitmap;
     if (bm[BITMAP_INDEX(addr)] == 0xff ||
-        TEST(BITMAP_MASK(BITMAP_OFFSET(addr)), bm[BITMAP_INDEX(addr)]))
+        TESTANY(BITMAP_MASK(BITMAP_OFFSET(addr)), bm[BITMAP_INDEX(addr)]))
         return BB_TABLE_ENTRY_SET;
     return BB_TABLE_ENTRY_CLEAR;
 }
@@ -589,7 +589,7 @@ bb_bitmap_add(module_table_t *table, bb_entry_t *entry)
     if (bm[idx] == BB_TABLE_RANGE_SET)
         return false;
     offs = BITMAP_OFFSET(entry->start);
-    if (TEST(BITMAP_MASK(offs), bm[idx]))
+    if (TESTANY(BITMAP_MASK(offs), bm[idx]))
         return false;
     /* now we add a new bb */
     PRINT(6, "Add 0x%x-0x%x in table " PFX "\n", entry->start, entry->start + entry->size,
@@ -802,7 +802,7 @@ read_module_list(const char *buf, module_table_t ***tables, uint *num_mods)
         modpath = info.path;
         if (info.size >= UINT_MAX)
             ASSERT(false, "module size is too large");
-        /* FIXME i#1445: we have seen the pdb convert paths to all-lowercase,
+        /* XXX i#1445: we have seen the pdb convert paths to all-lowercase,
          * so these should be case-insensitive on Windows.
          */
         if (strstr(info.path, "<unknown>") != NULL ||
@@ -814,7 +814,8 @@ read_module_list(const char *buf, module_table_t ***tables, uint *num_mods)
             mod_table = (module_table_t *)MODULE_TABLE_IGNORE;
         else {
             if (op_pathmap.specified()) {
-                const char *tofind = op_pathmap.get_value().first.c_str();
+                const twostring_t two_string = op_pathmap.get_value();
+                const char *tofind = two_string.first.c_str();
                 const char *match = strstr(info.path, tofind);
                 if (match != NULL) {
                     if (dr_snprintf(subst, BUFFER_SIZE_ELEMENTS(subst), "%.*s%s%s",
@@ -1147,7 +1148,7 @@ enum_line_cb(drsym_line_info_t *info, void *data)
     module_table_t *table = (module_table_t *)data;
     line_table_t *line_table;
     const char *test_info = NULL;
-    /* FIXME i#1445: we have seen the pdb convert paths to all-lowercase,
+    /* XXX i#1445: we have seen the pdb convert paths to all-lowercase,
      * so these should be case-insensitive on Windows.
      */
     if (info->file == NULL ||

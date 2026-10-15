@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,7 +34,7 @@
  */
 
 #ifndef _DIRECTORY_ITERATOR_H_
-#define _DIRECTORY_ITERATOR_H_ 1
+#define _DIRECTORY_ITERATOR_H_
 
 #include <assert.h>
 
@@ -57,8 +57,13 @@ namespace drmemtrace {
 // Iterates over files: skips sub-directories.
 // Returns the basenames of the files (i.e., not absolute paths).
 // This class is not thread-safe.
-class directory_iterator_t : public std::iterator<std::input_iterator_tag, std::string> {
+class directory_iterator_t {
 public:
+    using iterator_category = std::input_iterator_tag;
+    using value_type = std::string;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type *;
+    using reference = value_type &;
     directory_iterator_t()
     {
     }

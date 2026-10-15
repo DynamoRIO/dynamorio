@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -176,10 +176,12 @@ analyzer_multi_t::create_invariant_checker()
             }
         }
     }
-    return new invariant_checker_t(op_offline.get_value(), op_verbose.get_value(),
-                                   op_test_mode_name.get_value(),
-                                   serial_schedule_file_.get(), cpu_schedule_file_.get(),
-                                   op_abort_on_invariant_error.get_value());
+    return new invariant_checker_t(
+        op_offline.get_value(), op_verbose.get_value(), op_test_mode_name.get_value(),
+        serial_schedule_file_.get(), cpu_schedule_file_.get(),
+        op_abort_on_invariant_error.get_value(), op_sched_syscall_file.get_value() != "",
+        op_skip_records.specified() || op_exit_after_records.specified() ||
+            op_skip_instrs.specified() || op_exit_after_instrs.specified());
 }
 
 template <>
@@ -258,10 +260,17 @@ analyzer_multi_t::create_analysis_tool_from_options(const std::string &tool)
     } else if (tool == SYSCALL_MIX) {
         return syscall_mix_tool_create(op_verbose.get_value());
     } else if (tool == VIEW) {
+        // If the view tool and no other tool was specified, complain if the
+        // previously-supported -sim_refs or -skip_refs are passed.
+        if ((op_skip_refs.specified() || op_sim_refs.specified()) &&
+            op_tool.get_value().find(":") == std::string::npos) {
+            ERRMSG("Usage error: -skip_refs and -sim_refs are not supported with the "
+                   "view tool. Use -skip_records and -exit_after_records instead.\n");
+            return nullptr;
+        }
         std::string module_file_path = get_module_file_path();
         // The module file is optional so we don't check for emptiness.
-        return view_tool_create(module_file_path, op_skip_refs.get_value(),
-                                op_sim_refs.get_value(), op_view_syntax.get_value(),
+        return view_tool_create(module_file_path, op_view_syntax.get_value(),
                                 op_verbose.get_value(), op_alt_module_dir.get_value());
     } else if (tool == FUNC_VIEW) {
         std::string funclist_file_path = get_aux_file_path(
@@ -340,12 +349,17 @@ record_analyzer_multi_t::create_analysis_tool_from_options(const std::string &to
             op_outdir.get_value(), op_filter_stop_timestamp.get_value(),
             op_filter_cache_size.get_value(), op_filter_trace_types.get_value(),
             op_filter_marker_types.get_value(), op_trim_before_timestamp.get_value(),
-            op_trim_after_timestamp.get_value(), op_encodings2regdeps.get_value(),
+            op_trim_after_timestamp.get_value(), op_trim_before_instr.get_value(),
+            op_trim_after_instr.get_value(), op_encodings2regdeps.get_value(),
             op_filter_func_ids.get_value(), op_modify_marker_value.get_value(),
+            op_filter_kernel.get_value(), op_filter_kernel_except_syscalls.get_value(),
             op_verbose.get_value());
+    } else if (tool == SCHEDULE_STATS) {
+        return record_schedule_stats_tool_create(
+            op_schedule_stats_print_every.get_value(), op_verbose.get_value());
     }
     ERRMSG("Usage error: unsupported record analyzer type \"%s\".  Only " RECORD_FILTER
-           " is supported.\n",
+           " and " SCHEDULE_STATS " are supported.\n",
            tool.c_str());
     return nullptr;
 }
@@ -393,10 +407,25 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
     this->verbosity_ = op_verbose.get_value();
     this->worker_count_ = op_jobs.get_value();
     this->skip_instrs_ = op_skip_instrs.get_value();
+    this->skip_records_ = op_skip_records.get_value();
     this->skip_to_timestamp_ = op_skip_to_timestamp.get_value();
-    if (this->skip_instrs_ > 0 && this->skip_to_timestamp_ > 0) {
-        this->error_string_ = "Usage error: only one of -skip_instrs and "
+    if (static_cast<int>(this->skip_instrs_ > 0) +
+            static_cast<int>(this->skip_to_timestamp_ > 0) +
+            static_cast<int>(this->skip_records_ > 0) >
+        1) {
+        this->error_string_ = "Usage error: only one of -skip_instrs, -skip_records, and "
                               "-skip_to_timestamp can be used at a time";
+        this->success_ = false;
+        return;
+    }
+    this->exit_after_instrs_ = op_exit_after_instrs.get_value();
+    this->exit_after_records_ = op_exit_after_records.get_value();
+    if ((op_exit_after_records.specified() || op_exit_after_instrs.specified()) &&
+        (op_sim_refs.specified() || op_skip_refs.get_value() > 0 ||
+         op_warmup_refs.get_value() > 0 || op_warmup_fraction.get_value() > 0.)) {
+        this->error_string_ =
+            "Usage error: -exit_after_{instrs,records} is not compatible with -sim_refs, "
+            "-skip_refs, -warmup_refs, or -warmup_fraction";
         this->success_ = false;
         return;
     }
@@ -562,6 +591,7 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
             this->parallel_ = false;
         }
         sched_ops = init_dynamic_schedule();
+        this->max_allowed_imbalance_ = op_max_load_imbalance.get_value();
     } else if (op_skip_to_timestamp.get_value() > 0) {
 #ifdef HAS_ZIP
         if (!op_cpu_schedule_file.get_value().empty()) {
@@ -637,8 +667,8 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::~analyzer_multi_tmpl_t()
 {
 
 #ifdef HAS_ZIP
-    if (!op_record_file.get_value().empty()) {
-        if (this->scheduler_.write_recorded_schedule() != sched_type_t::STATUS_SUCCESS) {
+    if (!op_record_file.get_value().empty() && !!this->scheduler_) {
+        if (this->scheduler_->write_recorded_schedule() != sched_type_t::STATUS_SUCCESS) {
             ERRMSG("Failed to write schedule to %s", op_record_file.get_value().c_str());
         }
     }
@@ -671,10 +701,12 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::init_dynamic_schedule()
     sched_ops.honor_infinite_timeouts = op_sched_infinite_timeouts.get_value();
     sched_ops.migration_threshold_us = op_sched_migration_threshold_us.get_value();
     sched_ops.rebalance_period_us = op_sched_rebalance_period_us.get_value();
+    sched_ops.steal_attempt_period = op_sched_steal_attempt_period.get_value();
     sched_ops.randomize_next_input = op_sched_randomize.get_value();
     sched_ops.honor_direct_switches = !op_sched_disable_direct_switches.get_value();
     sched_ops.exit_if_fraction_inputs_left =
         op_sched_exit_if_fraction_inputs_left.get_value();
+    sched_ops.random_initial_layout = op_sched_random_initial_layout.get_value();
 #ifdef HAS_ZIP
     if (!op_record_file.get_value().empty()) {
         record_schedule_zip_.reset(new zipfile_ostream_t(op_record_file.get_value()));

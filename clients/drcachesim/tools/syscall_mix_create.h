@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /* syscall-mix tool creation */
 
 #ifndef _SYSCALL_MIX_CREATE_H_
-#define _SYSCALL_MIX_CREATE_H_ 1
+#define _SYSCALL_MIX_CREATE_H_
 
 #include "analysis_tool.h"
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,7 +36,7 @@
  */
 
 #ifndef _SNAPPY_ISTREAM_H_
-#define _SNAPPY_ISTREAM_H_ 1
+#define _SNAPPY_ISTREAM_H_
 
 #ifndef HAS_SNAPPY
 #    error HAS_SNAPPY is required

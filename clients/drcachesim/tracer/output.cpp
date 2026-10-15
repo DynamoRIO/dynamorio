@@ -1,5 +1,6 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -45,7 +46,6 @@
 #include <string>
 
 #include "dr_api.h"
-#include "drmemtrace.h"
 #include "drmgr.h"
 #include "droption.h"
 #include "drx.h"
@@ -67,6 +67,12 @@
 #    include <zlib.h>
 #endif
 #ifdef HAS_LZ4
+#    ifdef HAS_LZ4_CUSTOM_MEM
+/* LZ4F_CustomMem and LZ4F_createCompressionContext_advanced() are declared under
+ * this guard, which must be defined before including the header.
+ */
+#        define LZ4F_STATIC_LINKING_ONLY
+#    endif
 #    include <lz4frame.h>
 #endif
 
@@ -182,6 +188,19 @@ reached_traced_instrs_threshold(void *drcontext)
  * Buffer writing to disk.
  */
 
+// MEMTRACE_NONE_FILE_HANDLE is a sentinel value used in "-outdir none" mode when
+// discarding an in-memory trace, while INVALID_FILE indicates that no trace output is
+// currently open or active.
+#ifdef WINDOWS
+// MSVC has stricter checks, so we cannot just use an integer value.
+#    define MEMTRACE_NONE_FILE_HANDLE \
+        (reinterpret_cast<file_t>(static_cast<ptr_int_t>(-2)))
+#else
+#    define MEMTRACE_NONE_FILE_HANDLE -2
+#endif
+
+static bool outdir_none_mode = false;
+
 static int notify_beyond_global_max_once;
 static volatile bool exited_process;
 
@@ -244,14 +263,15 @@ get_file_type()
 }
 
 #ifdef HAS_LZ4
-static const LZ4F_preferences_t lz4_ops = {
+static LZ4F_preferences_t lz4_ops = {
     { LZ4F_max256KB, LZ4F_blockLinked, LZ4F_noContentChecksum, LZ4F_frame,
       /*unknown contentSize=*/0, /*dictID=*/0, LZ4F_noBlockChecksum },
-    // We may want to expose this knob as a parameter.  The fastest for my
-    // SSD is -4096, but on another machine 0 is fastest; plus, we may want
-    // to raise it to 3 for cases with higher i/o overhead, where it is
-    // slower but still outperforms zlib/gzip.
-    /*fastest compressionLevel=*/0,
+    // Optimal compression levels vary by hardware configuration: level -4096 maximizes
+    // throughput on certain SSDs, whereas level 0 yields superior performance on other
+    // systems. Furthermore, increasing the level to 3 may be preferable in high I/O
+    // overhead scenarios, as it maintains a compression advantage over zlib and gzip
+    // despite reduced compression speed. We still keep level 0 as default.
+    /*compressionLevel=*/0,
     /*autoFlush=*/0,
     /*do not favorDecSpeed=*/0,
     /*reserved=*/ { 0, 0, 0 },
@@ -267,31 +287,134 @@ snappy_enabled()
 }
 #endif
 
-#ifdef HAS_ZLIB
+#if defined(HAS_ZLIB) || defined(HAS_LZ4_CUSTOM_MEM)
+/* A compression library whose allocator we can parameterize gets pointed at DR's
+ * private heap.  That is what makes it usable from a statically linked client,
+ * where calling the application's malloc is not safe.  dr_custom_free() needs the
+ * original size back, so we stash it in a header word ahead of the returned
+ * pointer.
+ */
 static void *
-redirect_malloc(void *drcontext, uint items, uint per_size)
+alloc_from_dr_heap(size_t size)
 {
-    void *mem;
-    size_t size = items * per_size; /* XXX: ignoring overflow */
     size += sizeof(size_t);
-    mem = dr_custom_alloc(nullptr, static_cast<dr_alloc_flags_t>(0), size,
-                          DR_MEMPROT_READ | DR_MEMPROT_WRITE, nullptr);
-    if (mem == NULL)
-        return Z_NULL;
-    *((size_t *)mem) = size;
-    return (byte *)mem + sizeof(size_t);
+    void *mem = dr_custom_alloc(nullptr, static_cast<dr_alloc_flags_t>(0), size,
+                                DR_MEMPROT_READ | DR_MEMPROT_WRITE, nullptr);
+    if (mem == nullptr)
+        return nullptr;
+    *reinterpret_cast<size_t *>(mem) = size;
+    return reinterpret_cast<byte *>(mem) + sizeof(size_t);
 }
 
 static void
-redirect_free(void *drcontext, void *ptr)
+free_to_dr_heap(void *ptr)
 {
-    if (ptr != NULL) {
-        byte *mem = (byte *)ptr;
-        mem -= sizeof(size_t);
-        dr_custom_free(nullptr, static_cast<dr_alloc_flags_t>(0), mem, *((size_t *)mem));
-    }
+    if (ptr == nullptr)
+        return;
+    byte *mem = reinterpret_cast<byte *>(ptr) - sizeof(size_t);
+    dr_custom_free(nullptr, static_cast<dr_alloc_flags_t>(0), mem,
+                   *reinterpret_cast<size_t *>(mem));
 }
 #endif
+
+#ifdef HAS_ZLIB
+static void *
+zlib_redirect_malloc(void *drcontext, uint items, uint per_size)
+{
+    void *mem = alloc_from_dr_heap(items * per_size); /* XXX: ignoring overflow */
+    return mem == nullptr ? Z_NULL : mem;
+}
+
+static void
+zlib_redirect_free(void *drcontext, void *ptr)
+{
+    free_to_dr_heap(ptr);
+}
+#endif
+
+#ifdef HAS_LZ4_CUSTOM_MEM
+/* lz4's allocator hooks take a single byte count, unlike zlib's (items, size)
+ * pair, so they cannot reuse zlib_redirect_malloc()/zlib_redirect_free() directly.
+ */
+static void *
+lz4_redirect_malloc(void *opaque, size_t size)
+{
+    return alloc_from_dr_heap(size);
+}
+
+static void *
+lz4_redirect_calloc(void *opaque, size_t size)
+{
+    void *mem = alloc_from_dr_heap(size);
+    if (mem != nullptr)
+        memset(mem, 0, size);
+    return mem;
+}
+
+static void
+lz4_redirect_free(void *opaque, void *ptr)
+{
+    free_to_dr_heap(ptr);
+}
+
+/* Setting this at context creation is sufficient: lz4 stores it on the context
+ * and every subsequent internal allocation (the LZ4_stream_t and the frame's
+ * tmpBuff) goes through it.
+ */
+static const LZ4F_CustomMem lz4_custom_mem = { lz4_redirect_malloc, lz4_redirect_calloc,
+                                               lz4_redirect_free,
+                                               /*opaqueState=*/nullptr };
+#endif
+
+/* Frees compression resources tied to the current file, but does not flush
+ * data or close the file.
+ */
+static void
+free_compression_file_data(void *drcontext, per_thread_t *data)
+{
+    if (!op_offline.get_value() || file_ops_func.handoff_buf != NULL)
+        return;
+#ifdef HAS_SNAPPY
+    if (snappy_enabled()) {
+        data->snappy_writer->~snappy_file_writer_t();
+        dr_custom_free(nullptr, static_cast<dr_alloc_flags_t>(0), data->snappy_writer,
+                       sizeof(*data->snappy_writer));
+        data->snappy_writer = nullptr;
+    }
+#endif
+#ifdef HAS_ZLIB
+    if (op_raw_compress.get_value() == "zlib" || op_raw_compress.get_value() == "gzip") {
+        deflateEnd(&data->zstream);
+    }
+#endif
+#ifdef HAS_LZ4
+    if (op_raw_compress.get_value() == "lz4") {
+        size_t res = LZ4F_freeCompressionContext(data->lzcxt);
+        DR_ASSERT(!LZ4F_isError(res));
+        data->lzcxt = nullptr;
+    }
+#endif
+}
+
+/* Frees compression resources independent of any open file. */
+static void
+exit_compression(void *drcontext, per_thread_t *data)
+{
+    if (!op_offline.get_value() || file_ops_func.handoff_buf != NULL)
+        return;
+#ifdef HAS_ZLIB
+    if (op_raw_compress.get_value() == "zlib" || op_raw_compress.get_value() == "gzip") {
+        dr_raw_mem_free(data->buf_compressed, data->max_buf_size);
+        data->buf_compressed = nullptr;
+    }
+#endif
+#ifdef HAS_LZ4
+    if (op_raw_compress.get_value() == "lz4") {
+        dr_raw_mem_free(data->buf_lz4, data->buf_lz4_size);
+        data->buf_lz4 = nullptr;
+    }
+#endif
+}
 
 int
 append_unit_header(void *drcontext, byte *buf_ptr, thread_id_t tid, ptr_int_t window)
@@ -325,6 +448,9 @@ open_new_window_dir(ptr_int_t window_num)
     if (!op_split_windows.get_value())
         return;
     DR_ASSERT(op_offline.get_value());
+    if (outdir_none_mode)
+        return;
+
     char windir[MAXIMUM_PATH];
     dr_snprintf(windir, BUFFER_SIZE_ELEMENTS(windir), "%s%s" WINDOW_SUBDIR_FORMAT,
                 logsubdir, DIRSEP, window_num);
@@ -338,16 +464,20 @@ static void
 close_thread_file(void *drcontext)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    if (data->file == INVALID_FILE)
+        return;
+    if (data->file == MEMTRACE_NONE_FILE_HANDLE) {
+        data->file = INVALID_FILE;
+        return;
+    }
+
 #ifdef HAS_SNAPPY
-    if (op_offline.get_value() && snappy_enabled()) {
-        data->snappy_writer->~snappy_file_writer_t();
-        dr_custom_free(nullptr, static_cast<dr_alloc_flags_t>(0), data->snappy_writer,
-                       sizeof(*data->snappy_writer));
-        data->snappy_writer = nullptr;
+    if (op_offline.get_value() && file_ops_func.handoff_buf == NULL && snappy_enabled()) {
+        free_compression_file_data(drcontext, data);
     }
 #endif
 #ifdef HAS_ZLIB
-    if (op_offline.get_value() &&
+    if (op_offline.get_value() && file_ops_func.handoff_buf == NULL &&
         (op_raw_compress.get_value() == "zlib" ||
          op_raw_compress.get_value() == "gzip")) {
         // Flush remaining data.
@@ -357,27 +487,27 @@ close_thread_file(void *drcontext)
         const int MAX_ITERS = 32; // Sanity limit to avoid hang.
         do {
             data->zstream.next_out = (Bytef *)data->buf_compressed;
-            data->zstream.avail_out = static_cast<uInt>(max_buf_size);
+            data->zstream.avail_out = static_cast<uInt>(data->max_buf_size);
             res = deflate(&data->zstream, Z_FINISH);
             NOTIFY(3, "final deflate => %d in=%d out=%d => in=%d, out=%d, wrote=%d\n",
-                   res, 0, max_buf_size, data->zstream.avail_in, data->zstream.avail_out,
-                   max_buf_size - data->zstream.avail_out);
+                   res, 0, data->max_buf_size, data->zstream.avail_in,
+                   data->zstream.avail_out, data->max_buf_size - data->zstream.avail_out);
             file_ops_func.write_file(data->file, data->buf_compressed,
-                                     max_buf_size - data->zstream.avail_out);
+                                     data->max_buf_size - data->zstream.avail_out);
         } while ((res == Z_OK || res == Z_BUF_ERROR) && ++iters < MAX_ITERS);
         DR_ASSERT(res == Z_STREAM_END);
-        deflateEnd(&data->zstream);
+        free_compression_file_data(drcontext, data);
     }
 #endif
 #ifdef HAS_LZ4
-    if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
+    if (op_offline.get_value() && file_ops_func.handoff_buf == NULL &&
+        op_raw_compress.get_value() == "lz4") {
         // Flush remaining data.
         size_t res =
             LZ4F_compressEnd(data->lzcxt, data->buf_lz4, data->buf_lz4_size, nullptr);
         DR_ASSERT(!LZ4F_isError(res));
         file_ops_func.write_file(data->file, data->buf_lz4, res);
-        res = LZ4F_freeCompressionContext(data->lzcxt);
-        DR_ASSERT(!LZ4F_isError(res));
+        free_compression_file_data(drcontext, data);
     }
 #endif
     file_ops_func.close_file(data->file);
@@ -391,6 +521,13 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     bool opened_new_file = false;
     DR_ASSERT(op_offline.get_value());
+
+    // "-outdir none" mode.
+    if (outdir_none_mode) {
+        data->file = MEMTRACE_NONE_FILE_HANDLE;
+        return false;
+    }
+
     const char *dir = logsubdir;
     char windir[MAXIMUM_PATH];
     if (has_tracing_windows()) {
@@ -399,8 +536,9 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
                         logsubdir, DIRSEP, window_num);
             NULL_TERMINATE_BUFFER(windir);
             dir = windir;
-        } else if (data->file != INVALID_FILE)
+        } else if (data->file != INVALID_FILE) {
             return false;
+        }
     }
     /* We do not need to call drx_init before using drx_open_unique_appid_file.
      * Since we're now in a subdir we could make the name simpler but this
@@ -447,7 +585,7 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
             close_thread_file(drcontext);
         data->file = new_file;
 #ifdef HAS_SNAPPY
-        if (snappy_enabled()) {
+        if (snappy_enabled() && file_ops_func.handoff_buf == NULL) {
             // We use placement new for better isolation.
             void *placement = dr_custom_alloc(
                 nullptr, static_cast<dr_alloc_flags_t>(0), sizeof(*data->snappy_writer),
@@ -459,17 +597,19 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
         }
 #endif
 #ifdef HAS_ZLIB
-        if (op_offline.get_value() && op_raw_compress.get_value() == "zlib") {
+        if (op_offline.get_value() && file_ops_func.handoff_buf == NULL &&
+            op_raw_compress.get_value() == "zlib") {
             memset(&data->zstream, 0, sizeof(data->zstream));
-            data->zstream.zalloc = redirect_malloc;
-            data->zstream.zfree = redirect_free;
+            data->zstream.zalloc = zlib_redirect_malloc;
+            data->zstream.zfree = zlib_redirect_free;
             data->zstream.opaque = drcontext;
             int res = deflateInit(&data->zstream, Z_BEST_SPEED);
             DR_ASSERT(res == Z_OK);
-        } else if (op_offline.get_value() && op_raw_compress.get_value() == "gzip") {
+        } else if (op_offline.get_value() && file_ops_func.handoff_buf == NULL &&
+                   op_raw_compress.get_value() == "gzip") {
             memset(&data->zstream, 0, sizeof(data->zstream));
-            data->zstream.zalloc = redirect_malloc;
-            data->zstream.zfree = redirect_free;
+            data->zstream.zalloc = zlib_redirect_malloc;
+            data->zstream.zfree = zlib_redirect_free;
             data->zstream.opaque = drcontext;
             const int ZLIB_WINDOW_SIZE = 15;
             const int ZLIB_REQUEST_GZIP = 16; /* Added to size to trigger gz headers. */
@@ -482,9 +622,20 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
         }
 #endif
 #ifdef HAS_LZ4
-        if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
+        if (op_offline.get_value() && file_ops_func.handoff_buf == NULL &&
+            op_raw_compress.get_value() == "lz4") {
+#    ifdef HAS_LZ4_CUSTOM_MEM
+            /* Unlike the legacy entry point, this returns the context itself
+             * (NULL on failure) rather than an error code.
+             */
+            data->lzcxt =
+                LZ4F_createCompressionContext_advanced(lz4_custom_mem, LZ4F_VERSION);
+            DR_ASSERT(data->lzcxt != nullptr);
+            size_t res;
+#    else
             size_t res = LZ4F_createCompressionContext(&data->lzcxt, LZ4F_VERSION);
             DR_ASSERT(!LZ4F_isError(res));
+#    endif
             // Write out the header.
             res = LZ4F_compressBegin(data->lzcxt, data->buf_lz4, data->buf_lz4_size,
                                      &lz4_ops);
@@ -545,9 +696,15 @@ write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end,
         per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
         ssize_t size = towrite_end - towrite_start;
         DR_ASSERT(data->file != INVALID_FILE);
+
+        if (outdir_none_mode) {
+            // Skip compression and disk writes entirely.
+            return towrite_start;
+        }
+
         if (file_ops_func.handoff_buf != NULL) {
             if (!file_ops_func.handoff_buf(data->file, towrite_start, size,
-                                           max_buf_size)) {
+                                           data->max_buf_size)) {
                 FATAL("Fatal error: failed to hand off trace\n");
             }
         } else {
@@ -566,16 +723,16 @@ write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end,
                 int res;
                 do {
                     data->zstream.next_out = (Bytef *)data->buf_compressed;
-                    data->zstream.avail_out = static_cast<uInt>(max_buf_size);
+                    data->zstream.avail_out = static_cast<uInt>(data->max_buf_size);
                     res = deflate(&data->zstream, Z_NO_FLUSH);
                     NOTIFY(3, "deflate => %d in=%d out=%d => in=%d, out=%d, write=%d\n",
                            res, size, size, data->zstream.avail_in,
                            data->zstream.avail_out,
-                           max_buf_size - data->zstream.avail_out);
+                           data->max_buf_size - data->zstream.avail_out);
                     DR_ASSERT(res != Z_STREAM_ERROR);
-                    wrote =
-                        file_ops_func.write_file(data->file, data->buf_compressed,
-                                                 max_buf_size - data->zstream.avail_out);
+                    wrote = file_ops_func.write_file(data->file, data->buf_compressed,
+                                                     data->max_buf_size -
+                                                         data->zstream.avail_out);
                 } while (data->zstream.avail_out == 0);
                 DR_ASSERT(data->zstream.avail_in == 0);
                 wrote = size;
@@ -667,8 +824,8 @@ set_local_window(void *drcontext, ptr_int_t value)
 static void
 create_buffer(per_thread_t *data)
 {
-    data->buf_base =
-        (byte *)dr_raw_mem_alloc(max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+    data->buf_base = (byte *)dr_raw_mem_alloc(data->max_buf_size,
+                                              DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
     /* For file_ops_func.handoff_buf we have to handle failure as OOM is not unlikely. */
     if (data->buf_base == NULL) {
         /* Switch to "reserve" buffer. */
@@ -681,9 +838,14 @@ create_buffer(per_thread_t *data)
         op_max_trace_size.set_value(data->bytes_written - 1);
         return;
     }
-    /* dr_raw_mem_alloc guarantees to give us zeroed memory, so no need for a memset */
-    /* set sentinel (non-zero) value in redzone */
-    memset(data->buf_base + trace_buf_size, -1, redzone_size);
+    /* dr_raw_mem_alloc guarantees to give us zeroed memory, so no need for a memset. */
+    /* Set sentinel value in redzone. */
+    size_t redzone_size = data->max_buf_size - data->trace_buf_size;
+    instru->fill_with_sentinel(data->buf_base + data->trace_buf_size, redzone_size,
+                               REDZONE_SENTINEL);
+    NOTIFY(4, "Created buffer %p-%p; set redzone %p-%p to %d\n", data->buf_base,
+           data->buf_base + data->max_buf_size, data->buf_base + data->trace_buf_size,
+           data->buf_base + data->trace_buf_size + redzone_size, REDZONE_SENTINEL);
     data->num_buffers++;
     if (data->num_buffers == 2) {
         /* Create a "reserve" buffer so we can continue after hitting OOM later.
@@ -693,9 +855,11 @@ create_buffer(per_thread_t *data)
          * why we wait for the 2nd buffer) but we gain simplicity.
          */
         data->reserve_buf = (byte *)dr_raw_mem_alloc(
-            max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
-        if (data->reserve_buf != NULL)
-            memset(data->reserve_buf + trace_buf_size, -1, redzone_size);
+            data->max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+        if (data->reserve_buf != NULL) {
+            instru->fill_with_sentinel(data->reserve_buf + data->trace_buf_size,
+                                       redzone_size, REDZONE_SENTINEL);
+        }
     }
 }
 
@@ -1006,7 +1170,8 @@ find_unfiltered_record(byte *start, byte *end)
     int num_memrefs = 0;
 
     for (offline_entry_t *entry = last; entry >= (offline_entry_t *)start; entry--) {
-        if (entry->pc.type == OFFLINE_TYPE_PC) {
+        if (entry->pc.type ==
+            OFFLINE_TYPE_PC IF_X64(|| entry->addr.type == OFFLINE_TYPE_PC_TOP_BIT)) {
             NOTIFY(4, "PC: instr count = %d, num_memrefs = %d\n", entry->pc.instr_count,
                    num_memrefs);
             if ((entry->pc.instr_count == 1 && num_memrefs > 0) ||
@@ -1028,7 +1193,7 @@ find_unfiltered_record(byte *start, byte *end)
 
 // Should be invoked only in the middle of an active tracing window.
 void
-process_and_output_buffer(void *drcontext, bool skip_size_cap)
+process_and_output_buffer(void *drcontext, bool skip_size_cap, bool at_thread_exit)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     byte *mem_ref, *buf_ptr;
@@ -1075,6 +1240,9 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
     }
 
     buf_ptr = BUF_PTR(data->seg_base);
+    NOTIFY(4, "In %s with %zd bytes written to buffer %p\n", __FUNCTION__,
+           buf_ptr - data->buf_base, data->buf_base);
+
     // We may get called with nothing to write: e.g., on a syscall for
     // -L0I_filter and -L0D_filter.
     if (buf_ptr == data->buf_base + header_size) {
@@ -1108,8 +1276,9 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
         window_changed = true;
         // No need to append TRACE_MARKER_TYPE_WINDOW_ID: the next buffer will have
         // one in its header.
-        if (op_offline.get_value() && op_split_windows.get_value())
+        if (op_offline.get_value() && op_split_windows.get_value() && !at_thread_exit) {
             buf_ptr += instru->append_thread_exit(buf_ptr, dr_get_thread_id(drcontext));
+        }
     }
     // Switch to instruction-tracing mode by adding FILTER_ENDPOINT marker if another
     // thread triggered the switch.
@@ -1256,14 +1425,31 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
     }
 
     if (file_ops_func.handoff_buf == NULL) {
-        // Our instrumentation reads from buffer and skips the clean call if the
-        // content is 0, so we need set zero in the trace buffer and set non-zero
-        // in redzone.
-        memset(data->buf_base, 0, trace_buf_size);
-        redzone = data->buf_base + trace_buf_size;
+#ifndef X64
+        // 32-bit relies on a memset here to avoid an extra store to zero the
+        // top word of each load/store record.
+        // 64-bit avoids this, which improves performance and allows for larger
+        // buffers.
+        memset(data->buf_base, 0, data->trace_buf_size);
+#endif
+        redzone = data->buf_base + data->trace_buf_size;
         if (buf_ptr > redzone) {
-            // Set sentinel (non-zero) value in redzone
-            memset(redzone, -1, buf_ptr - redzone);
+            // Re-establish sentinel value in the part of the redzone we overwrote
+            // with trace data.
+            instru->fill_with_sentinel(redzone, buf_ptr - redzone, REDZONE_SENTINEL);
+        } else if (buf_ptr < redzone) {
+            // Did we hit a false positive sentinel from some prior trace content?
+            // Our sentinel is not impossible to match with a legitimate record.
+            // We don't look for this on function entry and just return without
+            // any output, as some callers expect prompt output: thread exit, filters
+            // where we output on each syscall, or a case where the caller plans to
+            // add multiple records and if we're near the end we could overflow by
+            // returning early.
+            if (*(ptr_int_t *)buf_ptr == REDZONE_SENTINEL) {
+                // Clear it to avoid an early output again on the same sentinel.
+                *(ptr_int_t *)buf_ptr = 0;
+                ++num_false_sentinels;
+            }
         }
     }
     BUF_PTR(data->seg_base) = data->buf_base;
@@ -1315,16 +1501,17 @@ init_thread_io(void *drcontext)
 
     NOTIFY(2, "T" TIDFMT " in init_thread_io.\n", dr_get_thread_id(drcontext));
 #ifdef HAS_ZLIB
-    if (op_offline.get_value() &&
+    if (op_offline.get_value() && file_ops_func.handoff_buf == NULL &&
         (op_raw_compress.get_value() == "zlib" ||
          op_raw_compress.get_value() == "gzip")) {
-        data->buf_compressed = static_cast<byte *>(
-            dr_raw_mem_alloc(max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, nullptr));
+        data->buf_compressed = static_cast<byte *>(dr_raw_mem_alloc(
+            data->max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, nullptr));
     }
 #endif
 #ifdef HAS_LZ4
-    if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
-        data->buf_lz4_size = LZ4F_compressBound(max_buf_size, &lz4_ops);
+    if (op_offline.get_value() && file_ops_func.handoff_buf == NULL &&
+        op_raw_compress.get_value() == "lz4") {
+        data->buf_lz4_size = LZ4F_compressBound(data->max_buf_size, &lz4_ops);
         DR_ASSERT(data->buf_lz4_size >= LZ4F_HEADER_SIZE_MAX);
         data->buf_lz4 = static_cast<byte *>(dr_raw_mem_alloc(
             data->buf_lz4_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, nullptr));
@@ -1381,6 +1568,24 @@ init_thread_io(void *drcontext)
                                get_local_window(data));
         BUF_PTR(data->seg_base) = data->buf_base + data->init_header_size;
     }
+#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
+    if (op_collect_syscall_records.get_value()) {
+        if (outdir_none_mode) {
+            data->syscall_record_file = MEMTRACE_NONE_FILE_HANDLE;
+        } else {
+            char filename[MAXIMUM_PATH];
+            dr_snprintf(filename, BUFFER_SIZE_ELEMENTS(filename),
+                        "%s%ssyscall_record_file." PIDFMT "." TIDFMT, logsubdir, DIRSEP,
+                        dr_get_process_id(), dr_get_thread_id(drcontext));
+            NULL_TERMINATE_BUFFER(filename);
+            data->syscall_record_file =
+                file_ops_func.open_file(filename, DR_FILE_WRITE_OVERWRITE);
+            if (data->syscall_record_file == INVALID_FILE) {
+                FATAL("Failed to open syscall record file %s\n", filename);
+            }
+        }
+    }
+#endif
 }
 
 void
@@ -1400,6 +1605,8 @@ exit_thread_io(void *drcontext)
      * and it is asserted.
      */
     if (dr_get_process_id() != dr_get_process_id_from_drcontext(drcontext)) {
+        /* Free compression buffer memory. */
+        fork_exit_thread_io(drcontext);
         return;
     }
 #endif
@@ -1426,29 +1633,65 @@ exit_thread_io(void *drcontext)
          (!has_tracing_windows() && align_attach_detach_endpoints()));
 
     if (has_prior_window_data || is_not_empty) {
+        if (op_offline.get_value()) {
+            // Provide the PC in case detach exited mid-block.
+            // This PC was not executed; raw2trace will end the block before this PC
+            // (and add an uncompleted marker).
+            dr_mcontext_t mc;
+            mc.size = sizeof(mc);
+            mc.flags = DR_MC_CONTROL;
+            if (dr_get_mcontext(drcontext, &mc)) {
+                NOTIFY(2, "Thread " TIDFMT "%d end pc=%p\n", dr_get_thread_id(drcontext),
+                       mc.pc);
+                // XXX i#5790: This same marker can be used to solve block truncation for
+                // DR mid-block relocation (happens on synchronous flushes and resets)
+                // once DR provides a relocation event.
+                BUF_PTR(data->seg_base) += instru->append_marker(
+                    BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_MIDBLOCK_END_PC,
+                    reinterpret_cast<uintptr_t>(mc.pc));
+            }
+        }
         BUF_PTR(data->seg_base) += instru->append_thread_exit(
             BUF_PTR(data->seg_base), dr_get_thread_id(drcontext));
         process_and_output_buffer(drcontext,
                                   /* If this thread already wrote some data, include
                                    * its exit even if we're over a size limit.
                                    */
-                                  data->bytes_written > 0);
+                                  data->bytes_written > 0,
+                                  /*at_thread_exit=*/true);
     }
     if (op_offline.get_value() && data->file != INVALID_FILE)
         close_thread_file(drcontext);
 
-#ifdef HAS_ZLIB
-    if (op_offline.get_value() &&
-        (op_raw_compress.get_value() == "zlib" ||
-         op_raw_compress.get_value() == "gzip")) {
-        dr_raw_mem_free(data->buf_compressed, max_buf_size);
+    exit_compression(drcontext, data);
+
+#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
+    if (op_collect_syscall_records.get_value()) {
+        if (data->syscall_record_file != INVALID_FILE &&
+            data->syscall_record_file != MEMTRACE_NONE_FILE_HANDLE) {
+            if (data->syscall_record_buffer_offset > 0) {
+                const ssize_t wrote = file_ops_func.write_file(
+                    data->syscall_record_file, data->syscall_record_buffer,
+                    data->syscall_record_buffer_offset);
+                if (wrote != data->syscall_record_buffer_offset) {
+                    FATAL("Error: wrote %d bytes instead of %d bytes\n", wrote,
+                          data->syscall_record_buffer_offset);
+                }
+            }
+            file_ops_func.close_file(data->syscall_record_file);
+        }
     }
 #endif
-#ifdef HAS_LZ4
-    if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
-        dr_raw_mem_free(data->buf_lz4, data->buf_lz4_size);
-    }
-#endif
+}
+
+void
+fork_exit_thread_io(void *drcontext)
+{
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    // We need to free data without flushing to the parent's file or closing
+    // the parent's file.
+    free_compression_file_data(drcontext, data);
+    exit_compression(drcontext, data);
 }
 
 void
@@ -1485,17 +1728,32 @@ init_io()
 #    endif
     }
 #endif
-#ifdef HAS_LZ4
+#if defined(HAS_LZ4) && !defined(HAS_LZ4_CUSTOM_MEM)
     if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
-        /* Similarly to libsnappy, lz4 doesn't parameterize its allocator. */
+        /* Similarly to libsnappy, this liblz4 gives us no way to parameterize its
+         * allocator: either it predates LZ4F_CustomMem (lz4 < 1.9.4) or it does not
+         * export LZ4F_createCompressionContext_advanced().  See the link test in the
+         * top-level CMakeLists.txt.
+         */
         dr_allow_unsafe_static_behavior();
 #    ifdef DRMEMTRACE_STATIC
-        NOTIFY(0, "-raw_compress lz4 is unsafe with statically linked clients\n");
+        NOTIFY(0,
+               "-raw_compress lz4 is unsafe with statically linked clients: "
+               "this build's liblz4 lacks LZ4F_CustomMem support\n");
 #    endif
     }
 #endif
 
+#ifdef HAS_LZ4
+    lz4_ops.compressionLevel = op_raw_compress_level.get_value();
+#endif
+
     DR_ASSERT(cur_window_instr_count.is_lock_free());
+
+    // op_outdir.get_value() can call malloc if the path passed is long, so we invoke
+    // it here once where it's safe. We also check if the user passed "-outdir none"
+    // and cache the result, so we don't need to call op_outdir.get_value() again.
+    outdir_none_mode = outdir_is_none(op_outdir.get_value());
 }
 
 void
@@ -1503,6 +1761,45 @@ exit_io()
 {
     notify_beyond_global_max_once = 0;
 }
+
+/***************************************************************************
+ * Syscall record callback function.
+ */
+#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
+size_t
+write_syscall_record(void *drcontext, char *buf, size_t size)
+{
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    if (data->syscall_record_file == MEMTRACE_NONE_FILE_HANDLE) {
+        return size;
+    }
+    if (size + data->syscall_record_buffer_offset >= SYSCALL_RECORD_BUFFER_SIZE) {
+        ssize_t bytes_written = 0;
+        if (data->syscall_record_buffer_offset > 0) {
+            const ssize_t wrote = file_ops_func.write_file(
+                data->syscall_record_file, data->syscall_record_buffer,
+                data->syscall_record_buffer_offset);
+            if (wrote != data->syscall_record_buffer_offset) {
+                FATAL("Error: wrote %d bytes instead of %d bytes\n", wrote,
+                      data->syscall_record_buffer_offset);
+            }
+            bytes_written = data->syscall_record_buffer_offset;
+        }
+        data->syscall_record_buffer_offset = 0;
+        if (size >= SYSCALL_RECORD_BUFFER_SIZE) {
+            const ssize_t wrote =
+                file_ops_func.write_file(data->syscall_record_file, buf, size);
+            if (wrote != static_cast<ssize_t>(size)) {
+                FATAL("Error: wrote %d bytes instead of %d bytes\n", wrote, size);
+            }
+            return bytes_written + size;
+        }
+    }
+    memcpy(&data->syscall_record_buffer[data->syscall_record_buffer_offset], buf, size);
+    data->syscall_record_buffer_offset += size;
+    return size;
+}
+#endif
 
 } // namespace drmemtrace
 } // namespace dynamorio

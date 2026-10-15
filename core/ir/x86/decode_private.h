@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -125,7 +125,7 @@ enum {
  *   (pusha,shld,shrd,cmpxchg,cmpxhchg8b,rep outs,rep cmps, rep scas)
  * => no separate immed field
  *
- * FIXMEs:
+ * XXXs:
  * lea = computes addr, doesn't touch mem!  how encode?
  * in & out, ins & outs: are I/O ports in memory?!?
  * Should we model fp stack changes?!?

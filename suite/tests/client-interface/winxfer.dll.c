@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,7 +37,7 @@
 #include "dr_api.h"
 #include "client_tools.h"
 
-#if 0 /* FIXME i#241 */
+#if 0 /* XXX i#241 */
 static void
 redirect_xfer(void)
 {
@@ -61,8 +61,8 @@ kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info)
     mc.flags = DR_MC_ALL;
     ok = dr_get_mcontext(drcontext, &mc);
     ASSERT(ok);
-#if 0 /* FIXME i#241 */
-    /* FIXME i#241: test dr_set_mcontext.  It's not easy though: it doesn't make much
+#if 0 /* XXX i#241 */
+    /* XXX i#241: test dr_set_mcontext.  It's not easy though: it doesn't make much
      * sense for the Ki dispatchers, there's no NtContinue in SEH64, it's not
      * supported for cbret, and we don't have a test here for NtSetContextThread.  I
      * manually tested by sending to redirect_cbret(), confirmed a print, and then

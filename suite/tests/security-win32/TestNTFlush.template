@@ -35,7 +35,7 @@ starting tests
 3
 43981
 4660
-// FIXME: case 3947
+// XXX: case 3947
 2
 3
 0
@@ -86,7 +86,7 @@ starting tests
 #  if !defined(rct_ind_call___3)
      SEC_VIO_AUTO_STOP
 #  endif
-// FIXME: case 2144 - we should be testing for rct_ind_call(9) to ignore OPTION_BLOCK=2
+// XXX: case 2144 - we should be testing for rct_ind_call(9) to ignore OPTION_BLOCK=2
 #  if !defined(internal_detach_mask)
     STOP
 #  endif
@@ -95,7 +95,7 @@ starting tests
 # endif
 # endif
 2
-// FIXME: case 3947
+// XXX: case 3947
 # if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(E) && defined(rct_section_type___0xe0) && defined(detect_mode)
    SEC_VIO_CONT
 # endif

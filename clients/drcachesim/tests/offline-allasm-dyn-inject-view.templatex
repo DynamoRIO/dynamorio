@@ -1,0 +1,90 @@
+Wally world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+.*
+          35          18: .* ifetch       2 byte\(s\) @ 0x.* 0f 05                syscall
+          36          18: .* <marker: timestamp .*>
+          37          18: .* <marker: .* on core .*>
+          38          18: .* <marker: system call 1>
+          39          18: .* <marker: maybe-blocking system call>
+          40          18: .* <marker: function==syscall #1>
+          41          18: .* <marker: function argument 0x2>
+          42          18: .* <marker: function argument 0x.*>
+          43          18: .* <marker: function argument 0xd>
+          43          18: .* <marker: trace start for system call number 1>
+          43          18: .* ifetch       1 byte\(s\) @ 0x00000000deadbe00 90                   nop
+          43          18: .* ifetch       2 byte\(s\) @ 0x00000000deadbe01 0f 07                sysret \(target .*\)
+          43          18: .* <marker: trace end for system call number 1>
+          44          18: .* <marker: function==syscall #1>
+          45          18: .* <marker: function return value 0xd>
+          46          18: .* <marker: timestamp .*>
+          47          18: .* <marker: .* on core .*>
+.*
+          64          25: .* ifetch       2 byte\(s\) @ 0x.* 0f 05                syscall
+          65          25: .* <marker: timestamp .*>
+          66          25: .* <marker: .* on core .*>
+          67          25: .* <marker: system call 39>
+          67          25: .* <marker: trace start for system call number 39>
+          67          25: .* ifetch       1 byte\(s\) @ 0x00000000deadbe00 90                   nop
+          67          25: .* ifetch       2 byte\(s\) @ 0x00000000deadbe01 0f 07                sysret \(target .*\)
+          67          25: .* <marker: trace end for system call number 39>
+          68          25: .* <marker: timestamp .*>
+          69          25: .* <marker: .* on core .*>
+.*
+          74          30: .* ifetch       2 byte\(s\) @ 0x.* 0f 05                syscall
+          75          30: .* <marker: timestamp .*>
+          76          30: .* <marker: .* on core .*>
+          77          30: .* <marker: system call 324>
+          78          30: .* <marker: maybe-blocking system call>
+          78          30: .* <marker: trace start for system call number 324>
+          78          30: .* ifetch       1 byte\(s\) @ 0x00000000deadbe00 90                   nop
+          78          30: .* ifetch       2 byte\(s\) @ 0x00000000deadbe01 0f 07                sysret \(target .*\)
+          78          30: .* <marker: trace end for system call number 324>
+          79          30: .* <marker: timestamp .*>
+          80          30: .* <marker: .* on core .*>
+.*
+          91          39: .* ifetch       2 byte\(s\) @ 0x.* 0f 05                syscall
+          92          39: .* <marker: timestamp .*>
+          93          39: .* <marker: .* on core .*>
+          94          39: .* <marker: system call 1>
+          95          39: .* <marker: maybe-blocking system call>
+          96          39: .* <marker: function==syscall #1>
+          97          39: .* <marker: function argument 0x2>
+          98          39: .* <marker: function argument 0x.*>
+          99          39: .* <marker: function argument 0xd>
+          99          39: .* <marker: trace start for system call number 1>
+          99          39: .* ifetch       1 byte\(s\) @ 0x00000000deadbe00 90                   nop
+          99          39: .* ifetch       2 byte\(s\) @ 0x00000000deadbe01 0f 07                sysret \(target .*\)
+          99          39: .* <marker: trace end for system call number 1>
+         100          39: .* <marker: function==syscall #1>
+         101          39: .* <marker: function return value 0xd>
+         102          39: .* <marker: timestamp .*>
+         103          39: .* <marker: .* on core .*>
+.*
+         291         119: .* ifetch       2 byte\(s\) @ 0x.* 0f 05                syscall
+         292         119: .* <marker: timestamp .*>
+         293         119: .* <marker: .* on core .*>
+         294         119: .* <marker: system call 1>
+         295         119: .* <marker: maybe-blocking system call>
+         296         119: .* <marker: function==syscall #1>
+         297         119: .* <marker: function argument 0x2a>
+         298         119: .* <marker: function argument 0x.*>
+         299         119: .* <marker: function argument 0xd>
+         299         119: .* <marker: trace start for system call number 1>
+         299         119: .* ifetch       1 byte\(s\) @ 0x00000000deadbe00 90                   nop
+         299         119: .* ifetch       2 byte\(s\) @ 0x00000000deadbe01 0f 07                sysret \(target .*\)
+         299         119: .* <marker: trace end for system call number 1>
+         300         119: .* <marker: function==syscall #1>
+         301         119: .* <marker: function return value 0xfffffffffffffff7>
+         302         119: .* <marker: system call failed: 9>
+         303         119: .* <marker: timestamp .*>
+         304         119: .* <marker: .* on core .*>
+.*

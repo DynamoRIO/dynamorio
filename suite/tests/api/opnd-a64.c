@@ -44,7 +44,7 @@
                    : 0))
 
 static void
-test_get_size()
+test_get_size(void)
 {
     /* Check sizes of special registers. */
     ASSERT(reg_get_size(DR_REG_WZR) == OPSZ_4);
@@ -100,7 +100,7 @@ test_get_size()
 }
 
 static void
-test_opnd_compute_address()
+test_opnd_compute_address(void)
 {
     dr_mcontext_t mc = { .size = sizeof(mc),
                          .flags = DR_MC_ALL,
@@ -255,7 +255,7 @@ test_opnd_compute_address()
 }
 
 static void
-test_opnd_invert_immed_int()
+test_opnd_invert_immed_int(void)
 {
     // 1 bit test
     opnd_t opnd = opnd_invert_immed_int(opnd_create_immed_int(1, OPSZ_1b));
@@ -751,7 +751,7 @@ test_compute_vector_address(void *drcontext)
 }
 
 void
-test_reg_is_simd()
+test_reg_is_simd(void)
 {
     for (reg_id_t reg = DR_REG_START_32; reg <= DR_REG_STOP_32; reg++)
         ASSERT(!reg_is_simd(reg));
@@ -782,7 +782,7 @@ test_reg_is_simd()
 }
 
 void
-test_cond()
+test_cond(void)
 {
     /* Test dr_pred_type_t -> cond opnd. */
     ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_EQ)) == 0b0000);

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,7 +35,7 @@
  */
 
 #ifndef _NAMED_PIPE_H_
-#define _NAMED_PIPE_H_ 1
+#define _NAMED_PIPE_H_
 
 #include <string>
 #ifdef WINDOWS

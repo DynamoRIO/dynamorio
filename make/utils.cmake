@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2012-2023 Google, Inc.    All rights reserved.
+# Copyright (c) 2012-2026 Google, Inc.    All rights reserved.
 # **********************************************************
 #
 # Redistribution and use in source and binary forms, with or without
@@ -273,8 +273,9 @@ if (UNIX)
       set_directory_properties(PROPERTIES
         ADDITIONAL_MAKE_CLEAN_FILES "${ld_script}")
       set(ldflags "-Wl,${ld_script_option},\"${ld_script}\"")
-      add_custom_command(TARGET ${target}
-        PRE_LINK
+      add_custom_target(${target}_ldscript DEPENDS ${ld_script})
+      add_dependencies(${target} ${target}_ldscript)
+      add_custom_command(OUTPUT ${ld_script}
         COMMAND ${CMAKE_COMMAND}
         # script does not inherit any vars so we must pass them all in
         # to work around i#84 be sure to put a space after -D for 1st arg at least
@@ -295,7 +296,7 @@ if (UNIX)
         if (LINKER_IS_LLVM_LLD)
           set(ldflags "-Wl,--image-base=${base}")
         else ()
-          # FIXME: This should be -Ttext-segment for bfd, but most golds want -Ttext.
+          # XXX: This should be -Ttext-segment for bfd, but most golds want -Ttext.
           # See http://sourceware.org/ml/binutils/2013-02/msg00194.html
           set(ldflags "-Wl,-Ttext=${base}")
         endif ()
@@ -393,12 +394,24 @@ macro (check_sve2_processor_and_compiler_support out)
 endmacro (check_sve2_processor_and_compiler_support)
 
 macro (check_pauth_processor_and_compiler_support out)
+  set(CMAKE_REQUIRED_INCLUDES "${PROJECT_SOURCE_DIR}/suite/tests/client-interface")
+
   check_feature_processor_and_compiler_support(pauth
     ${CFLAGS_PAUTH}
-    "int main() {
+    # Use the paciza instruction to verify that the compiler and CPU support
+    # the PAuth feature. (The code will SIGILL if the CPU does not support it.)
+    # Then read the Instruction Set Attribute Registers to verify that the OS
+    # supports PAuth. This emulates the way DynamoRIO checks for feature support.
+    "#include \"check_for_pauth.c\"
+    int main()
+    {
         void *addr = 0;
         asm(\"paciza %[ptr]\" : [ptr] \"+r\" (addr) : :);
-        return 0;
+
+        if (pauth_indicated_by_isa_registers())
+            return 0;
+        else
+            return 1;
     }"
     ${out}
   )

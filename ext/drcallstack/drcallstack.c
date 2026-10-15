@@ -34,7 +34,7 @@
 
 #include "dr_api.h"
 #include "drcallstack.h"
-#include "../ext_utils.h"
+#include "dr_project_wide_defines.h"
 #include "../../core/unix/os_public.h" /* SIGCXT_FROM_UCXT, SC_FIELD */
 #include <string.h>
 

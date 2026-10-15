@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -57,7 +57,7 @@ test_flag(uint nzcv, uint pos, bool set)
 #    if VERBOSE
     print("NZCV where %c should be %d: " PFX "\n", flag, set, nzcv);
 #    endif
-    bool value = TEST(nzcv, 1U << pos);
+    bool value = TESTANY(nzcv, 1U << pos);
 
     for (i = 0; i < NUM_FLAGS; i++) {
         if (nzcv_pos[i] == pos)
@@ -71,7 +71,7 @@ test_flag(uint nzcv, uint pos, bool set)
 }
 
 int
-main()
+main(int argc, const char *argv[])
 {
     uint i;
     INIT();

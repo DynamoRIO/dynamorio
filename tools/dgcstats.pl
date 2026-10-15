@@ -86,7 +86,7 @@ while (<FIND>) {
                 $in_alloc = 0;
             }
         }
-        # FIXME: log.* order could matter...but don't have synch info so who cares
+        # XXX: log.* order could matter...but don't have synch info so who cares
         # old log files: /NtAllocateVirtualMemory base=(0x[0-9a-fA-F]+) size=(0x[0-9a-fA-F]+)/
         if (/NtAllocateVirtualMemory.*@(0x[0-9a-fA-F]+) sz=(0x[0-9a-fA-F]+)/) {
             $addr = hex($1);
@@ -96,7 +96,7 @@ while (<FIND>) {
             $prot_line{$addr} = $_;
             $in_alloc = $addr;
         }
-        # FIXME: try to watch NtFree as well?  don't have synch info though
+        # XXX: try to watch NtFree as well?  don't have synch info though
         if (/^Entry into dyngen F[0-9]+\((0x[0-9a-fA-F]+)(.*)\) via: +(0x[0-9a-fA-F]+).*  ([<A-Za-z]:?([->!,+a-zA-Z~_\\0-9\.]| {1})+)/) {
             $dst = hex($1) & 0xfffff000;
             $src = hex($3) & 0xfffff000;

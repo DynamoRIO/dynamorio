@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2024-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _RECORD_FILTER_CREATE_H_
-#define _RECORD_FILTER_CREATE_H_ 1
+#define _RECORD_FILTER_CREATE_H_
 
 #include "analysis_tool.h"
 
@@ -62,6 +62,10 @@ namespace drmemtrace {
  *   up to its first timestamp whose value is greater or equal to this parameter.
  * @param[in] trim_after_timestamp  Trim records after the trace's first timestamp
  *   whose value is greater than this parameter.
+ * @param[in] trim_before_instr  Trim records from the trace's initial timestamp up to
+ * the first timestamp that follows the instruction ordinal specified by this parameter.
+ * @param[in] trim_after_instr  Trim records after the trace's first timestamp that
+ * follows the instruction ordinal specified by this parameter.
  * @param[in] encodings2regdeps  If true, converts instruction encodings from the real ISA
  *   of the input trace to the #DR_ISA_REGDEPS synthetic ISA.
  * @param[in] keep_func_ids  A comma-separated list of integers representing the
@@ -70,6 +74,16 @@ namespace drmemtrace {
  * @param[in] modify_marker_value A list of comma-separated pairs of integers representing
  *   <TRACE_MARKER_TYPE_, new_value> to modify the value of all listed TRACE_MARKER_TYPE_
  *   in the trace with their corresponding new_value.
+ * @param[in] filter_kernel A bool denoting whether to filter out kernel system call trace
+ *  content between TRACE_MARKER_TYPE_SYSCALL_TRACE_START and
+ *  TRACE_MARKER_TYPE_SYSCALL_TRACE_END, the kernel context switch trace content between
+ *  TRACE_MARKER_TYPE_CONTEXT_SWITCH_START and TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, and
+ *  the kernel content between TRACE_MARKER_TYPE_HARDWARE_EVENT and
+ *  TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN markers, and also update the trace file type
+ *  to remove the OFFLINE_FILE_TYPE_KERNEL_SYSCALLS bit.
+ * @param[in] filter_kernel_except_syscalls A bool denoting whether to filter out kernel
+ *  trace content except system call trace content and any hardware events nested within
+ *  system calls.
  * @param[in] verbose  Verbosity level for notifications.
  */
 record_analysis_tool_t *
@@ -77,8 +91,10 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                           int cache_filter_size, const std::string &remove_trace_types,
                           const std::string &remove_marker_types,
                           uint64_t trim_before_timestamp, uint64_t trim_after_timestamp,
+                          uint64_t trim_before_instr, uint64_t trim_after_instr,
                           bool encodings2regdeps, const std::string &keep_func_ids,
-                          const std::string &modify_marker_value, unsigned int verbose);
+                          const std::string &modify_marker_value, bool filter_kernel,
+                          bool filter_kernel_except_syscalls, unsigned int verbose);
 
 } // namespace drmemtrace
 } // namespace dynamorio

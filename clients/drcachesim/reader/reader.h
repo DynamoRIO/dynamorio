@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,7 +35,7 @@
  */
 
 #ifndef _READER_H_
-#define _READER_H_ 1
+#define _READER_H_
 
 #include <assert.h>
 #include <stddef.h>
@@ -49,27 +49,12 @@
 // For exporting we avoid "../common" and rely on -I.
 #include "memref.h"
 #include "memtrace_stream.h"
+#include "reader_base.h"
 #include "trace_entry.h"
 #include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {
-
-#ifndef DR_PARAM_OUT
-#    define DR_PARAM_OUT /* just a marker */
-#endif
-
-#ifdef DEBUG
-#    define VPRINT(reader, level, ...)                            \
-        do {                                                      \
-            if ((reader)->verbosity_ >= (level)) {                \
-                fprintf(stderr, "%s ", (reader)->output_prefix_); \
-                fprintf(stderr, __VA_ARGS__);                     \
-            }                                                     \
-        } while (0)
-#else
-#    define VPRINT(reader, level, ...) /* nothing */
-#endif
 
 /**
  * Iterator over #dynamorio::drmemtrace::memref_t trace entries. This class converts a
@@ -77,16 +62,22 @@ namespace drmemtrace {
  * also provides more information about the trace using the
  * #dynamorio::drmemtrace::memtrace_stream_t API.
  */
-class reader_t : public std::iterator<std::input_iterator_tag, memref_t>,
-                 public memtrace_stream_t {
+class reader_t : public reader_base_t {
 public:
+    // Ensure derived classes operate as a proper C++ iterator in all circumstances.
+    using iterator_category = std::input_iterator_tag;
+    using difference_type = std::ptrdiff_t;
+    using value_type = memref_t;
+    using pointer = value_type *;
+    using reference = value_type &;
+
     reader_t()
+        : reader_base_t()
     {
         cur_ref_ = {};
     }
-    reader_t(int verbosity, const char *prefix)
-        : verbosity_(verbosity)
-        , output_prefix_(prefix)
+    reader_t(bool online, int verbosity, const char *prefix)
+        : reader_base_t(online, verbosity, prefix)
     {
         cur_ref_ = {};
     }
@@ -94,28 +85,8 @@ public:
     {
     }
 
-    // This may block.
-    virtual bool
-    init() = 0;
-
     virtual const memref_t &
     operator*();
-
-    // To avoid double-dispatch (requires listing all derived types in the base here)
-    // and RTTI in trying to get the right operators called for subclasses, we
-    // instead directly check at_eof here.  If we end up needing to run code
-    // and a bool field is not enough we can change this to invoke a virtual
-    // method is_at_eof().
-    virtual bool
-    operator==(const reader_t &rhs) const
-    {
-        return BOOLS_MATCH(at_eof_, rhs.at_eof_);
-    }
-    virtual bool
-    operator!=(const reader_t &rhs) const
-    {
-        return !BOOLS_MATCH(at_eof_, rhs.at_eof_);
-    }
 
     virtual reader_t &
     operator++();
@@ -192,7 +163,7 @@ public:
     bool
     is_record_kernel() const override
     {
-        return in_kernel_trace_;
+        return kernel_tracker_.in_kernel_trace();
     }
     bool
     is_record_synthetic() const override
@@ -208,17 +179,6 @@ public:
     }
 
 protected:
-    // This reads the next entry from the single stream of entries (or from the
-    // local queue if non-empty).  If it returns false it will set at_eof_ to distinguish
-    // end-of-file from an error.  It should call read_queued_entry() first before
-    // reading a new entry from the input stream.
-    virtual trace_entry_t *
-    read_next_entry() = 0;
-    // Returns and removes the entry (nullptr if none) from the local queue.
-    // This should be called by read_next_entry() prior to reading a new record
-    // from the input stream.
-    virtual trace_entry_t *
-    read_queued_entry();
     // This updates internal state for the just-read input_entry_.
     // Returns whether a new memref record is now available.
     virtual bool
@@ -238,15 +198,6 @@ protected:
     virtual reader_t &
     skip_instructions_with_timestamp(uint64_t stop_instruction_count);
 
-    // Following typical stream iterator convention, the default constructor
-    // produces an EOF object.
-    // This should be set to false by subclasses in init() and set
-    // back to true when actual EOF is hit.
-    bool at_eof_ = true;
-
-    int verbosity_ = 0;
-    bool online_ = true;
-    const char *output_prefix_ = "[reader]";
     uint64_t cur_ref_count_ = 0;
     int64_t suppress_ref_count_ = -1;
     uint64_t cur_instr_count_ = 0;
@@ -261,14 +212,23 @@ protected:
     uint64_t cache_line_size_ = 0;
     uint64_t chunk_instr_count_ = 0;
     uint64_t page_size_ = 0;
-    // We need to read ahead when skipping to include post-instr records.
-    // We store into this queue records already read from the input but not
-    // yet returned to the iterator.
-    std::queue<trace_entry_t> queue_;
-    trace_entry_t entry_copy_; // For use in returning a queue entry.
 
     struct encoding_info_t {
-        size_t size = 0;
+        // We use a char type to save space, as this can eat up memory when we have a
+        // copy in each of thousands of input traces for large multi-threaded
+        // applications. This struct is 16 bytes, vs 24 bytes if we use size_t. We
+        // don't actually need a size field at all as we could rely on the instr
+        // fetch record size, but removing one byte doesn't change the struct size.
+        unsigned char size = 0;
+        // We could try to shrink further by having a union of the 1st 8 bytes of the
+        // encoding with a pointer to heap-allocated storage for >8-byte encodings: but
+        // we would then actually need a size field (or some field indicating which
+        // union field to use) so we can clean up the heap-allocated memory (and a pool
+        // for cleaning all at the end is not enough as we need to replace/update
+        // individual encodings): and that keeps encoding_info_t at 16 bytes with
+        // standard alignment, unless we want to pack it down to 9 which probably won't
+        // save memory if the container heap-allocates into a 16-byte heap bucket
+        // anyway; and we don't want the complexity of a custom allocator.
         unsigned char bits[MAX_ENCODING_LENGTH];
     };
 
@@ -290,7 +250,7 @@ private:
     bool expect_no_encodings_ = true;
     encoding_info_t last_encoding_;
     addr_t last_branch_target_ = 0;
-    bool in_kernel_trace_ = false;
+    kernel_tracker_t kernel_tracker_;
 };
 
 } // namespace drmemtrace

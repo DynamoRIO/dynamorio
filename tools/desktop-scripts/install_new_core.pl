@@ -31,7 +31,7 @@
 #
 # adapted from QA's scripts
 #
-#FIXME remove dependency on last_build_num.txt
+#XXX remove dependency on last_build_num.txt
 
 system("net use n: \\\\10.1.5.15\\nightly \"\" /USER:guest") unless (-e "n:");
 

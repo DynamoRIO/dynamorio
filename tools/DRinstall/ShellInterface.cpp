@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -218,7 +219,7 @@ HRESULT CreateShortCut::CreateIt (LPCSTR pszShortcutFile, LPSTR pszLink,
             hres = ppf->Save (wsz, TRUE);
 
             if (! SUCCEEDED (hres))
-                AfxMessageBox (“Save failed!”);
+                AfxMessageBox ("Save failed!");
 
             // Release the pointer to IPersistFile.
             ppf->Release ();

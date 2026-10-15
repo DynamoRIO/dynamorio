@@ -55,7 +55,7 @@ d_r_print_encoding_second_line_to_buffer(char *buf, size_t bufsz,
                                          byte *next_pc, int extra_sz,
                                          const char *extra_bytes_prefix)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
@@ -75,7 +75,7 @@ opnd_disassemble_arch(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT, opn
         /* Immediates are sign-extended at the decode time. */
         ptr_int_t val = opnd_get_immed_int(opnd);
         const char *fmt =
-            TEST(opnd_get_flags(opnd), DR_OPND_IMM_PRINT_DECIMAL) ? "%d" : "0x%x";
+            TESTANY(opnd_get_flags(opnd), DR_OPND_IMM_PRINT_DECIMAL) ? "%d" : "0x%x";
         print_to_buffer(buf, bufsz, sofar, fmt, val);
         return true;
     }
@@ -89,7 +89,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOU
                             opnd_t opnd, bool prev, bool multiple_encodings, bool dst,
                             int *idx DR_PARAM_OUT)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }

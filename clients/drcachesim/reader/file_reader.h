@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,7 +36,7 @@
  */
 
 #ifndef _FILE_READER_H_
-#define _FILE_READER_H_ 1
+#define _FILE_READER_H_
 
 #include <inttypes.h>
 #include <stdint.h>
@@ -77,10 +77,9 @@ template <typename T> class file_reader_t : public reader_t {
 public:
     file_reader_t();
     file_reader_t(const std::string &path, int verbosity = 0)
-        : reader_t(verbosity, "[file_reader]")
+        : reader_t(/*online=*/false, verbosity, "[file_reader]")
         , input_path_(path)
     {
-        online_ = false;
     }
     virtual ~file_reader_t();
     bool
@@ -103,9 +102,6 @@ public:
     }
 
 protected:
-    trace_entry_t *
-    read_next_entry() override;
-
     virtual bool
     open_single_file(const std::string &path);
 
@@ -122,16 +118,17 @@ protected:
         // the very first time for the thread.
         trace_entry_t *entry;
         trace_entry_t header = {}, pid = {}, tid = {};
-        entry = read_next_entry();
+        entry = get_next_entry();
         if (entry == nullptr || entry->type != TRACE_TYPE_HEADER) {
             ERRMSG("Invalid header\n");
             return false;
         }
         header = *entry;
+        version_ = header.addr;
         // We can handle the older version 1 as well which simply omits the
         // early marker with the arch tag, and version 2 which only differs wrt
         // TRACE_MARKER_TYPE_KERNEL_EVENT.
-        if (entry->addr > TRACE_ENTRY_VERSION) {
+        if (version_ > TRACE_ENTRY_VERSION) {
             ERRMSG("Cannot handle version #%zu (expect version <= #%u)\n", entry->addr,
                    TRACE_ENTRY_VERSION);
             return false;
@@ -140,8 +137,8 @@ protected:
         // We want to pass the tid+pid to the reader *before* any markers,
         // even though markers can precede the tid+pid in the file, in particular
         // for legacy traces.
-        std::queue<trace_entry_t> marker_queue;
-        while ((entry = read_next_entry()) != nullptr) {
+        std::deque<trace_entry_t> readahead_deque;
+        while ((entry = get_next_entry()) != nullptr) {
             if (entry->type == TRACE_TYPE_PID) {
                 // We assume the pid entry is after the tid.
                 pid = *entry;
@@ -149,9 +146,12 @@ protected:
             } else if (entry->type == TRACE_TYPE_THREAD)
                 tid = *entry;
             else if (entry->type == TRACE_TYPE_MARKER)
-                marker_queue.push(*entry);
+                readahead_deque.push_back(*entry);
             else {
-                ERRMSG("Unexpected trace sequence\n");
+                ERRMSG("Unexpected trace sequence in %s: found type %d after pid.type=%d "
+                       "tid.type=%d #queued=%zu\n",
+                       input_path_.c_str(), entry->type, pid.type, tid.type,
+                       readahead_deque.size());
                 return false;
             }
         }
@@ -159,12 +159,10 @@ protected:
                tid.addr);
         // The reader expects us to own the header and pass the tid as
         // the first entry.
-        queue_.push(tid);
-        queue_.push(pid);
-        while (!marker_queue.empty()) {
-            queue_.push(marker_queue.front());
-            marker_queue.pop();
-        }
+        readahead_deque.push_front(pid);
+        readahead_deque.push_front(tid);
+        std::queue<trace_entry_t> readahead_queue(readahead_deque);
+        queue_to_return_next(readahead_queue);
         return true;
     }
 
@@ -179,6 +177,9 @@ protected:
     T input_file_;
 
 private:
+    trace_entry_t *
+    read_next_entry() override;
+
     std::string input_path_;
 };
 

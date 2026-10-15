@@ -82,7 +82,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     if (!drmgr_init())
         DR_ASSERT(false);
 
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
 
     if (!drmgr_register_bb_app2app_event(event_instruction_change, NULL))
         DR_ASSERT(false);
@@ -426,10 +426,10 @@ event_insertion(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
     /* Use the recommended emulation instrumentation code pattern: */
     const emulated_instr_t *emulation;
     if (drmgr_in_emulation_region(drcontext, &emulation)) {
-        if (TEST(DR_EMULATE_IS_FIRST_INSTR, emulation->flags)) {
+        if (TESTANY(DR_EMULATE_IS_FIRST_INSTR, emulation->flags)) {
             DR_ASSERT(drmgr_orig_app_instr_for_fetch(drcontext) == emulation->instr);
             record_instr_fetch_orig(emulation->instr);
-            if (!TEST(DR_EMULATE_INSTR_ONLY, emulation->flags)) {
+            if (!TESTANY(DR_EMULATE_INSTR_ONLY, emulation->flags)) {
                 DR_ASSERT(drmgr_orig_app_instr_for_operands(drcontext) ==
                           emulation->instr);
                 record_data_addresses_orig(emulation->instr);
@@ -438,11 +438,11 @@ event_insertion(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
             /* Else skip further instr fetches until outside emulation region. */
             DR_ASSERT(drmgr_orig_app_instr_for_fetch(drcontext) == NULL);
         }
-        if (instr_is_app(inst) && TEST(DR_EMULATE_INSTR_ONLY, emulation->flags)) {
+        if (instr_is_app(inst) && TESTANY(DR_EMULATE_INSTR_ONLY, emulation->flags)) {
             DR_ASSERT(drmgr_orig_app_instr_for_operands(drcontext) == inst);
             record_data_addresses_derived(inst);
-        } else if (!TEST(DR_EMULATE_IS_FIRST_INSTR, emulation->flags) ||
-                   TEST(DR_EMULATE_INSTR_ONLY, emulation->flags)) {
+        } else if (!TESTANY(DR_EMULATE_IS_FIRST_INSTR, emulation->flags) ||
+                   TESTANY(DR_EMULATE_INSTR_ONLY, emulation->flags)) {
             DR_ASSERT(drmgr_orig_app_instr_for_operands(drcontext) == NULL);
         }
     } else if (instr_is_app(inst)) {

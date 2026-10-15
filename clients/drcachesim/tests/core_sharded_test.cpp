@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,6 +30,7 @@
  * DAMAGE.
  */
 
+#include "test_helpers.h"
 #include <assert.h>
 #include <iostream>
 #include <regex>
@@ -62,9 +63,9 @@ run_analyzer(int argc, const char *args[])
     }
     analyzer_multi_t analyzer;
     assert(!!analyzer);
-    IF_DEBUG(bool res =) analyzer.run();
+    bool res = analyzer.run();
     assert(res);
-    IF_DEBUG(res =) analyzer.print_stats();
+    res = analyzer.print_stats();
     assert(res);
 
     std::cerr.rdbuf(prev_buf);
@@ -164,7 +165,7 @@ Core [0-9] counts:
         std::string output = run_analyzer(sizeof(args) / sizeof(args[0]), args);
         assert(std::regex_search(output, std::regex(R"DELIM(Basic counts tool results:
 Total counts:
-      650576 total \(fetched\) instructions
+      650576 total instructions
 (.|\n)*
 Core [0-9] counts:
 (.|\n)*
@@ -184,17 +185,34 @@ Core [0-9] counts:
             dir.c_str(), "-cores",        "11",    "-cpu_schedule_file", cpu_file.c_str()
         };
         std::string output = run_analyzer(sizeof(args) / sizeof(args[0]), args);
-        assert(std::regex_search(output, std::regex(R"DELIM(Basic counts tool results:
+        // We're sharding into 11 cores which creates an output string which is
+        // apparently too large for our std::regex_search below (i#7858), so we try to
+        // reduce the haystack by extracting only the relevant stats from the full
+        // output.
+        // The last line that we're interested in.
+        constexpr char kLastRelevantLine[] = " threads\n";
+        std::size_t total_stats_end_index = output.find(kLastRelevantLine);
+        assert(total_stats_end_index != std::string::npos);
+        std::string total_stats =
+            output.substr(0, total_stats_end_index + strlen(kLastRelevantLine));
+        assert(
+            std::regex_search(total_stats, std::regex(R"DELIM(Basic counts tool results:
 Total counts:
-      650576 total \(fetched\) instructions
+      650576 total instructions
 (.|\n)*
            9 total threads
-(.|\n)*
-Core 8 counts:
-      156381 \(fetched\) instructions
+)DELIM")));
+        std::size_t core_8_onwards_stats_index = output.find("Core 8 counts");
+        assert(core_8_onwards_stats_index != std::string::npos);
+        std::string core_8_onwards_stats = output.substr(core_8_onwards_stats_index);
+        std::size_t core_8_stats_end_index = core_8_onwards_stats.find(kLastRelevantLine);
+        assert(core_8_stats_end_index != std::string::npos);
+        std::string core_8_stats = core_8_onwards_stats.substr(
+            0, core_8_stats_end_index + strlen(kLastRelevantLine));
+        assert(std::regex_search(core_8_stats, std::regex(R"DELIM(Core 8 counts:
+      156381 instructions
 (.|\n)*
            1 threads
-(.|\n)*
 )DELIM")));
     }
     {
@@ -208,7 +226,7 @@ Core 8 counts:
             run_analyzer(sizeof(record_args) / sizeof(record_args[0]), record_args);
         assert(std::regex_search(record_out, std::regex(R"DELIM(Basic counts tool results:
 Total counts:
-      650576 total \(fetched\) instructions
+      650576 total instructions
 (.|\n)*
 Core .*
 (.|\n)*

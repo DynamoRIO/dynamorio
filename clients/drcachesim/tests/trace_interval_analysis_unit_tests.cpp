@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -32,6 +32,7 @@
 
 /* Unit tests for the trace interval analysis APIs in analysis_tool_t. */
 
+#include "test_helpers.h"
 #include "analyzer.h"
 #include "memref_gen.h"
 

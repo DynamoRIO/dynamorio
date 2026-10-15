@@ -45,9 +45,9 @@
 
 /* asm routines */
 void
-test_asm_123();
+test_asm_123(void);
 void
-test_asm_45();
+test_asm_45(void);
 
 static SIGJMP_BUF mark;
 

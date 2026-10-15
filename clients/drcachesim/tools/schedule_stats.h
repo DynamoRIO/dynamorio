@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _SCHEDULE_STATS_H_
-#define _SCHEDULE_STATS_H_ 1
+#define _SCHEDULE_STATS_H_
 
 #include <stdint.h>
 
@@ -48,20 +48,22 @@
 
 #include "analysis_tool.h"
 #include "memref.h"
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-class schedule_stats_t : public analysis_tool_t {
+template <typename RecordType>
+class schedule_stats_template_t : public analysis_tool_tmpl_t<RecordType> {
 public:
-    schedule_stats_t(uint64_t print_every, unsigned int verbose = 0);
-    ~schedule_stats_t() override;
+    schedule_stats_template_t(uint64_t print_every, unsigned int verbose = 0);
+    ~schedule_stats_template_t() override;
     std::string
     initialize_stream(memtrace_stream_t *serial_stream) override;
     std::string
     initialize_shard_type(shard_type_t shard_type) override;
     bool
-    process_memref(const memref_t &memref) override;
+    process_memref(const RecordType &memref) override;
     bool
     print_results() override;
     bool
@@ -77,7 +79,7 @@ public:
     bool
     parallel_shard_exit(void *shard_data) override;
     bool
-    parallel_shard_memref(void *shard_data, const memref_t &memref) override;
+    parallel_shard_memref(void *shard_data, const RecordType &record) override;
     std::string
     parallel_shard_error(void *shard_data) override;
 
@@ -188,11 +190,9 @@ public:
     };
 
     struct counters_t {
-        explicit counters_t(schedule_stats_t *analyzer)
+        explicit counters_t(schedule_stats_template_t *analyzer)
             : analyzer(analyzer)
         {
-            static constexpr uint64_t kSwitchBinSize = 50000;
-            static constexpr uint64_t kCoresBinSize = 1;
             instrs_per_switch = analyzer->create_histogram(kSwitchBinSize);
             cores_per_thread = analyzer->create_histogram(kCoresBinSize);
         }
@@ -229,6 +229,11 @@ public:
                 threads.insert(tid);
             }
             instrs_per_switch->merge(rhs.instrs_per_switch.get());
+            for (const auto &it : rhs.tid2instrs_per_switch) {
+                histogram_interface_t *hist_ptr = analyzer->find_or_add_histogram(
+                    tid2instrs_per_switch, it.first, kSwitchBinSize);
+                hist_ptr->merge(it.second.get());
+            }
             // We do not track this incrementally but for completeness we include
             // aggregation code for it.
             cores_per_thread->merge(rhs.cores_per_thread.get());
@@ -244,7 +249,7 @@ public:
             }
             return *this;
         }
-        schedule_stats_t *analyzer;
+        schedule_stats_template_t *analyzer;
         // Statistics provided by scheduler.
         // XXX: Should we change all of these to uint64_t? Never negative: but signed
         // ints are generally recommended as better for the compiler.
@@ -259,6 +264,9 @@ public:
         int64_t at_output_limit = 0;
         // Our own statistics.
         int64_t instrs = 0;
+        // XXX: We should provide our own breakdown of {input,idle}-to-{input,idle}
+        // as the scheduler-provided components are missing for core-sharded-on-disk
+        // traces.
         int64_t total_switches = 0;
         int64_t voluntary_switches = 0;
         int64_t direct_switches = 0; // Subset of voluntary_switches.
@@ -280,7 +288,16 @@ public:
         uint64_t cpu_microseconds = 0;
         uint64_t wait_microseconds = 0;
         std::unordered_set<workload_tid_t, workload_tid_hash_t> threads;
+        // Distribution of user-mode instructions between context switches.
+        // XXX i#7819: Once we have accurate kernel content in our traces,
+        // we'll want to add kernel here, either separately or combined.
         std::unique_ptr<histogram_interface_t> instrs_per_switch;
+        // Per-thread distribution of user-mode instructions between context switches.
+        // XXX i#7819: Once we have accurate kernel content in our traces,
+        // we'll want to add kernel here, either separately or combined.
+        std::unordered_map<workload_tid_t, std::unique_ptr<histogram_interface_t>,
+                           workload_tid_hash_t>
+            tid2instrs_per_switch;
         // CPU footprint of each thread. This is computable during aggregation from
         // the .threads field above so we don't bother to track this incrementally.
         // We still store it inside counters_t as this structure is assumed in
@@ -295,8 +312,62 @@ public:
             sysnum_noswitch_latency;
     };
 
+    struct schedule_record_t {
+        // We do not define any constructors to make it easier to use
+        // aggregate initialization in tests.
+        // The member defaults below require C++14 for aggregate initialization.
+        bool
+        operator==(const schedule_record_t &rhs)
+        {
+            return workload == rhs.workload && tid == rhs.tid &&
+                instructions == rhs.instructions &&
+                syscall_number == rhs.syscall_number &&
+                syscall_latency == rhs.syscall_latency && voluntary == rhs.voluntary &&
+                direct == rhs.direct &&
+                input_instr_start_ordinal == rhs.input_instr_start_ordinal;
+        }
+        void
+        print_to_stderr(void) const
+        {
+            std::cerr << "W" << workload << ".T" << tid << " @"
+                      << input_instr_start_ordinal << " instrs=" << instructions
+                      << " sys#=" << syscall_number << " lat=" << syscall_latency
+                      << " vol=" << voluntary << " direct=" << direct << "\n";
+        }
+        int64_t workload = INVALID_WORKLOAD_ID;
+        memref_tid_t tid = INVALID_THREAD_ID;
+        // How many user-mode instructions were run between the prior switch and this one.
+        // XXX i#7819: Once we have accurate kernel content in our traces,
+        // we'll want to add kernel here, either separately or combined.
+        int64_t instructions;
+        // If >-1, an immediately prior system call.
+        int64_t syscall_number = -1;
+        // If -1 and syscall_number >-1, that means a thread exit (syscall_number
+        // may be a thread exit system call, or a detach may have happened at that
+        // point); otherwise, if >-1, then syscall_number should also be >-1 and
+        // this should be a voluntary switch due to a high-latency system call.
+        int64_t syscall_latency = -1;
+        // Whether a voluntary switch, for which syscall_number should be >-1.
+        bool voluntary = false;
+        // Whether a direct switch request.
+        bool direct = false;
+        // The input's absolute ordinal at the start of this segment.
+        // This is inclusive of the segment's first instruction: so it starts at 1,
+        // and this value minus 1 should be used when skipping to this point.
+        // (This aligns with the values in schedule_record_t.)
+        // (Switches are currently always at instruction boundaries.)
+        // Providing this enables viewing by input across cores.
+        // (The timestamp does not help as it is not synchronized across cores.)
+        uint64_t input_instr_start_ordinal = 1;
+    };
+
     counters_t
     get_total_counts();
+
+    // The "core" value should match the analyzer infrastructure's shard index for
+    // parallel mode or the cpuid for serial mode.
+    bool
+    get_switch_record(int core, std::vector<schedule_record_t> &record);
 
 protected:
     // We're in one of 3 states.
@@ -307,9 +378,12 @@ protected:
     static constexpr char WAIT_SYMBOL = '-';
     static constexpr char IDLE_SYMBOL = '_';
     static constexpr uint64_t kSysnumLatencyBinSize = 5;
+    static constexpr uint64_t kSwitchBinSize = 50000;
+    static constexpr uint64_t kCoresBinSize = 1;
+    static constexpr int64_t INVALID_WORKLOAD_ID = -1;
 
     struct per_shard_t {
-        per_shard_t(schedule_stats_t *analyzer)
+        per_shard_t(schedule_stats_template_t *analyzer)
             : counters(analyzer)
         {
         }
@@ -319,7 +393,7 @@ protected:
         memtrace_stream_t *stream = nullptr;
         int64_t core = 0; // We target core-sharded.
         counters_t counters;
-        int64_t prev_workload_id = -1;
+        int64_t prev_workload_id = INVALID_WORKLOAD_ID;
         int64_t prev_tid = INVALID_THREAD_ID;
         // These are cleared when an instruction is seen.
         bool saw_syscall = false;
@@ -339,7 +413,12 @@ protected:
         // Computing %-idle.
         uint64_t segment_start_microseconds = 0;
         intptr_t filetype = 0;
-        uint64_t switch_start_instrs = 0;
+        // For context switch rates, we only want to count user instrs.
+        uint64_t switch_user_instrs = 0;
+        uint64_t switch_start_input_instr_ordinal = 1; // Inclusive, so start at 1.
+        bool in_syscall_trace = false;
+        // A complete record of the switches.
+        std::vector<schedule_record_t> switch_record;
     };
 
     virtual std::unique_ptr<histogram_interface_t>
@@ -348,9 +427,10 @@ protected:
         return std::unique_ptr<histogram_interface_t>(new histogram_t(bin_size));
     }
 
+    template <typename T, typename H>
     histogram_interface_t *
     find_or_add_histogram(
-        std::unordered_map<int, std::unique_ptr<histogram_interface_t>> &map, int key,
+        std::unordered_map<T, std::unique_ptr<histogram_interface_t>, H> &map, T key,
         int bin_size = 1)
     {
         auto find_it = map.find(key);
@@ -361,6 +441,21 @@ protected:
         map.insert({ key, std::move(new_hist) });
         return hist_ptr;
     }
+
+    trace_type_t
+    get_record_type(RecordType record);
+
+    // Returns whether the given record is an instruction; if so, optionally
+    // returns its pc and size.
+    bool
+    is_record_instr(RecordType record, addr_t *pc = nullptr, size_t *size = nullptr);
+
+    // If the given record is a marker, returns true and its fields.
+    bool
+    is_record_marker(RecordType record, trace_marker_type_t &type, uintptr_t &value);
+
+    bool
+    get_record_tid(RecordType record, memref_tid_t &tid);
 
     void
     print_percentage(double numerator, double denominator, const std::string &label);
@@ -374,9 +469,12 @@ protected:
     bool
     update_state_time(per_shard_t *shard, state_t state);
 
-    void
-    record_context_switch(per_shard_t *shard, int64_t workload_id, int64_t tid,
-                          int64_t input_id, int64_t letter_ord);
+    // shard->prev_workload_id and shard->prev_tid are cleared when this is called,
+    // so we pass in the preserved values so there's no confusion.
+    virtual void
+    record_context_switch(per_shard_t *shard, int64_t prev_workload_id, int64_t prev_tid,
+                          int64_t workload_id, int64_t tid, int64_t input_id,
+                          int64_t letter_ord);
 
     virtual void
     aggregate_results(counters_t &total);
@@ -398,7 +496,15 @@ protected:
     // remember the last core for each input.
     std::unordered_map<workload_tid_t, int64_t, workload_tid_hash_t> prev_core_;
     std::mutex prev_core_mutex_;
+    // Ratio of largest instructions+idles to smallest across the cores.
+    double max_core_activity_ratio_ = -1.;
+    // Ratio of most instructions to fewest across the cores.
+    double max_core_instruction_ratio_ = -1.;
 };
+
+typedef schedule_stats_template_t<memref_t> schedule_stats_t;
+
+typedef schedule_stats_template_t<trace_entry_t> record_schedule_stats_t;
 
 } // namespace drmemtrace
 } // namespace dynamorio

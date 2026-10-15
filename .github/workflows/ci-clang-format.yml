@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020-2025 Google, Inc.  All rights reserved.
+# Copyright (c) 2020-2026 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -75,11 +75,12 @@ jobs:
 
     - name: Create Build Environment
       run: |
-        wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-        sudo add-apt-repository 'deb http://apt.llvm.org/focal/ llvm-toolchain-focal-14 main'
+        wget https://apt.llvm.org/llvm.sh
+        chmod +x llvm.sh
+        sudo ./llvm.sh 21
         sudo apt update
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
-          liblz4-dev clang-format-14 libunwind-dev
+          liblz4-dev clang-format-21 libunwind-dev
 
     - name: Check if format checks are disabled
       id: are_format_checks_disabled

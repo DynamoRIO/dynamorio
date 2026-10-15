@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -110,7 +110,8 @@ sort()
 #endif
 }
 
-unsigned int __stdcall executor(void *arg)
+unsigned int __stdcall
+executor(void *arg)
 {
     int w;
     sort(); /* do some work */

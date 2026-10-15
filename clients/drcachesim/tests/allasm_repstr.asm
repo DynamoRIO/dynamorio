@@ -1,5 +1,5 @@
  /* **********************************************************
- * Copyright (c) 2021-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2021-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -46,12 +46,38 @@ _start:
         cld
         rep      movsd
 
+        // Test a backward rep string loop.
+        mov      ecx, 5
+        lea      esi, wally_str
+        add      esi, 4
+        lea      edi, hello_str
+        add      edi, 4
+        std // Setting DF makes rep go backward.
+        rep      movsb
+        // Print the backward-copied string to ensure we did it right.
+        mov      rdi, 2           // stderr
+        lea      rsi, hello_str
+        mov      rdx, 13          // sizeof(hello_str)
+        mov      eax, 1           // SYS_write
+        syscall
+
         // Test a rep string loop.
         mov      ecx, 5
         lea      esi, bye_str
         lea      edi, hello_str
         cld
         rep      movsb
+
+        // Make a getpid syscall, which is a non-blocking one.
+        mov      eax, 39          // SYS_getpid
+        syscall
+
+        // Make a membarrier syscall, which is a blocking one.
+        mov      rdi, 0           // MEMBARRIER_CMD_QUERY
+        mov      rsi, 0           // flags
+        mov      rdx, 0           // cpuid
+        mov      eax, 324         // SYS_membarrier
+        syscall
 
         // Test page-spanning accesses.
         lea      rcx, page_str
@@ -90,6 +116,8 @@ hello_str:
         .string  "Hello world!\n"
 bye_str:
         .string  "Adios\n"
+wally_str:
+        .string  "Wally\n"
         // Push .data onto a 2nd page to test page-spanning accesses.
         // We assume 4K pages here.
         .align   4096

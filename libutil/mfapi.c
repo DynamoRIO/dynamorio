@@ -182,7 +182,7 @@ main()
     set_debuglevel(DL_INFO);
     set_abortlevel(DL_WARN);
 
-    /* FIXME: wrapper testing (but may not be necessary...) */
+    /* XXX: wrapper testing (but may not be necessary...) */
 
     DO_ASSERT(get_eventlog_monitor_thread_handle() == NULL);
     CHECKED_OPERATION(clear_policy());

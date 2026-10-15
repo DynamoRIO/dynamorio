@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -36,7 +36,7 @@
 /* Copyright (c) 2002 Hewlett-Packard Company */
 
 #ifndef _DR_DEFINES_H_
-#define _DR_DEFINES_H_ 1
+#define _DR_DEFINES_H_
 
 /****************************************************************************
  * GENERAL TYPEDEFS AND DEFINES
@@ -51,11 +51,27 @@
 #    define WIN32_LEAN_AND_MEAN
 #    include <windows.h>
 #    include <winbase.h>
-#else
+#elif !defined(LINUX_KERNEL)
 #    include <stdio.h>
 #    include <stdlib.h>
 #endif
-#include <stdarg.h> /* for varargs */
+/* Inlined rather than using stdarg_wrapper.h: this file is exported as
+ * dr_defines.h and stdarg_wrapper.h is not part of the exported headers.
+ */
+#ifdef LINUX_KERNEL
+#    include <linux/stdarg.h>
+#else
+#    include <stdarg.h> /* for varargs */
+#endif
+
+#ifndef DYNAMORIO_INTERNAL
+#    include <stdbool.h> /* for bool */
+#endif
+
+#ifdef DYNAMORIO_INTERNAL
+/* Use typedef below to avoid token pasting issues with macros in core. */
+#    undef bool
+#endif
 
 #ifndef DYNAMORIO_INTERNAL
 /* A client's target operating system and architecture must be specified. */
@@ -105,19 +121,17 @@
  * behave properly.  It indents the guard.  There seems to be no workaround.
  */
 /* clang-format off */
-#    ifndef __cplusplus
+#    if !defined(__cplusplus) && !defined(LINUX_KERNEL)
 #        ifdef WINDOWS
 #            define inline __inline
 #        else
 #            define inline __inline__
 #        endif
 #        ifndef DR_DO_NOT_DEFINE_bool
-#            ifdef DR__Bool_EXISTS
+#            if defined(DR__Bool_EXISTS) && defined(DYNAMORIO_INTERNAL)
 /* prefer _Bool as it avoids truncation casting non-zero to zero */
 typedef _Bool bool;
-#            else
-/* char-sized for compatibility with C++ */
-typedef char bool;
+#                define DR_BOOL_DEFINED 1
 #            endif
 #        endif
 #        ifndef true
@@ -129,7 +143,11 @@ typedef char bool;
 #    endif
 
 #    ifdef UNIX
-#        include <sys/types.h> /* for pid_t (non-glibc, e.g. musl) */
+#        ifdef LINUX_KERNEL
+#            include <linux/types.h>
+#        else
+#            include <sys/types.h> /* for pid_t (non-glibc, e.g. musl) */
+#        endif
 #    endif
 #    ifdef WINDOWS
 /* allow nameless struct/union */
@@ -153,7 +171,7 @@ typedef char bool;
  * (in gcc >= 3.4) to not export symbols by default, setting
  * USE_VISIBILITY_ATTRIBUTES will properly export.
  */
-#    ifdef USE_VISIBILITY_ATTRIBUTES
+#    if defined(USE_VISIBILITY_ATTRIBUTES) && !defined(LINUX_KERNEL)
 #        define DR_EXPORT __attribute__((visibility("default")))
 #    else
 #        define DR_EXPORT
@@ -162,7 +180,21 @@ typedef char bool;
 #    define ALIGN_VAR(x) __attribute__((aligned(x)))
 #    define INLINE_FORCED inline
 #    define WEAK __attribute__((weak))
-#    define NOINLINE __attribute__((noinline))
+#    define NOINLINE __attribute__((__noinline__))
+#endif
+
+/* Annotates intentional switch case fallthroughs to satisfy
+ * -Wimplicit-fallthrough compiler warnings.
+ * XXX i#8001: Share with drcachesim's ANNOTATE_FALLTHROUGH.
+ */
+#ifdef __has_attribute
+#    if __has_attribute(__fallthrough__)
+#        define DR_FALLTHROUGH __attribute__((__fallthrough__))
+#    else
+#        define DR_FALLTHROUGH ((void)0)
+#    endif
+#else
+#    define DR_FALLTHROUGH ((void)0)
 #endif
 
 /* We want a consistent size so we stay away from MAX_PATH.
@@ -209,7 +241,7 @@ typedef signed char sbyte;
 #endif
 typedef byte *app_pc;
 
-typedef void (*generic_func_t)();
+typedef void (*generic_func_t)(void);
 
 #ifdef DR_DEFINE_FOR_uint64
 #    undef DR_DO_NOT_DEFINE_uint64
@@ -289,7 +321,7 @@ typedef size_t app_rva_t;
 
 #define PTR_UINT_0 ((ptr_uint_t)0U)
 #define PTR_UINT_1 ((ptr_uint_t)1U)
-#define PTR_UINT_MINUS_1 ((ptr_uint_t)-1)
+#define PTR_UINT_MINUS_1 ((ptr_uint_t) - 1)
 
 #ifdef WINDOWS
 typedef ptr_uint_t thread_id_t;
@@ -371,7 +403,7 @@ typedef struct {
 } opnd_t;
 
 /**
- * Internal structure of instr_t is below abstraction layer, but we
+ * Internal structure of #instr_t is below abstraction layer, but we
  * provide its size so that it can be used in stack variables
  * instead of always allocated on the heap.
  */
@@ -623,7 +655,7 @@ typedef struct _instr_t instr_t;
 #ifdef X64
 #    define PFMT ZHEX64_FORMAT_STRING
 #    define PIFMT HEX64_FORMAT_STRING
-#    define SZFMT INT64_FORMAT_STRING
+#    define SZFMT UINT64_FORMAT_STRING
 #    define SSZFMT INT64_FORMAT_STRING
 #    define SZFC UINT64_FORMAT_CODE
 #    define SSZFC INT64_FORMAT_CODE
@@ -951,6 +983,10 @@ enum {
      * and its abort handler PC, in that order.
      */
     DR_NOTE_RSEQ_ENTRY,
+    /** On AArch64, identifies the ADR that should be patched to point to a fragment's
+     *  selfmod copy.
+     */
+    DR_NOTE_SELFMOD_COPY,
 };
 
 /**

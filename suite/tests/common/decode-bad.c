@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -83,7 +83,7 @@ static bool invalid_lock;
 
 #    ifdef UNIX
 #        ifndef X86
-#            error NYI /* FIXME i#1551, i#1569: port asm to ARM and AArch64 */
+#            error NYI /* XXX i#1551, i#1569: port asm to ARM and AArch64 */
 #        endif
 static void
 signal_handler(int sig, siginfo_t *info, ucontext_t *ucxt)
@@ -96,7 +96,7 @@ signal_handler(int sig, siginfo_t *info, ucontext_t *ucxt)
         count++;
         if (invalid_lock) {
             print("Invalid lock sequence, instance %d\n", count);
-            /* add this so output matches test on windows, FIXME : would like to test
+            /* add this so output matches test on windows, XXX : would like to test
              * this on linux too, but won't work now (bug 651, 832) */
             print("eax=1 ebx=2 ecx=3 edx=4 edi=5 esi=6 ebp=7\n");
         } else
@@ -124,14 +124,14 @@ our_top_handler(struct _EXCEPTION_POINTERS *pExceptionInfo)
             /* Windows doesn't have an EXCEPTION_ constant to equal the invalid lock code
              */
             0xc000001e /*STATUS_INVALID_LOCK_SEQUENCE*/
-        /* FIXME: DR doesn't generate the invalid lock exception */
+        /* XXX: DR doesn't generate the invalid lock exception */
         ||
         (invalid_lock &&
          pExceptionInfo->ExceptionRecord->ExceptionCode == STATUS_ILLEGAL_INSTRUCTION)) {
         CONTEXT *cxt = pExceptionInfo->ContextRecord;
         count++;
         print("Invalid lock sequence, instance %d\n", count);
-        /* FIXME : add CXT_XFLAGS (currently comes back incorrect), eip, esp? */
+        /* XXX : add CXT_XFLAGS (currently comes back incorrect), eip, esp? */
         print("eax=" SZFMT " ebx=" SZFMT " ecx=" SZFMT " edx=" SZFMT " "
               "edi=" SZFMT " esi=" SZFMT " ebp=" SZFMT "\n",
               cxt->CXT_XAX, cxt->CXT_XBX, cxt->CXT_XCX, cxt->CXT_XDX, cxt->CXT_XDI,
@@ -173,7 +173,7 @@ main(int argc, char *argv[])
     intercept_signal(SIGSEGV, (handler_3_t)signal_handler, false);
 #    else
 #        ifdef X64_DEBUGGER
-    /* FIXME: the vectored handler works fine in the debugger, but natively
+    /* XXX: the vectored handler works fine in the debugger, but natively
      * the app crashes here: yet the SetUnhandled hits infinite fault loops
      * in the debugger, and works fine natively!
      */
@@ -189,16 +189,29 @@ main(int argc, char *argv[])
     count = 0;
     i = SIGSETJMP(mark);
     switch (i) {
-    case 0: test_priv_0();
-    case 1: test_priv_1();
-    case 2: test_priv_2();
-    case 3: test_priv_3();
+    case 0:
+        test_priv_0();
+        assert(false && "Won't reach due to fault");
+        break;
+    case 1:
+        test_priv_1();
+        assert(false && "Won't reach due to fault");
+        break;
+    case 2:
+        test_priv_2();
+        assert(false && "Won't reach due to fault");
+        break;
+    case 3:
+        test_priv_3();
+        assert(false && "Won't reach due to fault");
+        break;
+    default:;
     }
 
     /* prefix tests */
     print("OK instr about to happen\n");
     /* multiple prefixes */
-    /* FIXME: actually these prefixes on a jmp are "reserved" but this seems to work */
+    /* XXX: actually these prefixes on a jmp are "reserved" but this seems to work */
     test_prefix_0();
     print("Bad instr about to happen\n");
     /* lock prefix, which is illegal instruction if placed on jmp */
@@ -216,14 +229,38 @@ main(int argc, char *argv[])
         /* note that we decode until a CTI, so for every case the suffix is decoded
          * and changes in later cases may fail even the earlier ones.
          */
-    case 0: test_inval_0();
-    case 1: test_inval_1();
-    case 2: test_inval_2();
-    case 3: test_inval_3();
-    case 4: test_inval_4();
-    case 5: test_inval_5();
-    case 6: test_inval_6();
-    case 7: test_inval_7();
+    case 0:
+        test_inval_0();
+        assert(false && "Won't reach due to fault");
+        break;
+    case 1:
+        test_inval_1();
+        assert(false && "Won't reach due to fault");
+        break;
+    case 2:
+        test_inval_2();
+        assert(false && "Won't reach due to fault");
+        break;
+    case 3:
+        test_inval_3();
+        assert(false && "Won't reach due to fault");
+        break;
+    case 4:
+        test_inval_4();
+        assert(false && "Won't reach due to fault");
+        break;
+    case 5:
+        test_inval_5();
+        assert(false && "Won't reach due to fault");
+        break;
+    case 6:
+        test_inval_6();
+        assert(false && "Won't reach due to fault");
+        break;
+    case 7:
+        test_inval_7();
+        assert(false && "Won't reach due to fault");
+        break;
     default:;
     }
 

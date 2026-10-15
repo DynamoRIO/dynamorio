@@ -50,7 +50,8 @@ fact(int n)
     return n * fact(n - 1);
 }
 
-int __declspec(dllexport) import_me(int x)
+int __declspec(dllexport)
+import_me(int x)
 {
 #if VERBOSE
     print("in import %d\n", x);

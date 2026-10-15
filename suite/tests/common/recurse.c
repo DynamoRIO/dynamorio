@@ -64,7 +64,8 @@ foo(int n)
     return 0;
 }
 
-main()
+int
+main(int argc, const char *argv[])
 {
     int i, t = 0;
 

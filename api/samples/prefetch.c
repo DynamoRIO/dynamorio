@@ -61,7 +61,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                        "http://dynamorio.org/issues");
     if (!drmgr_init())
         DR_ASSERT(false);
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
     /* Only need to remove prefetches for Intel processors. */
     if (proc_get_vendor() == VENDOR_INTEL) {
         /* We may remove app instructions, so we should register app2app event

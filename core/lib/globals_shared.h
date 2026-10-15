@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,7 +41,7 @@
  */
 
 #ifndef _GLOBALS_SHARED_H_
-#define _GLOBALS_SHARED_H_ 1
+#define _GLOBALS_SHARED_H_
 
 /* if not Unix, we assume Windows */
 #ifndef UNIX
@@ -75,10 +75,16 @@
 #endif
 
 #include "globals_api.h" // IWYU pragma: export
+#include "dr_project_wide_defines.h"
 
-#include <limits.h> /* for USHRT_MAX */
+#include "limits_wrapper.h" /* for USHRT_MAX */
+
 #ifdef UNIX
-#    include <signal.h>
+#    ifdef LINUX_KERNEL
+#        include <asm/sigcontext.h>
+#    else
+#        include <signal.h>
+#    endif
 #endif
 
 #include "c_defines.h" // IWYU pragma: export
@@ -98,7 +104,7 @@
 
 #define MAX_CLIENT_LIBS 16
 
-/* FIXME: these macros double-evaluate their args -- if we can't trust
+/* XXX: these macros double-evaluate their args -- if we can't trust
  * compiler to do CSE, should we replace w/ inline functions?  would need
  * separate signed and unsigned versions
  */
@@ -107,13 +113,6 @@
 #    define MIN(x, y) ((x) <= (y) ? (x) : (y))
 #endif
 #define PTR_UINT_ABS(x) ((x) < 0 ? -(x) : (x))
-
-/* check if all bits in mask are set in var */
-#define TESTALL(mask, var) (((mask) & (var)) == (mask))
-/* check if any bit in mask is set in var */
-#define TESTANY(mask, var) (((mask) & (var)) != 0)
-/* check if a single bit is set in var */
-#define TEST TESTANY
 
 #define BOOLS_MATCH(a, b) (!!(a) == !!(b))
 
@@ -476,15 +475,6 @@ typedef char pathstring_t[MAX_PATH_OPTION_LENGTH];
  */
 typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 
-/* convenience macros for secure string buffer operations */
-#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
-#define BUFFER_LAST_ELEMENT(buf) buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
-
-#define BUFFER_ROOM_LEFT_W(wbuf) (BUFFER_SIZE_ELEMENTS(wbuf) - wcslen(wbuf) - 1)
-#define BUFFER_ROOM_LEFT(abuf) (BUFFER_SIZE_ELEMENTS(abuf) - strlen(abuf) - 1)
-
 /* strncat() calls require termination after each to be safe, especially if
  * cating repeatedly.  For example see hotpatch.c:hotp_load_hotp_dlls().
  */
@@ -564,9 +554,9 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
  * Expected to be a subdirectory of DYNAMORIO_CACHE_ROOT.
  */
 
-/* Location for persisted caches; FIXME: currently the same as the ASLR sharing dir */
+/* Location for persisted caches; XXX: currently the same as the ASLR sharing dir */
 #define DYNAMORIO_VAR_PERSCACHE_ROOT_ID DYNAMORIO_CACHE_ROOT
-/* FIXME case 9651: security model, etc. */
+/* XXX case 9651: security model, etc. */
 #define DYNAMORIO_VAR_PERSCACHE_SHARED_ID DYNAMORIO_CACHE_SHARED
 /* case 10255: use a suffix to distinguish from ASLR files in same dir
  * DR persisted cache => "dpc"
@@ -688,7 +678,7 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 #    define EVENT_LOG_KEY LCONCAT(L_EXPAND_LEVEL(EVENTLOG_REGISTRY_SUBKEY), EVENTLOG_NAME)
 #    define EVENT_SOURCE_KEY LCONCAT(EVENT_LOG_KEY, EVENTSOURCE_NAME)
 /* Log key values (NOTE the values here are the values our installer uses,
- * not sure what all of them mean).  FIXME would be nice if these were
+ * not sure what all of them mean).  XXX would be nice if these were
  * shared with the installer config file. Only used by DRcontrol (via
  * share/config.c) to set up new eventlogs (mainly for vista where our
  * installer doesn't work yet xref case 8482).*/
@@ -842,7 +832,7 @@ enum DLL_TYPE {
  *  See case 3702.
  **/
 enum {
-    /* FIXME: keep in mind that we only read decimal values */
+    /* XXX: keep in mind that we only read decimal values */
     RUNUNDER_OFF = 0x00, /* 0 */
     RUNUNDER_ON = 0x01,  /* 1 */
     RUNUNDER_ALL = 0x02, /* 2 */
@@ -972,6 +962,9 @@ typedef struct {
  * We pick a signal that is very unlikely to be sent asynchronously by
  * the app, and for which we can distinguish synch from asynch by
  * looking at the interrupted pc.
+ * In cases where applications block SIGILL, the -attach_unmask_suspend_signal
+ * option can be invoked which uses ptrace to enable attach, see
+ * os_unmask_suspend_signal_via_ptrace() etc.
  */
 #    define NUDGESIG_SIGNUM SIGILL
 #endif
@@ -1089,7 +1082,7 @@ enum {
  * Also, hotp_context_t exposes the dr_mcontext_t struct to hot patches,
  * so be careful when changing any field offsets.
  *
- * FIXME: remove eax-ebx-ecx-edx and use the local_state_t
+ * XXX: remove eax-ebx-ecx-edx and use the local_state_t
  * version from within DR as well as from the ibl (case 3701).
  *
  * PR 264138: for xmm fields, we do NOT specify 16-byte alignment for

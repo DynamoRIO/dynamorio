@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,7 +37,7 @@
  */
 
 #ifndef _SNAPPY_FILE_READER_H_
-#define _SNAPPY_FILE_READER_H_ 1
+#define _SNAPPY_FILE_READER_H_
 
 #include <fstream>
 #include <memory>

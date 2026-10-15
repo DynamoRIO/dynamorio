@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -35,7 +35,7 @@
 /* Copyright (c) 2002-2003 Massachusetts Institute of Technology */
 
 #ifndef _DR_IR_MACROS_X86_H_
-#define _DR_IR_MACROS_X86_H_ 1
+#define _DR_IR_MACROS_X86_H_
 
 /**
  * @file dr_ir_macros_x86.h
@@ -50,12 +50,19 @@
  * the instr_shrink_to_16_bits() routine.
  */
 
-#include <math.h> /* for floating-point math constants */
+/* Because <math.h> cannot be included in the kernel module, floating-point math constants
+ * (such as M_PI) are not available. Therefore, we cannot create some floating-point
+ * instructions (e.g., INSTR_CREATE_fldpi) in the kernel module, or there will be
+ * compilation errors.
+ */
+#ifndef LINUX_KERNEL
+#    include <math.h> /* for floating-point math constants */
+#endif
 
 /* instruction modification convenience routines */
 /**
  * Add the lock prefix to an instruction. For example:
- * instr_t *lock_inc_instr = LOCK(INSTR_CREATE_inc(....));
+ * #instr_t *lock_inc_instr = LOCK(INSTR_CREATE_inc(....));
  */
 #define LOCK(instr_ptr) instr_set_prefix_flag((instr_ptr), PREFIX_LOCK)
 
@@ -149,140 +156,140 @@
 /** @{ */ /* doxygen start group */
 
 /**
- * This platform-independent macro creates an instr_t for a debug trap
+ * This platform-independent macro creates an #instr_t for a debug trap
  * instruction, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  */
 #define XINST_CREATE_debug_instr(dc) INSTR_CREATE_int3(dc)
 
 /**
- * This platform-independent macro creates an instr_t for a 4-byte
+ * This platform-independent macro creates an #instr_t for a 4-byte
  * or 8-byte (x64 only) memory load instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
 #define XINST_CREATE_load(dc, r, m) INSTR_CREATE_mov_ld(dc, r, m)
 
 /**
- * This platform-independent macro creates an instr_t which loads 1 byte
+ * This platform-independent macro creates an #instr_t which loads 1 byte
  * from memory, zero-extends it to 4 bytes, and writes it to a 4 byte
  * destination register.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
 #define XINST_CREATE_load_1byte_zext4(dc, r, m) INSTR_CREATE_movzx(dc, r, m)
 
 /**
- * This platform-independent macro creates an instr_t for a 1-byte
+ * This platform-independent macro creates an #instr_t for a 1-byte
  * memory load instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
 #define XINST_CREATE_load_1byte(dc, r, m) INSTR_CREATE_mov_ld(dc, r, m)
 
 /**
- * This platform-independent macro creates an instr_t for a 2-byte
+ * This platform-independent macro creates an #instr_t for a 2-byte
  * memory load instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
 #define XINST_CREATE_load_2bytes(dc, r, m) INSTR_CREATE_mov_ld(dc, r, m)
 
 /**
- * This platform-independent macro creates an instr_t for a 4-byte
+ * This platform-independent macro creates an #instr_t for a 4-byte
  * or 8-byte (x64 only) memory store instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
 #define XINST_CREATE_store(dc, m, r) INSTR_CREATE_mov_st(dc, m, r)
 
 /**
- * This platform-independent macro creates an instr_t for a 1-byte
+ * This platform-independent macro creates an #instr_t for a 1-byte
  * memory store instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
 #define XINST_CREATE_store_1byte(dc, m, r) INSTR_CREATE_mov_st(dc, m, r)
 
 /**
- * This platform-independent macro creates an instr_t for a 2-byte
+ * This platform-independent macro creates an #instr_t for a 2-byte
  * memory store instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
 #define XINST_CREATE_store_2bytes(dc, m, r) INSTR_CREATE_mov_st(dc, m, r)
 
 /**
- * This platform-independent macro creates an instr_t for a register
+ * This platform-independent macro creates an #instr_t for a register
  * to register move instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param d   The destination register opnd.
  * \param s   The source register opnd.
  */
 #define XINST_CREATE_move(dc, d, s) INSTR_CREATE_mov_ld(dc, d, s)
 
 /**
- * This platform-independent macro creates an instr_t for a multimedia
+ * This platform-independent macro creates an #instr_t for a multimedia
  * register load instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
 #define XINST_CREATE_load_simd(dc, r, m) INSTR_CREATE_movd(dc, r, m)
 
 /**
- * This platform-independent macro creates an instr_t for a multimedia
+ * This platform-independent macro creates an #instr_t for a multimedia
  * register store instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
 #define XINST_CREATE_store_simd(dc, m, r) INSTR_CREATE_movd(dc, m, r)
 
 /**
- * This platform-independent macro creates an instr_t for an indirect
+ * This platform-independent macro creates an #instr_t for an indirect
  * jump through memory instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param m   The memory opnd holding the target.
  */
 #define XINST_CREATE_jump_mem(dc, m) INSTR_CREATE_jmp_ind(dc, m)
 
 /**
- * This platform-independent macro creates an instr_t for an indirect
+ * This platform-independent macro creates an #instr_t for an indirect
  * jump instruction through a register.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param r   The register opnd holding the target.
  */
 #define XINST_CREATE_jump_reg(dc, r) INSTR_CREATE_jmp_ind(dc, r)
 
 /**
- * This platform-independent macro creates an instr_t for an immediate
+ * This platform-independent macro creates an #instr_t for an immediate
  * integer load instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param r   The destination register opnd.
  * \param i   The source immediate integer opnd.
  */
 #define XINST_CREATE_load_int(dc, r, i) INSTR_CREATE_mov_imm(dc, r, i)
 
 /**
- * This platform-independent macro creates an instr_t for a return instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * This platform-independent macro creates an #instr_t for a return instruction.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  */
 #define XINST_CREATE_return(dc) INSTR_CREATE_ret(dc)
 
 /**
- * This platform-independent macro creates an instr_t for an unconditional
+ * This platform-independent macro creates an #instr_t for an unconditional
  * branch instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param t   The opnd_t target operand for the instruction, which can be
- * either a pc (opnd_create_pc)()) or an instr_t (opnd_create_instr()).
+ * either a pc (opnd_create_pc)()) or an #instr_t (opnd_create_instr()).
  * Be sure to ensure that the limited reach of this short branch will reach
  * the target (a pc operand is not suitable for most uses unless you know
  * precisely where this instruction will be encoded).
@@ -290,11 +297,11 @@
 #define XINST_CREATE_jump(dc, t) INSTR_CREATE_jmp((dc), (t))
 
 /**
- * This platform-independent macro creates an instr_t for an unconditional
+ * This platform-independent macro creates an #instr_t for an unconditional
  * branch instruction with the smallest available reach.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param t   The opnd_t target operand for the instruction, which can be
- * either a pc (opnd_create_pc)()) or an instr_t (opnd_create_instr()).
+ * either a pc (opnd_create_pc)()) or an #instr_t (opnd_create_instr()).
  * Be sure to ensure that the limited reach of this short branch will reach
  * the target (a pc operand is not suitable for most uses unless you know
  * precisely where this instruction will be encoded).
@@ -302,26 +309,26 @@
 #define XINST_CREATE_jump_short(dc, t) INSTR_CREATE_jmp_short((dc), (t))
 
 /**
- * This platform-independent macro creates an instr_t for a conditional
+ * This platform-independent macro creates an #instr_t for a conditional
  * branch instruction that branches if the previously-set condition codes
  * indicate the condition indicated by \p pred.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param pred  The #dr_pred_type_t condition to match.
  * \param t   The opnd_t target operand for the instruction, which can be
- * either a pc (opnd_create_pc)()) or an instr_t (opnd_create_instr()).
+ * either a pc (opnd_create_pc)()) or an #instr_t (opnd_create_instr()).
  * Be sure to ensure that the limited reach of this short branch will reach
  * the target (a pc operand is not suitable for most uses unless you know
  * precisely where this instruction will be encoded).
  */
 #define XINST_CREATE_jump_cond(dc, pred, t) \
-    (INSTR_CREATE_jcc((dc), (pred)-DR_PRED_O + OP_jo, (t)))
+    (INSTR_CREATE_jcc((dc), (pred) - DR_PRED_O + OP_jo, (t)))
 
 /**
- * This platform-independent macro creates an instr_t for an unconditional
+ * This platform-independent macro creates an #instr_t for an unconditional
  * branch instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param t   The opnd_t target operand for the instruction, which can be
- * either a pc (opnd_create_pc)()) or an instr_t (opnd_create_instr()).
+ * either a pc (opnd_create_pc)()) or an #instr_t (opnd_create_instr()).
  * Be sure to ensure that the limited reach of this short branch will reach
  * the target (a pc operand is not suitable for most uses unless you know
  * precisely where this instruction will be encoded).
@@ -329,9 +336,9 @@
 #define XINST_CREATE_call(dc, t) INSTR_CREATE_call((dc), (t))
 
 /**
- * This platform-independent macro creates an instr_t for an addition
+ * This platform-independent macro creates an #instr_t for an addition
  * instruction that does not affect the status flags.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.  This
  * can be either a register or a 32-bit immediate integer on x86.
@@ -344,10 +351,10 @@
             opnd_is_reg(s) ? 1 : 0, opnd_is_reg(s) ? 0 : (int)opnd_get_immed_int(s)))
 
 /**
- * This platform-independent macro creates an instr_t for an addition
+ * This platform-independent macro creates an #instr_t for an addition
  * instruction that does not affect the status flags and takes two sources
  * plus a destination.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s1  The opnd_t explicit first source operand for the instruction.  This
  * must be a register.
@@ -362,11 +369,11 @@
             opnd_is_reg(s2) ? 1 : 0, opnd_is_reg(s2) ? 0 : (int)opnd_get_immed_int(s2)))
 
 /**
- * This platform-independent macro creates an instr_t for an addition
+ * This platform-independent macro creates an #instr_t for an addition
  * instruction that does not affect the status flags and takes two register sources
  * plus a destination, with one source being shifted logically left by
  * an immediate amount that is limited to either 0, 1, 2, or 3.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s1  The opnd_t explicit first source operand for the instruction.  This
  * must be a register.
@@ -392,18 +399,18 @@
             0))
 
 /**
- * This platform-independent macro creates an instr_t for an addition
+ * This platform-independent macro creates an #instr_t for an addition
  * instruction that does affect the status flags.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
 #define XINST_CREATE_add_s(dc, d, s) INSTR_CREATE_add((dc), (d), (s))
 
 /**
- * This platform-independent macro creates an instr_t for a subtraction
+ * This platform-independent macro creates an #instr_t for a subtraction
  * instruction that does not affect the status flags.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  * The source must be an immediate integer on x86.
@@ -414,59 +421,59 @@
                                          -(int)opnd_get_immed_int(s)))
 
 /**
- * This platform-independent macro creates an instr_t for a subtraction
+ * This platform-independent macro creates an #instr_t for a subtraction
  * instruction that does affect the status flags.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
 #define XINST_CREATE_sub_s(dc, d, s) INSTR_CREATE_sub((dc), (d), (s))
 
 /**
- * This platform-independent macro creates an instr_t for a bitwise and
+ * This platform-independent macro creates an #instr_t for a bitwise and
  * instruction that does affect the status flags.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
 #define XINST_CREATE_and_s(dc, d, s) INSTR_CREATE_and((dc), (d), (s))
 
 /**
- * This platform-independent macro creates an instr_t for a logical right shift
+ * This platform-independent macro creates an #instr_t for a logical right shift
  * instruction that does affect the status flags.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
 #define XINST_CREATE_slr_s(dc, d, s) INSTR_CREATE_shr((dc), (d), (s))
 
 /**
- * This platform-independent macro creates an instr_t for a comparison
+ * This platform-independent macro creates an #instr_t for a comparison
  * instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param s1  The opnd_t explicit destination operand for the instruction.
  * \param s2  The opnd_t explicit source operand for the instruction.
  */
 #define XINST_CREATE_cmp(dc, s1, s2) instr_create_0dst_2src((dc), OP_cmp, (s1), (s2))
 
 /**
- * This platform-independent macro creates an instr_t for a software
+ * This platform-independent macro creates an #instr_t for a software
  * interrupt instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param i   The source integer constant opnd_t operand.
  */
 #define XINST_CREATE_interrupt(dc, i) INSTR_CREATE_int(dc, i)
 
 /**
- * This platform-independent macro creates an instr_t for a nop instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * This platform-independent macro creates an #instr_t for a nop instruction.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  */
 #define XINST_CREATE_nop(dc) INSTR_CREATE_nop(dc)
 
 /**
- * This platform-independent macro creates an instr_t for an indirect call instr
+ * This platform-independent macro creates an #instr_t for an indirect call instr
  * through a register.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param r   The opnd_t explicit source operand for the instruction. This should
  * be a reg_id_t operand with the address of the subroutine.
  */
@@ -481,9 +488,9 @@
 /** @name No-operand instructions */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx, automatically
  * supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  */
 #define INSTR_CREATE_fwait(dc) instr_create_0dst_0src((dc), OP_fwait)
 #define INSTR_CREATE_hlt(dc) instr_create_0dst_0src((dc), OP_hlt)
@@ -532,65 +539,71 @@
 #define INSTR_CREATE_xsusldtrk(dc) instr_create_0dst_0src((dc), OP_xsusldtrk)
 #define INSTR_CREATE_xresldtrk(dc) instr_create_0dst_0src((dc), OP_xresldtrk)
 #define INSTR_CREATE_serialize(dc) instr_create_0dst_0src((dc), OP_serialize)
+#define INSTR_CREATE_erets(dc) instr_create_0dst_0src((dc), OP_erets)
+#define INSTR_CREATE_eretu(dc) instr_create_0dst_0src((dc), OP_eretu)
+#define INSTR_CREATE_endbr64(dc) instr_create_0dst_0src((dc), OP_endbr64)
+#define INSTR_CREATE_endbr32(dc) instr_create_0dst_0src((dc), OP_endbr32)
+#define INSTR_CREATE_saveprevssp(dc) instr_create_0dst_0src((dc), OP_saveprevssp)
+#define INSTR_CREATE_setssbsy(dc) instr_create_0dst_0src((dc), OP_setssbsy)
 /** @} */ /* end doxygen group */
 
 /* no destination, 1 source */
 /**
- * Creates an instr_t for a short conditional branch instruction with the given
+ * Creates an #instr_t for a short conditional branch instruction with the given
  * opcode and target operand.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param op The OP_xxx opcode for the conditional branch, which should be
  * in the range [OP_jo_short, OP_jnle_short].
  * \param t The opnd_t target operand for the instruction, which can be either
- * a pc (opnd_create_pc()) or an instr_t (opnd_create_instr()).  Be sure to
+ * a pc (opnd_create_pc()) or an #instr_t (opnd_create_instr()).  Be sure to
  * ensure that the limited reach of this short branch will reach the target
  * (a pc operand is not suitable for most uses unless you know precisely where
  * this instruction will be encoded).
  */
 #define INSTR_CREATE_jcc_short(dc, op, t) instr_create_0dst_1src((dc), (op), (t))
 /**
- * Creates an instr_t for a conditional branch instruction with the given opcode
+ * Creates an #instr_t for a conditional branch instruction with the given opcode
  * and target operand.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param op The OP_xxx opcode for the conditional branch, which should be
  * in the range [OP_jo, OP_jnle].
  * \param t The opnd_t target operand for the instruction, which can be either
- * a pc (opnd_create_pc()) or an instr_t (opnd_create_instr()).
+ * a pc (opnd_create_pc()) or an #instr_t (opnd_create_instr()).
  */
 #define INSTR_CREATE_jcc(dc, op, t) instr_create_0dst_1src((dc), (op), (t))
 /** @name Direct unconditional jump */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param t The opnd_t target operand for the instruction, which can be either
- * a pc (opnd_create_pc()) or an instr_t (opnd_create_instr()).
+ * a pc (opnd_create_pc()) or an #instr_t (opnd_create_instr()).
  */
 #define INSTR_CREATE_jmp(dc, t) instr_create_0dst_1src((dc), OP_jmp, (t))
 #define INSTR_CREATE_jmp_short(dc, t) instr_create_0dst_1src((dc), OP_jmp_short, (t))
 #define INSTR_CREATE_xbegin(dc, t) instr_create_0dst_1src((dc), OP_xbegin, (t))
 /** @} */ /* end doxygen group */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param t The opnd_t target operand for the instruction, which should be
  * a memory reference created with opnd_create_base_disp().
  */
 #define INSTR_CREATE_jmp_ind(dc, t) instr_create_0dst_1src((dc), OP_jmp_ind, (t))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param t The opnd_t target operand for the instruction, which should be
  * a far pc operand created with opnd_create_far_pc().
  */
 #define INSTR_CREATE_jmp_far(dc, t) instr_create_0dst_1src((dc), OP_jmp_far, (t))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param t The opnd_t target operand for the instruction, which should be
  * a far memory reference created with opnd_create_far_base_disp().
  */
@@ -598,11 +611,12 @@
 /** @name One explicit source */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param s The opnd_t explicit source operand for the instruction.
  */
+#define INSTR_CREATE_lkgs(dc, s) instr_create_0dst_1src((dc), OP_lkgs, (s))
 #define INSTR_CREATE_lldt(dc, s) instr_create_0dst_1src((dc), OP_lldt, (s))
 #define INSTR_CREATE_ltr(dc, s) instr_create_0dst_1src((dc), OP_ltr, (s))
 #define INSTR_CREATE_verr(dc, s) instr_create_0dst_1src((dc), OP_verr, (s))
@@ -610,52 +624,57 @@
 #define INSTR_CREATE_vmptrld(dc, s) instr_create_0dst_1src((dc), OP_vmptrld, (s))
 #define INSTR_CREATE_vmxon(dc, s) instr_create_0dst_1src((dc), OP_vmxon, (s))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the
  * given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param s The opnd_t explicit second source operand for the instruction, which
  * must be a general-purpose register.
  */
 #define INSTR_CREATE_wrfsbase(dc, s) instr_create_0dst_1src((dc), OP_wrfsbase, (s))
 #define INSTR_CREATE_wrgsbase(dc, s) instr_create_0dst_1src((dc), OP_wrgsbase, (s))
 #define INSTR_CREATE_llwpcb(dc, s) instr_create_0dst_1src((dc), OP_llwpcb, (s))
+#define INSTR_CREATE_umonitor(dc, s) instr_create_0dst_1src((dc), OP_umonitor, (s))
+/* XXX: real assembly only has size-suffixed incsspd/incsspq mnemonics, no bare
+ * "incssp". Unclear whether splitting into separate d/q macros is worth it.
+ */
+#define INSTR_CREATE_incssp(dc, s) instr_create_0dst_1src((dc), OP_incssp, (s))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param s The opnd_t explicit source operand for the instruction, which can be
  * created with OPND_CREATE_MEM_lgdt() to get the appropriate operand size.
  */
 #define INSTR_CREATE_lgdt(dc, s) instr_create_0dst_1src((dc), OP_lgdt, (s))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param s The opnd_t explicit source operand for the instruction, which can be
  * created with OPND_CREATE_MEM_lidt() to get the appropriate operand size.
  */
 #define INSTR_CREATE_lidt(dc, s) instr_create_0dst_1src((dc), OP_lidt, (s))
 #define INSTR_CREATE_lmsw(dc, s) instr_create_0dst_1src((dc), OP_lmsw, (s))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param s The opnd_t explicit source operand for the instruction, which can be
  * created with OPND_CREATE_MEM_invlpg() to get the appropriate operand size.
  */
 #define INSTR_CREATE_invlpg(dc, s) instr_create_0dst_1src((dc), OP_invlpg, (s))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param s The opnd_t explicit source operand for the instruction, which can be
  * created with OPND_CREATE_MEM_fxrstor() to get the appropriate operand size.
  */
 #define INSTR_CREATE_fxrstor32(dc, s) instr_create_0dst_1src((dc), OP_fxrstor32, (s))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param s The opnd_t explicit source operand for the instruction, which can be
  * created with OPND_CREATE_MEM_fxrstor() to get the appropriate operand size.
  */
@@ -664,9 +683,9 @@
 #define INSTR_CREATE_vldmxcsr(dc, s) instr_create_0dst_1src((dc), OP_vldmxcsr, (s))
 #define INSTR_CREATE_nop_modrm(dc, s) instr_create_0dst_1src((dc), OP_nop_modrm, (s))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param s The opnd_t explicit source operand for the instruction, which can be
  * a general-purpose registers or a memory reference. The latter can be created with
  * OPND_CREATE_MEM_ptwrite() to get the appropriate operand size.
@@ -676,9 +695,9 @@
 /** @name Prefetch */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param s The opnd_t explicit source operand for the instruction, which can be
  * created with OPND_CREATE_MEM_prefetch() to get the appropriate operand size.
  */
@@ -690,41 +709,41 @@
 #define INSTR_CREATE_prefetchw(dc, s) instr_create_0dst_1src((dc), OP_prefetchw, (s))
 /** @} */ /* end doxygen group */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param s The opnd_t explicit source operand for the instruction, which can be
  * created with OPND_CREATE_MEM_clflush() to get the appropriate operand size.
  */
 #define INSTR_CREATE_clflush(dc, s) instr_create_0dst_1src((dc), OP_clflush, (s))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param s The opnd_t explicit source operand for the instruction, which can be
  * created with OPND_CREATE_MEM_clflush() to get the appropriate operand size.
  */
 #define INSTR_CREATE_clflushopt(dc, s) instr_create_0dst_1src((dc), OP_clflushopt, (s))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param s The opnd_t explicit source operand for the instruction, which can be
  * created with OPND_CREATE_MEM_clflush() to get the appropriate operand size.
  */
 #define INSTR_CREATE_clwb(dc, s) instr_create_0dst_1src((dc), OP_clwb, (s))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param s The opnd_t explicit source operand for the instruction, which can be
  * created with OPND_CREATE_MEM_clflush() to get the appropriate operand size.
  */
 #define INSTR_CREATE_cldemote(dc, s) instr_create_0dst_1src((dc), OP_cldemote, (s))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the
  * given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param i The opnd_t explicit second source operand for the instruction, which
  * must be an immediate integer (opnd_create_immed_int()).
  */
@@ -732,25 +751,25 @@
 
 /* floating-point */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param m The opnd_t explicit destination operand for the instruction, which can be
  * created with OPND_CREATE_MEM_fldenv() to get the appropriate operand size.
  */
 #define INSTR_CREATE_fldenv(dc, m) instr_create_0dst_1src((dc), OP_fldenv, (m))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param m The opnd_t explicit destination operand for the instruction, which must
  * be a memory reference (opnd_create_base_disp() or opnd_create_far_base_disp()).
  */
 #define INSTR_CREATE_fldcw(dc, m) instr_create_0dst_1src((dc), OP_fldcw, (m))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param m The opnd_t explicit destination operand for the instruction, which can be
  * created with OPND_CREATE_MEM_frstor() to get the appropriate operand size.
  */
@@ -760,9 +779,9 @@
 /** @name One implicit source */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx, automatically
  * supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  */
 #define INSTR_CREATE_fxam(dc) \
     instr_create_0dst_1src((dc), OP_fxam, opnd_create_reg(DR_REG_ST0))
@@ -786,9 +805,9 @@
 /** @name No destination, 2 explicit sources */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param s1 The opnd_t first source operand for the instruction.
  * \param s2 The opnd_t second source operand for the instruction.
  */
@@ -813,18 +832,18 @@
 #define INSTR_CREATE_vtestpd(dc, s1, s2) \
     instr_create_0dst_2src((dc), OP_vtestpd, (s1), (s2))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param s1 The opnd_t first source operand for the instruction.
  * \param s2 The opnd_t second source operand for the instruction, which can
  * be created with OPND_CREATE_MEM_bound() to get the appropriate operand size.
  */
 #define INSTR_CREATE_bound(dc, s1, s2) instr_create_0dst_2src((dc), OP_bound, (s1), (s2))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param s The opnd_t first source operand for the instruction.
  * \param ri The opnd_t second source operand for the instruction, which can
  * be either a register or an immediate integer.
@@ -850,9 +869,9 @@
 /** @name No destination, 1 mask, and 1 explicit source */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param k The opnd_t first source operand for the instruction.
  * \param s The opnd_t second source operand for the instruction.
  */
@@ -893,20 +912,20 @@
 
 /* no destination, 2 sources: 1 implicit */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param t The opnd_t target operand for the instruction, which can be either
- * a pc (opnd_create_pc()) or an instr_t (opnd_create_instr()).
+ * a pc (opnd_create_pc()) or an #instr_t (opnd_create_instr()).
  */
 #define INSTR_CREATE_jecxz(dc, t) \
     instr_create_0dst_2src((dc), OP_jecxz, (t), opnd_create_reg(DR_REG_XCX))
 /**
- * Creates an instr_t for an OP_jecxz instruction that uses cx instead of ecx
+ * Creates an #instr_t for an OP_jecxz instruction that uses cx instead of ecx
  * (there is no separate OP_jcxz).
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param t The opnd_t target operand for the instruction, which can be either
- * a pc (opnd_create_pc()) or an instr_t (opnd_create_instr()).
+ * a pc (opnd_create_pc()) or an #instr_t (opnd_create_instr()).
  */
 #define INSTR_CREATE_jcxz(dc, t) \
     instr_create_0dst_2src((dc), OP_jecxz, (t), opnd_create_reg(DR_REG_CX))
@@ -915,9 +934,9 @@
 /** @name No destination, 2 sources */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * Creates an instr_t for an OP_out instruction with a source of al
+ * Creates an #instr_t for an OP_out instruction with a source of al
  * (INSTR_CREATE_out_1()) or eax (INSTR_CREATE_out_4()) and dx.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  */
 #define INSTR_CREATE_out_1(dc)                                       \
     instr_create_0dst_2src((dc), OP_out, opnd_create_reg(DR_REG_AL), \
@@ -929,9 +948,9 @@
 /** @name No destination, explicit immed source */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * Creates an instr_t for an OP_out instruction with a source of al
+ * Creates an #instr_t for an OP_out instruction with a source of al
  * (INSTR_CREATE_out_1_imm()) or eax (INSTR_CREATE_out_4_imm()) and an immediate.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param i The opnd_t explicit source operand for the instruction, which must be an
  * immediate integer (opnd_create_immed_int()).
  */
@@ -944,9 +963,9 @@
 /** @name No destination, 2 implicit sources */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx, automatically
  * supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  */
 /* no destination, 2 implicit sources */
 #define INSTR_CREATE_mwait(dc)                                          \
@@ -981,12 +1000,28 @@
                            opnd_create_reg(DR_REG_EDX), opnd_create_reg(DR_REG_EAX))
 /** @} */ /* end doxygen group */
 
+/** @name No destination, 3 sources, 2 implicit */
+/** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
+/**
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx, automatically
+ * supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
+ * \param s The opnd_t explicit source operand for the instruction.
+ */
+#define INSTR_CREATE_tpause(dc, s)                                            \
+    instr_create_0dst_3src((dc), OP_tpause, (s), opnd_create_reg(DR_REG_EDX), \
+                           opnd_create_reg(DR_REG_EAX))
+#define INSTR_CREATE_umwait(dc, s)                                            \
+    instr_create_0dst_3src((dc), OP_umwait, (s), opnd_create_reg(DR_REG_EDX), \
+                           opnd_create_reg(DR_REG_EAX))
+/** @} */ /* end doxygen group */
+
 /** @name No destination, 3 sources: 1 implicit */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx, automatically
  * supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param s The opnd_t explicit source operand for the instruction, which can be
  * created with OPND_CREATE_MEM_xsave() to get the appropriate operand size.
  */
@@ -998,9 +1033,9 @@
                            opnd_create_reg(DR_REG_EAX))
 
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx, automatically
  * supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param s The opnd_t explicit source operand for the instruction, which can be
  * created with OPND_CREATE_MEM_xsave() to get the appropriate operand size.
  */
@@ -1015,9 +1050,9 @@
 /** @name No destination, 3 sources */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx, automatically
  * supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param s1 The opnd_t first source operand for the instruction, which must be
  * a general-purpose register.
  * \param s2 The opnd_t second source operand for the instruction
@@ -1034,9 +1069,9 @@
 /** @name Floating-point with source of memory or fp register */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the
  * given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param s The opnd_t explicit source operand for the instruction, which must
  * be one of the following:
  * -# A floating point register (opnd_create_reg()).
@@ -1051,9 +1086,9 @@
 /** @name Floating-point with fp register source */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the
  * given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param f The opnd_t explicit source operand for the instruction, which must
  * be a floating point register (opnd_create_reg()).
  * The other (implicit) source operand is #DR_REG_ST0.
@@ -1074,9 +1109,9 @@
 /** @name Floating-point with no explicit sources */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx,
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx,
  * automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  */
 #define INSTR_CREATE_fucompp(dc)                                          \
     instr_create_0dst_2src((dc), OP_fucompp, opnd_create_reg(DR_REG_ST0), \
@@ -1088,9 +1123,9 @@
 
 /* 1 destination, no sources */
 /**
- * Creates an instr_t for a conditional set instruction with the given opcode
+ * Creates an #instr_t for a conditional set instruction with the given opcode
  * and destination operand.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param op The OP_xxx opcode for the instruction, which should be in the range
  * [OP_seto, OP_setnle].
  * \param d The opnd_t destination operand for the instruction.
@@ -1099,9 +1134,9 @@
 /** @name 1 explicit destination, no sources */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  */
 #define INSTR_CREATE_sldt(dc, d) instr_create_1dst_0src((dc), OP_sldt, (d))
@@ -1109,9 +1144,9 @@
 #define INSTR_CREATE_vmptrst(dc, d) instr_create_1dst_0src((dc), OP_vmptrst, (d))
 #define INSTR_CREATE_vmclear(dc, d) instr_create_1dst_0src((dc), OP_vmclear, (d))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction, which
  * must be a general-purpose register.
  */
@@ -1120,35 +1155,41 @@
 #define INSTR_CREATE_rdfsbase(dc, d) instr_create_1dst_0src((dc), OP_rdfsbase, (d))
 #define INSTR_CREATE_rdgsbase(dc, d) instr_create_1dst_0src((dc), OP_rdgsbase, (d))
 #define INSTR_CREATE_slwpcb(dc, d) instr_create_1dst_0src((dc), OP_slwpcb, (d))
+/* XXX: real assembly only has size-suffixed rdsspd/rdsspq mnemonics, no bare
+ * "rdssp". Unclear whether splitting into separate d/q macros is worth it.
+ */
+#define INSTR_CREATE_rdssp(dc, d) \
+    INSTR_PRED(instr_create_1dst_0src((dc), OP_rdssp, (d)), DR_PRED_COMPLEX)
+
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction, which can
  * be created with OPND_CREATE_MEM_sgdt() to get the appropriate operand size.
  */
 #define INSTR_CREATE_sgdt(dc, d) instr_create_1dst_0src((dc), OP_sgdt, (d))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction, which can
  * be created with OPND_CREATE_MEM_sidt() to get the appropriate operand size.
  */
 #define INSTR_CREATE_sidt(dc, d) instr_create_1dst_0src((dc), OP_sidt, (d))
 #define INSTR_CREATE_smsw(dc, d) instr_create_1dst_0src((dc), OP_smsw, (d))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction, which can
  * be created with OPND_CREATE_MEM_fxsave() to get the appropriate operand size.
  */
 #define INSTR_CREATE_fxsave32(dc, d) instr_create_1dst_0src((dc), OP_fxsave32, (d))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction, which can
  * be created with OPND_CREATE_MEM_fxsave() to get the appropriate operand size.
  */
@@ -1162,9 +1203,9 @@
 /** @name Floating-point with memory destination */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param m The opnd_t explicit destination operand for the instruction, which must
  * be a memory reference (opnd_create_base_disp() or opnd_create_far_base_disp()).
  */
@@ -1172,17 +1213,17 @@
 #define INSTR_CREATE_fnstsw(dc, m) instr_create_1dst_0src((dc), OP_fnstsw, (m))
 /** @} */ /* end doxygen group */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param m The opnd_t explicit destination operand for the instruction, which can
  * be created with OPND_CREATE_MEM_fnstenv() to get the appropriate operand size.
  */
 #define INSTR_CREATE_fnstenv(dc, m) instr_create_1dst_0src((dc), OP_fnstenv, (m))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param m The opnd_t explicit destination operand for the instruction, which can
  * be created with OPND_CREATE_MEM_fnsave() to get the appropriate operand size.
  */
@@ -1191,9 +1232,9 @@
 /** @name Floating-point with float register destination, no sources */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param f The opnd_t explicit destination operand for the instruction, which must
  * be a floating point register (opnd_create_reg()).
  */
@@ -1205,9 +1246,9 @@
 /** @name 1 implicit destination, no sources */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx, automatically
  * supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  */
 #define INSTR_CREATE_lahf(dc) \
     instr_create_1dst_0src((dc), OP_lahf, opnd_create_reg(DR_REG_AH))
@@ -1225,17 +1266,17 @@
 /** @name 1 destination, 1 source */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param s The opnd_t explicit source operand for the instruction.
  */
 #define INSTR_CREATE_arpl(dc, d, s) instr_create_1dst_1src((dc), OP_arpl, (d), (s))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param s The opnd_t explicit source operand for the instruction, which can be
  * created with OPND_CREATE_MEM_lea() to get the appropriate operand size.
@@ -1257,6 +1298,11 @@
 #define INSTR_CREATE_movdqa(dc, d, s) instr_create_1dst_1src((dc), OP_movdqa, (d), (s))
 #define INSTR_CREATE_movzx(dc, d, s) instr_create_1dst_1src((dc), OP_movzx, (d), (s))
 #define INSTR_CREATE_movsx(dc, d, s) instr_create_1dst_1src((dc), OP_movsx, (d), (s))
+/* XXX: real assembly only has size-suffixed wrssd/wrssq/wrussd/wrussq mnemonics, no
+ * bare "wrss"/"wruss". Unclear whether splitting into separate d/q macros is worth it.
+ */
+#define INSTR_CREATE_wrss(dc, d, s) instr_create_1dst_1src((dc), OP_wrss, (d), (s))
+#define INSTR_CREATE_wruss(dc, d, s) instr_create_1dst_1src((dc), OP_wruss, (d), (s))
 #define INSTR_CREATE_bsf(dc, d, s) \
     INSTR_PRED(instr_create_1dst_1src((dc), OP_bsf, (d), (s)), DR_PRED_COMPLEX)
 #define INSTR_CREATE_bsr(dc, d, s) \
@@ -1618,26 +1664,28 @@
 /** @name 1 destination, 1 implicit source */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  */
 #define INSTR_CREATE_inc(dc, d) instr_create_1dst_1src((dc), OP_inc, (d), (d))
 #define INSTR_CREATE_dec(dc, d) instr_create_1dst_1src((dc), OP_dec, (d), (d))
-/* FIXME: check that d is a 32-bit reg? */
+/* XXX: check that d is a 32-bit reg? */
 #define INSTR_CREATE_bswap(dc, d) instr_create_1dst_1src((dc), OP_bswap, (d), (d))
 #define INSTR_CREATE_not(dc, d) instr_create_1dst_1src((dc), OP_not, (d), (d))
 #define INSTR_CREATE_neg(dc, d) instr_create_1dst_1src((dc), OP_neg, (d), (d))
+#define INSTR_CREATE_clrssbsy(dc, d) instr_create_1dst_1src((dc), OP_clrssbsy, (d), (d))
+#define INSTR_CREATE_rstorssp(dc, d) instr_create_1dst_1src((dc), OP_rstorssp, (d), (d))
 /** @} */ /* end doxygen group */
 
 /* 1 implicit destination, 1 implicit source */
 /** @name 1 implicit destination, 1 implicit source */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx, automatically
  * supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  */
 #define INSTR_CREATE_cdq(dc)                                          \
     instr_create_1dst_1src((dc), OP_cdq, opnd_create_reg(DR_REG_EDX), \
@@ -1672,9 +1720,9 @@
 /** @name In with no explicit sources */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * Creates an instr_t for an OP_in instruction with a source of al
+ * Creates an #instr_t for an OP_in instruction with a source of al
  * (INSTR_CREATE_in_1()) or eax (INSTR_CREATE_in_4()) and dx.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  */
 #define INSTR_CREATE_in_1(dc)                                       \
     instr_create_1dst_1src((dc), OP_in, opnd_create_reg(DR_REG_AL), \
@@ -1686,9 +1734,9 @@
 /** @name In with explicit source */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * Creates an instr_t for an OP_in instruction with a source of al
+ * Creates an #instr_t for an OP_in instruction with a source of al
  * (INSTR_CREATE_in_1_imm()) or eax (INSTR_CREATE_in_4_imm()) and an immediate.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param i The opnd_t explicit source operand for the instruction, which must be an
  * immediate integer (opnd_create_immed_int()).
  */
@@ -1698,9 +1746,9 @@
     instr_create_1dst_1src((dc), OP_in, opnd_create_reg(DR_REG_EAX), (i))
 /** @} */ /* end doxygen group */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param i The opnd_t explicit source operand for the instruction, which must be an
  * immediate integer (opnd_create_immed_int()).
  */
@@ -1709,9 +1757,9 @@
 
 /* floating-point */
 /**
- * Creates an instr_t for a conditional move instruction with the given opcode
+ * Creates an #instr_t for a conditional move instruction with the given opcode
  * and destination operand.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param op The OP_xxx opcode for the instruction, which should be in the range
  * [OP_fcmovb, OP_fcmovnu], excluding OP_fucompp.
  * \param f The opnd_t explicit source operand for the instruction, which must
@@ -1723,9 +1771,9 @@
 /** @name Floating point with destination that is memory or fp register */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the
  * given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction, which must
  * be one of the following:
  * -# A floating point register (opnd_create_reg()).
@@ -1737,9 +1785,9 @@
     instr_create_1dst_1src((dc), OP_fstp, (d), opnd_create_reg(DR_REG_ST0))
 /** @} */ /* end doxygen group */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the
  * given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param s The opnd_t explicit source operand for the instruction, which must
  * be one of the following:
  * -# A floating point register (opnd_create_reg()).
@@ -1750,9 +1798,9 @@
 /** @name Floating-point with memory destination and implicit source */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx_mem macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx_mem macro creates an #instr_t with opcode OP_xxx and
  * the given explicit memory operand, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param m The opnd_t explicit destination operand for the instruction, which must be
  * a memory reference (opnd_create_base_disp() or opnd_create_far_base_disp()).
  */
@@ -1768,9 +1816,9 @@
 /** @name Floating-point with memory source */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx_mem macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx_mem macro creates an #instr_t with opcode OP_xxx and
  * the given explicit memory operand, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param m The opnd_t explicit source operand for the instruction, which must be
  * a memory reference (opnd_create_base_disp() or opnd_create_far_base_disp()).
  */
@@ -1782,9 +1830,9 @@
 /** @name Floating-point implicit destination and implicit source */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx, automatically
  * supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  */
 #define INSTR_CREATE_fchs(dc)                                          \
     instr_create_1dst_1src((dc), OP_fchs, opnd_create_reg(DR_REG_ST0), \
@@ -1798,7 +1846,7 @@
 #define INSTR_CREATE_fld1(dc)                                          \
     instr_create_1dst_1src((dc), OP_fld1, opnd_create_reg(DR_REG_ST0), \
                            opnd_create_immed_float(1.0f))
-/* FIXME: do we really want these constants here? Should they be floats or doubles? */
+/* XXX: do we really want these constants here? Should they be floats or doubles? */
 #define INSTR_CREATE_fldl2t(dc)                                          \
     instr_create_1dst_1src((dc), OP_fldl2t, opnd_create_reg(DR_REG_ST0), \
                            opnd_create_immed_float((float)M_LN10 / (float)M_LN2))
@@ -1871,9 +1919,9 @@
 /** @name 1 destination, 2 sources */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param s The opnd_t explicit source operand for the instruction.
  * \param i The opnd_t explicit second source operand for the instruction, which
@@ -1920,9 +1968,9 @@
 /** @name 1 destination, 1 mask, and 2 sources */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param k The opnd_t explicit mask source operand for the instruction.
  * \param i The opnd_t explicit second source operand for the instruction, which
@@ -1961,9 +2009,9 @@
 /** @name 1 destination, 2 non-immediate sources */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param s1 The opnd_t explicit first source operand for the instruction.
  * \param s2 The opnd_t explicit second source operand for the instruction
@@ -2463,11 +2511,11 @@
 /** @name 1 destination, 1 mask, and 1 non-immediate source */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx_mask macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx_mask macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands. The first source
  * operand is the instruction's mask.
  *
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param k The opnd_t explicit mask source operand for the instruction.
  * \param s The opnd_t explicit first source operand for the instruction
@@ -2745,9 +2793,9 @@
 /** @name 1 destination, 2 sources: 1 explicit, 1 implicit */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param s The opnd_t explicit source operand for the instruction.
  */
@@ -3030,9 +3078,9 @@
 /** @name 1 destination, 1 explicit register-or-immediate source */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param ri The opnd_t explicit source operand for the instruction, which can
  * be a register (opnd_create_reg()) or an immediate integer (opnd_create_immed_int()).
@@ -3043,23 +3091,24 @@
 /** @} */ /* end doxygen group */
 
 /**
- * Creates an instr_t for a conditional move instruction with the given opcode
+ * Creates an #instr_t for a conditional move instruction with the given opcode
  * and destination operand.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param op The OP_xxx opcode for the instruction, which should be in the range
  * [OP_cmovo, OP_cmovnle].
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param s The opnd_t explicit source operand for the instruction.
  */
-#define INSTR_CREATE_cmovcc(dc, op, d, s) \
-    INSTR_PRED(instr_create_1dst_1src((dc), (op), (d), (s)), DR_PRED_O + (op)-OP_cmovo)
+#define INSTR_CREATE_cmovcc(dc, op, d, s)                    \
+    INSTR_PRED(instr_create_1dst_1src((dc), (op), (d), (s)), \
+               (dr_pred_type_t)((int)DR_PRED_O + (op) - OP_cmovo))
 
 /**
- * This INSTR_CREATE_xxx_imm macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx_imm macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands. The _imm
  * suffix distinguishes between alternative forms of the same opcode: this
  * form takes an explicit immediate.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param s The opnd_t explicit source operand for the instruction.
  * \param i The opnd_t explicit second source operand for the instruction, which
@@ -3068,9 +3117,9 @@
 #define INSTR_CREATE_imul_imm(dc, d, s, i) \
     instr_create_1dst_2src((dc), OP_imul, (d), (s), (i))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param s The opnd_t explicit source operand for the instruction.
  */
@@ -3079,10 +3128,10 @@
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx, INSTR_CREATE_xxx_1, or INSTR_CREATE_xxx_4 macro creates an
- * instr_t with opcode OP_xxx and the given explicit operands, automatically
+ * #instr_t with opcode OP_xxx and the given explicit operands, automatically
  * supplying any implicit operands.    The _1 or _4 suffixes distinguish between
  * alternative forms of the same opcode (1 and 4 identify the operand size).
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param s The opnd_t explicit source operand for the instruction.
  */
 #define INSTR_CREATE_imul_1(dc, s)                                         \
@@ -3118,9 +3167,9 @@
 /** @name 1 destination, 1 explicit source that is cl, an immediate, or a constant */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the
  * given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param ri The opnd_t explicit source operand for the instruction, which must
  * be one of the following:
@@ -3142,9 +3191,9 @@
 /** @name 1 implicit destination, 2 explicit sources */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param s1 The opnd_t first source operand for the instruction.
  * \param s2 The opnd_t second source operand for the instruction.
  */
@@ -3175,9 +3224,9 @@
 /** @name Floating-point with explicit destination and explicit mem-or-fp-reg source */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given operands, automatically supplying any further implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param f The opnd_t destination (and implicit source) operand for the
  * instruction, which must be a floating point register (opnd_create_reg()).
  * \param s The opnd_t source (and non-destination) operand for the
@@ -3196,10 +3245,10 @@
 /** @name Floating-point with explicit destination and implicit source */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with
+ * This INSTR_CREATE_xxx macro creates an #instr_t with
  * opcode OP_xxx and the given explicit register operand, automatically
  * supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param f The opnd_t explicit destination + source operand for the instruction, which
  * must be a floating point register (opnd_create_reg()).
  */
@@ -3219,9 +3268,9 @@
 /** @name Floating-point with implicit destination and explicit memory source */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit memory operand, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param m The opnd_t explicit source operand for the instruction, which must be
  * a memory reference (opnd_create_base_disp() or opnd_create_far_base_disp()).
  */
@@ -3252,20 +3301,20 @@
 /** @} */ /* end doxygen group */
 
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the
  * given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param r The opnd_t explicit source operand for the instruction, which
  * must be an xmm register (opnd_create_reg()).
  */
 #define INSTR_CREATE_extrq(dc, d, r) instr_create_1dst_1src((dc), OP_extrq, (d), (r))
 /**
- * This INSTR_CREATE_xxx_imm macro creates an instr_t with opcode OP_xxx and the
+ * This INSTR_CREATE_xxx_imm macro creates an #instr_t with opcode OP_xxx and the
  * given explicit operands, automatically supplying any implicit operands. The _imm
  * suffix distinguishes between alternative forms of the same opcode: this
  * form takes explicit immediates.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param i1 The opnd_t explicit first source operand for the instruction, which
  * must be an immediate integer (opnd_create_immed_int()).
@@ -3275,20 +3324,20 @@
 #define INSTR_CREATE_extrq_imm(dc, d, i1, i2) \
     instr_create_1dst_2src((dc), OP_extrq, (d), (i1), (i2))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the
  * given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param r The opnd_t explicit source operand for the instruction, which
  * must be an xmm register (opnd_create_reg()).
  */
 #define INSTR_CREATE_insertq(dc, d, r) instr_create_1dst_1src((dc), OP_insertq, (d), (r))
 /**
- * This INSTR_CREATE_xxx_imm macro creates an instr_t with opcode OP_xxx and the
+ * This INSTR_CREATE_xxx_imm macro creates an #instr_t with opcode OP_xxx and the
  * given explicit operands, automatically supplying any implicit operands. The _imm
  * suffix distinguishes between alternative forms of the same opcode: this
  * form takes explicit immediates.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param r The opnd_t explicit first source operand for the instruction, which
  * must be an xmm register (opnd_create_reg()).
@@ -3304,9 +3353,9 @@
 /** @name 1 destination, 2 implicit sources */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction, which can be
  * created with OPND_CREATE_MEM_xsave() to get the appropriate operand size.
  */
@@ -3340,9 +3389,9 @@
 /** @name 1 implicit destination, 2 sources: 1 explicit, 1 implicit */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param i The opnd_t explicit source operand for the instruction, which
  * must be an immediate integer (opnd_create_immed_int()).
  */
@@ -3356,11 +3405,11 @@
 /** @name Loop instructions */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param t The opnd_t target operand for the instruction, which can be either
- * a pc (opnd_create_pc()) or an instr_t (opnd_create_instr()).
+ * a pc (opnd_create_pc()) or an #instr_t (opnd_create_instr()).
  */
 #define INSTR_CREATE_loopne(dc, t)                                            \
     instr_create_1dst_2src((dc), OP_loopne, opnd_create_reg(DR_REG_XCX), (t), \
@@ -3377,9 +3426,9 @@
 /** @name 1 implicit destination, 2 implicit sources */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx, automatically
  * supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  */
 #define INSTR_CREATE_popf(dc)                                                    \
     instr_create_1dst_2src(                                                      \
@@ -3409,9 +3458,9 @@
 /** @name 1 destination, 3 non-immediate sources */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param s1 The opnd_t explicit first source operand for the instruction.
  * \param s2 The opnd_t explicit second source operand for the instruction
@@ -3437,11 +3486,11 @@
 /** @name 1 destination, 1 mask, and 2 non-immediate sources */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx_mask macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx_mask macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands. The first source
  * operand is the instruction's mask.
  *
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param k The opnd_t explicit mask source operand for the instruction.
  * \param s1 The opnd_t explicit first source operand for the instruction
@@ -3862,9 +3911,9 @@
 /** @name 1 destination, 3 sources including one immediate */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param s1 The opnd_t explicit first source operand for the instruction.
  * \param s2 The opnd_t explicit second source operand for the instruction
@@ -3929,9 +3978,9 @@
 /** @name 1 destination, 3 sources: 1 implicit */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the
  * given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param s The opnd_t explicit source operand for the instruction.
  * \param ri The opnd_t explicit source operand for the instruction, which must
@@ -3947,9 +3996,9 @@
 /** @name 1 destination, 3 sources: 1 implicit, 1 immed */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the
  * given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param s The opnd_t explicit source operand for the instruction.
  * \param i The opnd_t explicit second source operand for the instruction, which
@@ -3967,9 +4016,9 @@
 /** @name 1 explicit destination, 2 explicit sources, 1 implicit source */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the
  * given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param s The opnd_t explicit source operand for the instruction.
  * \param i The opnd_t explicit second source operand for the instruction, which
@@ -4008,9 +4057,9 @@
 /** @name 1 explicit destination, 2 explicit sources, dest is implicit source */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the
  * given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param s1 The opnd_t explicit first source operand for the instruction.
  * \param s2 The opnd_t explicit second source operand for the instruction.
@@ -4141,9 +4190,9 @@
 /** @name 1 explicit destination, 1 mask, 2 explicit sources, dest is implicit source */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the
  * given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param k The opnd_t explicit mask source operand for the instruction.
  * \param s1 The opnd_t explicit first source operand for the instruction.
@@ -4293,9 +4342,9 @@
 /** @name 1 explicit destination, 3 explicit sources */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the
  * given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param s1 The opnd_t explicit first source operand for the instruction.
  * \param s2 The opnd_t explicit second source operand for the instruction.
@@ -4388,9 +4437,9 @@
 /** @name 1 destination, 3 sources where the final is an immediate */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the
  * given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param s1 The opnd_t explicit first source operand for the instruction.
  * \param s2 The opnd_t explicit second source operand for the instruction.
@@ -4418,9 +4467,9 @@
 /** @name 1 explicit destination, 1 mask, 3 sources where the final is an immediate */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the
  * given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param k The opnd_t explicit mask source operand for the instruction.
  * \param i The opnd_t explicit third source operand for the instruction, which
@@ -4540,9 +4589,9 @@
 /** @name 1 destination, 3 sources where 2 are implicit */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the
  * given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
@@ -4563,9 +4612,9 @@
 /** @name 1 implicit destination, 3 sources */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the
  * given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param s1 The opnd_t explicit first source operand for the instruction.
  * \param s2 The opnd_t explicit second source operand for the instruction.
  * \param i The opnd_t explicit third source operand for the instruction, which
@@ -4589,11 +4638,11 @@
 /** @name 1 implicit destination, 3 sources: 2 implicit */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx_imm macro creates an instr_t with opcode OP_xxx and the
+ * This INSTR_CREATE_xxx_imm macro creates an #instr_t with opcode OP_xxx and the
  * given explicit operands, automatically supplying any implicit operands. The _imm
  * suffix distinguishes between alternative forms of the same opcode: these
  * forms take an explicit immediate.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param i The opnd_t explicit second source operand for the instruction, which
  * must be an immediate integer (opnd_create_immed_int()).
  */
@@ -4614,9 +4663,9 @@
 /** @name 1 implicit destination, 5 sources: 2 implicit */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the
  * given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param s1 The opnd_t explicit first source operand for the instruction.
  * \param s2 The opnd_t explicit second source operand for the instruction.
  * \param i The opnd_t explicit third source operand for the instruction, which
@@ -4645,9 +4694,9 @@
 /** @name 2 implicit destinations, no sources */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx, automatically
  * supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  */
 #define INSTR_CREATE_rdtsc(dc)                                          \
     instr_create_2dst_0src((dc), OP_rdtsc, opnd_create_reg(DR_REG_EDX), \
@@ -4663,9 +4712,9 @@
 /** @name 2 destinations: 1 implicit, 1 source */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param s The opnd_t explicit source operand for the instruction.
  */
@@ -4685,9 +4734,9 @@
 /** @name 2 implicit destinations, 1 implicit source */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx, automatically
  * supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  */
 #define INSTR_CREATE_pushf(dc)                                                     \
     instr_create_2dst_1src((dc), OP_pushf, opnd_create_reg(DR_REG_XSP),            \
@@ -4710,9 +4759,9 @@
 
 /* 2 destinations: 1 implicit, 2 sources */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  */
 #define INSTR_CREATE_pop(dc, d)                                                      \
@@ -4722,9 +4771,9 @@
 /** @name 2 implicit destinations, 3 sources: 1 implicit */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx, automatically
  * supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param s1 The opnd_t first source operand for the instruction.
  * \param s2 The opnd_t second source operand for the instruction.
@@ -4750,9 +4799,9 @@
 /** @name 2 implicit destinations, 1 mask, andd 3 sources: The mask is implicit */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx, automatically
  * supplying the mask as an implicit operand.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param k The opnd_t first source operand for the instruction.
  * \param s The opnd_t second source operand for the instruction.
@@ -4802,9 +4851,9 @@
 /** @name 2 destinations: 1 implicit, 2 sources: 1 implicit */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param s The opnd_t explicit source operand for the instruction.
  */
@@ -4818,11 +4867,11 @@
 /** @name String instructions */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx_1 or INSTR_CREATE_xxx_4 macro creates an instr_t with opcode
+ * This INSTR_CREATE_xxx_1 or INSTR_CREATE_xxx_4 macro creates an #instr_t with opcode
  * OP_xxx, automatically supplying any implicit operands.  The _1 or _4 suffixes
  * distinguish between alternative forms of the same opcode (1 and 4 identify the
  * operand size).
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  */
 #define INSTR_CREATE_ins_1(dc)                                                       \
     instr_create_2dst_2src(                                                          \
@@ -4881,10 +4930,18 @@
 #define INSTR_CREATE_movs_4(dc)                                                          \
     instr_create_3dst_3src((dc), OP_movs,                                                \
                            opnd_create_far_base_disp(DR_SEG_ES, DR_REG_XDI, DR_REG_NULL, \
-                                                     0, 0, OPSZ_4_rex8_short2),          \
+                                                     0, 0, OPSZ_4_short2),               \
                            opnd_create_reg(DR_REG_XSI), opnd_create_reg(DR_REG_XDI),     \
                            opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XSI, DR_REG_NULL, \
-                                                     0, 0, OPSZ_4_rex8_short2),          \
+                                                     0, 0, OPSZ_4_short2),               \
+                           opnd_create_reg(DR_REG_XSI), opnd_create_reg(DR_REG_XDI))
+#define INSTR_CREATE_movs_8(dc)                                                          \
+    instr_create_3dst_3src((dc), OP_movs,                                                \
+                           opnd_create_far_base_disp(DR_SEG_ES, DR_REG_XDI, DR_REG_NULL, \
+                                                     0, 0, OPSZ_8_short2),               \
+                           opnd_create_reg(DR_REG_XSI), opnd_create_reg(DR_REG_XDI),     \
+                           opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XSI, DR_REG_NULL, \
+                                                     0, 0, OPSZ_8_short2),               \
                            opnd_create_reg(DR_REG_XSI), opnd_create_reg(DR_REG_XDI))
 #define INSTR_CREATE_rep_ins_1(dc)                                                       \
     INSTR_PRED(                                                                          \
@@ -4917,9 +4974,18 @@
     INSTR_PRED(instr_create_3dst_3src(                                                 \
                    (dc), OP_rep_stos,                                                  \
                    opnd_create_far_base_disp(DR_SEG_ES, DR_REG_XDI, DR_REG_NULL, 0, 0, \
-                                             OPSZ_4_rex8_short2),                      \
+                                             OPSZ_4_short2),                           \
                    opnd_create_reg(DR_REG_XDI), opnd_create_reg(DR_REG_XCX),           \
                    opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_XDI),           \
+                   opnd_create_reg(DR_REG_XCX)),                                       \
+               DR_PRED_COMPLEX)
+#define INSTR_CREATE_rep_stos_8(dc)                                                    \
+    INSTR_PRED(instr_create_3dst_3src(                                                 \
+                   (dc), OP_rep_stos,                                                  \
+                   opnd_create_far_base_disp(DR_SEG_ES, DR_REG_XDI, DR_REG_NULL, 0, 0, \
+                                             OPSZ_8_short2),                           \
+                   opnd_create_reg(DR_REG_XDI), opnd_create_reg(DR_REG_XCX),           \
+                   opnd_create_reg(DR_REG_RAX), opnd_create_reg(DR_REG_XDI),           \
                    opnd_create_reg(DR_REG_XCX)),                                       \
                DR_PRED_COMPLEX)
 #define INSTR_CREATE_rep_lods_1(dc)                                                      \
@@ -4935,7 +5001,15 @@
                    (dc), OP_rep_lods, opnd_create_reg(DR_REG_EAX),                     \
                    opnd_create_reg(DR_REG_XSI), opnd_create_reg(DR_REG_XCX),           \
                    opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XSI, DR_REG_NULL, 0, 0, \
-                                             OPSZ_4_rex8_short2),                      \
+                                             OPSZ_4_short2),                           \
+                   opnd_create_reg(DR_REG_XSI), opnd_create_reg(DR_REG_XCX)),          \
+               DR_PRED_COMPLEX)
+#define INSTR_CREATE_rep_lods_8(dc)                                                    \
+    INSTR_PRED(instr_create_3dst_3src(                                                 \
+                   (dc), OP_rep_lods, opnd_create_reg(DR_REG_RAX),                     \
+                   opnd_create_reg(DR_REG_XSI), opnd_create_reg(DR_REG_XCX),           \
+                   opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XSI, DR_REG_NULL, 0, 0, \
+                                             OPSZ_8_short2),                           \
                    opnd_create_reg(DR_REG_XSI), opnd_create_reg(DR_REG_XCX)),          \
                DR_PRED_COMPLEX)
 #define INSTR_CREATE_rep_movs_1(dc)                                                      \
@@ -4953,11 +5027,23 @@
     INSTR_PRED(instr_create_4dst_4src(                                                 \
                    (dc), OP_rep_movs,                                                  \
                    opnd_create_far_base_disp(DR_SEG_ES, DR_REG_XDI, DR_REG_NULL, 0, 0, \
-                                             OPSZ_4_rex8_short2),                      \
+                                             OPSZ_4_short2),                           \
                    opnd_create_reg(DR_REG_XSI), opnd_create_reg(DR_REG_XDI),           \
                    opnd_create_reg(DR_REG_XCX),                                        \
                    opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XSI, DR_REG_NULL, 0, 0, \
-                                             OPSZ_4_rex8_short2),                      \
+                                             OPSZ_4_short2),                           \
+                   opnd_create_reg(DR_REG_XSI), opnd_create_reg(DR_REG_XDI),           \
+                   opnd_create_reg(DR_REG_XCX)),                                       \
+               DR_PRED_COMPLEX)
+#define INSTR_CREATE_rep_movs_8(dc)                                                    \
+    INSTR_PRED(instr_create_4dst_4src(                                                 \
+                   (dc), OP_rep_movs,                                                  \
+                   opnd_create_far_base_disp(DR_SEG_ES, DR_REG_XDI, DR_REG_NULL, 0, 0, \
+                                             OPSZ_8_short2),                           \
+                   opnd_create_reg(DR_REG_XSI), opnd_create_reg(DR_REG_XDI),           \
+                   opnd_create_reg(DR_REG_XCX),                                        \
+                   opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XSI, DR_REG_NULL, 0, 0, \
+                                             OPSZ_8_short2),                           \
                    opnd_create_reg(DR_REG_XSI), opnd_create_reg(DR_REG_XDI),           \
                    opnd_create_reg(DR_REG_XCX)),                                       \
                DR_PRED_COMPLEX)
@@ -4981,9 +5067,17 @@
     instr_create_2dst_4src((dc), OP_cmps, opnd_create_reg(DR_REG_XSI),                   \
                            opnd_create_reg(DR_REG_XDI),                                  \
                            opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XSI, DR_REG_NULL, \
-                                                     0, 0, OPSZ_4_rex8_short2),          \
+                                                     0, 0, OPSZ_4_short2),               \
                            opnd_create_far_base_disp(DR_SEG_ES, DR_REG_XDI, DR_REG_NULL, \
-                                                     0, 0, OPSZ_4_rex8_short2),          \
+                                                     0, 0, OPSZ_4_short2),               \
+                           opnd_create_reg(DR_REG_XSI), opnd_create_reg(DR_REG_XDI))
+#define INSTR_CREATE_cmps_8(dc)                                                          \
+    instr_create_2dst_4src((dc), OP_cmps, opnd_create_reg(DR_REG_XSI),                   \
+                           opnd_create_reg(DR_REG_XDI),                                  \
+                           opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XSI, DR_REG_NULL, \
+                                                     0, 0, OPSZ_8_short2),               \
+                           opnd_create_far_base_disp(DR_SEG_ES, DR_REG_XDI, DR_REG_NULL, \
+                                                     0, 0, OPSZ_8_short2),               \
                            opnd_create_reg(DR_REG_XSI), opnd_create_reg(DR_REG_XDI))
 #define INSTR_CREATE_scas_1(dc)                                                      \
     instr_create_1dst_3src(                                                          \
@@ -4993,8 +5087,13 @@
 #define INSTR_CREATE_scas_4(dc)                                                          \
     instr_create_1dst_3src((dc), OP_scas, opnd_create_reg(DR_REG_XDI),                   \
                            opnd_create_far_base_disp(DR_SEG_ES, DR_REG_XDI, DR_REG_NULL, \
-                                                     0, 0, OPSZ_4_rex8_short2),          \
+                                                     0, 0, OPSZ_4_short2),               \
                            opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_XDI))
+#define INSTR_CREATE_scas_8(dc)                                                          \
+    instr_create_1dst_3src((dc), OP_scas, opnd_create_reg(DR_REG_XDI),                   \
+                           opnd_create_far_base_disp(DR_SEG_ES, DR_REG_XDI, DR_REG_NULL, \
+                                                     0, 0, OPSZ_8_short2),               \
+                           opnd_create_reg(DR_REG_RAX), opnd_create_reg(DR_REG_XDI))
 #define INSTR_CREATE_rep_outs_1(dc)                                                      \
     INSTR_PRED(                                                                          \
         instr_create_2dst_4src(                                                          \
@@ -5027,9 +5126,20 @@
                    (dc), OP_rep_cmps, opnd_create_reg(DR_REG_XSI),                     \
                    opnd_create_reg(DR_REG_XDI), opnd_create_reg(DR_REG_XCX),           \
                    opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XSI, DR_REG_NULL, 0, 0, \
-                                             OPSZ_4_rex8_short2),                      \
+                                             OPSZ_4_short2),                           \
                    opnd_create_far_base_disp(DR_SEG_ES, DR_REG_XDI, DR_REG_NULL, 0, 0, \
-                                             OPSZ_4_rex8_short2),                      \
+                                             OPSZ_4_short2),                           \
+                   opnd_create_reg(DR_REG_XSI), opnd_create_reg(DR_REG_XDI),           \
+                   opnd_create_reg(DR_REG_XCX)),                                       \
+               DR_PRED_COMPLEX)
+#define INSTR_CREATE_rep_cmps_8(dc)                                                    \
+    INSTR_PRED(instr_create_3dst_5src(                                                 \
+                   (dc), OP_rep_cmps, opnd_create_reg(DR_REG_XSI),                     \
+                   opnd_create_reg(DR_REG_XDI), opnd_create_reg(DR_REG_XCX),           \
+                   opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XSI, DR_REG_NULL, 0, 0, \
+                                             OPSZ_8_short2),                           \
+                   opnd_create_far_base_disp(DR_SEG_ES, DR_REG_XDI, DR_REG_NULL, 0, 0, \
+                                             OPSZ_8_short2),                           \
                    opnd_create_reg(DR_REG_XSI), opnd_create_reg(DR_REG_XDI),           \
                    opnd_create_reg(DR_REG_XCX)),                                       \
                DR_PRED_COMPLEX)
@@ -5048,9 +5158,20 @@
                    (dc), OP_repne_cmps, opnd_create_reg(DR_REG_XSI),                   \
                    opnd_create_reg(DR_REG_XDI), opnd_create_reg(DR_REG_XCX),           \
                    opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XSI, DR_REG_NULL, 0, 0, \
-                                             OPSZ_4_rex8_short2),                      \
+                                             OPSZ_4_short2),                           \
                    opnd_create_far_base_disp(DR_SEG_ES, DR_REG_XDI, DR_REG_NULL, 0, 0, \
-                                             OPSZ_4_rex8_short2),                      \
+                                             OPSZ_4_short2),                           \
+                   opnd_create_reg(DR_REG_XSI), opnd_create_reg(DR_REG_XDI),           \
+                   opnd_create_reg(DR_REG_XCX)),                                       \
+               DR_PRED_COMPLEX)
+#define INSTR_CREATE_repne_cmps_8(dc)                                                  \
+    INSTR_PRED(instr_create_3dst_5src(                                                 \
+                   (dc), OP_repne_cmps, opnd_create_reg(DR_REG_XSI),                   \
+                   opnd_create_reg(DR_REG_XDI), opnd_create_reg(DR_REG_XCX),           \
+                   opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XSI, DR_REG_NULL, 0, 0, \
+                                             OPSZ_8_short2),                           \
+                   opnd_create_far_base_disp(DR_SEG_ES, DR_REG_XDI, DR_REG_NULL, 0, 0, \
+                                             OPSZ_8_short2),                           \
                    opnd_create_reg(DR_REG_XSI), opnd_create_reg(DR_REG_XDI),           \
                    opnd_create_reg(DR_REG_XCX)),                                       \
                DR_PRED_COMPLEX)
@@ -5067,8 +5188,17 @@
                    (dc), OP_rep_scas, opnd_create_reg(DR_REG_XDI),                     \
                    opnd_create_reg(DR_REG_XCX),                                        \
                    opnd_create_far_base_disp(DR_SEG_ES, DR_REG_XDI, DR_REG_NULL, 0, 0, \
-                                             OPSZ_4_rex8_short2),                      \
+                                             OPSZ_4_short2),                           \
                    opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_XDI),           \
+                   opnd_create_reg(DR_REG_XCX)),                                       \
+               DR_PRED_COMPLEX)
+#define INSTR_CREATE_rep_scas_8(dc)                                                    \
+    INSTR_PRED(instr_create_2dst_4src(                                                 \
+                   (dc), OP_rep_scas, opnd_create_reg(DR_REG_XDI),                     \
+                   opnd_create_reg(DR_REG_XCX),                                        \
+                   opnd_create_far_base_disp(DR_SEG_ES, DR_REG_XDI, DR_REG_NULL, 0, 0, \
+                                             OPSZ_8_short2),                           \
+                   opnd_create_reg(DR_REG_RAX), opnd_create_reg(DR_REG_XDI),           \
                    opnd_create_reg(DR_REG_XCX)),                                       \
                DR_PRED_COMPLEX)
 #define INSTR_CREATE_repne_scas_1(dc)                                                    \
@@ -5085,17 +5215,26 @@
                    (dc), OP_repne_scas, opnd_create_reg(DR_REG_XDI),                   \
                    opnd_create_reg(DR_REG_XCX),                                        \
                    opnd_create_far_base_disp(DR_SEG_ES, DR_REG_XDI, DR_REG_NULL, 0, 0, \
-                                             OPSZ_4_rex8_short2),                      \
+                                             OPSZ_4_short2),                           \
                    opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_XDI),           \
+                   opnd_create_reg(DR_REG_XCX)),                                       \
+               DR_PRED_COMPLEX)
+#define INSTR_CREATE_repne_scas_8(dc)                                                  \
+    INSTR_PRED(instr_create_2dst_4src(                                                 \
+                   (dc), OP_repne_scas, opnd_create_reg(DR_REG_XDI),                   \
+                   opnd_create_reg(DR_REG_XCX),                                        \
+                   opnd_create_far_base_disp(DR_SEG_ES, DR_REG_XDI, DR_REG_NULL, 0, 0, \
+                                             OPSZ_8_short2),                           \
+                   opnd_create_reg(DR_REG_RAX), opnd_create_reg(DR_REG_XDI),           \
                    opnd_create_reg(DR_REG_XCX)),                                       \
                DR_PRED_COMPLEX)
 /** @} */ /* end doxygen group */
 
 /* floating point */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit register operand, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param f The opnd_t explicit source operand for the instruction, which must
  * be a floating point register (opnd_create_reg()).
  */
@@ -5105,11 +5244,11 @@
 
 /* 2 destinations, 2 sources: 1 implicit */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param t The opnd_t target operand for the instruction, which can be either
- * a pc (opnd_create_pc()) or an instr_t (opnd_create_instr()).
+ * a pc (opnd_create_pc()) or an #instr_t (opnd_create_instr()).
  */
 #define INSTR_CREATE_call(dc, t)                                                   \
     instr_create_2dst_2src((dc), OP_call, opnd_create_reg(DR_REG_XSP),             \
@@ -5117,9 +5256,9 @@
                                                  IF_X64_ELSE(-8, -4), OPSZ_STACK), \
                            (t), opnd_create_reg(DR_REG_XSP))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param t The opnd_t target operand for the instruction, which should be
  * a memory reference created with opnd_create_base_disp().
  */
@@ -5129,9 +5268,9 @@
                                                  IF_X64_ELSE(-8, -4), OPSZ_STACK), \
                            (t), opnd_create_reg(DR_REG_XSP))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param t The opnd_t target operand for the instruction, which should be
  * a far pc operand created with opnd_create_far_pc().
  */
@@ -5142,9 +5281,9 @@
         opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, -8, OPSZ_8), (t), \
         opnd_create_reg(DR_REG_XSP))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param t The opnd_t target operand for the instruction, which should be
  * a far memory reference created with opnd_create_far_base_disp().
  */
@@ -5155,9 +5294,9 @@
         opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, -8, OPSZ_8), (t), \
         opnd_create_reg(DR_REG_XSP))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param s The opnd_t explicit source operand for the instruction.
  */
 #define INSTR_CREATE_push(dc, s)                                                      \
@@ -5166,9 +5305,9 @@
                                                  IF_X64_ELSE(-8, -4), OPSZ_VARSTACK), \
                            (s), opnd_create_reg(DR_REG_XSP))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the
  * given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param i The opnd_t explicit second source operand for the instruction, which
  * must be an immediate integer (opnd_create_immed_int()).
  */
@@ -5178,9 +5317,9 @@
                                                  IF_X64_ELSE(-8, -4), OPSZ_VARSTACK), \
                            (i), opnd_create_reg(DR_REG_XSP))
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the
  * given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d1 The opnd_t explicit first destination source operand for the
  * instruction, which must be a general-purpose register.
  * \param d2 The opnd_t explicit first destination source operand for the
@@ -5197,10 +5336,10 @@
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx_1, INSTR_CREATE_xxx_4, or INSTR_CREATE_xxx_8 macro creates an
- * instr_t with opcode OP_xxx and the given explicit operands, automatically
+ * #instr_t with opcode OP_xxx and the given explicit operands, automatically
  * supplying any implicit operands.    The _1, _4, or _8 suffixes distinguish between
  * alternative forms of the same opcode with the given operand size.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param s The opnd_t explicit source operand for the instruction.
  */
@@ -5217,9 +5356,9 @@
 
 /* 2 implicit destinations, 3 implicit sources */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx, automatically
  * supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  */
 #define INSTR_CREATE_leave(dc)                                                    \
     instr_create_2dst_3src(                                                       \
@@ -5230,9 +5369,9 @@
 /** @name No destination, many implicit sources */
 /** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx, automatically
  * supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  */
 /* 2 implicit destinations, 8 implicit sources */
 #define INSTR_CREATE_pusha(dc) instr_create_pusha((dc))
@@ -5272,9 +5411,9 @@
 
 /* 3 implicit destinations, 3 implicit sources */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx, automatically
  * supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  */
 #define INSTR_CREATE_getsec(dc)                                               \
     INSTR_PRED(instr_create_3dst_2src(                                        \
@@ -5285,9 +5424,9 @@
 
 /* 3 destinations: 2 implicit, 5 implicit sources */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  */
 #define INSTR_CREATE_cmpxchg8b(dc, d)                                                \
@@ -5298,9 +5437,9 @@
 
 /* 3 implicit destinations, 4 sources: 2 implicit */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param i16 The opnd_t explicit second source operand for the instruction, which
  * must be an immediate integer (opnd_create_immed_int()) of OPSZ_2.
  * \param i8 The opnd_t explicit second source operand for the instruction, which
@@ -5316,9 +5455,9 @@
 
 /* 8 implicit destinations, 2 implicit sources */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx, automatically
  * supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  */
 #define INSTR_CREATE_popa(dc) instr_create_popa((dc))
 
@@ -5333,7 +5472,7 @@
  * Note that Intel now recommends a different set of multi-byte nops,
  * but we stick with these as our tools (mainly windbg) don't understand
  * the OP_nop_modrm encoding (though should work on PPro+).
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  */
 #define INSTR_CREATE_nop1byte(dc) INSTR_CREATE_nop(dc)
 #define INSTR_CREATE_nop2byte(dc) INSTR_CREATE_nop2byte_reg(dc, DR_REG_XDI)
@@ -5347,7 +5486,7 @@
  * but we stick with these as our tools (mainly windbg) don't understand
  * the OP_nop_modrm encoding (though should work on PPro+).
  * AMD recommends 0x66 0x66 ... 0x90 for older processors.
- * \param drcontext The void * dcontext used to allocate memory for the instr_t.
+ * \param drcontext The void * dcontext used to allocate memory for the #instr_t.
  * \param reg A reg_id_t (NOT opnd_t) to use as source and destination.
  * For 64-bit mode, use a 64-bit register, but NOT rbp or rsp for the 3-byte form.
  */

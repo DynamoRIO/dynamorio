@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _DR_IR_OPCODES_ARM_H_
-#define _DR_IR_OPCODES_ARM_H_ 1
+#define _DR_IR_OPCODES_ARM_H_
 
 /****************************************************************************
  * OPCODES
@@ -53,7 +53,7 @@
  *   5) instr_create macros
  *   6) suite/tests/api/ir* tests
  */
-/** Opcode constants for use in the instr_t data structure. */
+/** Opcode constants for use in the #instr_t data structure. */
 enum {
     /*   0 */ OP_INVALID,
     /* NULL, */ /**< INVALID opcode */

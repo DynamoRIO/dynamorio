@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /* lz4_file_reader: reads compressed files containing memory traces. */
 
 #ifndef _LZ4_FILE_READER_H_
-#define _LZ4_FILE_READER_H_ 1
+#define _LZ4_FILE_READER_H_
 
 #include "common/lz4_istream.h"
 #include "file_reader.h"

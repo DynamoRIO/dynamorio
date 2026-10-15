@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2026-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -53,7 +54,7 @@ typedef struct _IO_COUNTERS {
 } IO_COUNTERS;
 typedef IO_COUNTERS *PIO_COUNTERS;
 
-/* FIXME: this is really screwed up: they have added a field in the
+/* XXX: this is really screwed up: they have added a field in the
  * object and
  * LastErrorValue: (Win32) 0x18 (24) - The program issued a command but the command length
  * is incorrect.
@@ -121,10 +122,10 @@ StartRestrictedProcess(LPTSTR app_name, LPTSTR app_cmdline, SIZE_T pagefile_limi
     // Second, set some UI restrictions
     jobuir.UIRestrictionsClass = JOB_OBJECT_UILIMIT_NONE; // A fancy 0
 
-    // The process can’t logoff the system
+    // The process can't logoff the system
     jobuir.UIRestrictionsClass |= JOB_OBJECT_UILIMIT_EXITWINDOWS;
 
-    // The process can’t access USER object (like other windows) in the system
+    // The process can't access USER object (like other windows) in the system
     jobuir.UIRestrictionsClass |= JOB_OBJECT_UILIMIT_HANDLES;
 
     ok = SetInformationJobObject(hjob, JobObjectBasicUIRestrictions, &jobuir,
@@ -140,7 +141,7 @@ StartRestrictedProcess(LPTSTR app_name, LPTSTR app_cmdline, SIZE_T pagefile_limi
     jobext.BasicLimitInformation.LimitFlags =
         0x00000100 /* JOB_OBJECT_LIMIT_PROCESS_MEMORY */;
 
-    ok = SetInformationJobObject(hjob, 9 /* FIXME: JobObjectExtendedLimitInformation */,
+    ok = SetInformationJobObject(hjob, 9 /* XXX: JobObjectExtendedLimitInformation */,
                                  &jobext, sizeof(jobext));
     if (!ok) {
         fprintf(FP, "GLE %d", GetLastError());
@@ -158,11 +159,11 @@ StartRestrictedProcess(LPTSTR app_name, LPTSTR app_cmdline, SIZE_T pagefile_limi
     //        automatically associated with the same job
     AssignProcessToJobObject(hjob, pi.hProcess);
 
-    // Now, we can allow the child process’s thread to execute code.
+    // Now, we can allow the child process's thread to execute code.
     ResumeThread(pi.hThread);
     CloseHandle(pi.hThread);
 
-    // Wait for the process to terminate or for all the job’s allotted CPU time to be used
+    // Wait for the process to terminate or for all the job's allotted CPU time to be used
     {
         DWORD dw;
         HANDLE h[2];
@@ -184,7 +185,7 @@ StartRestrictedProcess(LPTSTR app_name, LPTSTR app_cmdline, SIZE_T pagefile_limi
     CloseHandle(hjob);
 }
 
-// FIXME: note that we can use a Job limit to precisely alot the CPU time
+// XXX: note that we can use a Job limit to precisely alot the CPU time
 int
 usage(char *us)
 {
@@ -193,7 +194,8 @@ usage(char *us)
     return 0;
 }
 
-int __cdecl main(int argc, char *argv[], char *envp[])
+int __cdecl
+main(int argc, char *argv[], char *envp[])
 {
     LPTSTR app_name = NULL;
     TCHAR full_app_name[2 * MAX_PATH];
@@ -218,15 +220,15 @@ int __cdecl main(int argc, char *argv[], char *envp[])
         }
     }
 
-    /* FIXME: watch out for the usual /Program BUG */
+    /* XXX: watch out for the usual /Program BUG */
     _snwprintf(full_app_name, BUFFER_SIZE_ELEMENTS(full_app_name), L"%hs",
                argv[arg_offs]);
 
-    /* FIXME: only one argument taken */
+    /* XXX: only one argument taken */
     _snwprintf(app_cmdline, BUFFER_SIZE_ELEMENTS(app_cmdline), L"%hs %hs", argv[arg_offs],
                argv[arg_offs + 1]);
 
-    StartRestrictedProcess(NULL /* FIXME: full_app_name */, app_cmdline, pagelimit);
+    StartRestrictedProcess(NULL /* XXX: full_app_name */, app_cmdline, pagelimit);
     fprintf(FP, "done\n");
     fflush(FP);
     return 0;

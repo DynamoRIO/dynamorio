@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,7 +40,7 @@
 /* one should use a CALL and the other should use a JMP
  *   just to be sure
  *
- *  FIXME: need to get this test also to be done like initapc.dll.c so that
+ *  XXX: need to get this test also to be done like initapc.dll.c so that
  *  this all happens BEFORE we take control
  **/
 
@@ -171,7 +171,7 @@ do_hook(const char *hook_dll, const char *hookfn, int args, int use_call)
             print("there be witches! what happened to my write?\n");
         else
             print("hooked %s\n", hookfn);
-        /* FIXME: try it out and see what happens */
+        /* XXX: try it out and see what happens */
 
         /* restore */
         *(DWORD *)hooktarget = old_code1;
@@ -206,9 +206,9 @@ main()
 
     print("ready to hook\n");
 
-    /* FIXME: not intended to be called */
+    /* XXX: not intended to be called */
     do_hook("kernel32.dll", "GetProcessHeaps", 4, 1);
-    /* FIXME case 10012: re-enable once we can handle it being on
+    /* XXX case 10012: re-enable once we can handle it being on
      * same page as _SEH_prolog on xpsp2 machines.
      * Don't forget to update the proc name in .template as well.
      */
@@ -227,7 +227,7 @@ main()
     /* we have 4 writes to module memory
      * on each of 4 calls to do_hook
      * should get app_modify_pretend_writes = 24
-     * FIXME: how to scrape a log for this?
+     * XXX: how to scrape a log for this?
      */
     print("hooking done with\n");
 }

@@ -145,7 +145,7 @@ echo "@@@@@@@@ IEXPLORE DEBUG @@@@@@@@"
 # if IIS is running this is easiest way to get javascript to run:
 #meminjector C:\\Program\ Files\\Internet\ Explorer\\IEXPLORE.EXE http://localhost/close.html
 # on XP though we point to local share (hard to get file: to relax security)
-# FIXME: w/ sshrsa user as "limited" type I can run calc over ssh, but not IE,
+# XXX: w/ sshrsa user as "limited" type I can run calc over ssh, but not IE,
 # so I made sshrsa a sysadmin, which works.  not sure what the problem is -- can
 # see share either way.
 export DYNAMORIO_OPTIONS='-loglevel 1'

@@ -190,7 +190,7 @@ caching_device_t::request(const memref_t &memref_in)
             &get_caching_device_block(last_block_idx_, last_way_);
         assert(tag != TAG_INVALID && tag == cache_block->tag_);
         record_access_stats(memref_in, true /*hit*/, cache_block);
-        access_update(last_block_idx_, last_way_);
+        access_update(last_block_idx_, last_way_, HIT);
         return;
     }
 
@@ -228,6 +228,8 @@ caching_device_t::request(const memref_t &memref_in)
                 // We don't need to tell the snoop filter about this eviction since
                 // we know the child cache contains the evicted line.
                 invalidate(tag, INVALIDATION_EXCLUSIVE);
+                // Mark the tag as previously stored in this cache.
+                prev_serviced_exclusive_tags_.insert(tag);
                 // Done with this line.
                 continue;
             }
@@ -258,7 +260,7 @@ caching_device_t::request(const memref_t &memref_in)
             insert_tag(tag, (memref.data.type == TRACE_TYPE_WRITE), way, block_idx);
         }
 
-        access_update(block_idx, way);
+        access_update(block_idx, way, missed ? MISS : HIT);
 
         // Issue a hardware prefetch, if any, before we remember the last tag,
         // so we remember this line and not the prefetched line.
@@ -279,9 +281,10 @@ caching_device_t::request(const memref_t &memref_in)
 }
 
 void
-caching_device_t::access_update(int block_idx, int way)
+caching_device_t::access_update(int block_idx, int way,
+                                cache_access_outcome_t access_type)
 {
-    replacement_policy_->access_update(compute_set_index(block_idx), way);
+    replacement_policy_->access_update(compute_set_index(block_idx), way, access_type);
 }
 
 int
@@ -323,6 +326,17 @@ caching_device_t::invalidate(addr_t tag, invalidation_type_t invalidation_type)
                 child->invalidate(tag, invalidation_type);
             }
         }
+    }
+    if (is_exclusive() && invalidation_type != INVALIDATION_EXCLUSIVE) {
+        // Exclusive cache stores list of previously serviced tags in
+        // prev_serviced_exclusive_tags_.
+        // If the tag is invalidated due to coherence,
+        //    invalidation_type != INVALIDATION_EXCLUSIVE
+        // remove this tag from prev_serviced_exclusive_tags_.
+        // Moving the tag to a child cache also causes invalidation event with
+        //    invalidation_type == INVALIDATION_EXCLUSIVE
+        // In this case we must retain the tag in prev_serviced_exclusive_tags_.
+        prev_serviced_exclusive_tags_.erase(tag);
     }
     // If this is a coherence invalidation, we must invalidate children caches.
     if (invalidation_type == INVALIDATION_COHERENCE && !children_.empty()) {
@@ -408,7 +422,16 @@ caching_device_t::propagate_eviction(addr_t tag, const caching_device_t *request
         insert_tag(tag, /*is_write=*/false, way, block_idx);
         // Notify the cache policy as if this were a new access to the newly
         // inserted line.
-        access_update(block_idx, way);
+        // TODO i#7590: Handle cache_inclusion_policy_t::NON_INC_NON_EXC inclusion policy.
+        if (prev_serviced_exclusive_tags_.erase(tag)) {
+            // The cache block previously serviced in this cache.
+            // Consider eviction as cache HIT
+            access_update(block_idx, way, HIT);
+        } else {
+            // The cache block was passed from parent to child,
+            // not serviced in this cache. Consider eviction as cache MISS
+            access_update(block_idx, way, MISS);
+        }
         return;
     }
 

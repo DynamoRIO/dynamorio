@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /* ir2trace: convert DynamoRIO's IR format to trace entries. */
 
 #ifndef _IR2TRACE_H_
-#define _IR2TRACE_H_ 1
+#define _IR2TRACE_H_
 
 /**
  * @file ir2trace.h

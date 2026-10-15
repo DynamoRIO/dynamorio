@@ -50,7 +50,7 @@
 #include "table_defines.h"
 
 /* XXX i#97: add IIS syscalls.
- * FIXME i#98: fill in data on still-unknown recently-added Windows syscalls.
+ * XXX i#98: fill in data on still-unknown recently-added Windows syscalls.
  * XXX i#99: my windows syscall data is missing 3 types of information:
  *   - some structs have variable-length data on the end
  *     e.g., PORT_MESSAGE which I do handle today w/ hardcoded support
@@ -2673,7 +2673,7 @@ syscall_info_t syscall_ntdll_info[] = {
       {
           { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },
 #if 1
-          /* FIXME PR 406356: suppressing undefined read I see on every app at process
+          /* XXX PR 406356: suppressing undefined read I see on every app at process
            * termination on w2k3 vm (though not on wow64 laptop) where the last 16
            * bytes are not filled in (so only length and type are).  Length indicates
            * there is data afterward which we try to handle specially.
@@ -3395,7 +3395,7 @@ syscall_info_t syscall_ntdll_info[] = {
           { 0, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
           { 1, sizeof(PVOID), SYSARG_INLINED, DRSYS_TYPE_UNKNOWN },
           { 2, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
-          /* FIXME: de-ref w/o corresponding R to check definedness: but not enough
+          /* XXX: de-ref w/o corresponding R to check definedness: but not enough
            * info to understand exactly what's going on here
            */
           { 3, -4, WI | HT, DRSYS_TYPE_VOID },
@@ -3550,7 +3550,7 @@ syscall_info_t syscall_ntdll_info[] = {
           { 1, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
       } },
 
-    /* FIXME i#1089: fill in info on all the inlined args for the
+    /* XXX i#1089: fill in info on all the inlined args for the
      * syscalls below here.
      */
 
@@ -3910,7 +3910,7 @@ syscall_info_t syscall_ntdll_info[] = {
           { 1, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
           { 2, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },
       } },
-    /* FIXME i#98:
+    /* XXX i#98:
      * + #2 should be {2, sizeof(PORT_MESSAGE), R|CT, SYSARG_TYPE_PORT_MESSAGE}
      * + #4 should be {4, -5, R|WI|HT, SYSARG_TYPE_PORT_MESSAGE}
      * The issue is w/ synchronous calls where the same PORT_MESSAGE buffer is used
@@ -4944,7 +4944,7 @@ syscall_info_t syscall_ntdll_info[] = {
 
     /***************************************************/
     /* Added in Windows 8 */
-    /* FIXME i#1153: fill in details */
+    /* XXX i#1153: fill in details */
     {
         { WIN8, 0 },
         "NtAddAtomEx",
@@ -5146,7 +5146,7 @@ syscall_info_t syscall_ntdll_info[] = {
       {
           { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },
           { 1, sizeof(PVOID), SYSARG_INLINED, DRSYS_TYPE_UNKNOWN },
-          /* FIXME i#1153: what is the 3rd arg?  Observed to be 0. */
+          /* XXX i#1153: what is the 3rd arg?  Observed to be 0. */
       } },
     {
         { WIN8, 0 },
@@ -5193,7 +5193,7 @@ syscall_info_t syscall_ntdll_info[] = {
           { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },
           { 1, sizeof(ULONGLONG), R | W | HT, DRSYS_TYPE_POINTER },
           { 2, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
-          /* FIXME i#1153: what is 4th arg?  Top of ZeroBits?*/
+          /* XXX i#1153: what is 4th arg?  Top of ZeroBits?*/
           { 4, sizeof(ULONGLONG), R | W | HT, DRSYS_TYPE_UNSIGNED_INT },
           { 5, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
           { 6, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
@@ -5201,7 +5201,7 @@ syscall_info_t syscall_ntdll_info[] = {
 
     /***************************************************/
     /* Added in Windows 8.1 */
-    /* FIXME i#1360: fill in details */
+    /* XXX i#1360: fill in details */
     { { WIN81, 0 },
       "NtCancelTimer2",
       OK,
@@ -5247,7 +5247,7 @@ syscall_info_t syscall_ntdll_info[] = {
 
     /***************************************************/
     /* Added in Windows 10 */
-    /* FIXME i#1750: fill in details */
+    /* XXX i#1750: fill in details */
     {
         { WIN10, 0 },
         "NtAlpcImpersonateClientContainerOfPort",
@@ -5313,7 +5313,7 @@ syscall_info_t syscall_ntdll_info[] = {
           { 0, sizeof(DWORD), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
       } },
     /* Added in Windows 10 1511 */
-    /* FIXME i#1750: fill in details */
+    /* XXX i#1750: fill in details */
     {
         { WIN11, 0 },
         "NtCreateEnclave",
@@ -5336,7 +5336,7 @@ syscall_info_t syscall_ntdll_info[] = {
         9,
     },
     /* Added in Windows 10 1607 */
-    /* FIXME i#1750: fill in details */
+    /* XXX i#1750: fill in details */
     {
         { WIN12, 0 },
         "NtCommitRegistryTransaction",
@@ -5380,7 +5380,7 @@ syscall_info_t syscall_ntdll_info[] = {
         6,
     },
     /* Added in Windows 10 1703 */
-    /* FIXME i#1750: fill in details */
+    /* XXX i#1750: fill in details */
     {
         { WIN13, 0 },
         "NtAcquireProcessActivityReference",
@@ -5424,7 +5424,7 @@ syscall_info_t syscall_ntdll_info[] = {
         5,
     },
     /* Added in Windows 10 1709 */
-    /* FIXME i#1750: fill in details */
+    /* XXX i#1750: fill in details */
     {
         { WIN14, 0 },
         "NtCallEnclave",
@@ -5454,7 +5454,7 @@ syscall_info_t syscall_ntdll_info[] = {
         2,
     },
     /* Added in Windows 10 1803 */
-    /* FIXME i#1750: fill in details */
+    /* XXX i#1750: fill in details */
     {
         { WIN15, 0 },
         "NtAllocateVirtualMemoryEx",

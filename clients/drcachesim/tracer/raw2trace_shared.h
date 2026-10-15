@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,11 +30,13 @@
  * DAMAGE.
  */
 
-/* Functions and structs extracted from raw2trace.h for sharing with the tracer.
+/* Functions and structs extracted from raw2trace for sharing with the tracer
+ * or other libraries, or from the tracer for sharing with raw2trace and other
+ * libraries.
  */
 
 #ifndef _RAW2TRACE_SHARED_H_
-#define _RAW2TRACE_SHARED_H_ 1
+#define _RAW2TRACE_SHARED_H_
 
 /**
  * @file drmemtrace/raw2trace_shared.h
@@ -73,6 +75,10 @@ namespace drmemtrace {
 #define WINDOW_SUBDIR_FIRST "window.0000"
 #define TRACE_SUBDIR "trace"
 #define TRACE_CHUNK_PREFIX "chunk."
+// The chunk name is "chunk.nnnnnnnn" with leading 0's for the number suffix.
+// Some zip readers end up alphabetizing the component files, so be sure to have enough
+// leading zeroes to keep them in numeric order even with large component counts.
+#define TRACE_CHUNK_SUFFIX_WIDTH 8
 // Dir for auxiliary files. Same level as TRACE_SUBDIR and OUTFILE_SUBDIR.
 #define AUX_SUBDIR "aux"
 
@@ -480,7 +486,7 @@ print_module_data_fields(char *dst, size_t max_len, const void *custom_data,
 
 /**
  * Subclasses module_mapper_t and replaces the module loading with a buffer
- * of encoded instr_t. Useful for tests where we want to mock the module
+ * of encoded #instr_t. Useful for tests where we want to mock the module
  * files with an in-memory buffer of instrs.
  */
 class test_module_mapper_t : public module_mapper_t {
@@ -511,6 +517,14 @@ protected:
 private:
     static const int MAX_DECODE_SIZE = 1024;
     byte decode_buf_[MAX_DECODE_SIZE];
+};
+
+// TODO i#6412: Some other functions in instru.h may be moved here as needed
+// for easier sharing.
+class ir_utils_t {
+public:
+    static unsigned short
+    instr_to_instr_type(instr_t *instr, bool repstr_expanded = false);
 };
 
 } // namespace drmemtrace

@@ -156,7 +156,7 @@ destroy_analysis(void *drcontext, uintptr_t encoding, void *user_data,
 }
 
 static void
-update_encoding()
+update_encoding(void)
 {
     if (encode_val != 0)
         encode_val--;
@@ -290,5 +290,5 @@ dr_init(client_id_t id)
 
     drbbdup_status_t res = drbbdup_init(&opts);
     CHECK(res == DRBBDUP_SUCCESS, "drbbdup init failed");
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
 }

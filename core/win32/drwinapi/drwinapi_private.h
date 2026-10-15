@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /* Data and code shared among all DynamoRIO Windows API redirection routines */
 
 #ifndef _DRWINAPI_PRIVATE_H_
-#define _DRWINAPI_PRIVATE_H_ 1
+#define _DRWINAPI_PRIVATE_H_
 
 /* Redirection of system library routines.
  * This includes some ntdll routines that for transparency reasons we can't

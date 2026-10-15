@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,11 +40,12 @@
  */
 
 #ifndef _FRAGMENT_H_
-#define _FRAGMENT_H_ 1
+#define _FRAGMENT_H_
 
 #include "hashtable.h"
 #include "translate.h"
 #include "fragment_api.h"
+#include "synch.h"
 
 /* Flags, stored in fragment_t->flags bitfield
  */
@@ -188,12 +189,12 @@
      FRAG_SHARED | FRAG_TEMP_PRIVATE)
 
 /* FRAG_IS_X86_TO_X64 is in x64 mode */
-#define FRAG_ISA_MODE(flags)                                                        \
-    IF_X86_ELSE(                                                                    \
-        IF_X64_ELSE((FRAG_IS_32(flags)) ? DR_ISA_IA32 : DR_ISA_AMD64, DR_ISA_IA32), \
-        IF_AARCHXX_ELSE(IF_X64_ELSE(DR_ISA_ARM_A64,                                 \
-                                    (TEST(FRAG_THUMB, (flags)) ? DR_ISA_ARM_THUMB   \
-                                                               : DR_ISA_ARM_A32)),  \
+#define FRAG_ISA_MODE(flags)                                                          \
+    IF_X86_ELSE(                                                                      \
+        IF_X64_ELSE((FRAG_IS_32(flags)) ? DR_ISA_IA32 : DR_ISA_AMD64, DR_ISA_IA32),   \
+        IF_AARCHXX_ELSE(IF_X64_ELSE(DR_ISA_ARM_A64,                                   \
+                                    (TESTANY(FRAG_THUMB, (flags)) ? DR_ISA_ARM_THUMB  \
+                                                                  : DR_ISA_ARM_A32)), \
                         DR_ISA_RV64))
 
 static inline uint
@@ -252,7 +253,7 @@ struct _fragment_t {
     uint flags;
 
     /* trace head counters are in separate hashtable since always private.
-     * FIXME: when all fragments are private, a separate table uses more memory
+     * XXX: when all fragments are private, a separate table uses more memory
      * than having a counter field for all fragments, including non-trace-heads
      */
 
@@ -366,12 +367,12 @@ typedef struct _private_trace_t {
 } private_trace_t;
 
 /* convenient way to deal w/ trace fields: this returns trace_only_t* */
-#define TRACE_FIELDS(f)                                      \
-    (ASSERT(TEST(FRAG_IS_TRACE, (f)->flags)),                \
-     (TEST(FRAG_SHARED, (f)->flags) ? &(((trace_t *)(f))->t) \
-                                    : &(((private_trace_t *)(f))->t)))
+#define TRACE_FIELDS(f)                                         \
+    (ASSERT(TESTANY(FRAG_IS_TRACE, (f)->flags)),                \
+     (TESTANY(FRAG_SHARED, (f)->flags) ? &(((trace_t *)(f))->t) \
+                                       : &(((private_trace_t *)(f))->t)))
 
-/* FIXME: Can be used to determine if a frag should have a prefix since currently
+/* XXX: Can be used to determine if a frag should have a prefix since currently
  * all IB targets have the same prefix. Use a different macro if different frags
  * have different prefixes, i.e., BBs vs. traces.
  */
@@ -380,7 +381,7 @@ typedef struct _private_trace_t {
  * See case 147 about possible extensions for bb non-tracehead
  * fragments.
  */
-/* FIXME: case 147: private bb's would have a different prefix
+/* XXX: case 147: private bb's would have a different prefix
  * therefore should be taken out of here.  Other than that there is no good reason
  * not to be able to target them.  case 5836 covers targeting private fragments
  * when using thread-shared ibl tables.
@@ -388,11 +389,11 @@ typedef struct _private_trace_t {
  * However it's not very useful to go after the short lived FRAG_TEMP_PRIVATE
  */
 /* can a frag w/the given flags be an IBL target? */
-#define IS_IBL_TARGET(flags)                                                       \
-    (TEST(FRAG_IS_TRACE, (flags))                                                  \
-         ? (TEST(FRAG_SHARED, (flags)) || !DYNAMO_OPTION(shared_trace_ibt_tables)) \
-         : (DYNAMO_OPTION(bb_ibl_targets) &&                                       \
-            (TEST(FRAG_SHARED, (flags)) || !DYNAMO_OPTION(shared_bb_ibt_tables))))
+#define IS_IBL_TARGET(flags)                                                          \
+    (TESTANY(FRAG_IS_TRACE, (flags))                                                  \
+         ? (TESTANY(FRAG_SHARED, (flags)) || !DYNAMO_OPTION(shared_trace_ibt_tables)) \
+         : (DYNAMO_OPTION(bb_ibl_targets) &&                                          \
+            (TESTANY(FRAG_SHARED, (flags)) || !DYNAMO_OPTION(shared_bb_ibt_tables))))
 
 #define HASHTABLE_IBL_OFFSET(branch_type)                                    \
     (((branch_type) == IBL_INDCALL) ? DYNAMO_OPTION(ibl_indcall_hash_offset) \
@@ -410,7 +411,7 @@ typedef struct _unprot_ht_statistics_t {
     hashtable_statistics_t trace_ibl_stats[IBL_BRANCH_TYPE_END];
     hashtable_statistics_t bb_ibl_stats[IBL_BRANCH_TYPE_END];
 
-    /* FIXME: this should really go to arch/arch.c instead of here */
+    /* XXX: this should really go to arch/arch.c instead of here */
 #    ifdef WINDOWS
     hashtable_statistics_t shared_syscall_hit_stats; /* miss path shared with trace_ibl */
 #    endif
@@ -468,7 +469,7 @@ typedef struct _fragment_entry_t {
 #    define CUSTOM_FIELDS                                                            \
         ibl_branch_type_t branch_type;                                               \
         /* stats written from the cache must be unprotected by allocating separately \
-         * FIXME: we could avoid this when protect_mask==0 by having a union here,   \
+         * XXX: we could avoid this when protect_mask==0 by having a union here,     \
          * like we have with mcontext in the dcontext, but not worth the complexity  \
          * or space for debug-build-only stats                                       \
          */                                                                          \
@@ -501,11 +502,11 @@ typedef struct _fragment_entry_t {
  * plus it uses more memory because traces are in two hashtables
  * simultaneously.
  *
- * FIXME: Shared bb IBL routines indirectly access only a few fields
+ * XXX: Shared bb IBL routines indirectly access only a few fields
  * from each fragment_table_t which will touch a separate cache line for
  * each.  However, trace IBL routines don't indirect so I don't expect
  * a performance hit of using the current struct layout.
- * FIXME: The bb IBL routines however are shared and therefore
+ * XXX: The bb IBL routines however are shared and therefore
  * indirect, so splitting the fragment_table_t in two compactable
  * structures may be worth trying.
  */
@@ -548,39 +549,39 @@ typedef struct _per_thread_t {
 /* translation info pointer can be at end of any struct, so rather than have
  * 8 different structs we keep it out of the formal struct definitions
  */
-#define FRAGMENT_STRUCT_SIZE(flags)                                                  \
-    ((TEST(FRAG_IS_TRACE, (flags))                                                   \
-          ? (TEST(FRAG_SHARED, (flags)) ? sizeof(trace_t) : sizeof(private_trace_t)) \
-          : (TEST(FRAG_SHARED, (flags)) ? sizeof(fragment_t)                         \
-                                        : sizeof(private_fragment_t))) +             \
-     (TEST(FRAG_HAS_TRANSLATION_INFO, flags) ? sizeof(translation_info_t *) : 0))
+#define FRAGMENT_STRUCT_SIZE(flags)                                                     \
+    ((TESTANY(FRAG_IS_TRACE, (flags))                                                   \
+          ? (TESTANY(FRAG_SHARED, (flags)) ? sizeof(trace_t) : sizeof(private_trace_t)) \
+          : (TESTANY(FRAG_SHARED, (flags)) ? sizeof(fragment_t)                         \
+                                           : sizeof(private_fragment_t))) +             \
+     (TESTANY(FRAG_HAS_TRANSLATION_INFO, flags) ? sizeof(translation_info_t *) : 0))
 
 #define FRAGMENT_EXIT_STUBS(f)                                                         \
-    (TEST(FRAG_FAKE, (f)->flags)                                                       \
+    (TESTANY(FRAG_FAKE, (f)->flags)                                                    \
          ? (ASSERT(false && "fake fragment_t has no exit stubs!"), (linkstub_t *)NULL) \
          : ((linkstub_t *)(((byte *)(f)) + FRAGMENT_STRUCT_SIZE((f)->flags))))
 
 /* selfmod copy size is stored at very end of fragment space */
-#define FRAGMENT_SELFMOD_COPY_SIZE(f)                  \
-    (ASSERT(TEST(FRAG_SELFMOD_SANDBOXED, (f)->flags)), \
+#define FRAGMENT_SELFMOD_COPY_SIZE(f)                     \
+    (ASSERT(TESTANY(FRAG_SELFMOD_SANDBOXED, (f)->flags)), \
      (*((uint *)((f)->start_pc + (f)->size - sizeof(uint)))))
 #define FRAGMENT_SELFMOD_COPY_CODE_SIZE(f) (FRAGMENT_SELFMOD_COPY_SIZE(f) - sizeof(uint))
-#define FRAGMENT_SELFMOD_COPY_PC(f)                    \
-    (ASSERT(TEST(FRAG_SELFMOD_SANDBOXED, (f)->flags)), \
+#define FRAGMENT_SELFMOD_COPY_PC(f)                       \
+    (ASSERT(TESTANY(FRAG_SELFMOD_SANDBOXED, (f)->flags)), \
      ((f)->start_pc + (f)->size - FRAGMENT_SELFMOD_COPY_SIZE(f)))
 
 #define FRAGMENT_TRANSLATION_INFO_ADDR(f)                                              \
-    (TEST(FRAG_HAS_TRANSLATION_INFO, (f)->flags)                                       \
+    (TESTANY(FRAG_HAS_TRANSLATION_INFO, (f)->flags)                                    \
          ? ((translation_info_t **)(((byte *)(f)) + FRAGMENT_STRUCT_SIZE((f)->flags) - \
                                     sizeof(translation_info_t *)))                     \
          : ((INTERNAL_OPTION(safe_translate_flushed) &&                                \
-             TEST(FRAG_WAS_DELETED, (f)->flags))                                       \
+             TESTANY(FRAG_WAS_DELETED, (f)->flags))                                    \
                 ? &((f)->in_xlate.translation_info)                                    \
                 : NULL))
 
-#define HAS_STORED_TRANSLATION_INFO(f)              \
-    (TEST(FRAG_HAS_TRANSLATION_INFO, (f)->flags) || \
-     (INTERNAL_OPTION(safe_translate_flushed) && TEST(FRAG_WAS_DELETED, (f)->flags)))
+#define HAS_STORED_TRANSLATION_INFO(f)                 \
+    (TESTANY(FRAG_HAS_TRANSLATION_INFO, (f)->flags) || \
+     (INTERNAL_OPTION(safe_translate_flushed) && TESTANY(FRAG_WAS_DELETED, (f)->flags)))
 
 #define FRAGMENT_TRANSLATION_INFO(f) \
     (HAS_STORED_TRANSLATION_INFO(f) ? (*(FRAGMENT_TRANSLATION_INFO_ADDR(f))) : NULL)
@@ -588,9 +589,9 @@ typedef struct _per_thread_t {
 static inline const char *
 fragment_type_name(fragment_t *f)
 {
-    if (TEST(FRAG_IS_TRACE_HEAD, f->flags))
+    if (TESTANY(FRAG_IS_TRACE_HEAD, f->flags))
         return "trace head";
-    else if (TEST(FRAG_IS_TRACE, f->flags))
+    else if (TESTANY(FRAG_IS_TRACE, f->flags))
         return "trace";
     else
         return "bb";
@@ -1123,9 +1124,10 @@ flush_fragments_synch_priv(dcontext_t *dcontext, app_pc base, size_t size,
  * If size==0, synch is always performed and true is always returned.
  */
 bool
-flush_fragments_synch_unlink_priv(dcontext_t *dcontext, app_pc base, size_t size,
-                                  bool own_initexit_lock, bool exec_invalid,
-                                  bool force_synchall _IF_DGCDIAG(app_pc written_pc));
+flush_fragments_synch_unlink_priv(
+    dcontext_t *dcontext, app_pc base, size_t size, bool own_initexit_lock,
+    bool exec_invalid, bool force_synchall,
+    thread_synch_permission_t cur_state _IF_DGCDIAG(app_pc written_pc));
 
 void
 flush_fragments_unlink_shared(dcontext_t *dcontext, app_pc base, size_t size,
@@ -1141,10 +1143,10 @@ void
 flush_fragments_end_synch(dcontext_t *dcontext, bool keep_initexit_lock);
 
 void
-flush_fragments_in_region_start(dcontext_t *dcontext, app_pc base, size_t size,
-                                bool own_initexit_lock, bool free_futures,
-                                bool exec_invalid,
-                                bool force_synchall _IF_DGCDIAG(app_pc written_pc));
+flush_fragments_in_region_start(
+    dcontext_t *dcontext, app_pc base, size_t size, bool own_initexit_lock,
+    bool free_futures, bool exec_invalid, bool force_synchall,
+    thread_synch_permission_t cur_state _IF_DGCDIAG(app_pc written_pc));
 
 void
 flush_fragments_in_region_finish(dcontext_t *dcontext, bool keep_initexit_lock);
@@ -1155,7 +1157,7 @@ flush_fragments_and_remove_region(dcontext_t *dcontext, app_pc base, size_t size
 
 void
 flush_fragments_from_region(dcontext_t *dcontext, app_pc base, size_t size,
-                            bool force_synchall,
+                            bool force_synchall, thread_synch_permission_t cur_state,
                             void (*flush_completion_callback)(void *user_data),
                             void *user_data);
 
@@ -1210,9 +1212,10 @@ void
 print_shared_stats(void);
 #endif
 
-#define PROTECT_FRAGMENT_ENABLED(flags)                                              \
-    (TEST(FRAG_SHARED, (flags)) ? TEST(SELFPROT_GLOBAL, dynamo_options.protect_mask) \
-                                : TEST(SELFPROT_LOCAL, dynamo_options.protect_mask))
+#define PROTECT_FRAGMENT_ENABLED(flags)                          \
+    (TESTANY(FRAG_SHARED, (flags))                               \
+         ? TESTANY(SELFPROT_GLOBAL, dynamo_options.protect_mask) \
+         : TESTANY(SELFPROT_LOCAL, dynamo_options.protect_mask))
 
 #ifdef DEBUG
 void

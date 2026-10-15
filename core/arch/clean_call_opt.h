@@ -33,7 +33,7 @@
 /* file "clean_call_opt.h" - arch-specific clean call optimisation */
 
 #ifndef _CLEAN_CALL_OPT_
-#define _CLEAN_CALL_OPT_ 1
+#define _CLEAN_CALL_OPT_
 
 /****************************************************************************
  * Functions provided by clean_call_opt_shared.c.

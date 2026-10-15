@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -21,7 +21,7 @@
  */
 
 #ifndef _LINUX_DEFINES_H
-#define _LINUX_DEFINES_H 1
+#define _LINUX_DEFINES_H
 
 /* for linux-specific types/defines for fcntl and ipc */
 #define __USE_GNU 1
@@ -44,6 +44,7 @@
 #include <sys/time.h>      /* struct timezone */
 #include <sys/sysinfo.h>   /* struct sysinfo */
 #include <sys/timex.h>     /* struct timex */
+#include <sys/utsname.h>   /* struct utsname */
 #include <linux/utsname.h> /* struct new_utsname */
 #include <sched.h>         /* struct sched_param */
 
@@ -72,7 +73,7 @@
 #include <linux/sysctl.h> /* struct __sysctl_args */
 
 /* block bits/stat.h which is included from fcntl.h on FC16 (glibc 2.14) */
-#define _BITS_STAT_H 1
+#define _BITS_STAT_H
 #include <fcntl.h> /* F_GETFD, etc. */
 
 #ifdef X86
@@ -149,8 +150,6 @@
 #elif !defined(ANDROID)
 #    include <sys/mtio.h>
 #endif
-#include <linux/netrom.h>
-#include <linux/scc.h>
 
 /* i#911: linux/smb_fs.h is missing on FC16 so we define on our own */
 #define SMB_IOC_GETMOUNTUID _IOR('u', 1, __kernel_old_uid_t)

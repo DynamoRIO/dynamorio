@@ -128,7 +128,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                       false /*synchronization is external*/, free_trace_head_entry, NULL,
                       NULL);
 
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
     if (!drmgr_register_bb_instrumentation_event(event_analyze_bb, NULL, NULL))
         DR_ASSERT(false);
     dr_register_delete_event(event_fragment_deleted);

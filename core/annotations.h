@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _ANNOTATIONS_H_
-#define _ANNOTATIONS_H_ 1
+#define _ANNOTATIONS_H_
 
 #ifdef ANNOTATIONS /* around whole file */
 
@@ -124,10 +124,10 @@ typedef struct _dr_annotation_handler_t {
 } dr_annotation_handler_t;
 
 void
-annotation_init();
+annotation_init(void);
 
 void
-annotation_exit();
+annotation_exit(void);
 
 static inline bool
 is_annotation_label(instr_t *instr)

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2024 Google, LLC  All rights reserved.
+ * Copyright (c) 2021-2026 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -32,11 +32,13 @@
 
 /* Unit tests for the schedule_file_t library. */
 
+#include "test_helpers.h"
 #include <cassert>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <vector>
 
 #include "memref.h"

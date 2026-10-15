@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2024-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _REGDEPS_DECODE_H_
-#define _REGDEPS_DECODE_H_ 1
+#define _REGDEPS_DECODE_H_
 
 #include "../globals.h"
 

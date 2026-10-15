@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -65,23 +65,13 @@ reader_t::operator*()
     return cur_ref_;
 }
 
-trace_entry_t *
-reader_t::read_queued_entry()
-{
-    if (queue_.empty())
-        return nullptr;
-    entry_copy_ = queue_.front();
-    queue_.pop();
-    return &entry_copy_;
-}
-
 reader_t &
 reader_t::operator++()
 {
     // We bail if we get a partial read, or EOF, or any error.
     while (true) {
         if (bundle_idx_ == 0 /*not in instr bundle*/)
-            input_entry_ = read_next_entry();
+            input_entry_ = get_next_entry();
         if (input_entry_ == NULL) {
             if (!at_eof_) {
                 ERRMSG("Trace is truncated\n");
@@ -89,17 +79,6 @@ reader_t::operator++()
                 at_eof_ = true; // bail
             }
             break;
-        }
-        if (input_entry_->type == TRACE_TYPE_FOOTER) {
-            VPRINT(this, 2, "At thread EOF\n");
-            // We've already presented the thread exit entry to the analyzer.
-            continue;
-        }
-        if (input_entry_->type == TRACE_TYPE_HEADER) {
-            // We support complete traces being packaged in archives and then read
-            // sequentially.  We just keep going past the header.
-            VPRINT(this, 2, "Assuming header is part of concatenated traces\n");
-            continue;
         }
         VPRINT(this, 5, "RECV: type=%s (%d), size=%d, addr=0x%zx\n",
                trace_type_names[input_entry_->type], input_entry_->type,
@@ -154,7 +133,7 @@ reader_t::process_input_entry()
         break;
     case TRACE_TYPE_ENCODING:
         if (last_encoding_.size + input_entry_->size > MAX_ENCODING_LENGTH) {
-            ERRMSG("Invalid too-large encoding size %zu + %d\n", last_encoding_.size,
+            ERRMSG("Invalid too-large encoding size %u + %d\n", last_encoding_.size,
                    input_entry_->size);
             assert(false);
             at_eof_ = true;
@@ -162,16 +141,32 @@ reader_t::process_input_entry()
         }
         memcpy(last_encoding_.bits + last_encoding_.size, input_entry_->encoding,
                input_entry_->size);
-        last_encoding_.size += input_entry_->size;
+        // The encoding_info_t size field is unsigned char so ensure it doesn't
+        // overflow.  We avoid std::numeric_limits::max to avoid conflicts with
+        // Windows headers.
+        assert(static_cast<unsigned int>(last_encoding_.size) + input_entry_->size <=
+               256);
+        last_encoding_.size += static_cast<unsigned char>(input_entry_->size);
         break;
     case TRACE_TYPE_INSTR_MAYBE_FETCH:
+    case TRACE_TYPE_INSTR_REPEATED:
         // While offline traces can convert rep string per-iter instrs into
         // no-fetch entries, online can't w/o extra work, so we do the work
         // here:
-        if (prev_instr_addr_ == input_entry_->addr)
-            input_entry_->type = TRACE_TYPE_INSTR_NO_FETCH;
-        else
-            input_entry_->type = TRACE_TYPE_INSTR;
+        if (prev_instr_addr_ == input_entry_->addr) {
+            if (version_ < TRACE_ENTRY_VERSION_NO_UNFETCHED_INSTRUCTIONS)
+                input_entry_->type = TRACE_TYPE_INSTR_NO_FETCH;
+            else {
+                // Just omit. Clear the encoding size as for online we keep getting
+                // a new ecoding on each iteration (when encodings are enabled).
+                // XXX i#4948: Avoid the cost of generating and sending these for online
+                // now that we just discard them, and now that offline traces never
+                // generate them in the first place.
+                last_encoding_.size = 0;
+                break;
+            }
+        } else
+            input_entry_->type = TRACE_TYPE_INSTR_REPEATED;
         ANNOTATE_FALLTHROUGH;
     case TRACE_TYPE_INSTR:
     case TRACE_TYPE_INSTR_DIRECT_JUMP:
@@ -199,6 +194,9 @@ reader_t::process_input_entry()
             if (type_is_instr_branch(cur_ref_.instr.type) &&
                 !type_is_instr_direct_branch(cur_ref_.instr.type)) {
                 cur_ref_.instr.indirect_branch_target = last_branch_target_;
+                // Reset the last branch target so that we don't accidentally
+                // reuse it.
+                last_branch_target_ = 0;
             } else {
                 cur_ref_.instr.indirect_branch_target = 0;
             }
@@ -217,7 +215,7 @@ reader_t::process_input_entry()
                      */
                     !TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype_)) {
                     ERRMSG(
-                        "Encoding size %zu != instr size %zu for PC 0x%zx at ord %" PRIu64
+                        "Encoding size %u != instr size %zu for PC 0x%zx at ord %" PRIu64
                         " instr %" PRIu64 " last_timestamp=0x%" PRIx64
                         " enc: %x %x inst type: %d\n",
                         last_encoding_.size, cur_ref_.instr.size, cur_ref_.instr.addr,
@@ -319,6 +317,7 @@ reader_t::process_input_entry()
         cur_ref_.marker.tid = cur_tid_;
         cur_ref_.marker.marker_type = (trace_marker_type_t)input_entry_->size;
         cur_ref_.marker.marker_value = input_entry_->addr;
+
         // Look for timestamp+cpu duplicated from the prior chunk.  Skip them on
         // a linear walk.  File readers that support seeking will read them
         // and use them to start post-seek iteration.
@@ -351,9 +350,15 @@ reader_t::process_input_entry()
             }
         } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID)
             last_cpuid_ = cur_ref_.marker.marker_value;
-        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_VERSION)
-            version_ = cur_ref_.marker.marker_value;
-        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
+        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_VERSION) {
+            if (version_ == 0) {
+                version_ = cur_ref_.marker.marker_value;
+            } else if (cur_ref_.marker.marker_value != version_) {
+                ERRMSG("Version mismatch: header %" PRIu64 " != marker %zu\n", version_,
+                       input_entry_->addr);
+                assert_release_too(false);
+            }
+        } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
             filetype_ = cur_ref_.marker.marker_value;
             found_filetype_ = true;
             if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype_)) {
@@ -370,27 +375,23 @@ reader_t::process_input_entry()
             chunk_instr_count_ = cur_ref_.marker.marker_value;
         else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_FOOTER)
             skip_chunk_header_.insert(cur_tid_);
-        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_START ||
-                 cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_START) {
-            in_kernel_trace_ = true;
-        } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END ||
-                   cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_END) {
-            in_kernel_trace_ = false;
-        }
         break;
     case TRACE_TYPE_HEADER:
         // We support complete traces being packaged in archives and then read
         // sequentially, or core-sharded record_filter operation.
         // We just keep going past the header.
         VPRINT(
-            this, 2,
+            this, 3,
             "Assuming header is part of concatenated or on-disk-core-sharded traces\n");
+        // We do not complain about the version changing, to support multiple
+        // kernel templates of different versions in the same file.
+        version_ = input_entry_->addr;
         break;
     case TRACE_TYPE_FOOTER:
         // We support core-sharded-on-disk traces where an originally-thread-sharded
         // input ends but the core-sharded new trace continues.
         VPRINT(
-            this, 2,
+            this, 3,
             "Assuming footer is part of concatenated or on-disk-core-sharded traces\n");
         break;
     default:
@@ -413,6 +414,7 @@ reader_t::process_input_entry()
             ++cur_ref_count_;
             VPRINT(this, 5, "ref count is now @%" PRIu64 "\n", cur_ref_count_);
         }
+        kernel_tracker_.update(cur_ref_);
     }
     return have_memref;
 }
@@ -425,7 +427,7 @@ reader_t::pre_skip_instructions()
     // XXX: We assume the page size is the final header; it is complex to wait for
     // the timestamp as we don't want to read it yet.
     while (page_size_ == 0) {
-        input_entry_ = read_next_entry();
+        input_entry_ = get_next_entry();
         if (input_entry_ == nullptr) {
             at_eof_ = true;
             return false;
@@ -436,7 +438,7 @@ reader_t::pre_skip_instructions()
         if (input_entry_->type != TRACE_TYPE_MARKER ||
             input_entry_->size == TRACE_MARKER_TYPE_TIMESTAMP) {
             // Likely some mock in a test with no page size header: just move on.
-            queue_.push(*input_entry_);
+            queue_to_return_next(*input_entry_);
             break;
         }
         process_input_entry();
@@ -490,7 +492,7 @@ reader_t::skip_instructions_with_timestamp(uint64_t stop_instruction_count)
         // too-far instr if we didn't find a timestamp.
         if (input_entry_ != nullptr) // Only at start: and we checked for skipping 0.
             entry_copy_ = *input_entry_;
-        trace_entry_t *next = read_next_entry();
+        trace_entry_t *next = get_next_entry();
         if (next == nullptr) {
             VPRINT(this, 1,
                    next == nullptr ? "Failed to read next entry\n" : "Hit EOF\n");
@@ -555,9 +557,11 @@ reader_t::skip_instructions_with_timestamp(uint64_t stop_instruction_count)
         entry_copy_ = timestamp;
         input_entry_ = &entry_copy_;
         process_input_entry();
+        std::queue<trace_entry_t> cpu_and_instr;
         if (cpu.type == TRACE_TYPE_MARKER)
-            queue_.push(cpu);
-        queue_.push(next_instr);
+            cpu_and_instr.push(cpu);
+        cpu_and_instr.push(next_instr);
+        queue_to_return_next(cpu_and_instr);
     } else {
         // We missed the markers somehow.
         // next_instr is our target instr, so make that the next record.

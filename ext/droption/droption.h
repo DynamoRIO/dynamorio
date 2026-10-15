@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,7 +36,7 @@
  */
 
 #ifndef _DROPTION_H_
-#define _DROPTION_H_ 1
+#define _DROPTION_H_
 
 #include <string>
 #include <vector>
@@ -52,6 +52,9 @@
 namespace dynamorio { /**< General DynamoRIO namespace. */
 namespace droption {  /**< DynamoRIO Option Parser namespace. */
 
+// We duplicate these since dr_project_wide_defines.h is not really
+// meant for public headers: we would probably want DR_ prefixes on all
+// its macros to avoid collisions before taking that step.
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
 
@@ -765,7 +768,7 @@ droption_t<double>::convert_from_string(const std::string s)
 }
 template <>
 inline bool
-droption_t<bool>::convert_from_string(const std::string s)
+droption_t<bool>::convert_from_string(const std::string)
 {
     // We shouldn't get here
     return false;
@@ -799,7 +802,7 @@ droption_t<bytesize_t>::convert_from_string(const std::string s)
 }
 template <>
 inline bool
-droption_t<twostring_t>::convert_from_string(const std::string s)
+droption_t<twostring_t>::convert_from_string(const std::string)
 {
     return false;
 }
@@ -808,14 +811,14 @@ droption_t<twostring_t>::convert_from_string(const std::string s)
 
 template <typename T>
 inline bool
-droption_t<T>::convert_from_string(const std::string sc)
+droption_t<T>::convert_from_string(const std::string)
 {
     return false;
 }
 
 template <typename T>
 inline bool
-droption_t<T>::convert_from_string(const std::string s1, const std::string s2)
+droption_t<T>::convert_from_string(const std::string, const std::string)
 {
     return false;
 }

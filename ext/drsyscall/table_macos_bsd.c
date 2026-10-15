@@ -172,7 +172,7 @@ struct mac {
 #include "table_defines.h"
 
 syscall_info_t syscall_info_bsd[] = {
-    /* FIXME i#1440: this table was auto-generated, and the memory
+    /* XXX i#1440: this table was auto-generated, and the memory
      * parameters are all marked W.  We need to go through and update
      * each one.
      */
@@ -1544,7 +1544,7 @@ syscall_info_t syscall_info_bsd[] = {
       2,
       {
           { 0, sizeof(char *), W | HT, DRSYS_TYPE_CSTRING },
-          /* FIXME i#1440: sys/vstat.h is obsolete; may need own decl, or don't support */
+          /* XXX i#1440: sys/vstat.h is obsolete; may need own decl, or don't support */
       } },
     { { SYS_lstatv /*218*/ },
       "lstatv",
@@ -1553,7 +1553,7 @@ syscall_info_t syscall_info_bsd[] = {
       2,
       {
           { 0, sizeof(char *), W | HT, DRSYS_TYPE_CSTRING },
-          /* FIXME i#1440: sys/vstat.h is obsolete; may need own decl, or don't support */
+          /* XXX i#1440: sys/vstat.h is obsolete; may need own decl, or don't support */
       } },
     { { SYS_fstatv /*219*/ },
       "fstatv",
@@ -1562,7 +1562,7 @@ syscall_info_t syscall_info_bsd[] = {
       2,
       {
           { 0, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT },
-          /* FIXME i#1440: sys/vstat.h is obsolete; may need own decl, or don't support */
+          /* XXX i#1440: sys/vstat.h is obsolete; may need own decl, or don't support */
       } },
     { { SYS_getattrlist /*220*/ },
       "getattrlist",
@@ -1601,7 +1601,7 @@ syscall_info_t syscall_info_bsd[] = {
           { 4, sizeof(u_long), W | HT, DRSYS_TYPE_UNSIGNED_INT },
           { 5, sizeof(u_long), W | HT, DRSYS_TYPE_UNSIGNED_INT },
 #if !(defined(MACOS) && defined(X64))
-          /* FIXME i#1438: how are 7th and 8th args passed on Mac64?!? */
+          /* XXX i#1438: how are 7th and 8th args passed on Mac64?!? */
           { 6, sizeof(u_long), W | HT, DRSYS_TYPE_UNSIGNED_INT },
           { 7, sizeof(u_long), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
 #endif
@@ -1825,7 +1825,7 @@ syscall_info_t syscall_info_bsd[] = {
       {
           { 0, sizeof(pid_t), W | HT, DRSYS_TYPE_SIGNED_INT },
           { 1, sizeof(char *), W | HT, DRSYS_TYPE_CSTRING },
-          /* FIXME i#1440: non-public struct in arg #2 => UNKNOWN above */
+          /* XXX i#1440: non-public struct in arg #2 => UNKNOWN above */
           { 3, sizeof(char **), W | HT, DRSYS_TYPE_CSTRARRAY },
           { 4, sizeof(char **), W | HT, DRSYS_TYPE_CSTRARRAY },
       } },
@@ -2390,7 +2390,7 @@ syscall_info_t syscall_info_bsd[] = {
           { 4, sizeof(void *), W | HT, DRSYS_TYPE_POINTER },
           { 5, sizeof(uint64_t), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
 #if !(defined(MACOS) && defined(X64))
-          /* FIXME i#1438: how are 7th and 8th args passed on Mac64?!? */
+          /* XXX i#1438: how are 7th and 8th args passed on Mac64?!? */
           { 6, sizeof(uint64_t), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
 #endif
       } },
@@ -2407,7 +2407,7 @@ syscall_info_t syscall_info_bsd[] = {
           { 4, sizeof(void *), W | HT, DRSYS_TYPE_POINTER },
           { 5, sizeof(uint64_t), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
 #if !(defined(MACOS) && defined(X64))
-          /* FIXME i#1438: how are 7th and 8th args passed on Mac64?!? */
+          /* XXX i#1438: how are 7th and 8th args passed on Mac64?!? */
           { 6, sizeof(uint64_t), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
           { 7, sizeof(uint32_t), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
 #endif
@@ -2425,7 +2425,7 @@ syscall_info_t syscall_info_bsd[] = {
           { 4, sizeof(uint64_t), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
           { 5, sizeof(uint32_t), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
 #if !(defined(MACOS) && defined(X64))
-          /* FIXME i#1438: how are 7th and 8th args passed on Mac64?!? */
+          /* XXX i#1438: how are 7th and 8th args passed on Mac64?!? */
           { 6, sizeof(int64_t), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT },
           { 7, sizeof(uint32_t), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
 #endif
@@ -2508,7 +2508,7 @@ syscall_info_t syscall_info_bsd[] = {
           { 4, sizeof(uint32_t), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
           { 5, sizeof(uint32_t), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
 #if !(defined(MACOS) && defined(X64))
-          /* FIXME i#1438: how are 7th and 8th args passed on Mac64?!? */
+          /* XXX i#1438: how are 7th and 8th args passed on Mac64?!? */
           { 6, sizeof(uint32_t), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
 #endif
       } },
@@ -2605,7 +2605,7 @@ syscall_info_t syscall_info_bsd[] = {
           { 4, sizeof(void *), W | HT, DRSYS_TYPE_POINTER },
           { 5, sizeof(pid_t), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT },
 #if !(defined(MACOS) && defined(X64))
-          /* FIXME i#1438: how are 7th and 8th args passed on Mac64?!? */
+          /* XXX i#1438: how are 7th and 8th args passed on Mac64?!? */
           { 6, sizeof(uint64_t), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
 #endif
       } },
@@ -3024,7 +3024,7 @@ syscall_info_t syscall_info_bsd[] = {
           { 4, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT },
           { 5, sizeof(unsigned int), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
 #if !(defined(MACOS) && defined(X64))
-          /* FIXME i#1438: how are 7th and 8th args passed on Mac64?!? */
+          /* XXX i#1438: how are 7th and 8th args passed on Mac64?!? */
           { 6, sizeof(struct timespec), W | HT, DRSYS_TYPE_STRUCT },
 #endif
       } },

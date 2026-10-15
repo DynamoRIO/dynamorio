@@ -256,7 +256,7 @@ CDynamoRIODoc::RunApplication(LPCTSTR lpszPathName)
         _stprintf(rundir, _T("%s"), realdir.GetBuffer(0));
 
     // if rundir is empty, use default
-    // FIXME: have option to set default?
+    // XXX: have option to set default?
     if (rundir[0] == _T('\0'))
         _tcscpy(rundir, default_rundir);
 
@@ -317,7 +317,7 @@ CDynamoRIODoc::RunApplication(LPCTSTR lpszPathName)
 #    endif // 0
 
 #    if 0 // I'm taking this out, it requires an extra library and doesn't add much
-    // FIXME: do this up above, instead of checking app_name exists?
+    // XXX: do this up above, instead of checking app_name exists?
     PLOADED_IMAGE       li;
 #        ifdef UNICODE
     // ImageLoad does not take unicode strings
@@ -359,7 +359,7 @@ CDynamoRIODoc::RunApplication(LPCTSTR lpszPathName)
     }
 
 #    if 0
-        // FIXME: We have the injector's pid, not the child's pid!
+        // XXX: We have the injector's pid, not the child's pid!
     if (!CDynamoRIOApp::GetActiveView()->SelectProcess(pi.dwProcessId))
         MessageBox(NULL, _T("Failed to select"), _T("Error"),  MB_OK | MYMBFLAGS);
 #    endif

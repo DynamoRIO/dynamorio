@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2016-2024 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -36,6 +36,8 @@
 #include "decode.h"
 #include "encode_api.h"
 #include "opcode_names.h"
+#include "isa_feature_names.h"
+#include "codec.h"
 
 #include <stddef.h>
 
@@ -113,6 +115,13 @@ instr_branch_type(instr_t *cti_instr)
     case OP_ret:
     case OP_retaa:
     case OP_retab: return LINK_INDIRECT | LINK_RETURN;
+    /* We don't mark svc as an indirect branch because the user-mode DynamoRIO
+     * instrumentation does not need to treat it as such. eret is typically
+     * found in the kernel traces generated using other methods (like QEMU). It
+     * is useful to treat it as such to show proper PC continuity in the injected
+     * traces (i#6495, i#7157).
+     */
+    case OP_eret: return LINK_INDIRECT;
     }
     CLIENT_ASSERT(false, "instr_branch_type: unknown opcode");
     return LINK_INDIRECT;
@@ -127,7 +136,7 @@ get_opcode_name(int opc)
 bool
 instr_is_mov(instr_t *instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return false;
 }
 
@@ -206,6 +215,13 @@ instr_is_mbr_arch(instr_t *instr)
     case OP_blraaz:
     case OP_blrabz:
     case OP_ret:
+    /* We don't mark svc as an indirect branch because the user-mode DynamoRIO
+     * instrumentation does not need to treat it as such. eret is typically
+     * found in the kernel traces generated using other methods (like QEMU). It
+     * is useful to treat it as such to show proper continuity in the injected
+     * traces (i#6495, i#7157).
+     */
+    case OP_eret:
     case OP_retaa:
     case OP_retab: return true;
     default: return false;
@@ -336,7 +352,7 @@ instr_is_floating_type(instr_t *instr, dr_instr_category_t *type DR_PARAM_OUT)
      * Processor state is saved/restored with loads and stores.
      */
     uint cat = instr_get_category(instr);
-    if (!TEST(DR_INSTR_CATEGORY_FP, cat))
+    if (!TESTANY(DR_INSTR_CATEGORY_FP, cat))
         return false;
     if (type != NULL)
         *type = cat;
@@ -350,17 +366,17 @@ instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type DR_PARAM_OUT)
      * Processor state is saved/restored with loads and stores.
      */
     uint cat = instr_get_category(instr);
-    if (!TEST(DR_INSTR_CATEGORY_FP, cat))
+    if (!TESTANY(DR_INSTR_CATEGORY_FP, cat))
         return false;
-    else if (TEST(DR_INSTR_CATEGORY_MATH, cat)) {
+    else if (TESTANY(DR_INSTR_CATEGORY_MATH, cat)) {
         if (type != NULL)
             *type = DR_FP_MATH;
         return true;
-    } else if (TEST(DR_INSTR_CATEGORY_CONVERT, cat)) {
+    } else if (TESTANY(DR_INSTR_CATEGORY_CONVERT, cat)) {
         if (type != NULL)
             *type = DR_FP_CONVERT;
         return true;
-    } else if (TEST(DR_INSTR_CATEGORY_MOVE, cat)) {
+    } else if (TESTANY(DR_INSTR_CATEGORY_MOVE, cat)) {
         if (type != NULL)
             *type = DR_FP_MOVE;
         return true;
@@ -391,15 +407,13 @@ instr_is_icache_op(instr_t *instr)
     int opc = instr_get_opcode(instr);
     if (opc == OP_ic_ivau)
         return true; /* ic ivau, xT */
-    if (opc == OP_isb)
-        return true; /* isb */
     return false;
 }
 
 bool
 instr_is_undefined(instr_t *instr)
 {
-    /* FIXME i#1569: Without a complete decoder we cannot recognise all
+    /* XXX i#1569: Without a complete decoder we cannot recognise all
      * unallocated encodings, but for testing purposes we can recognise
      * some of them: blocks at the top and bottom of the encoding space.
      */
@@ -432,14 +446,14 @@ instr_invert_cbr(instr_t *instr)
 bool
 instr_cbr_taken(instr_t *instr, priv_mcontext_t *mc, bool pre)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return false;
 }
 
 bool
 instr_predicate_reads_srcs(dr_pred_type_t pred)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return false;
 }
 
@@ -498,7 +512,7 @@ reg_is_ymm(reg_id_t reg)
     /* i#1312: check why this assertion is here and not
      * in the other x86 related reg_is_ functions.
      */
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return false;
 }
 
@@ -535,7 +549,7 @@ instr_is_opmask(instr_t *instr)
 bool
 reg_is_fp(reg_id_t reg)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return false;
 }
 
@@ -561,7 +575,7 @@ opnd_same_sizes_ok(opnd_size_t s1, opnd_size_t s2, bool is_reg)
 instr_t *
 instr_create_nbyte_nop(dcontext_t *dcontext, uint num_bytes, bool raw)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return NULL;
 }
 
@@ -799,7 +813,7 @@ instr_compute_vector_address(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
 {
     CLIENT_ASSERT(have_addr != NULL && addr != NULL && mc != NULL && write != NULL,
                   "SVE address computation: invalid args");
-    CLIENT_ASSERT(TEST(DR_MC_MULTIMEDIA, mc_flags),
+    CLIENT_ASSERT(TESTANY(DR_MC_MULTIMEDIA, mc_flags),
                   "dr_mcontext_t.flags must include DR_MC_MULTIMEDIA");
     CLIENT_ASSERT(mc_size >= offsetof(dr_mcontext_t, svep) + sizeof(mc->svep),
                   "Incompatible client, invalid dr_mcontext_t.size.");
@@ -873,4 +887,27 @@ instr_compute_vector_address(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
     }
 
     return false;
+}
+
+DR_API
+uint
+instr_get_isa_feature(byte *pc, instr_t *instr)
+{
+    decode_info_t di;
+    /* We only need to identify the instruction's ISA feature and not actually generate a
+     * valid encoding, so we can safely skip the reachability check, which, for
+     * instructions like bcond, checks if the target address in the instruction's operand
+     * is reachable from the instruction's pc. Depending on how this function is used, pc
+     * is not necessarily the instruction's actual pc, it can be an unrelated address like
+     * a buffer, so disabling the reachability check is necessary.
+     */
+    di.check_reachable = false;
+    return isa_feature_common(pc, instr, &di);
+}
+
+DR_API
+const char *
+instr_get_isa_feature_name(uint isa_feature)
+{
+    return isa_feature_names[isa_feature];
 }

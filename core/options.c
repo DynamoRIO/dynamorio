@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,7 +40,7 @@
  *
  */
 
-#include <stddef.h>
+#include "stddef_wrapper.h"
 
 #ifndef NOT_DYNAMORIO_CORE
 #    include "globals.h"
@@ -66,7 +66,7 @@ typedef unsigned int uint;
 
 #    define print_file(f, s, x)
 
-#    ifndef bool
+#    if !defined(DR_BOOL_DEFINED)
 typedef char bool;
 #    endif
 #    ifndef true
@@ -178,15 +178,12 @@ const internal_options_t default_internal_options = {
 #undef EMPTY_STRING
 /* Restore. */
 #define OPTION_STRING(x) x
-#define EMPTY_STRING \
-    {                \
-        0            \
-    }
+#define EMPTY_STRING { 0 }
 
 #ifdef EXPOSE_INTERNAL_OPTIONS
 #    define OPTION_COMMAND_INTERNAL OPTION_COMMAND
 #else
-/* DON'T FIXME: In order to support easy switching of an internal
+/* DON'T XXX: In order to support easy switching of an internal
    option into user accessible one we could waste some memory by
    allocating fields in options_t even for INTERNAL options.  That would
    let us have INTERNAL_OPTION be a more flexible macro that can use
@@ -251,7 +248,7 @@ options_t dynamo_options = {
 #    include "optionsx.h"
 };
 /* Temporary string, static to save stack space in synchronize_dynamic_options().
- * FIXME case 8074: should protect this better as w/o DR dll randomization attacker
+ * XXX case 8074: should protect this better as w/o DR dll randomization attacker
  * can repeatedly try to clobber.  Move to heap?  Or shrink stack space elsewhere
  * and put back as synchronize_dynamic_options() local var.
  */
@@ -600,7 +597,7 @@ parse_liststring_t(liststring_t *var, void *value)
         strncat(*var, (char *)value, MAX_LIST_OPTION_LENGTH - 1 - strlen(*var));
     }
     if (len >= MAX_LIST_OPTION_LENGTH) {
-        /* FIXME: no longer is value always the single too-long factor
+        /* XXX: no longer is value always the single too-long factor
          * (could be appending a short option to a very long string), so
          * should we change the message to "option is too long, truncating"?
          */
@@ -649,7 +646,7 @@ set_nonbool_opt(const char *opt, const char *command_line_option, const char *op
 {
     if (strcmp(opt + 1, command_line_option) == 0) {
         *value = getword(optstr, pos, wordbuffer, max_option_length);
-        /* FIXME: check argument */
+        /* XXX: check argument */
     }
 }
 
@@ -675,12 +672,9 @@ set_dynamo_options_common(options_t *options, const char *optstr, bool for_this_
     char *opt;
     const char *pos = optstr;
     bool got_badopt = false;
-    char badopt[MAX_OPTION_LENGTH];
-
-    char wordbuffer[MAX_OPTION_LENGTH];
 
     /* used in the OPTION_COMMAND define above, declared here to save stack
-     * space FIXME : value_true and value_false could be static const if
+     * space XXX : value_true and value_false could be static const if
      * we mark the value arguments to the parse functions const */
     void *value = NULL;
     bool value_true = true, value_false = false;
@@ -691,6 +685,21 @@ set_dynamo_options_common(options_t *options, const char *optstr, bool for_this_
     ASSERT_OWN_OPTIONS_LOCK(options == &dynamo_options || options == &temp_options,
                             &options_lock);
     ASSERT(!OPTIONS_PROTECTED());
+
+#ifdef LINUX_KERNEL
+    /* To stay within the 4096-byte compiler frame limit (-Wframe-larger-than=4096),
+     * use static buffers. This is safe because:
+     * 1) options_lock prevents concurrent modification by multiple threads.
+     * 2) !OPTIONS_PROTECTED() guarantees options memory is writeable (unprotected),
+     *    so writing to static variables will not trigger protection faults.
+     */
+    static char badopt[MAX_OPTION_LENGTH];
+    static char wordbuffer[MAX_OPTION_LENGTH];
+#else
+    char badopt[MAX_OPTION_LENGTH];
+    char wordbuffer[MAX_OPTION_LENGTH];
+#endif
+
     while ((opt = getword(optstr, &pos, wordbuffer, sizeof(wordbuffer))) != NULL) {
         if (opt[0] == '-') {
             value = NULL;
@@ -799,7 +808,7 @@ PRINT_STRING_bool(char *optionbuff, const void *val_ptr, const char *option)
 static void
 PRINT_STRING_uint(char *optionbuff, const void *val_ptr, const char *option)
 {
-    /* FIXME: 0x100 hack to get logmask printed in hex,
+    /* XXX: 0x100 hack to get logmask printed in hex,
      * loglevel etc in decimal */
     uint value = *(const uint *)val_ptr;
     snprintf(optionbuff, MAX_OPTION_LENGTH, (value > 0x100 ? "-%s 0x%x " : "-%s %u "),
@@ -1115,18 +1124,18 @@ options_enable_code_api_dependences(options_t *options)
     if (!options->code_api)
         return;
 
-        /* PR 202669: larger stack size since we're saving a 512-byte
-         * buffer on the stack when saving fp state.
-         * Also, C++ RTL initialization (even when a C++
-         * client does little else) can take a lot of stack space.
-         * Furthermore, dbghelp.dll usage via drsyms has been observed
-         * to require 36KB, which is already beyond the minimum to
-         * share gencode in the same 64K alloc as the stack.
-         *
-         * XXX: if we raise this beyond 56KB we should adjust the
-         * logic in heap_mmap_reserve_post_stack() to handle sharing the
-         * tail end of a multi-64K-region stack.
-         */
+    /* PR 202669: larger stack size since we're saving a 512-byte
+     * buffer on the stack when saving fp state.
+     * Also, C++ RTL initialization (even when a C++
+     * client does little else) can take a lot of stack space.
+     * Furthermore, dbghelp.dll usage via drsyms has been observed
+     * to require 36KB, which is already beyond the minimum to
+     * share gencode in the same 64K alloc as the stack.
+     *
+     * XXX: if we raise this beyond 56KB we should adjust the
+     * logic in heap_mmap_reserve_post_stack() to handle sharing the
+     * tail end of a multi-64K-region stack.
+     */
 #ifndef NOT_DYNAMORIO_CORE /* XXX: clumsy fix for Windows */
     options->stack_size = MAX(options->stack_size, ALIGN_FORWARD(56 * 1024, PAGE_SIZE));
 #endif
@@ -1190,10 +1199,10 @@ check_list_default_and_append(liststring_t default_list, liststring_t append_lis
     list_default_or_append_t onlist = LIST_NO_MATCH;
     ASSERT(short_name != NULL);
     /* The wildcard '*' is currently expected to be tested by callers
-     * to allow modules without a PE name.  FIXME: Alternatively could
+     * to allow modules without a PE name.  XXX: Alternatively could
      * check whether either list is * and also handle NULL name.
      *
-     * FIXME: case 3858 about providing a substitute PE name
+     * XXX: case 3858 about providing a substitute PE name
      */
     /* inlined IS_STRING_OPTION_EMPTY */
     if (!(default_list[0] == '\0')) {
@@ -1220,7 +1229,7 @@ check_list_default_and_append(liststring_t default_list, liststring_t append_lis
 /* security options have to be enabled to be blocking or reporting */
 #    define SECURITY_OPTION_CONSISTENT(security_option)                                  \
         do {                                                                             \
-            if (!TEST(OPTION_ENABLED, DYNAMO_OPTION(security_option)) &&                 \
+            if (!TESTANY(OPTION_ENABLED, DYNAMO_OPTION(security_option)) &&              \
                 TESTANY(OPTION_BLOCK | OPTION_REPORT, DYNAMO_OPTION(security_option))) { \
                 USAGE_ERROR("Incompatible settings for %s", #security_option);           \
                 dynamo_options.security_option = OPTION_DISABLED;                        \
@@ -1275,7 +1284,7 @@ check_option_compatibility_helper(int recurse_count)
          * (THCI already has problem w/ that b/c it only checks for == not >=
          * (to avoid eflags))
          */
-        /* FIXME : we may want to set to USHRT_MAX-10 or some such, same with
+        /* XXX : we may want to set to USHRT_MAX-10 or some such, same with
          * check above */
         dynamo_options.trace_threshold = USHRT_MAX;
         changed_options = true;
@@ -1320,37 +1329,37 @@ check_option_compatibility_helper(int recurse_count)
 
     /****************************************************************************
      * warn of unfinished and untested self-protection options
-     * FIXME: update once these features are complete
+     * XXX: update once these features are complete
      */
     if (
 #    ifdef WINDOWS
-        /* FIXME: CACHE isn't multithread safe yet */
-        TEST(SELFPROT_CACHE, dynamo_options.protect_mask) ||
+        /* XXX: CACHE isn't multithread safe yet */
+        TESTANY(SELFPROT_CACHE, dynamo_options.protect_mask) ||
 #    endif
-        /* FIXME: LOCAL has some unresolved issues w/ new heap units, etc. */
-        TEST(SELFPROT_LOCAL, dynamo_options.protect_mask) ||
-        TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
+        /* XXX: LOCAL has some unresolved issues w/ new heap units, etc. */
+        TESTANY(SELFPROT_LOCAL, dynamo_options.protect_mask) ||
+        TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
         ASSERT_NOT_TESTED();
     }
     /* warn of incompatible options */
-    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask) &&
-        !TEST(SELFPROT_GLOBAL, dynamo_options.protect_mask)) {
+    if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask) &&
+        !TESTANY(SELFPROT_GLOBAL, dynamo_options.protect_mask)) {
         USAGE_ERROR("dcontext is only actually protected if global is as well");
-        /* FIXME: turn off dcontext?  or let upcontext be split anyway? */
+        /* XXX: turn off dcontext?  or let upcontext be split anyway? */
     }
-    /* FIXME: better way to enforce these incompatibilities w/ certain builds
+    /* XXX: better way to enforce these incompatibilities w/ certain builds
      * than by turning off protection?  Should we halt instead?
      */
-    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask) &&
+    if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask) &&
         SHARED_FRAGMENTS_ENABLED()) {
-        /* FIXME: get all shared gen routines to properly handle unprotected_context_t */
+        /* XXX: get all shared gen routines to properly handle unprotected_context_t */
         USAGE_ERROR("Shared cache does not support protecting dcontext yet");
         dynamo_options.protect_mask &= ~SELFPROT_DCONTEXT;
         changed_options = true;
     }
 
 #    if defined(MACOS) && defined(AARCH64)
-    if (TEST(SELFPROT_GENCODE, dynamo_options.protect_mask)) {
+    if (TESTANY(SELFPROT_GENCODE, dynamo_options.protect_mask)) {
         USAGE_ERROR("memory protection changes incompatible with MAP_JIT");
         dynamo_options.protect_mask &= ~SELFPROT_GENCODE;
         changed_options = true;
@@ -1418,7 +1427,7 @@ check_option_compatibility_helper(int recurse_count)
         dynamo_options.code_origins = false;
         changed_options = true;
     }
-    /* FIXME: We can't support certain GBOP policies, either.  Anything else? */
+    /* XXX: We can't support certain GBOP policies, either.  Anything else? */
 #        endif
 #    endif
 
@@ -1569,7 +1578,7 @@ check_option_compatibility_helper(int recurse_count)
         changed_options = true;
     }
 #    endif
-    /* FIXME We support only shared BBs as IBTs when trace building is on. */
+    /* XXX We support only shared BBs as IBTs when trace building is on. */
     if (DYNAMO_OPTION(bb_ibl_targets) && !DYNAMO_OPTION(disable_traces) &&
         !DYNAMO_OPTION(shared_bbs)) {
         USAGE_ERROR("-bb_ibl_targets w/traces not supported w/-no_shared_bbs, disabling");
@@ -1613,7 +1622,7 @@ check_option_compatibility_helper(int recurse_count)
          DYNAMO_OPTION(bb_single_restore_prefix))) {
         SYSLOG_INTERNAL_INFO("For -bb_ibl_targets -bb_ibt_table_includes_traces, "
                              "traces & BBs must use identical prefixes");
-        /* FIXME We could either set trace_single_restore_prefix and
+        /* XXX We could either set trace_single_restore_prefix and
          * bb_single_restore_prefix to the same value or use
          * -no_bb_ibt_table_includes_traces. For now, we do the latter as
          * it's less disruptive overall -- the trace prefix setting isn't
@@ -1728,7 +1737,7 @@ check_option_compatibility_helper(int recurse_count)
     }
     /* Don't leave -shared_fragment_shared_syscalls on if we're not using shared
      * fragments: case 8027. */
-    /* FIXME We could try to eliminate the info msg by pulling this logic and
+    /* XXX We could try to eliminate the info msg by pulling this logic and
      * associated processing into an OPTION_COMMAND (but OPTION_COMMAND has
      * its own imperfections).
      */
@@ -1840,14 +1849,14 @@ check_option_compatibility_helper(int recurse_count)
     }
 #        ifdef PROGRAM_SHEPHERDING
     if (DYNAMO_OPTION(IAT_convert) && !DYNAMO_OPTION(emulate_IAT_writes)) {
-        /* FIXME: case 1948 we should in fact depend on emulate_IAT_read */
+        /* XXX: case 1948 we should in fact depend on emulate_IAT_read */
         USAGE_ERROR("-IAT_convert requires -emulate_IAT_writes, enabling");
         dynamo_options.emulate_IAT_writes = true;
         changed_options = true;
     }
 #        else
     if (DYNAMO_OPTION(IAT_convert)) {
-        /* FIXME: case 1948 we should in fact depend on emulate_IAT_read */
+        /* XXX: case 1948 we should in fact depend on emulate_IAT_read */
         USAGE_ERROR("-IAT_convert requires unavailable -emulate_IAT_writes, "
                     "disabling IAT_convert");
         dynamo_options.IAT_convert = false;
@@ -1858,7 +1867,7 @@ check_option_compatibility_helper(int recurse_count)
 #    ifdef X64
     if (DYNAMO_OPTION(satisfy_w_xor_x) &&
         (DYNAMO_OPTION(coarse_enable_freeze) || DYNAMO_OPTION(use_persisted))) {
-        /* FIXME i#1566: Just not implemented yet. */
+        /* XXX i#1566: Just not implemented yet. */
         USAGE_ERROR("-satisfy_w_xor_x does not support persistent caches");
         dynamo_options.satisfy_w_xor_x = false;
         changed_options = true;
@@ -1872,7 +1881,7 @@ check_option_compatibility_helper(int recurse_count)
 #    endif
 #    ifdef WINDOWS
     if (DYNAMO_OPTION(satisfy_w_xor_x)) {
-        /* FIXME i#1566: Just not implemented yet. */
+        /* XXX i#1566: Just not implemented yet. */
         USAGE_ERROR("-satisfy_w_xor_x is not supported on Windows");
         dynamo_options.satisfy_w_xor_x = false;
         changed_options = true;
@@ -1883,16 +1892,16 @@ check_option_compatibility_helper(int recurse_count)
      * sysenter system calls when Sygate SPA is not installed [though haven't
      * tested].  However, ignored sysenter system calls when SPA is installed
      * may lead to them reporting/blocking violations on certain platforms as
-     * the necessary mangling is too much at this point (FIXME). */
+     * the necessary mangling is too much at this point (XXX). */
     if (DYNAMO_OPTION(ignore_syscalls) && DYNAMO_OPTION(sygate_sysenter)) {
         USAGE_ERROR("-ignore_syscalls can't be used with -sygate_sysenter");
         dynamo_options.ignore_syscalls = false;
         changed_options = true;
     }
     /* shared/ignore syscall writes to sysenter_storage dcontext field which
-     * should be in upcontext or something FIXME */
+     * should be in upcontext or something XXX */
     if (DYNAMO_OPTION(sygate_sysenter) &&
-        TEST(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask))) {
+        TESTANY(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask))) {
         USAGE_ERROR("-sygate_sysenter incompatbile with -protect_mask dc");
         dynamo_options.protect_mask &= ~SELFPROT_DCONTEXT;
         changed_options = true;
@@ -1928,7 +1937,7 @@ check_option_compatibility_helper(int recurse_count)
     SECURITY_OPTION_CONSISTENT(rct_ind_call);
     SECURITY_OPTION_CONSISTENT(rct_ind_jump);
     if (!DYNAMO_OPTION(ret_after_call) &&
-        TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))) {
+        TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))) {
         SYSLOG_INTERNAL_INFO(".F depends on .C after calls, disabling .F");
         dynamo_options.rct_ind_jump = OPTION_DISABLED;
         changed_options = true;
@@ -1984,7 +1993,7 @@ check_option_compatibility_helper(int recurse_count)
     }
 #        endif
 #        ifdef KSTATS
-    /* case 6837: FIXME: remove once -hotp_only -kstats work */
+    /* case 6837: XXX: remove once -hotp_only -kstats work */
     if (DYNAMO_OPTION(hotp_only) && DYNAMO_OPTION(kstats)) {
         USAGE_ERROR("-hotp_only doesn't support -kstats");
         dynamo_options.kstats = false;
@@ -2092,10 +2101,10 @@ check_option_compatibility_helper(int recurse_count)
                 if (!DYNAMO_OPTION(native_exec_syscalls)) {
                     USAGE_ERROR("early_inject_location LdrpLoadImportModule requires "
                                 "-native_exec_syscalls for first process in chain");
-                    /* FIXME is this the best remediation choice? */
+                    /* XXX is this the best remediation choice? */
                     dynamo_options.native_exec_syscalls = true;
                     changed_options = true;
-                    /* FIXME - check that helper dlls exist, need a way of
+                    /* XXX - check that helper dlls exist, need a way of
                      * finding systemroot for that. */
                 }
             }
@@ -2134,7 +2143,7 @@ check_option_compatibility_helper(int recurse_count)
         dynamo_options.follow_systemwide = true;
         changed_options = true;
 
-        /* FIXME: assert that the global rununder registry key is set to
+        /* XXX: assert that the global rununder registry key is set to
          * rununder_all, but how?
          */
     }
@@ -2200,7 +2209,7 @@ check_option_compatibility_helper(int recurse_count)
         }
 #            endif
 
-        /* FIXME: not tested on vista where ldr_init_thunk is hooked first
+        /* XXX: not tested on vista where ldr_init_thunk is hooked first
          *        and has a different process creation mechanism; case 8576.
          */
     }
@@ -2242,7 +2251,7 @@ check_option_compatibility_helper(int recurse_count)
         }
 #    ifdef EXPOSE_INTERNAL_OPTIONS
         if (!DYNAMO_OPTION(indirect_stubs)) {
-            /* FIXME case 8827: wouldn't be hard to support, just need to ensure the
+            /* XXX case 8827: wouldn't be hard to support, just need to ensure the
              * shared use of the ibl fake stubs is properly separated in dispatch
              */
             USAGE_ERROR("case 8827: -coarse_units requires -indirect_stubs, enabling");
@@ -2250,7 +2259,7 @@ check_option_compatibility_helper(int recurse_count)
             changed_options = true;
         }
         if (INTERNAL_OPTION(store_translations)) {
-            /* FIXME case 9707: NYI */
+            /* TODO case 9707: NYI */
             USAGE_ERROR("case 9707: -coarse_units does not support -store_translations, "
                         "disabling");
             dynamo_options.store_translations = false;
@@ -2258,7 +2267,7 @@ check_option_compatibility_helper(int recurse_count)
         }
 #    endif
         if (DYNAMO_OPTION(IAT_elide)) {
-            /* FIXME case 9710: NYI */
+            /* TODO case 9710: NYI */
             USAGE_ERROR("case 9710: -coarse_units does not support -IAT_elide, "
                         "disabling");
             dynamo_options.IAT_elide = false;
@@ -2383,10 +2392,11 @@ check_option_compatibility_helper(int recurse_count)
     }
 #    endif
 
-#    ifdef ARM
-    if (DYNAMO_OPTION(steal_reg) < 8 /* DR_REG_STOLEN_MIN */ ||
-        DYNAMO_OPTION(steal_reg) > IF_X64_ELSE(29, 12) /* DR_REG_STOLEN_MAX */) {
-        USAGE_ERROR("-steal_reg only supports register between r8 and r12(A32)/r29(A64)");
+#    ifdef AARCHXX
+    if (DYNAMO_OPTION(steal_reg) < DR_REG_STOLEN_MIN - DR_REG_R0 ||
+        DYNAMO_OPTION(steal_reg) > DR_REG_STOLEN_MAX - DR_REG_R0) {
+        USAGE_ERROR("-steal_reg only supports register between r%d and r%d",
+                    DR_REG_STOLEN_MIN - DR_REG_R0, DR_REG_STOLEN_MAX - DR_REG_R0);
         dynamo_options.steal_reg = IF_X64_ELSE(28 /*r28*/, 10 /*r10*/);
         changed_options = true;
     }
@@ -2426,7 +2436,7 @@ check_option_compatibility_helper(int recurse_count)
 
 /* returns true if changed any options */
 static bool
-check_option_compatibility()
+check_option_compatibility(void)
 {
     ASSERT_OWN_OPTIONS_LOCK(true, &options_lock);
     ASSERT(!OPTIONS_PROTECTED());
@@ -2435,7 +2445,7 @@ check_option_compatibility()
 
 /* returns true if changed any options */
 static bool
-check_dynamic_option_compatibility()
+check_dynamic_option_compatibility(void)
 {
     ASSERT_OWN_OPTIONS_LOCK(true, &options_lock);
     /* NOTE : use non-synch form of USAGE_ERROR  in here to avoid
@@ -2445,7 +2455,7 @@ check_dynamic_option_compatibility()
 
 /* initialize dynamo options */
 int
-options_init()
+options_init(void)
 {
     int ret = 0, retval;
 
@@ -2475,14 +2485,14 @@ options_init()
  * options_detach() for that.
  */
 void
-options_exit()
+options_exit(void)
 {
     DELETE_READWRITE_LOCK(options_lock);
 }
 
 /* Reset dynamo options to defaults. */
 void
-options_detach()
+options_detach(void)
 {
     /* We do not use options_make_writable() as locks are already gone at this point. */
     SELF_UNPROTECT_OPTIONS();
@@ -2492,7 +2502,7 @@ options_detach()
 
 /* this function returns holding the options lock */
 void
-options_make_writable()
+options_make_writable(void)
 {
     ASSERT_DO_NOT_OWN_WRITE_LOCK(true, &options_lock);
     d_r_write_lock(&options_lock);
@@ -2503,7 +2513,7 @@ options_make_writable()
  * options_make_writable() beforehand
  */
 void
-options_restore_readonly()
+options_restore_readonly(void)
 {
     ASSERT_OWN_WRITE_LOCK(true, &options_lock);
     SELF_PROTECT_OPTIONS();
@@ -2512,7 +2522,7 @@ options_restore_readonly()
 
 /* updates dynamic options and returns if any were changed */
 int
-synchronize_dynamic_options()
+synchronize_dynamic_options(void)
 {
     int updated, retval;
 
@@ -2617,7 +2627,7 @@ get_process_options(HANDLE process_handle)
 
     /* Making an assumption that the core will be the same for the parent and
      * child if set_dynamo_options_default is to work correctly.  I think it is
-     * reasonable.  FIXME: match parent & child cores & then use set default,
+     * reasonable.  XXX: match parent & child cores & then use set default,
      * what otherwise?
      */
     set_dynamo_options_defaults(&temp_options);
@@ -2627,7 +2637,7 @@ get_process_options(HANDLE process_handle)
     if (IS_GET_PARAMETER_SUCCESS(err))
         set_dynamo_options_other_process(&temp_options, new_option_string);
 
-    /* FIXME: options_t compatibility check isn't done because that function
+    /* XXX: options_t compatibility check isn't done because that function
      * operates directly on dynamo_options!  As this is currently used only to
      * detect if child is in thin_client we don't have to fix it because no
      * option turns on thin_client and because fixing the compatibility checker
@@ -2714,7 +2724,7 @@ show_dynamo_options(bool minimal)
 
 /* USAGE Show descriptions of all available options */
 static void
-show_dynamo_option_descriptions()
+show_dynamo_option_descriptions(void)
 {
 #    define OPTION_COMMAND(type, name, default_value, command_line_option, statement, \
                            description, flag, pcache)                                 \
@@ -2735,11 +2745,11 @@ unit_test_options(void)
     d_r_write_lock(&options_lock); /* simplicity: just grab whole time */
     SELF_UNPROTECT_OPTIONS();
 
-    /* FIXME: actually use asserts for automated testing that does not require
+    /* XXX: actually use asserts for automated testing that does not require
      * visual inspection
      */
 
-    /* FIXME: test invalid options -- w/o dying! */
+    /* XXX: test invalid options -- w/o dying! */
 
     print_file(STDERR, "default---\n");
     show_dynamo_options(false);

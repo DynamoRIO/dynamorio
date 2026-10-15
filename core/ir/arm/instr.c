@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,6 +34,8 @@
 #include "instr.h"
 #include "encode_api.h"
 #include "decode.h"
+#include "isa_features.h"
+#include "isa_feature_names.h"
 
 /* XXX i#6690: currently only A32 and Thumb is supported for instruction encoding.
  * We want to add support for A32 and Thumb decoding and synthetic ISA encoding as well.
@@ -89,7 +91,7 @@ instr_branch_type(instr_t *cti_instr)
     instr_get_opcode(cti_instr); /* ensure opcode is valid */
     if (instr_get_opcode(cti_instr) == OP_blx) {
         /* To handle the mode switch we go through the ibl.
-         * FIXME i#1551: once we have far linking through stubs we should
+         * XXX i#1551: once we have far linking through stubs we should
          * remove this and have a faster link through the stub.
          */
         return LINK_INDIRECT | LINK_CALL;
@@ -113,7 +115,7 @@ instr_branch_type(instr_t *cti_instr)
 bool
 instr_is_mov(instr_t *instr)
 {
-    /* FIXME i#1551: NYI */
+    /* TODO i#1551: NYI */
     CLIENT_ASSERT(false, "NYI");
     return false;
 }
@@ -137,7 +139,7 @@ instr_is_near_call_direct(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
     /* Mode-switch call is not "near".
-     * FIXME i#1551: once we switch OP_blx to use far-stub linking instead of
+     * XXX i#1551: once we switch OP_blx to use far-stub linking instead of
      * ibl we can then consider it "near".
      */
     return (opc == OP_bl);
@@ -442,7 +444,7 @@ instr_is_rep_string_op(instr_t *instr)
 bool
 instr_is_floating_type(instr_t *instr, dr_instr_category_t *type DR_PARAM_OUT)
 {
-    /* FIXME i#1551: NYI */
+    /* TODO i#1551: NYI */
     CLIENT_ASSERT(false, "NYI");
     return false;
 }
@@ -450,7 +452,7 @@ instr_is_floating_type(instr_t *instr, dr_instr_category_t *type DR_PARAM_OUT)
 bool
 instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type DR_PARAM_OUT)
 {
-    /* FIXME i#1551: NYI */
+    /* TODO i#1551: NYI */
     CLIENT_ASSERT(false, "NYI");
     return false;
 }
@@ -537,7 +539,7 @@ instr_is_sse4A(instr_t *instr)
 bool
 instr_is_mov_imm_to_tos(instr_t *instr)
 {
-    /* FIXME i#1551: NYI */
+    /* TODO i#1551: NYI */
     CLIENT_ASSERT(false, "NYI");
     return false;
 }
@@ -579,53 +581,53 @@ instr_predicate_triggered_priv(instr_t *instr, priv_mcontext_t *mc)
     switch (pred) {
     case DR_PRED_NONE: return DR_PRED_TRIGGER_NOPRED;
     case DR_PRED_EQ: /* Z == 1 */
-        return (TEST(EFLAGS_Z, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
-                                          : DR_PRED_TRIGGER_MISMATCH;
+        return (TESTANY(EFLAGS_Z, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
+                                             : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_NE: /* Z == 0 */
-        return (!TEST(EFLAGS_Z, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
-                                           : DR_PRED_TRIGGER_MISMATCH;
+        return (!TESTANY(EFLAGS_Z, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
+                                              : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_CS: /* C == 1 */
-        return (TEST(EFLAGS_C, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
-                                          : DR_PRED_TRIGGER_MISMATCH;
+        return (TESTANY(EFLAGS_C, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
+                                             : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_CC: /* C == 0 */
-        return (!TEST(EFLAGS_C, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
-                                           : DR_PRED_TRIGGER_MISMATCH;
+        return (!TESTANY(EFLAGS_C, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
+                                              : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_MI: /* N == 1 */
-        return (TEST(EFLAGS_N, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
-                                          : DR_PRED_TRIGGER_MISMATCH;
+        return (TESTANY(EFLAGS_N, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
+                                             : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_PL: /* N == 0 */
-        return (!TEST(EFLAGS_N, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
-                                           : DR_PRED_TRIGGER_MISMATCH;
+        return (!TESTANY(EFLAGS_N, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
+                                              : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_VS: /* V == 1 */
-        return (TEST(EFLAGS_V, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
-                                          : DR_PRED_TRIGGER_MISMATCH;
+        return (TESTANY(EFLAGS_V, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
+                                             : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_VC: /* V == 0 */
-        return (!TEST(EFLAGS_V, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
-                                           : DR_PRED_TRIGGER_MISMATCH;
+        return (!TESTANY(EFLAGS_V, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
+                                              : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_HI: /* C == 1 and Z == 0 */
-        return (TEST(EFLAGS_C, mc->apsr) && !TEST(EFLAGS_Z, mc->apsr))
+        return (TESTANY(EFLAGS_C, mc->apsr) && !TESTANY(EFLAGS_Z, mc->apsr))
             ? DR_PRED_TRIGGER_MATCH
             : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_LS: /* C == 0 or Z == 1 */
-        return (!TEST(EFLAGS_C, mc->apsr) || TEST(EFLAGS_Z, mc->apsr))
+        return (!TESTANY(EFLAGS_C, mc->apsr) || TESTANY(EFLAGS_Z, mc->apsr))
             ? DR_PRED_TRIGGER_MATCH
             : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_GE: /* N == V */
-        return BOOLS_MATCH(TEST(EFLAGS_N, mc->apsr), TEST(EFLAGS_V, mc->apsr))
+        return BOOLS_MATCH(TESTANY(EFLAGS_N, mc->apsr), TESTANY(EFLAGS_V, mc->apsr))
             ? DR_PRED_TRIGGER_MATCH
             : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_LT: /* N != V */
-        return !BOOLS_MATCH(TEST(EFLAGS_N, mc->apsr), TEST(EFLAGS_V, mc->apsr))
+        return !BOOLS_MATCH(TESTANY(EFLAGS_N, mc->apsr), TESTANY(EFLAGS_V, mc->apsr))
             ? DR_PRED_TRIGGER_MATCH
             : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_GT /* Z == 0 and N == V */:
-        return (!TEST(EFLAGS_Z, mc->apsr) &&
-                BOOLS_MATCH(TEST(EFLAGS_N, mc->apsr), TEST(EFLAGS_V, mc->apsr)))
+        return (!TESTANY(EFLAGS_Z, mc->apsr) &&
+                BOOLS_MATCH(TESTANY(EFLAGS_N, mc->apsr), TESTANY(EFLAGS_V, mc->apsr)))
             ? DR_PRED_TRIGGER_MATCH
             : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_LE: /* Z == 1 or N != V */
-        return (TEST(EFLAGS_Z, mc->apsr) ||
-                !BOOLS_MATCH(TEST(EFLAGS_N, mc->apsr), TEST(EFLAGS_V, mc->apsr)))
+        return (TESTANY(EFLAGS_Z, mc->apsr) ||
+                !BOOLS_MATCH(TESTANY(EFLAGS_N, mc->apsr), TESTANY(EFLAGS_V, mc->apsr)))
             ? DR_PRED_TRIGGER_MATCH
             : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_AL: return DR_PRED_TRIGGER_MATCH;
@@ -667,7 +669,7 @@ instr_cbr_taken(instr_t *instr, priv_mcontext_t *mc, bool pre)
 static bool
 opc_jcc_taken(int opc, reg_t eflags)
 {
-    /* FIXME i#1551: NYI */
+    /* TODO i#1551: NYI */
     CLIENT_ASSERT(false, "NYI");
     return false;
 }
@@ -676,7 +678,7 @@ opc_jcc_taken(int opc, reg_t eflags)
 bool
 instr_jcc_taken(instr_t *instr, reg_t eflags)
 {
-    /* FIXME i#1551: NYI -- make exported routine x86-only and export
+    /* TODO i#1551: NYI -- make exported routine x86-only and export
      * instr_cbr_taken() (but need public mcontext)?
      */
     return opc_jcc_taken(instr_get_opcode(instr), eflags);
@@ -689,7 +691,7 @@ DR_API
 int
 instr_cmovcc_to_jcc(int cmovcc_opcode)
 {
-    /* FIXME i#1551: NYI */
+    /* TODO i#1551: NYI */
     CLIENT_ASSERT(false, "NYI");
     return OP_INVALID;
 }
@@ -698,7 +700,7 @@ DR_API
 bool
 instr_cmovcc_triggered(instr_t *instr, reg_t eflags)
 {
-    /* FIXME i#1551: NYI */
+    /* TODO i#1551: NYI */
     CLIENT_ASSERT(false, "NYI");
     return false;
 }
@@ -823,7 +825,7 @@ opnd_same_sizes_ok(opnd_size_t s1, opnd_size_t s2, bool is_reg)
 instr_t *
 instr_create_nbyte_nop(dcontext_t *dcontext, uint num_bytes, bool raw)
 {
-    /* FIXME i#1551: NYI on ARM */
+    /* TODO i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -935,4 +937,20 @@ instr_compute_vector_address(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
 {
     CLIENT_ASSERT(false, "There are no AArch32 instructions that use vector addressing");
     return false;
+}
+
+/* TODO i#7842: to be implemented. */
+DR_API
+uint
+instr_get_isa_feature(byte *pc, instr_t *instr)
+{
+    return ISA_FEAT_UNKNOWN;
+}
+
+/* TODO i#7842: to be implemented. */
+DR_API
+const char *
+instr_get_isa_feature_name(uint isa_feature)
+{
+    return isa_feature_names[isa_feature];
 }

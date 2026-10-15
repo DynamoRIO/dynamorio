@@ -1,5 +1,6 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -79,11 +80,11 @@ static mutex_t maps_iter_buf_lock = INIT_LOCK_FREE(maps_iter_buf_lock);
 /* these are defined in /usr/src/linux/fs/proc/array.c */
 #define MAPS_LINE_LENGTH 4096
 /* for systems with sizeof(void*) == 4: */
-#define MAPS_LINE_FORMAT4 "%08lx-%08lx %s %08lx %*s " UINT64_FORMAT_STRING " %4096[^\n]"
+#define MAPS_LINE_FORMAT4 "%08lx-%08lx %s %08lx %x:%x " UINT64_FORMAT_STRING " %4096[^\n]"
 #define MAPS_LINE_MAX4 49 /* sum of 8  1  8  1 4 1 8 1 5 1 10 1 */
 /* for systems with sizeof(void*) == 8: */
 #define MAPS_LINE_FORMAT8 \
-    "%016lx-%016lx %s %016lx %*s " UINT64_FORMAT_STRING " %4096[^\n]"
+    "%016lx-%016lx %s %016lx %x:%x " UINT64_FORMAT_STRING " %4096[^\n]"
 #define MAPS_LINE_MAX8 73 /* sum of 16  1  16  1 4 1 16 1 5 1 10 1 */
 
 #define MAPS_LINE_MAX MAPS_LINE_MAX8
@@ -93,7 +94,7 @@ static mutex_t maps_iter_buf_lock = INIT_LOCK_FREE(maps_iter_buf_lock);
  */
 /* since we're called from signal handler, etc., keep our stack usage
  * low by using static bufs (it's over 4K after all).
- * FIXME: now we're using 16K right here: should we shrink?
+ * XXX: now we're using 16K right here: should we shrink?
  */
 #define BUFSIZE (MAPS_LINE_LENGTH + 8)
 static char buf_scratch[BUFSIZE];
@@ -221,14 +222,14 @@ memquery_iterator_next(memquery_iter_t *iter)
         line = mi->newline + 1;
         mi->newline = strchr(line, '\n');
         if (mi->newline == NULL) {
-            /* FIXME clean up: factor out repetitive code */
+            /* XXX clean up: factor out repetitive code */
             /* shift 1st part of line to start of buf, then read in rest */
             /* the memory for the processed part can be reused  */
             mi->bufwant = line - mi->buf;
             ASSERT(mi->bufwant <= mi->bufread);
             len = mi->bufread - mi->bufwant; /* what is left from last time */
             /* since strings may overlap, should use memmove, not strncpy */
-            /* FIXME corner case: if len == 0, nothing to move */
+            /* XXX corner case: if len == 0, nothing to move */
             memmove(mi->buf, line, len);
             mi->bufread = os_read(mi->maps, mi->buf + len, mi->bufwant);
             ASSERT(mi->bufread <= mi->bufwant);
@@ -254,9 +255,15 @@ memquery_iterator_next(memquery_iter_t *iter)
     *mi->newline = '\0';
     LOG(GLOBAL, LOG_VMAREAS, 6, "\nget_memory_info_from_os: line=[%s]\n", line);
     mi->comment_buffer[0] = '\0';
+    iter->offset = 0;
+    iter->inode = 0;
+    iter->device_major = 0;
+    iter->device_minor = 0;
+    iter->is_shared = false;
     len = sscanf(line, sizeof(void *) == 4 ? MAPS_LINE_FORMAT4 : MAPS_LINE_FORMAT8,
                  (unsigned long *)&iter->vm_start, (unsigned long *)&iter->vm_end, perm,
-                 (unsigned long *)&iter->offset, &iter->inode, mi->comment_buffer);
+                 (unsigned long *)&iter->offset, &iter->device_major, &iter->device_minor,
+                 &iter->inode, mi->comment_buffer);
     if (iter->vm_start == iter->vm_end) {
         /* i#366 & i#599: Merge an empty regions caused by stack guard pages
          * into the stack region if the stack region is less than one page away.
@@ -299,9 +306,11 @@ memquery_iterator_next(memquery_iter_t *iter)
         iter->vm_start = prev_start;
         return memquery_iterator_next(iter);
     }
-    if (len < 6)
+    if (len < 8)
         mi->comment_buffer[0] = '\0';
     iter->prot = permstr_to_memprot(perm);
+    iter->is_shared = len >= 3 && perm[0] != '\0' && perm[1] != '\0' && perm[2] != '\0' &&
+        perm[3] == 's';
 #ifdef ANDROID
     /* i#1861: the Android kernel supports custom comments which can't merge */
     if (iter->comment[0] != '\0')
@@ -357,7 +366,8 @@ memquery_from_os(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info,
                  * pieces by our vsyscall hook, so we don't check for a precise match.
                  */
                 info->prot = (MEMPROT_READ | MEMPROT_EXEC | MEMPROT_VDSO);
-            } else if (strcmp(iter.comment, "[vvar]") == 0) {
+            } else if (strncmp(iter.comment, VVAR_PAGE_MAPS_NAME_PREFIX,
+                               strlen(VVAR_PAGE_MAPS_NAME_PREFIX)) == 0) {
                 /* The VVAR pages were added in kernel 3.0 but not labeled until
                  * 3.15.  We document that we do not label prior to 3.15.
                  * DrMem#1778 seems to only happen on 3.19+ in any case.

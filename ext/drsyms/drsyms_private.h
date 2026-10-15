@@ -38,7 +38,7 @@
 
 #include "drsyms.h"
 
-#include "../ext_utils.h"
+#include "dr_project_wide_defines.h"
 
 #ifndef MIN
 #    define MIN(x, y) ((x) <= (y) ? (x) : (y))

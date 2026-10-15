@@ -36,11 +36,11 @@
 /* one should use a CALL and the other should use a JMP
  *   just to be sure
  *
- *  FIXME: need to get this test also to be done like initapc.dll.c so that
+ *  XXX: need to get this test also to be done like initapc.dll.c so that
  *  this all happens BEFORE we take control
  **/
 
-/* FIXME: we can't use a LdrLoadDll unless we chain properly - otherwise we don't get in!
+/* XXX: we can't use a LdrLoadDll unless we chain properly - otherwise we don't get in!
  */
 
 #include "tools.h"
@@ -48,7 +48,7 @@
 
 #define NAKED __declspec(naked)
 
-/* FIXME: check for some unexpected behaviours with size = 5 and size = 0x1000, or even
+/* XXX: check for some unexpected behaviours with size = 5 and size = 0x1000, or even
  * 0x2000 */
 enum { HOOK_SIZE = 0x1000 };
 
@@ -159,7 +159,7 @@ do_hook(const char *hookfn, int args, int use_call, DWORD *old_code)
             print("there be witches! what happened to my write?\n");
         else
             print("hooked %s\n", hookfn);
-        /* FIXME: try it out and see what happens */
+        /* XXX: try it out and see what happens */
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         print("bad: can't write, though made writable\n");
     }
@@ -251,7 +251,8 @@ DWORD func1_buf[BUF_SIZE];
 DWORD func2_buf[BUF_SIZE];
 DWORD ntflushwritebuffer_buf[BUF_SIZE];
 
-int __declspec(dllexport) hookit(int arg)
+int __declspec(dllexport)
+hookit(int arg)
 {
     print("ready to hook %d\n", arg);
 
@@ -262,19 +263,20 @@ int __declspec(dllexport) hookit(int arg)
 
     /* hack: we'll pass 4 args instead of 0 */
     /* hooking a function we really don't care much about */
-    /* FIXME: should we let this through or not? */
+    /* XXX: should we let this through or not? */
     do_hook("NtFlushWriteBuffer", 4, 1, ntflushwritebuffer_buf);
 
     /* we have 4 writes to ntdll memory
      * on each of 6 calls to do_hook
      * should get app_modify_ntdll_writes = 24
-     * FIXME: how to scrape a log for this?
+     * XXX: how to scrape a log for this?
      */
     print("hooking done with\n");
     return 0;
 }
 
-int __declspec(dllexport) unhookit(int arg)
+int __declspec(dllexport)
+unhookit(int arg)
 {
     print("ready to unhook %d\n", arg);
 
@@ -285,13 +287,13 @@ int __declspec(dllexport) unhookit(int arg)
 
     /* hack: we'll pass 4 args instead of 0 */
     /* hooking a function we really don't care much about */
-    /* FIXME: should we let this through or not? */
+    /* XXX: should we let this through or not? */
     do_unhook("NtFlushWriteBuffer", 4, 1, ntflushwritebuffer_buf);
 
     /* we have 4 writes to ntdll memory
      * on each of 6 calls to do_hook
      * should get app_modify_ntdll_writes = 24
-     * FIXME: how to scrape a log for this?
+     * XXX: how to scrape a log for this?
      */
     print("unhooking done with\n");
     return 0;

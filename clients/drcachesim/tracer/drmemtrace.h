@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,7 +37,7 @@
  */
 
 #ifndef _DRMEMTRACE_H_
-#define _DRMEMTRACE_H_ 1
+#define _DRMEMTRACE_H_
 
 /**
  * @file drmemtrace.h

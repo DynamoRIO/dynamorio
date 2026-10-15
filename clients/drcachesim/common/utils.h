@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /* utils.h: utilities for cache simulator */
 
 #ifndef _UTILS_H_
-#define _UTILS_H_ 1
+#define _UTILS_H_
 
 #include <stdint.h>
 #include <stdio.h>
@@ -52,24 +52,22 @@
 #    include <sys/time.h>
 #endif
 
+#include "dr_project_wide_defines.h"
+
 namespace dynamorio {
 namespace drmemtrace {
 
-// XXX: DR should export this
+// TODO i#8001: Unify with DR's defines and move to dr_project_wide_defines.h.
 #define INVALID_THREAD_ID 0
 // We avoid collisions with DR's INVALID_PROCESS_ID by using our own name.
 #define INVALID_PID -1
-// A separate sentinel for an idle core with no software thread.
-// XXX i#6703: Export this in scheduler.h as part of its API when we have
-// the scheduler insert synthetic headers.
-#define IDLE_THREAD_ID -1
 
 // XXX: perhaps we should use a C++-ish stream approach instead
 // This cannot be named ERROR as that conflicts with Windows headers.
 #define ERRMSG(msg, ...) fprintf(stderr, msg, ##__VA_ARGS__)
 
 // XXX: can we share w/ core DR?
-#define IS_POWER_OF_2(x) ((x) != 0 && ((x) & ((x)-1)) == 0)
+#define IS_POWER_OF_2(x) ((x) != 0 && ((x) & ((x) - 1)) == 0)
 
 // XXX i#4399: DR should define a DEBUG-only assert.
 #ifdef DEBUG
@@ -80,22 +78,11 @@ namespace drmemtrace {
 #    define IF_DEBUG(x)    /* Nothing. */
 #endif
 
-#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
-#define BUFFER_LAST_ELEMENT(buf) buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
-#define TESTALL(mask, var) (((mask) & (var)) == (mask))
-#define TESTANY(mask, var) (((mask) & (var)) != 0)
-
 #if defined(X64) || defined(ARM)
 #    define IF_REL_ADDRS(x) x
 #else
 #    define IF_REL_ADDRS(x)
 #endif
-
-#define ALIGN_FORWARD(x, alignment) \
-    ((((ptr_uint_t)x) + ((alignment)-1)) & (~((ptr_uint_t)(alignment)-1)))
-#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((ptr_uint_t)(alignment)-1)))
 
 #define NOTIFY(level, ...)                     \
     do {                                       \
@@ -108,7 +95,7 @@ namespace drmemtrace {
 #ifdef WINDOWS
 /* Use special C99 operator _Pragma to generate a pragma from a macro */
 #    if _MSC_VER <= 1200
-#        define ACTUAL_PRAGMA(p) _Pragma(#        p)
+#        define ACTUAL_PRAGMA(p) _Pragma(#p)
 #    else
 #        define ACTUAL_PRAGMA(p) __pragma(p)
 #    endif
@@ -145,6 +132,11 @@ namespace drmemtrace {
 #    define IF_WINDOWS(x)
 #    define IF_UNIX(x) x
 #endif
+
+// This value is selected so that offline_entry_t.pc never has canonical
+// (all 0 or all 1) bits 48..55.  See the offline_type_t comment.
+#define MAX_BB_INSTRS_NAME "max_bb_instrs"
+#define MAX_BB_INSTRS 126
 
 static inline int
 compute_log2(int64_t value)

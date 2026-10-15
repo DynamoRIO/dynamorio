@@ -30,16 +30,16 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-/* FIXME: Need to add C++ code for certain structs for headers - this is going to be a
+/* XXX: Need to add C++ code for certain structs for headers - this is going to be a
    problem if WINE continues to only use C code  - I suppose that we could always inline
    in the header file to get around that little problem... */
-/* FIXME: We need to implement versioning on everything directx 5 and up if these headers
+/* XXX: We need to implement versioning on everything directx 5 and up if these headers
           are going to be generically useful for directx stuff */
 
 #ifndef __WINE_D3DTYPES_H
 #define __WINE_D3DTYPES_H
 
-/* #include <windows.h> FIXME: Need to include for compatibility. Inclusion caused compile
+/* #include <windows.h> XXX: Need to include for compatibility. Inclusion caused compile
  * fail */
 
 #if (DIRECT3D_VERSION >= 0x0800)
@@ -59,31 +59,31 @@ typedef LONG D3DFIXED;
 #ifndef RGB_MAKE
 #    define CI_GETALPHA(ci) ((ci) >> 24)
 #    define CI_GETINDEX(ci) (((ci) >> 8) & 0xffff)
-#    define CI_GETFRACTION(ci) ((ci)&0xff)
+#    define CI_GETFRACTION(ci) ((ci) & 0xff)
 #    define CI_ROUNDINDEX(ci) CI_GETINDEX((ci) + 0x80)
-#    define CI_MASKALPHA(ci) ((ci)&0xffffff)
+#    define CI_MASKALPHA(ci) ((ci) & 0xffffff)
 #    define CI_MAKE(a, i, f) (((a) << 24) | ((i) << 8) | (f))
 
 #    define RGBA_GETALPHA(rgb) ((rgb) >> 24)
 #    define RGBA_GETRED(rgb) (((rgb) >> 16) & 0xff)
 #    define RGBA_GETGREEN(rgb) (((rgb) >> 8) & 0xff)
-#    define RGBA_GETBLUE(rgb) ((rgb)&0xff)
+#    define RGBA_GETBLUE(rgb) ((rgb) & 0xff)
 #    define RGBA_MAKE(r, g, b, a) \
         ((D3DCOLOR)(((a) << 24) | ((r) << 16) | ((g) << 8) | (b)))
 
-#    define D3DRGB(r, g, b)                                                   \
-        (0xff000000L | (((long)((r)*255)) << 16) | (((long)((g)*255)) << 8) | \
-         (long)((b)*255))
-#    define D3DRGBA(r, g, b, a)                                  \
-        ((((long)((a)*255)) << 24) | (((long)((r)*255)) << 16) | \
-         (((long)((g)*255)) << 8) | (long)((b)*255))
+#    define D3DRGB(r, g, b)                                                       \
+        (0xff000000L | (((long)((r) * 255)) << 16) | (((long)((g) * 255)) << 8) | \
+         (long)((b) * 255))
+#    define D3DRGBA(r, g, b, a)                                      \
+        ((((long)((a) * 255)) << 24) | (((long)((r) * 255)) << 16) | \
+         (((long)((g) * 255)) << 8) | (long)((b) * 255))
 
 #    define RGB_GETRED(rgb) (((rgb) >> 16) & 0xff)
 #    define RGB_GETGREEN(rgb) (((rgb) >> 8) & 0xff)
-#    define RGB_GETBLUE(rgb) ((rgb)&0xff)
-#    define RGBA_SETALPHA(rgba, x) (((x) << 24) | ((rgba)&0x00ffffff))
+#    define RGB_GETBLUE(rgb) ((rgb) & 0xff)
+#    define RGBA_SETALPHA(rgba, x) (((x) << 24) | ((rgba) & 0x00ffffff))
 #    define RGB_MAKE(r, g, b) ((D3DCOLOR)(((r) << 16) | ((g) << 8) | (b)))
-#    define RGBA_TORGB(rgba) ((D3DCOLOR)((rgba)&0xffffff))
+#    define RGBA_TORGB(rgba) ((D3DCOLOR)((rgba) & 0xffffff))
 #    define RGB_TORGBA(rgb) ((D3DCOLOR)((rgb) | 0xff000000))
 
 #endif
@@ -1034,7 +1034,7 @@ typedef enum {
 
     D3DRENDERSTATE_FORCE_DWORD = 0x7fffffff
 
-    /* FIXME: We have some retired values that are being reused for DirectX 7 */
+    /* XXX: We have some retired values that are being reused for DirectX 7 */
 } D3DRENDERSTATETYPE;
 
 typedef enum _D3DMATERIALCOLORSOURCE {

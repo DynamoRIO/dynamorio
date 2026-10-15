@@ -42,7 +42,7 @@
 #
 
 # TODO: use get options, and print usage/help
-# FIXME: hardcodes cnn.htm
+# XXX: hardcodes cnn.htm
 #
 # usage: launch-ie [-mp] [10]
 #

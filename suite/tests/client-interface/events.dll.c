@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -169,7 +169,7 @@ check_result(void)
 }
 
 static void
-low_on_memory_event()
+low_on_memory_event(void)
 {
     /* Do nothing. Testing only register and unregister functions. */
 }
@@ -653,7 +653,7 @@ DR_EXPORT
 void
 dr_init(client_id_t id)
 {
-    /* FIXME: we should test the nudge events as well, but that
+    /* XXX: we should test the nudge events as well, but that
      * would require some extra stuff our testing infrastructure
      * doesn't currently support.
      */
@@ -740,13 +740,10 @@ dr_init(client_id_t id)
         dr_fprintf(STDERR, "failed to unregister for persist patch event");
 
 #ifdef LINUX
-    /* On Linux, where we have a clear distinction between DR launching the process
-     * with zero threads and a later attach where there are threads, make sure
-     * the post_attach event return value can be used by clients.
-     */
-    if (dr_register_post_attach_event(exit_event1))
-        dr_fprintf(STDERR, "should fail to register for post-attach event");
-    if (dr_unregister_post_attach_event(exit_event1))
-        dr_fprintf(STDERR, "should fail to unregister for post-attach event");
+    if (dr_attached_midrun())
+        dr_fprintf(STDERR, "did *not* attach midrun");
+#else
+    if (!dr_attached_midrun())
+        dr_fprintf(STDERR, "did attach midrun");
 #endif
 }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,7 +40,7 @@
  */
 
 #ifndef _OS_PUBLIC_H_
-#define _OS_PUBLIC_H_ 1
+#define _OS_PUBLIC_H_
 
 /* CONTEXT field name changes: before including arch_exports.h, for cxt_seg_t! */
 #ifdef X64
@@ -58,7 +58,7 @@ typedef ushort cxt_seg_t;
  * in. We use the latter so that we don't have to hardcode the index.
  */
 #    define CXT_XMM(cxt, idx) ((dr_xmm_t *)&((cxt)->FltSave.XmmRegisters[idx]))
-/* FIXME i#437: need CXT_YMM */
+/* XXX i#437: need CXT_YMM */
 /* they kept the 32-bit EFlags field; sure, the upper 32 bits of Rflags
  * are undefined right now, but doesn't seem very forward-thinking. */
 #    define CXT_XFLAGS EFlags
@@ -80,7 +80,7 @@ typedef DWORD cxt_seg_t;
  */
 #    define FXSAVE_XMM0_OFFSET 160
 #    define CXT_XMM(cxt, idx) \
-        ((dr_xmm_t *)&((cxt)->ExtendedRegisters[FXSAVE_XMM0_OFFSET + (idx)*16]))
+        ((dr_xmm_t *)&((cxt)->ExtendedRegisters[FXSAVE_XMM0_OFFSET + (idx) * 16]))
 #endif
 
 #endif /* _OS_PUBLIC_H_ */

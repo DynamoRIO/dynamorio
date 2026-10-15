@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2021-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2017 ARM Limited. All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
@@ -80,7 +80,7 @@ event_basic_block(void *dc, void *tag, instrlist_t *bb, bool for_trace, bool tra
     before_label = INSTR_CREATE_label(dc);
     after_label = INSTR_CREATE_label(dc);
 
-    /* FIXME i#1569: passing instruction operands is NYI on AArch64.
+    /* TODO i#1569: passing instruction operands is NYI on AArch64.
      * We use a workaround involving ADR. */
     IF_AARCH64(save_current_pc(dc, bb, entry, &cleancall_start_pc, before_label));
     PRE(bb, entry, before_label);
@@ -132,7 +132,7 @@ codegen_out_of_line(void *dc)
         APP(ilist,
             XINST_CREATE_load_int(dc, opnd_create_reg(reg), OPND_CREATE_INTPTR(0xf1f1)));
     }
-    /* FIXME i#1569: FMOV support is NYI on AArch64 */
+    /* TODO i#1569: FMOV support is NYI on AArch64 */
 #ifdef X86
     for (i = 0; i < proc_num_simd_registers(); i++) {
         reg_id_t reg = DR_REG_XMM0 + (reg_id_t)i;

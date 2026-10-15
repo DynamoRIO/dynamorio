@@ -5,3 +5,5 @@ Total counts:
 .*
 Core #0 schedule: EM_E_M_
 Core #1 schedule: GF_F_F_
+Core #0 switch-outs:
+.*

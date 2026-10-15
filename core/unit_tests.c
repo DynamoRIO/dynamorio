@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,6 +39,8 @@
 
 void
 unit_test_io(void);
+void
+unit_test_native_exec(void);
 #ifdef UNIX
 void
 unit_test_string(void);
@@ -64,6 +67,12 @@ void
 unit_test_atomic_ops(void);
 void
 unit_test_jit_fragment_tree(void);
+#ifdef X86
+void
+unit_test_tls_emit(dcontext_t *dc);
+void
+unit_test_tls_translate(dcontext_t *dc);
+#endif
 
 int
 main(int argc, char **argv, char **envp)
@@ -75,6 +84,7 @@ main(int argc, char **argv, char **envp)
      * might be worth looking into gtest, which already does this.
      */
     unit_test_io();
+    unit_test_native_exec();
 #ifdef UNIX
     unit_test_string();
     unit_test_os();
@@ -82,6 +92,10 @@ main(int argc, char **argv, char **envp)
 #endif
     unit_test_utils();
     unit_test_opnd_shared();
+#ifdef X86
+    unit_test_tls_emit(dc);
+    unit_test_tls_translate(dc);
+#endif
     unit_test_options();
     unit_test_vmareas();
 #ifdef WINDOWS

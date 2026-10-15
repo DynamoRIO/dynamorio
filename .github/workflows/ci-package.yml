@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020-2025 Google, Inc.  All rights reserved.
+# Copyright (c) 2020-2026 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -51,6 +51,9 @@ on:
         required: true
         default: '0'
 
+env:
+  PATH_TO_VERSION_FILE: "./make/version.txt"
+
 defaults:
   run:
     shell: bash
@@ -93,21 +96,19 @@ jobs:
         sudo rsync -av ../extract/lib/i386-linux-gnu/ /usr/lib/i386-linux-gnu/
         sudo rsync -av ../extract/usr/include/i386-linux-gnu/ /usr/include/
 
-    # Use a newer cmake to avoid 32-bit toolchain problems (i#4830).
-    - name: Setup newer cmake
-      uses: jwlawson/actions-setup-cmake@v2
-      with:
-        cmake-version: '3.19.7'
-
     - name: Get Version
       id: version
-      # XXX: For now we duplicate this version number here with CMakeLists.txt.
-      # We should find a way to share (xref i#1565).
       # We support setting the version and build for manual builds.
       # We only use a non-zero build # when making multiple manual builds in one day.
       run: |
+        # Read the version from version.txt file.
+        # The file is supposed to only contain MAJOR.MINOR version numbers. We read only
+        # the first line (bash removes the trailing '\n' through command substitution
+        # with $(command)), but otherwise there is no other input validation or
+        # sanitization.
+        major_dot_minor_version_number="$(head -n 1 ${PATH_TO_VERSION_FILE})"
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=11.90.$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export VERSION_NUMBER=$major_dot_minor_version_number.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}
         fi
@@ -173,10 +174,15 @@ jobs:
 
     - name: Get Version
       id: version
-      # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
+        # Read the version from version.txt file.
+        # The file is supposed to only contain MAJOR.MINOR version numbers. We read only
+        # the first line (bash removes the trailing '\n' through command substitution
+        # with $(command)), but otherwise there is no other input validation or
+        # sanitization.
+        major_dot_minor_version_number="$(head -n 1 ${PATH_TO_VERSION_FILE})"
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=11.90.$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export VERSION_NUMBER=$major_dot_minor_version_number.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}
         fi
@@ -238,10 +244,15 @@ jobs:
 
     - name: Get Version
       id: version
-      # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
+        # Read the version from version.txt file.
+        # The file is supposed to only contain MAJOR.MINOR version numbers. We read only
+        # the first line (bash removes the trailing '\n' through command substitution
+        # with $(command)), but otherwise there is no other input validation or
+        # sanitization.
+        major_dot_minor_version_number="$(head -n 1 ${PATH_TO_VERSION_FILE})"
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=11.90.$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export VERSION_NUMBER=$major_dot_minor_version_number.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}
         fi
@@ -268,76 +279,14 @@ jobs:
         path: DynamoRIO-ARM-Linux-EABIHF-${{ steps.version.outputs.version_number }}.tar.gz
 
   ###########################################################################
-  # Android ARM tarball:
-  android-arm:
-    runs-on: ubuntu-22.04
-
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: true
-
-    - name: Fetch Sources
-      run: |
-        git fetch --no-tags --depth=1 origin master
-        # Include Dr. Memory in packages.
-        git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
-        cd drmemory && git submodule update --init --recursive --depth 250 && cd ..
-
-    # Fetch and install Android NDK for Andoid cross-compile build.
-    - name: Create Build Environment
-      run: |
-        sudo apt-get update
-        sudo apt-get -y install doxygen vera++ cmake
-        cd /tmp
-        wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
-        unzip -q android-ndk-r10e-linux-x86_64.zip
-        export ANDROID_NDK_ROOT=/tmp/android-ndk-r10e
-        android-ndk-r10e/build/tools/make-standalone-toolchain.sh --arch=arm \
-          --toolchain=arm-linux-androideabi-4.9 --platform=android-21 \
-          --install-dir=/tmp/android-gcc-arm-ndk-10e
-        # Manually force using ld.bfd, setting CMAKE_LINKER does not work.
-        ln -sf ld.bfd /tmp/android-gcc-arm-ndk-10e/arm-linux-androideabi/bin/ld
-        ln -sf arm-linux-androideabi-ld.bfd \
-          /tmp/android-gcc-arm-ndk-10e/bin/arm-linux-androideabi-ld
-
-    - name: Get Version
-      id: version
-      # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
-      run: |
-        if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=11.90.$((`git log -n 1 --format=%ct` / (60*60*24)))
-        else
-          export VERSION_NUMBER=${{ github.event.inputs.version }}
-        fi
-        if [ "${{ github.event.inputs.build }}" -ne 0 ]; then
-          export VERSION_NUMBER="${VERSION_NUMBER}-${{ github.event.inputs.build }}"
-        fi
-        echo "::set-output name=version_number::${VERSION_NUMBER}"
-
-    - name: Build Package
-      working-directory: ${{ github.workspace }}
-      run: ./suite/runsuite_wrapper.pl automated_ci 32_only
-      env:
-        CI_TARGET: package
-        VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
-        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
-        DYNAMORIO_CROSS_ANDROID_ONLY: yes
-        DYNAMORIO_ANDROID_TOOLCHAIN: /tmp/android-gcc-arm-ndk-10e
-        CI_TRIGGER: ${{ github.event_name }}
-        CI_BRANCH: ${{ github.ref }}
-
-    - name: Upload Artifacts
-      # This points to the latest upload-artifact v4.x.x.
-      uses: actions/upload-artifact@v4
-      with:
-        name: android-tarball
-        path: DynamoRIO-ARM-Android-EABI-${{ steps.version.outputs.version_number }}.tar.gz
+  # Android ARM tarball: Removed due to lack of support for recent Android.
+  # TODO i#2154,i#3683: Add an Android package back when it is better supported,
+  # whether AArch64 or AArch32.
 
   ###########################################################################
   # Windows .zip with 32-bit and 64-bit x86 builds:
   windows:
-    runs-on: windows-2019
+    runs-on: windows-2022
 
     steps:
     - uses: actions/checkout@v4
@@ -353,6 +302,9 @@ jobs:
 
     # Install Doxygen.
     - uses: ssciwr/doxygen-install@v1
+      with:
+        # TODO i#7796: Fix failures seen on Doxygen 1.16.1.
+        version: "1.14.0"
 
     - name: Download Packages
       shell: powershell
@@ -362,10 +314,15 @@ jobs:
 
     - name: Get Version
       id: version
-      # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
+        # Read the version from version.txt file.
+        # The file is supposed to only contain MAJOR.MINOR version numbers. We read only
+        # the first line (bash removes the trailing '\n' through command substitution
+        # with $(command)), but otherwise there is no other input validation or
+        # sanitization.
+        major_dot_minor_version_number="$(head -n 1 ${PATH_TO_VERSION_FILE})"
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=11.90.$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export VERSION_NUMBER=$major_dot_minor_version_number.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}
         fi
@@ -384,7 +341,7 @@ jobs:
         set PATH=c:\projects\install\ninja;%PATH%
         dir "c:\Program Files (x86)\WiX Toolset"*
         set PATH=C:\Program Files (x86)\WiX Toolset v3.14\bin;%PATH%
-        call "C:/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/VC/Auxiliary/Build/vcvars32.bat"
+        call "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Auxiliary/Build/vcvars32.bat"
         echo ------ Running suite ------
         echo PATH is "%PATH%"
         echo Running in directory "%CD%"
@@ -411,7 +368,7 @@ jobs:
   # single release job via artifacts.
 
   create_release:
-    needs: [linux-x86, linux-aarch64, linux-arm, android-arm, windows]
+    needs: [linux-x86, linux-aarch64, linux-arm, windows]
     runs-on: ubuntu-22.04
 
     steps:
@@ -422,10 +379,15 @@ jobs:
 
     - name: Get Version
       id: version
-      # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
+        # Read the version from version.txt file.
+        # The file is supposed to only contain MAJOR.MINOR version numbers. We read only
+        # the first line (bash removes the trailing '\n' through command substitution
+        # with $(command)), but otherwise there is no other input validation or
+        # sanitization.
+        major_dot_minor_version_number="$(head -n 1 ${PATH_TO_VERSION_FILE})"
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER="11.90.$((`git log -n 1 --format=%ct` / (60*60*24)))"
+          export VERSION_NUMBER="$major_dot_minor_version_number.$((`git log -n 1 --format=%ct` / (60*60*24)))"
           export PREFIX="cronbuild-"
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}
@@ -498,22 +460,6 @@ jobs:
         asset_name: DynamoRIO-ARM-Linux-EABIHF-${{ steps.version.outputs.version_number }}.tar.gz
         asset_content_type: application/x-gzip
 
-    - name: Download Android
-      # This points to the latest download-artifact v4.x.x.
-      uses: actions/download-artifact@v4
-      with:
-        name: android-tarball
-    - name: Upload Android
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        # This action doesn't seem to support a glob so we need the exact name.
-        asset_path: DynamoRIO-ARM-Android-EABI-${{ steps.version.outputs.version_number }}.tar.gz
-        asset_name: DynamoRIO-ARM-Android-EABI-${{ steps.version.outputs.version_number }}.tar.gz
-        asset_content_type: application/x-gzip
-
     - name: Download Windows
       # This points to the latest download-artifact v4.x.x.
       uses: actions/download-artifact@v4
@@ -533,16 +479,15 @@ jobs:
 
   send-failure-notification:
       uses: ./.github/workflows/failure-notification.yml
-      needs: [create_release, windows, android-arm, linux-arm, linux-aarch64, linux-x86]
+      needs: [create_release, windows, linux-arm, linux-aarch64, linux-x86]
       # By default, a failure in a job skips the jobs that need it. The
       # following expression ensures that failure-notification.yml is
       # always invoked.
       if: ${{ always() }}
       with:
-        test_suite_status: ${{ format('{0} {1} | {2} {3} | {4} {5} | {6} {7} | {8} {9} | {10} {11}',
+        test_suite_status: ${{ format('{0} {1} | {2} {3} | {4} {5} | {6} {7} | {8} {9}',
                                       'create_release', needs.create_release.result,
                                       'windows', needs.windows.result,
-                                      'android-arm', needs.android-arm.result,
                                       'linux-arm', needs.linux-arm.result,
                                       'linux-aarch64', needs.linux-aarch64.result,
                                       'linux-x86', needs.linux-x86.result) }}

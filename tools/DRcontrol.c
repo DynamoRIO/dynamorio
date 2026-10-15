@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,19 +41,12 @@
  */
 #include <wchar.h>
 
+#include "dr_project_wide_defines.h"
 #include "share.h"
 #include "config.h"
 #include "processes.h"
 
 #include <stdio.h>
-
-/* convenience macros for secure string buffer operations */
-#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
-#define BUFFER_LAST_ELEMENT(buf) buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
-#define BUFFER_ROOM_LEFT_W(wbuf) (BUFFER_SIZE_ELEMENTS(wbuf) - wcslen(wbuf) - 1)
-#define BUFFER_ROOM_LEFT(abuf) (BUFFER_SIZE_ELEMENTS(abuf) - strlen(abuf) - 1)
 
 typedef unsigned char byte;
 
@@ -454,7 +448,7 @@ main(int argc, char **argv)
             _snwprintf(out, BUFFER_SIZE_ELEMENTS(out), L"%S\\canary_report.crep",
                        scratch_folder);
             out_file = _wfopen(out, L"wb");
-            /* FIXME - check directory, out_file, and canary proc exist */
+            /* XXX - check directory, out_file, and canary proc exist */
             result = run_canary_test_ex(out_file, &info, scratch, canary);
         } else if (canary_default != 0) {
             result = run_canary_test(&info, L_EXPAND_LEVEL(STRINGIFY(BUILD_NUMBER)));

@@ -71,7 +71,7 @@ rct_exit(void);
 
 /* private routines for rct.c and fragment.c */
 
-/* FIXME: once we move the needed pieces out into fragment.h then
+/* XXX: once we move the needed pieces out into fragment.h then
  * these routines can be moved from fragment.c and be static in rct.c
  */
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2021-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _INVARIANT_CHECKER_CREATE_H_
-#define _INVARIANT_CHECKER_CREATE_H_ 1
+#define _INVARIANT_CHECKER_CREATE_H_
 
 #include "analysis_tool.h"
 

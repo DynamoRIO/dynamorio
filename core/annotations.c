@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2026 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -258,7 +258,7 @@ free_annotation_handler(void *p);
  */
 
 void
-annotation_init()
+annotation_init(void)
 {
     handlers = strhash_hash_create(
         GLOBAL_DCONTEXT, 8, 80, /* favor a small table */
@@ -278,7 +278,7 @@ annotation_init()
     vg_router.args = &vg_router_arg;
     vg_router.symbol_name = NULL; /* No symbols in Valgrind annotations. */
     vg_router.receiver_list = &vg_receiver;
-    vg_receiver.instrumentation.callback = (void *)(void (*)())handle_vg_annotation;
+    vg_receiver.instrumentation.callback = (void *)(void (*)(void))handle_vg_annotation;
     vg_receiver.save_fpstate = false;
     vg_receiver.next = NULL;
 #    endif
@@ -302,7 +302,7 @@ annotation_init()
 }
 
 void
-annotation_exit()
+annotation_exit(void)
 {
 #    if !(defined(WINDOWS) && defined(X64))
     uint i;
@@ -1034,11 +1034,11 @@ create_arg_opnds(dr_annotation_handler_t *handler, uint num_args,
     ASSERT(call_type == DR_ANNOTATION_CALL_TYPE_FASTCALL); /* architecture constraint */
     switch (num_args) { /* Create up to six register args */
     default:
-    case 6: handler->args[5] = opnd_create_reg(DR_REG_R9);
-    case 5: handler->args[4] = opnd_create_reg(DR_REG_R8);
-    case 4: handler->args[3] = opnd_create_reg(DR_REG_XCX);
-    case 3: handler->args[2] = opnd_create_reg(DR_REG_XDX);
-    case 2: handler->args[1] = opnd_create_reg(DR_REG_XSI);
+    case 6: handler->args[5] = opnd_create_reg(DR_REG_R9); DR_FALLTHROUGH;
+    case 5: handler->args[4] = opnd_create_reg(DR_REG_R8); DR_FALLTHROUGH;
+    case 4: handler->args[3] = opnd_create_reg(DR_REG_XCX); DR_FALLTHROUGH;
+    case 3: handler->args[2] = opnd_create_reg(DR_REG_XDX); DR_FALLTHROUGH;
+    case 2: handler->args[1] = opnd_create_reg(DR_REG_XSI); DR_FALLTHROUGH;
     case 1: handler->args[0] = opnd_create_reg(DR_REG_XDI);
     }
     /* Create the remaining args on the stack */
@@ -1061,9 +1061,9 @@ create_arg_opnds(dr_annotation_handler_t *handler, uint num_args,
     ASSERT(call_type == DR_ANNOTATION_CALL_TYPE_FASTCALL); /* architecture constraint */
     switch (num_args) { /* Create up to four register args */
     default:
-    case 4: handler->args[3] = opnd_create_reg(DR_REG_R9);
-    case 3: handler->args[2] = opnd_create_reg(DR_REG_R8);
-    case 2: handler->args[1] = opnd_create_reg(DR_REG_XDX);
+    case 4: handler->args[3] = opnd_create_reg(DR_REG_R9); DR_FALLTHROUGH;
+    case 3: handler->args[2] = opnd_create_reg(DR_REG_R8); DR_FALLTHROUGH;
+    case 2: handler->args[1] = opnd_create_reg(DR_REG_XDX); DR_FALLTHROUGH;
     case 1: handler->args[0] = opnd_create_reg(DR_REG_XCX);
     }
     /* Create the remaining args on the stack */
@@ -1087,7 +1087,7 @@ create_arg_opnds(dr_annotation_handler_t *handler, uint num_args,
     if (call_type == DR_ANNOTATION_CALL_TYPE_FASTCALL) {
         switch (num_args) { /* Create 1 or 2 register args */
         default:
-        case 2: handler->args[1] = opnd_create_reg(DR_REG_XDX);
+        case 2: handler->args[1] = opnd_create_reg(DR_REG_XDX); DR_FALLTHROUGH;
         case 1: handler->args[0] = opnd_create_reg(DR_REG_XCX);
         }
         /* Create the remaining args on the stack */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /* pt2ir: convert a PT raw trace to DynamoRIO's IR format. */
 
 #ifndef _PT2IR_H_
-#define _PT2IR_H_ 1
+#define _PT2IR_H_
 
 /**
  * @file pt2ir.h
@@ -358,7 +358,7 @@ public:
     /**
      * The convert function performs two processes: (1) decode the PT raw trace into
      * libipt's IR format pt_insn; (2) convert pt_insn into the DynamoRIO's IR format
-     * instr_t and append it to ilist inside the drir object.
+     * #instr_t and append it to ilist inside the drir object.
      * @param pt_data The PT raw trace.
      * @param pt_data_size The size of PT raw trace.
      * @param drir The drir object.

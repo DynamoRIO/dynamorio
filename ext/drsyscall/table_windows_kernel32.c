@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /* Dr. Memory: the memory debugger
@@ -35,7 +35,7 @@
  * Not all wrappers are exported: xref i#388.
  */
 
-/* FIXME i#1089: fill in info on all the inlined args for all of
+/* XXX i#1089: fill in info on all the inlined args for all of
  * syscalls in this file.
  */
 
@@ -66,7 +66,7 @@ syscall_info_t syscall_kernel32_info[] = {
         1,
     },
 
-    /* FIXME i#1091: add further kernel32 syscall info */
+    /* XXX i#1091: add further kernel32 syscall info */
     {
         { 0, 0 },
         "AddConsoleAliasInternal",

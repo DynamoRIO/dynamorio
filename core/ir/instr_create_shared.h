@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -35,7 +35,7 @@
 /* Copyright (c) 2002-2003 Massachusetts Institute of Technology */
 
 #ifndef _INSTR_CREATE_SHARED_H_
-#define _INSTR_CREATE_SHARED_H_ 1
+#define _INSTR_CREATE_SHARED_H_
 
 #include "decode.h"
 #include "instr_create_shared_api.h"

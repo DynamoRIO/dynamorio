@@ -1,0 +1,92 @@
+Output 104 entries from 329 entries.
+Output format:
+<--record#-> <--instr#->: <Wrkld.Tid> <record details>
+------------------------------------------------------------
+           1           0: W0.T1992554 <marker: version 6>
+           2           0: W0.T1992554 <marker: filetype 0xe40>
+           3           0: W0.T1992554 <marker: cache line size 64>
+           4           0: W0.T1992554 <marker: chunk instruction count 20>
+           5           0: W0.T1992554 <marker: page size 4096>
+           6           0: W0.T1992554 <marker: timestamp 13352268558646567>
+           7           0: W0.T1992554 <marker: W0.T1992554 on core 10>
+           8           0: W0.T1992554 <marker: system call 1>
+           9           0: W0.T1992554 <marker: maybe-blocking system call>
+          10           0: W0.T1992554 <marker: timestamp 13352268558646571>
+          11           0: W0.T1992554 <marker: W0.T1992554 on core 10>
+          12           1: W0.T1992554 ifetch       4 byte\(s\) @ 0x0000000000401028 48 83 eb 01          sub    \$0x0000000000000001 %rbx -> %rbx
+          13           2: W0.T1992554 ifetch       4 byte\(s\) @ 0x000000000040102c 48 83 fb 00          cmp    %rbx \$0x0000000000000000
+          14           3: W0.T1992554 ifetch       2 byte\(s\) @ 0x0000000000401030 75 d9                jnz    \$0x000000000040100b \(taken\)
+          15           4: W0.T1992554 ifetch       7 byte\(s\) @ 0x000000000040100b 48 c7 c7 01 00 00 00 mov    \$0x0000000000000001 -> %rdi
+          16           5: W0.T1992554 ifetch       8 byte\(s\) @ 0x0000000000401012 48 8d 34 25 00 20 40 lea    0x00402000 -> %rsi
+          16           5: W0.T1992554                                             00
+          17           6: W0.T1992554 ifetch       7 byte\(s\) @ 0x000000000040101a 48 c7 c2 0d 00 00 00 mov    \$0x000000000000000d -> %rdx
+          18           7: W0.T1992554 ifetch       5 byte\(s\) @ 0x0000000000401021 b8 01 00 00 00       mov    \$0x00000001 -> %eax
+          19           8: W0.T1992554 ifetch       2 byte\(s\) @ 0x0000000000401026 0f 05                syscall  -> %rcx %r11
+          20           8: W0.T1992554 <marker: timestamp 13352268558646575>
+          21           8: W0.T1992554 <marker: W0.T1992554 on core 10>
+          22           8: W0.T1992554 <marker: system call 1>
+          23           8: W0.T1992554 <marker: maybe-blocking system call>
+          24           8: W0.T1992554 <marker: timestamp 13352268558646579>
+          25           8: W0.T1992554 <marker: W0.T1992554 on core 10>
+          26           9: W0.T1992554 ifetch       4 byte\(s\) @ 0x0000000000401028 48 83 eb 01          sub    \$0x0000000000000001 %rbx -> %rbx
+          27          10: W0.T1992554 ifetch       4 byte\(s\) @ 0x000000000040102c 48 83 fb 00          cmp    %rbx \$0x0000000000000000
+          28          11: W0.T1992554 ifetch       2 byte\(s\) @ 0x0000000000401030 75 d9                jnz    \$0x000000000040100b \(taken\)
+          29          12: W0.T1992554 ifetch       7 byte\(s\) @ 0x000000000040100b 48 c7 c7 01 00 00 00 mov    \$0x0000000000000001 -> %rdi
+          30          13: W0.T1992554 ifetch       8 byte\(s\) @ 0x0000000000401012 48 8d 34 25 00 20 40 lea    0x00402000 -> %rsi
+          30          13: W0.T1992554                                             00
+          31          14: W0.T1992554 ifetch       7 byte\(s\) @ 0x000000000040101a 48 c7 c2 0d 00 00 00 mov    \$0x000000000000000d -> %rdx
+          32          15: W0.T1992554 ifetch       5 byte\(s\) @ 0x0000000000401021 b8 01 00 00 00       mov    \$0x00000001 -> %eax
+          33          16: W0.T1992554 ifetch       2 byte\(s\) @ 0x0000000000401026 0f 05                syscall  -> %rcx %r11
+          34          16: W0.T1992554 <marker: timestamp 13352268558646584>
+          35          16: W0.T1992554 <marker: W0.T1992554 on core 10>
+          36          16: W0.T1992554 <marker: system call 1>
+          37          16: W0.T1992554 <marker: maybe-blocking system call>
+          38          16: W0.T1992554 <marker: timestamp 13352268558646587>
+          39          16: W0.T1992554 <marker: W0.T1992554 on core 10>
+          40          17: W0.T1992554 ifetch       4 byte\(s\) @ 0x0000000000401028 48 83 eb 01          sub    \$0x0000000000000001 %rbx -> %rbx
+          41          18: W0.T1992554 ifetch       4 byte\(s\) @ 0x000000000040102c 48 83 fb 00          cmp    %rbx \$0x0000000000000000
+          42          19: W0.T1992554 ifetch       2 byte\(s\) @ 0x0000000000401030 75 d9                jnz    \$0x000000000040100b \(taken\)
+          43          20: W0.T1992554 ifetch       7 byte\(s\) @ 0x000000000040100b 48 c7 c7 01 00 00 00 mov    \$0x0000000000000001 -> %rdi
+          44          20: W0.T1992554 <marker: chunk footer #0>
+          45          21: W0.T1992554 ifetch       8 byte\(s\) @ 0x0000000000401012 48 8d 34 25 00 20 40 lea    0x00402000 -> %rsi
+          45          21: W0.T1992554                                             00
+          46          22: W0.T1992554 ifetch       7 byte\(s\) @ 0x000000000040101a 48 c7 c2 0d 00 00 00 mov    \$0x000000000000000d -> %rdx
+          47          23: W0.T1992554 ifetch       5 byte\(s\) @ 0x0000000000401021 b8 01 00 00 00       mov    \$0x00000001 -> %eax
+          48          24: W0.T1992554 ifetch       2 byte\(s\) @ 0x0000000000401026 0f 05                syscall  -> %rcx %r11
+          49          24: W0.T1992554 <marker: timestamp 13352268558646592>
+          50          24: W0.T1992554 <marker: W0.T1992554 on core 10>
+          51          24: W0.T1992554 <marker: system call 1>
+          52          24: W0.T1992554 <marker: maybe-blocking system call>
+          53          24: W0.T1992554 <marker: timestamp 13352268558646596>
+          54          24: W0.T1992554 <marker: W0.T1992554 on core 10>
+          55          25: W0.T1992554 ifetch       4 byte\(s\) @ 0x0000000000401028 48 83 eb 01          sub    \$0x0000000000000001 %rbx -> %rbx
+          56          26: W0.T1992554 ifetch       4 byte\(s\) @ 0x000000000040102c 48 83 fb 00          cmp    %rbx \$0x0000000000000000
+          57          27: W0.T1992554 ifetch       2 byte\(s\) @ 0x0000000000401030 75 d9                jnz    \$0x000000000040100b \(taken\)
+          58          28: W0.T1992554 ifetch       7 byte\(s\) @ 0x000000000040100b 48 c7 c7 01 00 00 00 mov    \$0x0000000000000001 -> %rdi
+          59          29: W0.T1992554 ifetch       8 byte\(s\) @ 0x0000000000401012 48 8d 34 25 00 20 40 lea    0x00402000 -> %rsi
+          59          29: W0.T1992554                                             00
+          60          30: W0.T1992554 ifetch       7 byte\(s\) @ 0x000000000040101a 48 c7 c2 0d 00 00 00 mov    \$0x000000000000000d -> %rdx
+          61          31: W0.T1992554 ifetch       5 byte\(s\) @ 0x0000000000401021 b8 01 00 00 00       mov    \$0x00000001 -> %eax
+          62          32: W0.T1992554 ifetch       2 byte\(s\) @ 0x0000000000401026 0f 05                syscall  -> %rcx %r11
+          63          32: W0.T1992554 <marker: timestamp 13352268558646600>
+          64          32: W0.T1992554 <marker: W0.T1992554 on core 10>
+          65          32: W0.T1992554 <marker: system call 1>
+          66          32: W0.T1992554 <marker: maybe-blocking system call>
+          67          32: W0.T1992554 <marker: timestamp 13352268558646604>
+          68          32: W0.T1992554 <marker: W0.T1992554 on core 10>
+          69          33: W0.T1992554 ifetch       4 byte\(s\) @ 0x0000000000401028 48 83 eb 01          sub    \$0x0000000000000001 %rbx -> %rbx
+          70          34: W0.T1992554 ifetch       4 byte\(s\) @ 0x000000000040102c 48 83 fb 00          cmp    %rbx \$0x0000000000000000
+          71          35: W0.T1992554 ifetch       2 byte\(s\) @ 0x0000000000401030 75 d9                jnz    \$0x000000000040100b \(taken\)
+          72          36: W0.T1992554 ifetch       7 byte\(s\) @ 0x000000000040100b 48 c7 c7 01 00 00 00 mov    \$0x0000000000000001 -> %rdi
+          73          37: W0.T1992554 ifetch       8 byte\(s\) @ 0x0000000000401012 48 8d 34 25 00 20 40 lea    0x00402000 -> %rsi
+          73          37: W0.T1992554                                             00
+          74          38: W0.T1992554 ifetch       7 byte\(s\) @ 0x000000000040101a 48 c7 c2 0d 00 00 00 mov    \$0x000000000000000d -> %rdx
+          75          39: W0.T1992554 ifetch       5 byte\(s\) @ 0x0000000000401021 b8 01 00 00 00       mov    \$0x00000001 -> %eax
+          76          40: W0.T1992554 ifetch       2 byte\(s\) @ 0x0000000000401026 0f 05                syscall  -> %rcx %r11
+          77          40: W0.T1992554 <marker: chunk footer #1>
+          78          40: W0.T1992554 <thread W0.T1992554 exited>
+View tool results:
+             40 : total instructions
+
+===========================================================================
+Trace invariant checks passed

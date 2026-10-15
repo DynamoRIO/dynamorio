@@ -31,7 +31,7 @@
  */
 
 /* case 5325 ASLR on DLLs
- * - FIXME: kernel32.dll user32.dll and ntdll.dll should eventually be rebased
+ * - XXX: kernel32.dll user32.dll and ntdll.dll should eventually be rebased
  *   and if done statically we wouldn't know that they are fine
  */
 
@@ -135,7 +135,7 @@ main()
     do_check("olecli32.dll", "findexport");
     do_check("olecnv32.dll", "findexport");
     do_check("olesvr32.dll", "findexport");
-    /* FIXME: getting an error accessing olethk32 on xp64! */
+    /* XXX: getting an error accessing olethk32 on xp64! */
     do_check("olethk32.dll", "findexport");
     do_check("rpcrt4.dll", "findexport");
     do_check("shell32.dll", "findexport");

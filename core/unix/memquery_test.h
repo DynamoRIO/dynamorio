@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2026 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -76,7 +76,7 @@ run_single_memquery_test(const memquery_library_bounds_test *test);
  * unit_tests.c
  */
 void
-unit_test_memquery()
+unit_test_memquery(void)
 {
 #    ifndef X64
     /* Instead of putting effort into generating test cases which work under both
@@ -286,7 +286,7 @@ record_memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/
         app_pc mod_base = 0, mod_end = 0;
         bool is_header = false;
 
-        if (TEST(MEMPROT_READ, iter.prot) &&
+        if (TESTANY(MEMPROT_READ, iter.prot) &&
 #    ifdef X64
             /* We have observed segfaults reading data from very high addresses,
              * even though their mappings are listed as readable.

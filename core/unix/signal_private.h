@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -37,7 +37,7 @@
  */
 
 #ifndef _SIGNAL_PRIVATE_H_
-#define _SIGNAL_PRIVATE_H_ 1
+#define _SIGNAL_PRIVATE_H_
 
 /* We have an ordering issue so we split out LINUX from globals.h */
 #include "configure.h"
@@ -237,7 +237,7 @@ typedef struct sigframe {
     kernel_ucontext_t uc;
     char retcode[RETCODE_SIZE];
 #    endif
-    /* FIXME: this is a field I added, so our frame looks different from
+    /* XXX: this is a field I added, so our frame looks different from
      * the kernel's...but where else can I store sig where the app won't
      * clobber it?
      * WARNING: our handler receives only rt frames, and we construct
@@ -422,7 +422,7 @@ typedef struct _sighand_info_t {
 } sighand_info_t;
 
 typedef struct _thread_sig_info_t {
-    /* A pointer to handler info shared in a CLONG_SIGHAND group. */
+    /* A pointer to handler info shared in a CLONE_SIGHAND group. */
     sighand_info_t *sighand;
 
     /* We save the old sigaction across a sigaction syscall so we can return it
@@ -573,26 +573,6 @@ kernel_sigaddset(kernel_sigset_t *set, int _sig)
         set->sig[sig / _NSIG_BPW] |= 1UL << (sig % _NSIG_BPW);
 }
 
-static inline void
-kernel_sigdelset(kernel_sigset_t *set, int _sig)
-{
-    uint sig = _sig - 1;
-    if (_NSIG_WORDS == 1)
-        set->sig[0] &= ~(1UL << sig);
-    else
-        set->sig[sig / _NSIG_BPW] &= ~(1UL << (sig % _NSIG_BPW));
-}
-
-static inline bool
-kernel_sigismember(kernel_sigset_t *set, int _sig)
-{
-    int sig = _sig - 1; /* go to 0-based */
-    if (_NSIG_WORDS == 1)
-        return CAST_TO_bool(1 & (set->sig[0] >> sig));
-    else
-        return CAST_TO_bool(1 & (set->sig[sig / _NSIG_BPW] >> (sig % _NSIG_BPW)));
-}
-
 /* XXX: how does libc do this? */
 static inline void
 copy_kernel_sigset_to_sigset(kernel_sigset_t *kset, sigset_t *uset)
@@ -619,13 +599,13 @@ libc_sigismember(const sigset_t *set, int _sig)
     int sig = _sig - 1; /* go to 0-based */
 #if defined(MACOS) || defined(ANDROID32)
     /* sigset_t is just a uint32 */
-    return TEST(1UL << sig, *set);
+    return TESTANY(1UL << sig, *set);
 #else
     /* "set->__val" would be cleaner, but is glibc specific (e.g. musl libc
      * uses __bits as the field name on sigset_t).
      */
     uint bits_per = 8 * sizeof(ulong);
-    return TEST(1UL << (sig % bits_per), ((const ulong *)set)[sig / bits_per]);
+    return TESTANY(1UL << (sig % bits_per), ((const ulong *)set)[sig / bits_per]);
 #endif
 }
 

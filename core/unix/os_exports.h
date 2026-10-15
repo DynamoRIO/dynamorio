@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,9 +40,9 @@
  */
 
 #ifndef _OS_EXPORTS_H_
-#define _OS_EXPORTS_H_ 1
+#define _OS_EXPORTS_H_
 
-#include <stdarg.h>
+#include "stdarg_wrapper.h"
 #include "../os_shared.h" // IWYU pragma: export
 #include "os_public.h"    // IWYU pragma: export
 /* arch_exports.h exports opnd.h, but relies on kernel_sigset_t from this header.
@@ -123,7 +123,7 @@
 #        define STR_LIB_SEG "tpidruro"
 #    endif /* 64/32-bit */
 #elif defined(RISCV64)
-/* FIXME i#3544: Not used on RISC-V, so set to invalid. Check if this is true. */
+/* XXX i#3544: Not used on RISC-V, so set to invalid. Check if this is true. */
 #    define SEG_TLS DR_REG_INVALID
 #    define LIB_SEG_TLS DR_REG_TP
 #    define STR_SEG "<none>"
@@ -145,18 +145,23 @@
 #    error NYI
 #endif
 
-#ifdef MACOS64
-/* FIXME i#1568: current pthread_t struct has the first TLS entry at offset 28. We should
+#if defined(MACOS64) && defined(X86)
+/* XXX i#1568: current pthread_t struct has the first TLS entry at offset 28. We should
  * provide a dynamic method to determine the first entry for forward compatability.
  * Starting w/ libpthread-218.1.3 they now leave slots 6 and 11 unused to allow
  * limited interoperability w/ code targeting the Windows x64 ABI. We steal slot 6
  * for our own use.
+ * https://github.com/apple-oss-distributions/xnu
+ * /blob/e3723e1f17661b24996789d8afc084c0c3303b26/libsyscall/os/tsd.h#L42
  */
 /* XXX i#5383: This is used as *8 so it's really a slot not a byte offset. */
 #    define SEG_TLS_BASE_SLOT 28 /* offset from pthread_t struct to segment base */
 #    define DR_TLS_BASE_SLOT 6   /* the TLS slot for DR's TLS base */
 /* offset from pthread_t struct to slot 6 */
 #    define DR_TLS_BASE_OFFSET (sizeof(void *) * (SEG_TLS_BASE_SLOT + DR_TLS_BASE_SLOT))
+#elif defined(MACOS) && defined(AARCH64)
+#    define DR_TLS_BASE_SLOT 6 /* the TLS slot for DR's TLS base */
+#    define DR_TLS_BASE_OFFSET (sizeof(void *) * DR_TLS_BASE_SLOT)
 #endif
 
 #if defined(AARCHXX) && !defined(MACOS64)
@@ -179,8 +184,10 @@ extern uint android_tls_base_offs;
  * When using the private loader, we control all the TLS allocation and
  * should be able to avoid using that field.
  * This is also used in asm code, so we use literal instead of sizeof.
+ * The Thread Pointer (tpid* register) points at the base of tcb_head_t,
+ * so we need to skip the "dtv" field.
  */
-#        define DR_TLS_BASE_OFFSET IF_X64_ELSE(8, 4) /* skip dtv */
+#        define DR_TLS_BASE_OFFSET IF_X64_ELSE(8, 4)
 #    endif
 /* opcode for reading usr mode TLS base (user-read-only-thread-ID-register)
  * mrc p15, 0, reg_app, c13, c0, 3
@@ -207,9 +214,9 @@ extern uint android_tls_base_offs;
 #endif
 
 void *
-d_r_get_tls(ushort tls_offs);
+d_r_get_tls(int tls_offs);
 void
-d_r_set_tls(ushort tls_offs, void *value);
+d_r_set_tls(int tls_offs, void *value);
 byte *
 os_get_dr_tls_base(dcontext_t *dcontext);
 
@@ -249,12 +256,21 @@ os_get_app_tls_base(dcontext_t *dcontext, reg_id_t seg);
  * mode (a process mixing 64-bit and 32-bit code) is not supported.
  */
 bool
-os_dump_core_live(dcontext_t *dcontext, char *path DR_PARAM_OUT, size_t path_sz);
+os_dump_core_live(dcontext_t *dcontext, char *output_directory DR_PARAM_IN,
+                  char *path DR_PARAM_OUT, size_t path_sz);
 #endif
 
 #if defined(AARCHXX) || defined(RISCV64)
 bool
 os_set_app_tls_base(dcontext_t *dcontext, reg_id_t reg, void *base);
+#endif
+
+#if defined(MACOS) && defined(AARCH64)
+void *
+os_tls_thread_init_temp(void);
+
+void
+os_tls_thread_free_temp(void *temp_tls);
 #endif
 
 #ifdef DEBUG
@@ -326,7 +342,7 @@ disable_env(const char *name);
  * name is a string
  * wx should contain one of the strings "w", "wx", "x", or ""
  */
-/* FIXME: also want control over where in rw region or ro region this
+/* XXX: also want control over where in rw region or ro region this
  * section goes -- for cl, order linked seems to do it, but for linux
  * will need a linker script (see unix/os.c for the nspdata problem)
  */
@@ -411,6 +427,8 @@ extern app_pc vsyscall_sysenter_return_pc;
 /* pc where our hook-displaced code was copied */
 extern app_pc vsyscall_sysenter_displaced_pc;
 #define VSYSCALL_PAGE_MAPS_NAME "[vdso]"
+/* We use this to match "[vvar]" and "[vvar_vclock]". */
+#define VVAR_PAGE_MAPS_NAME_PREFIX "[vvar"
 
 bool
 was_thread_create_syscall(dcontext_t *dcontext);
@@ -446,7 +464,7 @@ is_DR_segment_reader_entry(app_pc pc);
 #    define NUM_RT 0 /* no RT signals */
 #endif
 /* MAX_SIGNUM is the highest valid signum. */
-#define MAX_SIGNUM ((OFFS_RT) + (NUM_RT)-1)
+#define MAX_SIGNUM ((OFFS_RT) + (NUM_RT) - 1)
 /* i#336: MAX_SIGNUM is a valid signal, so we must allocate space for it.
  */
 #define SIGARRAY_SIZE (MAX_SIGNUM + 1)
@@ -478,6 +496,26 @@ typedef struct _kernel_sigset_t {
     unsigned int sig[_NSIG_WORDS];
 #endif
 } kernel_sigset_t;
+
+static inline void
+kernel_sigdelset(kernel_sigset_t *set, int _sig)
+{
+    uint sig = _sig - 1;
+    if (_NSIG_WORDS == 1)
+        set->sig[0] &= ~(1UL << sig);
+    else
+        set->sig[sig / _NSIG_BPW] &= ~(1UL << (sig % _NSIG_BPW));
+}
+
+static inline bool
+kernel_sigismember(kernel_sigset_t *set, int _sig)
+{
+    int sig = _sig - 1; /* go to 0-based */
+    if (_NSIG_WORDS == 1)
+        return CAST_TO_bool(1 & (set->sig[0] >> sig));
+    else
+        return CAST_TO_bool(1 & (set->sig[sig / _NSIG_BPW] >> (sig % _NSIG_BPW)));
+}
 
 void
 receive_pending_signal(dcontext_t *dcontext);

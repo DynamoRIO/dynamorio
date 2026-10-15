@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -251,7 +251,7 @@ memquery_from_os(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info,
             /* XXX: should switch to storing size to avoid pointer overflow */
             info->size = iter.vm_end - iter.vm_start;
             info->prot = iter.prot;
-            /* FIXME i#58: figure out whether image via SYS_proc_info */
+            /* XXX i#58: figure out whether image via SYS_proc_info */
             *have_type = false;
             info->type = DR_MEMTYPE_DATA;
             free = false;

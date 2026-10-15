@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /* Dr. Memory: the memory debugger
@@ -127,7 +127,7 @@ GLOBAL_LABEL(FUNCNAME:)
  * the DR license statement from the top of this file.
  */
 /* to avoid libc wrappers we roll our own syscall here
- * hardcoded to use int 0x80 for 32-bit -- FIXME: use something like do_syscall
+ * hardcoded to use int 0x80 for 32-bit -- XXX: use something like do_syscall
  * and syscall for 64-bit.
  * signature: raw_syscall(sysnum, num_args, arg1, arg2, ...)
  */
@@ -165,7 +165,7 @@ syscall_ready:
         push     REG_XSI
         push     REG_XDI
         /* add 16 to skip the 4 pushes
-         * FIXME: rather than this dispatch, could have separate routines
+         * XXX: rather than this dispatch, could have separate routines
          * for each #args, or could just blindly read upward on the stack.
          * for dispatch, if assume size of mov instr can do single ind jmp */
         mov      ecx, [16+ 8 + esp] /* num_args */

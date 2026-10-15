@@ -1,6 +1,7 @@
 /* **********************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,11 +45,11 @@
 #ifndef ARCH_H
 #define ARCH_H
 
-#include <stddef.h>       /* for offsetof */
-#include "instr.h"        /* for reg_id_t */
-#include "decode.h"       /* for X64_CACHE_MODE_DC */
-#include "arch_exports.h" /* for FRAG_IS_32 and FRAG_IS_X86_TO_X64 */
-#include "../fragment.h"  /* IS_IBL_TARGET */
+#include "stddef_wrapper.h" /* for offsetof */
+#include "instr.h"          /* for reg_id_t */
+#include "decode.h"         /* for X64_CACHE_MODE_DC */
+#include "arch_exports.h"   /* for FRAG_IS_32 and FRAG_IS_X86_TO_X64 */
+#include "../fragment.h"    /* IS_IBL_TARGET */
 #include "ir_utils.h"
 
 #if defined(X86) && defined(X64)
@@ -79,7 +80,7 @@ mixed_mode_enabled(void)
  * unprotected are raw 0..sizeof(unprotected_context_t)
  * protected are raw + sizeof(unprotected_context_t)
  * (see the instr_shared.c routines for dcontext instr building)
- * FIXME: we could get rid of this hack if unprotected_context_t == priv_mcontext_t
+ * XXX: we could get rid of this hack if unprotected_context_t == priv_mcontext_t
  */
 #define PROT_OFFS (sizeof(unprotected_context_t))
 #define MC_OFFS (offsetof(unprotected_context_t, mcontext))
@@ -155,10 +156,10 @@ mixed_mode_enabled(void)
 #    define SCRATCH_REG3_OFFS R3_OFFSET
 #    define SCRATCH_REG4_OFFS R4_OFFSET
 #    define SCRATCH_REG5_OFFS R5_OFFSET
-#    define REG_OFFSET(reg) (R0_OFFSET + ((reg)-DR_REG_R0) * sizeof(reg_t))
+#    define REG_OFFSET(reg) (R0_OFFSET + ((reg) - DR_REG_R0) * sizeof(reg_t))
 #    define Z_REG_OFFSET(reg) \
         ((MC_OFFS) +          \
-         (offsetof(priv_mcontext_t, simd) + ((reg)-DR_REG_Z0) * sizeof(dr_simd_t)))
+         (offsetof(priv_mcontext_t, simd) + ((reg) - DR_REG_Z0) * sizeof(dr_simd_t)))
 #    define CALL_SCRATCH_REG DR_REG_R11
 #    define MC_IBL_REG r2
 #    define MC_RETVAL_REG r0
@@ -190,11 +191,11 @@ mixed_mode_enabled(void)
 #    define SCRATCH_REG3_OFFS REG3_OFFSET
 #    define SCRATCH_REG4_OFFS REG4_OFFSET
 #    define SCRATCH_REG5_OFFS REG5_OFFSET
-#    define REG_OFFSET(reg) (X0_OFFSET + ((reg)-DR_REG_X0) * sizeof(reg_t))
-#    define FREG_OFFSET(reg) (F0_OFFSET + ((reg)-DR_REG_F0) * sizeof(reg_t))
+#    define REG_OFFSET(reg) (X0_OFFSET + ((reg) - DR_REG_X0) * sizeof(reg_t))
+#    define FREG_OFFSET(reg) (F0_OFFSET + ((reg) - DR_REG_F0) * sizeof(reg_t))
 #    define VREG_OFFSET(reg) \
         ((MC_OFFS) +         \
-         (offsetof(priv_mcontext_t, simd) + ((reg)-DR_REG_VR0) * sizeof(dr_simd_t)))
+         (offsetof(priv_mcontext_t, simd) + ((reg) - DR_REG_VR0) * sizeof(dr_simd_t)))
 #    define CALL_SCRATCH_REG DR_REG_T6
 #    define MC_IBL_REG a2
 #    define MC_RETVAL_REG a0
@@ -293,7 +294,7 @@ extern bool d_r_client_avx512_code_in_use;
 
 /* This routine determines whether zmm registers should be saved. */
 static inline bool
-d_r_is_avx512_code_in_use()
+d_r_is_avx512_code_in_use(void)
 {
     return *d_r_avx512_code_in_use;
 }
@@ -302,7 +303,7 @@ static inline void
 d_r_set_avx512_code_in_use(bool in_use, app_pc pc)
 {
 #    if !defined(UNIX) || !defined(X64)
-    /* FIXME i#1312: we warn about unsupported AVX-512 present in the app. */
+    /* XXX i#1312: we warn about unsupported AVX-512 present in the app. */
     DO_ONCE({
         if (pc != NULL) {
             char pc_addr[IF_X64_ELSE(20, 12)];
@@ -325,13 +326,13 @@ d_r_set_avx512_code_in_use(bool in_use, app_pc pc)
 }
 
 static inline bool
-d_r_is_client_avx512_code_in_use()
+d_r_is_client_avx512_code_in_use(void)
 {
     return d_r_client_avx512_code_in_use;
 }
 
 static inline void
-d_r_set_client_avx512_code_in_use()
+d_r_set_client_avx512_code_in_use(void)
 {
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     ATOMIC_1BYTE_WRITE(&d_r_client_avx512_code_in_use, (bool)true, false);
@@ -359,7 +360,7 @@ typedef enum {
 /* we should allow for all {{bb,trace} x {ret,ind call, ind jmp} x {shared, private}} */
 /* combinations of routines which are in turn  x {unlinked, linked} */
 typedef enum {
-    /* FIXME: have a separate flag for private vs shared */
+    /* XXX: have a separate flag for private vs shared */
     IBL_BB_SHARED,
     IBL_SOURCE_TYPE_START = IBL_BB_SHARED,
     IBL_TRACE_SHARED,
@@ -389,10 +390,10 @@ static inline ibl_entry_point_type_t
 get_ibl_entry_type(uint link_or_instr_flags)
 {
 #if defined(X86) && defined(X64)
-    if (TEST(LINK_TRACE_CMP, link_or_instr_flags))
+    if (TESTANY(LINK_TRACE_CMP, link_or_instr_flags))
         return IBL_TRACE_CMP;
 #endif
-    if (TEST(LINK_FAR, link_or_instr_flags))
+    if (TESTANY(LINK_FAR, link_or_instr_flags))
         return IBL_FAR;
     else
         return IBL_LINKED;
@@ -410,7 +411,7 @@ typedef struct {
  * a unique generated_code_t.  Rather than add GLOBAL_DCONTEXT_X86 everywhere,
  * we add mode parameters to a handful of routines that take in GLOBAL_DCONTEXT.
  */
-/* FIXME i#1551: do we want separate Thumb vs ARM gencode, or we'll always
+/* XXX i#1551: do we want separate Thumb vs ARM gencode, or we'll always
  * transition?  For fcache exit that's reasonable, but for ibl it would
  * require two mode transitions.
  */
@@ -648,7 +649,7 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
 
 /* Returns the number of bytes the stack pointer has to be aligned to. */
 static inline uint
-get_ABI_stack_alignment()
+get_ABI_stack_alignment(void)
 {
     return ABI_STACK_ALIGNMENT;
 }
@@ -749,11 +750,35 @@ mangle_far_direct_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                        instr_t *next_instr, uint flags);
 void
 set_selfmod_sandbox_offsets(dcontext_t *dcontext);
+#endif /* X86 */
+
+#ifdef ARCH_SUPPORTS_HW_CACHE_CONSISTENCY
 bool
 insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                        app_pc start_pc, app_pc end_pc, /* end is open */
                        bool record_translation, bool for_cache);
-#endif /* X86 */
+#    ifdef X86
+void
+sandbox_rep_instr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *next,
+                  app_pc start_pc, app_pc end_pc /* end is open */);
+#    endif
+void
+sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *next,
+              opnd_t op, app_pc start_pc, app_pc end_pc /* end is open */,
+              app_pc after_write);
+struct patch_list_t;
+void
+sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist, bool s2ro, uint flags,
+                  app_pc start_pc, app_pc end_pc, /* end is open */
+                  bool for_cache
+                      /* For obtaining the two patch locations: */
+                      _IF_X86(struct patch_list_t *patchlist)
+                          _IF_X86(cache_pc *copy_start_loc)
+                              _IF_X86(cache_pc *copy_end_loc));
+bool
+sandbox_top_of_bb_check_s2ro(dcontext_t *dcontext, app_pc start_pc);
+
+#endif /* ARCH_SUPPORTS_HW_CACHE_CONSISTENCY */
 
 #ifdef ARM
 /* mangle the instruction that reads thread register */
@@ -763,6 +788,8 @@ mangle_reads_thread_register(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
 #endif /* ARM */
 
 #ifdef AARCH64
+void
+mangle_ctr_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
 instr_t *
 mangle_icache_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                  instr_t *next_instr, app_pc pc);
@@ -781,7 +808,7 @@ enum {
      * TLS_REG1_SLOT for this because those are used in fragment prefix.
      */
     FCACHE_ENTER_TARGET_SLOT = TLS_REG2_SLOT,
-    /* FIXME: put register name in each enum name to avoid conflicts
+    /* XXX: put register name in each enum name to avoid conflicts
      * when mixed with raw slot names?
      */
     /* ok for the next_tag and direct_stub to overlap as next_tag is
@@ -800,7 +827,7 @@ enum {
      */
     FLOAT_PC_STATE_SLOT = TLS_REG1_SLOT,
     MANGLE_XCX_SPILL_SLOT = TLS_REG2_SLOT,
-/* FIXME: edi is used as the base, yet I labeled this slot for edx
+/* XXX: edi is used as the base, yet I labeled this slot for edx
  * since it's next in the progression -- change one or the other?
  * (this is case 5239)
  */
@@ -1030,7 +1057,7 @@ typedef struct _generated_code_t {
      * Direct exits use entrance stubs that record the target app pc,
      * while coarse indirect stubs record the source cache cti.
      */
-    /* FIXME: these two return routines are only needed in the global struct */
+    /* XXX: these two return routines are only needed in the global struct */
     byte *fcache_return_coarse;
     byte *fcache_return_coarse_end;
     byte *trace_head_return_coarse;
@@ -1077,19 +1104,19 @@ fcache_enter_shared_routine(dcontext_t *dcontext);
 /* the fcache_return routines are queried by get_direct_exit_target and need more
  * direct control than the dcontext
  */
-cache_pc fcache_return_shared_routine(IF_X86_64(gencode_mode_t mode));
+cache_pc fcache_return_shared_routine(IF_X86_64_ELSE(gencode_mode_t mode, void));
 
 /* coarse-grain generated code */
 byte *
 emit_fcache_return_coarse(dcontext_t *dcontext, generated_code_t *code, byte *pc);
 byte *
 emit_trace_head_return_coarse(dcontext_t *dcontext, generated_code_t *code, byte *pc);
-cache_pc fcache_return_coarse_routine(IF_X86_64(gencode_mode_t mode));
-cache_pc trace_head_return_coarse_routine(IF_X86_64(gencode_mode_t mode));
+cache_pc fcache_return_coarse_routine(IF_X86_64_ELSE(gencode_mode_t mode, void));
+cache_pc trace_head_return_coarse_routine(IF_X86_64_ELSE(gencode_mode_t mode, void));
 
 /* shared clean call context switch */
 bool
-client_clean_call_is_thread_private();
+client_clean_call_is_thread_private(void);
 cache_pc
 get_clean_call_save(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode));
 cache_pc
@@ -1232,7 +1259,7 @@ update_syscalls(dcontext_t *dcontext);
 #endif
 
 #ifdef WINDOWS
-/* FIXME If we widen the interface any further, do we want to use an options
+/* XXX If we widen the interface any further, do we want to use an options
  * struct or OR-ed flags to replace the bool args? */
 byte *
 emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
@@ -1423,16 +1450,27 @@ get_simd_vals(priv_mcontext_t *mc);
 void *
 safe_read_asm(void *dst, const void *src, size_t size);
 /* These are labels, not function pointers.  We declare them as functions to
- * prevent loads and stores to these globals from compiling.
+ * prevent loads and stores to these globals from compiling.  Match the hidden
+ * visibility of their assembly definitions.
  */
+#if defined(USE_VISIBILITY_ATTRIBUTES) && !defined(LINUX_KERNEL)
+#    define SAFE_READ_ASM_LABEL __attribute__((visibility("hidden")))
+#else
+#    define SAFE_READ_ASM_LABEL
+#endif
+SAFE_READ_ASM_LABEL
 void
 safe_read_asm_pre(void);
+SAFE_READ_ASM_LABEL
 void
 safe_read_asm_mid(void);
+SAFE_READ_ASM_LABEL
 void
 safe_read_asm_post(void);
+SAFE_READ_ASM_LABEL
 void
 safe_read_asm_recover(void);
+#undef SAFE_READ_ASM_LABEL
 
 /* from x86.asm */
 /* Note these have specialized calling conventions and shouldn't be called from
@@ -1645,7 +1683,7 @@ special_ibl_xfer_tgt(dcontext_t *dcontext, generated_code_t *code,
  */
 #    define FRAG_DB_SHARED(flags) true
 #else
-#    define FRAG_DB_SHARED(flags) (TEST(FRAG_SHARED, (flags)))
+#    define FRAG_DB_SHARED(flags) (TESTANY(FRAG_SHARED, (flags)))
 #endif
 
 /* fragment_t fields */
@@ -1664,7 +1702,7 @@ static inline bool
 use_ibt_prefix(uint flags)
 {
     /* when no traces, all bbs use IBT prefix */
-    /* FIXME: currently to allow bb2bb we simply have a prefix on all BB's
+    /* XXX: currently to allow bb2bb we simply have a prefix on all BB's
      * should experiment with a shorter prefix for targetting BBs
      * by restoring the flags in the IBL routine,
      * or even jump through memory to avoid having the register restore prefix
@@ -1677,7 +1715,7 @@ use_ibt_prefix(uint flags)
      */
     return (IS_IBL_TARGET(flags) &&
             /* coarse bbs (and fine in presence of coarse) do not support prefixes */
-            !(DYNAMO_OPTION(coarse_units) && !TEST(FRAG_IS_TRACE, flags) &&
+            !(DYNAMO_OPTION(coarse_units) && !TESTANY(FRAG_IS_TRACE, flags) &&
               DYNAMO_OPTION(bb_ibl_targets)));
 }
 
@@ -1691,7 +1729,7 @@ ibl_use_target_prefix(ibl_code_t *ibl_code)
              ((ibl_code->source_fragment_type == IBL_COARSE_SHARED &&
                DYNAMO_OPTION(bb_ibl_targets)) ||
               (IS_IBL_BB(ibl_code->source_fragment_type) &&
-               /* FIXME case 147/9636: if -coarse_units -bb_ibl_targets
+               /* XXX case 147/9636: if -coarse_units -bb_ibl_targets
                 * but traces are enabled, we won't put prefixes on regular
                 * bbs but will assume we have them here!  We don't support
                 * that combination yet.  When we do this routine should return
@@ -1767,24 +1805,9 @@ add_patch_entry(patch_list_t *patch, instr_t *instr, ushort patch_flags,
             opnd_create_reg(DR_REG_R10), opnd_create_reg(DR_REG_R11), \
             opnd_create_reg(DR_REG_R12)
 
-#    ifdef X64
-#        define DR_REG_LIST_LENGTH_ARM 32
-#        define DR_REG_LIST_ARM                                                         \
-            DR_REG_LIST_HEAD, opnd_create_reg(DR_REG_R13), opnd_create_reg(DR_REG_X14), \
-                opnd_create_reg(DR_REG_X15), opnd_create_reg(DR_REG_X16),               \
-                opnd_create_reg(DR_REG_X17), opnd_create_reg(DR_REG_X18),               \
-                opnd_create_reg(DR_REG_X19), opnd_create_reg(DR_REG_X20),               \
-                opnd_create_reg(DR_REG_X21), opnd_create_reg(DR_REG_X22),               \
-                opnd_create_reg(DR_REG_X23), opnd_create_reg(DR_REG_X24),               \
-                opnd_create_reg(DR_REG_X25), opnd_create_reg(DR_REG_X26),               \
-                opnd_create_reg(DR_REG_X27), opnd_create_reg(DR_REG_X28),               \
-                opnd_create_reg(DR_REG_X29), opnd_create_reg(DR_REG_X30),               \
-                opnd_create_reg(DR_REG_X31)
-#    else
-#        define DR_REG_LIST_LENGTH_ARM 15 /* no R15 (pc) */
-#        define DR_REG_LIST_ARM \
-            DR_REG_LIST_HEAD, opnd_create_reg(DR_REG_R13), opnd_create_reg(DR_REG_R14)
-#    endif
+#    define DR_REG_LIST_LENGTH_ARM 15 /* no R15 (pc) */
+#    define DR_REG_LIST_ARM \
+        DR_REG_LIST_HEAD, opnd_create_reg(DR_REG_R13), opnd_create_reg(DR_REG_R14)
 #    define DR_REG_LIST_LENGTH_T32 13 /* no R13+ (sp, lr, pc) */
 #    define DR_REG_LIST_T32 DR_REG_LIST_HEAD
 

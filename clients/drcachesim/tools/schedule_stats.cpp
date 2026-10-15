@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -41,6 +41,7 @@
 #include <cassert>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -56,7 +57,9 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-const std::string schedule_stats_t::TOOL_NAME = "Schedule stats tool";
+template <typename RecordType>
+const std::string schedule_stats_template_t<RecordType>::TOOL_NAME =
+    "Schedule stats tool";
 
 analysis_tool_t *
 schedule_stats_tool_create(uint64_t print_every, unsigned int verbose)
@@ -64,37 +67,154 @@ schedule_stats_tool_create(uint64_t print_every, unsigned int verbose)
     return new schedule_stats_t(print_every, verbose);
 }
 
-schedule_stats_t::schedule_stats_t(uint64_t print_every, unsigned int verbose)
+record_analysis_tool_t *
+record_schedule_stats_tool_create(uint64_t print_every, unsigned int verbose)
+{
+    return new record_schedule_stats_t(print_every, verbose);
+}
+
+/******************************************************************************
+ * Specializations for schedule_stats_template_t<memref_t>, aka
+ * schedule_stats_t.
+ */
+
+template <>
+trace_type_t
+schedule_stats_template_t<memref_t>::get_record_type(memref_t record)
+{
+    return record.marker.type;
+}
+
+template <>
+bool
+schedule_stats_template_t<memref_t>::is_record_marker(memref_t record,
+                                                      trace_marker_type_t &type,
+                                                      uintptr_t &value)
+{
+    if (record.marker.type != TRACE_TYPE_MARKER)
+        return false;
+    type = record.marker.marker_type;
+    value = record.marker.marker_value;
+    return true;
+}
+
+template <>
+bool
+schedule_stats_template_t<memref_t>::is_record_instr(memref_t record, addr_t *pc,
+                                                     size_t *size)
+{
+    if (type_is_instr(record.instr.type)) {
+        if (pc != nullptr)
+            *pc = record.instr.addr;
+        if (size != nullptr)
+            *size = record.instr.size;
+        return true;
+    }
+    return false;
+}
+
+template <>
+bool
+schedule_stats_template_t<memref_t>::get_record_tid(memref_t record, memref_tid_t &tid)
+{
+    if (record.marker.tid == INVALID_THREAD_ID)
+        return false;
+    tid = record.marker.tid;
+    return true;
+}
+
+/******************************************************************************
+ * Specializations for schedule_stats_template_t<trace_entry_t>, aka
+ * record_schedule_stats_t.
+ */
+
+template <>
+trace_type_t
+schedule_stats_template_t<trace_entry_t>::get_record_type(trace_entry_t record)
+{
+    return static_cast<trace_type_t>(record.type);
+}
+
+template <>
+bool
+schedule_stats_template_t<trace_entry_t>::is_record_marker(trace_entry_t record,
+                                                           trace_marker_type_t &type,
+                                                           uintptr_t &value)
+{
+    if (record.type != TRACE_TYPE_MARKER)
+        return false;
+    type = static_cast<trace_marker_type_t>(record.size);
+    value = record.addr;
+    return true;
+}
+
+template <>
+bool
+schedule_stats_template_t<trace_entry_t>::is_record_instr(trace_entry_t record,
+                                                          addr_t *pc, size_t *size)
+{
+    if (type_is_instr(static_cast<trace_type_t>(record.type))) {
+        if (pc != nullptr)
+            *pc = record.addr;
+        if (size != nullptr)
+            *size = record.size;
+        return true;
+    }
+    return false;
+}
+
+template <>
+bool
+schedule_stats_template_t<trace_entry_t>::get_record_tid(trace_entry_t record,
+                                                         memref_tid_t &tid)
+{
+    if (record.type != TRACE_TYPE_THREAD)
+        return false;
+    tid = static_cast<memref_tid_t>(record.addr);
+    return true;
+}
+
+/********************************************************************
+ * schedule_stats_template_t routines that do not need to be specialized.
+ */
+
+template <typename RecordType>
+schedule_stats_template_t<RecordType>::schedule_stats_template_t(uint64_t print_every,
+                                                                 unsigned int verbose)
     : knob_print_every_(print_every)
     , knob_verbose_(verbose)
 {
     // Empty.
 }
 
-schedule_stats_t::~schedule_stats_t()
+template <typename RecordType>
+schedule_stats_template_t<RecordType>::~schedule_stats_template_t()
 {
     for (auto &iter : shard_map_) {
         delete iter.second;
     }
 }
 
+template <typename RecordType>
 std::string
-schedule_stats_t::initialize_stream(memtrace_stream_t *serial_stream)
+schedule_stats_template_t<RecordType>::initialize_stream(memtrace_stream_t *serial_stream)
 {
     serial_stream_ = serial_stream;
     return "";
 }
 
+template <typename RecordType>
 std::string
-schedule_stats_t::initialize_shard_type(shard_type_t shard_type)
+schedule_stats_template_t<RecordType>::initialize_shard_type(shard_type_t shard_type)
 {
     if (shard_type != SHARD_BY_CORE)
         return "Only core-sharded operation is supported";
     return "";
 }
 
+template <typename RecordType>
 bool
-schedule_stats_t::process_memref(const memref_t &memref)
+schedule_stats_template_t<RecordType>::process_memref(const RecordType &record)
 {
     per_shard_t *per_shard;
     const auto &lookup = shard_map_.find(serial_stream_->get_output_cpuid());
@@ -107,22 +227,24 @@ schedule_stats_t::process_memref(const memref_t &memref)
         shard_map_[per_shard->core] = per_shard;
     } else
         per_shard = lookup->second;
-    if (!parallel_shard_memref(reinterpret_cast<void *>(per_shard), memref)) {
-        error_string_ = per_shard->error;
+    if (!parallel_shard_memref(reinterpret_cast<void *>(per_shard), record)) {
+        this->error_string_ = per_shard->error;
         return false;
     }
     return true;
 }
 
+template <typename RecordType>
 bool
-schedule_stats_t::parallel_shard_supported()
+schedule_stats_template_t<RecordType>::parallel_shard_supported()
 {
     return true;
 }
 
+template <typename RecordType>
 void *
-schedule_stats_t::parallel_shard_init_stream(int shard_index, void *worker_data,
-                                             memtrace_stream_t *stream)
+schedule_stats_template_t<RecordType>::parallel_shard_init_stream(
+    int shard_index, void *worker_data, memtrace_stream_t *stream)
 {
     auto per_shard = new per_shard_t(this);
     std::lock_guard<std::mutex> guard(shard_map_mutex_);
@@ -134,8 +256,9 @@ schedule_stats_t::parallel_shard_init_stream(int shard_index, void *worker_data,
     return reinterpret_cast<void *>(per_shard);
 }
 
+template <typename RecordType>
 bool
-schedule_stats_t::parallel_shard_exit(void *shard_data)
+schedule_stats_template_t<RecordType>::parallel_shard_exit(void *shard_data)
 {
     // Nothing (we read the shard data in print_results).
     per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
@@ -144,8 +267,10 @@ schedule_stats_t::parallel_shard_exit(void *shard_data)
     return true;
 }
 
+template <typename RecordType>
 void
-schedule_stats_t::get_scheduler_stats(memtrace_stream_t *stream, counters_t &counters)
+schedule_stats_template_t<RecordType>::get_scheduler_stats(memtrace_stream_t *stream,
+                                                           counters_t &counters)
 {
     counters.switches_input_to_input =
         static_cast<int64_t>(stream->get_schedule_statistic(
@@ -172,30 +297,27 @@ schedule_stats_t::get_scheduler_stats(memtrace_stream_t *stream, counters_t &cou
     counters.syscall_sequence_injections =
         static_cast<int64_t>(stream->get_schedule_statistic(
             memtrace_stream_t::SCHED_STAT_KERNEL_SYSCALL_SEQUENCE_INJECTIONS));
-
-    // XXX: Currently, schedule_stats is measuring swap-ins to a real input.  If we
-    // want to match what "perf" targeting this app would record, which is swap-outs,
-    // we should remove idle-to-input and add input-to-idle (though generally those
-    // two counts are pretty similar).  OTOH, if we want to match what "perf"
-    // systemwide would record, we would want to add input-to-idle on top of what we
-    // have today.
 }
 
+template <typename RecordType>
 std::string
-schedule_stats_t::parallel_shard_error(void *shard_data)
+schedule_stats_template_t<RecordType>::parallel_shard_error(void *shard_data)
 {
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
     return per_shard->error;
 }
 
+template <typename RecordType>
 uint64_t
-schedule_stats_t::get_current_microseconds()
+schedule_stats_template_t<RecordType>::get_current_microseconds()
 {
     return get_microsecond_timestamp();
 }
 
+template <typename RecordType>
 bool
-schedule_stats_t::update_state_time(per_shard_t *shard, state_t state)
+schedule_stats_template_t<RecordType>::update_state_time(per_shard_t *shard,
+                                                         state_t state)
 {
     uint64_t cur = get_current_microseconds();
     assert(cur >= shard->segment_start_microseconds);
@@ -211,86 +333,152 @@ schedule_stats_t::update_state_time(per_shard_t *shard, state_t state)
     return true;
 }
 
+// shard->prev_workload_id and shard->prev_tid are cleared when this is called,
+// so we pass in the preserved values so there's no confusion.
+template <typename RecordType>
 void
-schedule_stats_t::record_context_switch(per_shard_t *shard, int64_t workload_id,
-                                        int64_t tid, int64_t input_id, int64_t letter_ord)
+schedule_stats_template_t<RecordType>::record_context_switch(
+    per_shard_t *shard, int64_t prev_workload_id, int64_t prev_tid, int64_t workload_id,
+    int64_t tid, int64_t input_id, int64_t letter_ord)
 {
-    // We convert to letters which only works well for <=26 inputs.
+    bool add_to_counts =
+        // Don't count switching from WAIT, or the initial entry on a core.
+        !(prev_workload_id == INVALID_WORKLOAD_ID && prev_tid == INVALID_THREAD_ID) &&
+        // Don't count both input-to-idle and idle-to-input: we count swap-outs
+        // to match "perf".
+        !(prev_workload_id == INVALID_WORKLOAD_ID && prev_tid == IDLE_THREAD_ID &&
+          workload_id != INVALID_WORKLOAD_ID && tid != INVALID_THREAD_ID);
+    uint64_t instr_delta = shard->switch_user_instrs;
+    memtrace_stream_t *istream = shard->stream->get_input_interface();
+
     if (shard->thread_sequence.empty()) {
         std::lock_guard<std::mutex> lock(prev_core_mutex_);
         prev_core_[workload_tid_t(workload_id, tid)] = shard->core;
     } else {
-        ++shard->counters.total_switches;
-        if (shard->saw_syscall || shard->saw_exit)
-            ++shard->counters.voluntary_switches;
-        if (shard->direct_switch_target == tid)
-            ++shard->counters.direct_switches;
-        if (shard->last_syscall_number >= 0) {
-            if (shard->stream->get_version() < TRACE_ENTRY_VERSION_FREQUENT_TIMESTAMPS) {
-                // Legacy versions do not have the timestamps to compute latencies.
-            } else {
-                assert(shard->pre_syscall_timestamp > 0);
-                // We don't have the post-syscall timestamp for thread exit.
-                if (shard->post_syscall_timestamp > 0) {
-                    histogram_interface_t *hist_ptr = find_or_add_histogram(
-                        shard->counters.sysnum_switch_latency, shard->last_syscall_number,
-                        kSysnumLatencyBinSize);
-                    int64_t latency =
-                        shard->post_syscall_timestamp - shard->pre_syscall_timestamp;
-                    if (knob_verbose_ >= 3) {
-                        std::cerr << "sysnum " << shard->last_syscall_number
-                                  << " switch latency " << shard->post_syscall_timestamp
-                                  << " - " << shard->pre_syscall_timestamp << " => "
-                                  << latency << "\n";
-                    }
-                    hist_ptr->add(latency);
-                }
+        if (add_to_counts) {
+            ++shard->counters.total_switches;
+            schedule_record_t record;
+            record.workload = prev_workload_id;
+            record.tid = prev_tid;
+            record.instructions = instr_delta;
+            record.input_instr_start_ordinal = shard->switch_start_input_instr_ordinal;
+            if (shard->saw_syscall || shard->saw_exit) {
+                ++shard->counters.voluntary_switches;
+                record.voluntary = true;
             }
-            shard->last_syscall_number = -1;
-            shard->pre_syscall_timestamp = 0;
-            shard->post_syscall_timestamp = 0;
+            if (shard->direct_switch_target != INVALID_THREAD_ID &&
+                shard->direct_switch_target == tid) {
+                ++shard->counters.direct_switches;
+                record.direct = true;
+            }
+            if (shard->last_syscall_number >= 0) {
+                record.syscall_number = shard->last_syscall_number;
+                if (shard->stream->get_version() <
+                    TRACE_ENTRY_VERSION_FREQUENT_TIMESTAMPS) {
+                    // Legacy versions do not have the timestamps to compute latencies.
+                } else {
+                    assert(shard->pre_syscall_timestamp > 0);
+                    // We don't have the post-syscall timestamp for thread exit.
+                    if (shard->post_syscall_timestamp > 0) {
+                        histogram_interface_t *hist_ptr = find_or_add_histogram(
+                            shard->counters.sysnum_switch_latency,
+                            shard->last_syscall_number, kSysnumLatencyBinSize);
+                        int64_t latency =
+                            shard->post_syscall_timestamp - shard->pre_syscall_timestamp;
+                        if (knob_verbose_ >= 3) {
+                            std::cerr << "sysnum " << shard->last_syscall_number
+                                      << " switch latency "
+                                      << shard->post_syscall_timestamp << " - "
+                                      << shard->pre_syscall_timestamp << " => " << latency
+                                      << "\n";
+                        }
+                        hist_ptr->add(latency);
+                        record.syscall_latency = latency;
+                    }
+                }
+                shard->last_syscall_number = -1;
+                shard->pre_syscall_timestamp = 0;
+                shard->post_syscall_timestamp = 0;
+            }
+            shard->switch_record.push_back(record);
+            shard->counters.instrs_per_switch->add(instr_delta);
+            histogram_interface_t *hist_ptr = find_or_add_histogram(
+                shard->counters.tid2instrs_per_switch,
+                workload_tid_t(prev_workload_id, prev_tid), kSwitchBinSize);
+            hist_ptr->add(instr_delta);
+        } else {
+            // Update the start ordinal on a swap-in after idle.
+            if (shard->switch_start_input_instr_ordinal == 0 && istream != nullptr)
+                shard->switch_start_input_instr_ordinal = std::max(
+                    // Normalize to 1 regardless of whether the input was pre-read or not.
+                    istream->get_instruction_ordinal(), static_cast<uint64_t>(1));
         }
-        uint64_t instr_delta = shard->counters.instrs - shard->switch_start_instrs;
-        shard->counters.instrs_per_switch->add(instr_delta);
-        shard->switch_start_instrs = shard->counters.instrs;
-
-        // Tracking migrations requires a global lock but just once per context
-        // switch seems to have negligible performance impact on parallel analysis.
-        std::lock_guard<std::mutex> lock(prev_core_mutex_);
-        workload_tid_t workload_tid(workload_id, tid);
-        auto it = prev_core_.find(workload_tid);
-        if (it != prev_core_.end() && it->second != shard->core) {
-            ++shard->counters.observed_migrations;
+        if (knob_verbose_ >= 2) {
+            std::cerr << "Core #" << std::setw(2) << shard->core
+                      << (add_to_counts ? "" : " (uncounted)") << " switch W"
+                      << prev_workload_id << ".T" << prev_tid << " => W" << workload_id
+                      << ".T" << tid << " after " << instr_delta << " instrs\n";
         }
-        prev_core_[workload_tid] = shard->core;
+        if (tid != INVALID_THREAD_ID && tid != IDLE_THREAD_ID) {
+            // Tracking migrations requires a global lock but just once per context
+            // switch seems to have negligible performance impact on parallel analysis.
+            std::lock_guard<std::mutex> lock(prev_core_mutex_);
+            workload_tid_t workload_tid(workload_id, tid);
+            auto it = prev_core_.find(workload_tid);
+            if (it != prev_core_.end() && it->second != shard->core) {
+                ++shard->counters.observed_migrations;
+            }
+            prev_core_[workload_tid] = shard->core;
+        }
+        shard->switch_user_instrs = 0;
+        // Set the start ordinal if we're switching to an input; if idle or wait
+        // will be in between we'll set on a the next input in the !add_to_counts above.
+        shard->switch_start_input_instr_ordinal = (istream == nullptr)
+            ? 0
+            // Normalize to 1 regardless of whether the input was pre-read or not.
+            : std::max(istream->get_instruction_ordinal(), static_cast<uint64_t>(1));
     }
-    shard->thread_sequence +=
-        THREAD_LETTER_INITIAL_START + static_cast<char>(letter_ord % 26);
-    shard->cur_segment_instrs = 0;
+    // The idle and wait strings are handled by the caller.
+    if (tid != INVALID_THREAD_ID && tid != IDLE_THREAD_ID) {
+        // We convert to letters (works best for <=26 inputs but still gives an
+        // idea of the behavior for more inputs).
+        shard->thread_sequence +=
+            THREAD_LETTER_INITIAL_START + static_cast<char>(letter_ord % 26);
+        shard->cur_segment_instrs = 0;
+    }
     if (knob_verbose_ >= 2) {
         std::ostringstream line;
         line << "Core #" << std::setw(2) << shard->core << " @" << std::setw(9)
              << shard->stream->get_record_ordinal() << " refs, " << std::setw(9)
              << shard->stream->get_instruction_ordinal() << " instrs: input "
              << std::setw(4) << input_id << " @" << std::setw(9)
-             << shard->stream->get_input_interface()->get_record_ordinal() << " refs, "
+             << (istream == nullptr ? 0 : istream->get_record_ordinal()) << " refs, "
              << std::setw(9)
-             << shard->stream->get_input_interface()->get_instruction_ordinal()
+             << (istream == nullptr ? 0 : istream->get_instruction_ordinal())
              << " instrs, time "
              << std::setw(16)
              // TODO i#5843: For time quanta, provide some way to get the
              // latest time and print that here instead of the timestamp?
-             << shard->stream->get_input_interface()->get_last_timestamp()
-             << " == thread " << tid << "\n";
+             << (istream == nullptr ? 0 : istream->get_last_timestamp()) << " == thread "
+             << tid << "\n";
         std::cerr << line.str();
     }
 }
 
+template <typename RecordType>
 bool
-schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
+schedule_stats_template_t<RecordType>::parallel_shard_memref(void *shard_data,
+                                                             const RecordType &record)
 {
     per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
     int64_t input_id = shard->stream->get_input_id();
+    trace_marker_type_t marker_type = TRACE_MARKER_TYPE_RESERVED_END;
+    uintptr_t marker_value = 0;
+    bool is_marker = is_record_marker(record, marker_type, marker_value);
+    assert(shard->stream->get_input_interface() != nullptr ||
+           (is_marker &&
+            (marker_type == TRACE_MARKER_TYPE_CORE_IDLE ||
+             marker_type == TRACE_MARKER_TYPE_CORE_WAIT)));
     if (knob_verbose_ >= 4) {
         std::ostringstream line;
         memtrace_stream_t *input_stream = shard->stream->get_input_interface();
@@ -303,34 +491,86 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
              << (input_stream == nullptr ? -1 : input_stream->get_record_ordinal())
              << " refs, " << std::setw(9)
              << (input_stream == nullptr ? -1 : input_stream->get_instruction_ordinal())
-             << " instrs: " << std::setw(16) << trace_type_names[memref.marker.type];
-        if (type_is_instr(memref.instr.type))
-            line << " pc=" << std::hex << memref.instr.addr << std::dec;
-        else if (memref.marker.type == TRACE_TYPE_MARKER) {
-            line << " " << memref.marker.marker_type
-                 << " val=" << memref.marker.marker_value;
+             << " instrs: " << std::setw(16) << trace_type_names[get_record_type(record)];
+        addr_t pc = 0;
+        if (is_record_instr(record, &pc))
+            line << " pc=" << std::hex << pc << std::dec;
+        else if (is_marker) {
+            line << " " << marker_type << " val=" << marker_value;
         }
         line << "\n";
         std::cerr << line.str();
     }
-    // Cache and reset here to ensure we reset on early return paths.
     state_t prev_state = shard->cur_state;
-    int64_t prev_workload_id = shard->prev_workload_id;
-    int64_t prev_tid = shard->prev_tid;
-    shard->prev_workload_id = -1;
-    shard->prev_tid = -1;
-    if (memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_WAIT)
+    int64_t tid = INVALID_THREAD_ID;
+    int64_t workload_id = INVALID_WORKLOAD_ID;
+    if (is_marker && marker_type == TRACE_MARKER_TYPE_CORE_WAIT)
         shard->cur_state = STATE_WAIT;
-    else if (memref.marker.type == TRACE_TYPE_MARKER &&
-             memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_IDLE)
+    else if (is_marker && marker_type == TRACE_MARKER_TYPE_CORE_IDLE) {
+        // When analyzing dynamically scheduled trace records, we expect
+        // scheduler_tmpl_t::stream_status_t::STATUS_IDLE to be converted to
+        // a TRACE_MARKER_TYPE_CORE_IDLE with tid set to IDLE_THREAD_ID.
+        // When analyzing already-scheduled traces (aka core-sharded-on-disk
+        // traces), the TRACE_MARKER_TYPE_CORE_IDLE on disk may not have a
+        // preceding tid marker set to IDLE_THREAD_ID (therefore may be associated
+        // with the tid of the prior input as far as the on-disk records are
+        // concerned). But we have scheduler logic that converts such on-disk
+        // TRACE_MARKER_TYPE_CORE_IDLE into the scheduler idle status (that is,
+        // scheduler_tmpl_t::stream_status_t::STATUS_IDLE), which are converted
+        // to a TRACE_MARKER_TYPE_CORE_IDLE with tid set to IDLE_THREAD_ID,
+        // in the same manner as above.
+#ifndef NDEBUG
+        memref_tid_t record_tid;
+#endif
+        assert(!get_record_tid(record, record_tid) ||
+               record_tid == dynamorio::drmemtrace::IDLE_THREAD_ID);
+        tid = dynamorio::drmemtrace::IDLE_THREAD_ID;
         shard->cur_state = STATE_IDLE;
-    else
+    } else {
         shard->cur_state = STATE_CPU;
+        tid = shard->stream->get_tid();
+        workload_id = TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, shard->filetype)
+            ? workload_from_memref_tid(tid)
+            : shard->stream->get_workload_id();
+    }
+    if (is_marker && marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_START)
+        shard->in_syscall_trace = true;
+    else if (is_marker && marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END)
+        shard->in_syscall_trace = false;
     if (shard->cur_state != prev_state) {
         if (!update_state_time(shard, prev_state))
             return false;
     }
+
+    // We use <workload,tid> to detect switches (instead of input_id) to handle
+    // core-sharded-on-disk.  However, we still prefer the input_id ordinal
+    // for the letters.
+    int64_t letter_ord =
+        (TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, shard->filetype) || input_id < 0)
+        ? tid
+        : input_id;
+    if (workload_id != shard->prev_workload_id || tid != shard->prev_tid) {
+        if (shard->in_syscall_trace) {
+            shard->error =
+                "Found unexpected switch in the middle of a kernel syscall trace.";
+            return false;
+        }
+        record_context_switch(shard, shard->prev_workload_id, shard->prev_tid,
+                              workload_id, tid, input_id, letter_ord);
+#ifndef NDEBUG
+        memref_tid_t record_tid;
+#endif
+        if (tid != INVALID_THREAD_ID && tid != dynamorio::drmemtrace::IDLE_THREAD_ID) {
+            assert(!get_record_tid(record, record_tid) ||
+                   // Early header markers do not have a valid tid field.
+                   record_tid == -1 || record_tid == INVALID_THREAD_ID ||
+                   tid_from_memref_tid(record_tid) == tid);
+            shard->counters.threads.insert(workload_tid_t(workload_id, tid));
+        }
+    }
+    shard->prev_workload_id = workload_id;
+    shard->prev_tid = tid;
+
     if (shard->cur_state == STATE_WAIT) {
         ++shard->counters.waits;
         if (prev_state != STATE_WAIT) {
@@ -358,25 +598,8 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         }
         return true;
     }
-    // We use <workload,tid> to detect switches (instead of input_id) to handle
-    // core-sharded-on-disk.  However, we still prefer the input_id ordinal
-    // for the letters.
-    int64_t tid = shard->stream->get_tid();
-    int64_t workload_id = TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, shard->filetype)
-        ? workload_from_memref_tid(tid)
-        : shard->stream->get_workload_id();
-    int64_t letter_ord =
-        (TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, shard->filetype) || input_id < 0)
-        ? tid
-        : input_id;
-    if ((workload_id != prev_workload_id || tid != prev_tid) && tid != IDLE_THREAD_ID) {
-        // See XXX comment in get_scheduler_stats(): this measures swap-ins, while
-        // "perf" measures swap-outs.
-        record_context_switch(shard, workload_id, tid, input_id, letter_ord);
-    }
-    shard->prev_workload_id = workload_id;
-    shard->prev_tid = tid;
-    if (type_is_instr(memref.instr.type)) {
+
+    if (is_record_instr(record)) {
         ++shard->counters.instrs;
         ++shard->cur_segment_instrs;
         shard->counters.idle_micros_at_last_instr = shard->counters.idle_microseconds;
@@ -385,7 +608,6 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
                 THREAD_LETTER_SUBSEQUENT_START + static_cast<char>(letter_ord % 26);
             shard->cur_segment_instrs = 0;
         }
-        shard->direct_switch_target = INVALID_THREAD_ID;
         if (shard->last_syscall_number >= 0 && !shard->stream->is_record_kernel()) {
             // Since we clear last_syscall_number on detecting a context switch prior to
             // here, if it's still set and we've found a regular instruction, we just
@@ -410,26 +632,34 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
             shard->pre_syscall_timestamp = 0;
             shard->post_syscall_timestamp = 0;
         }
-        shard->saw_syscall = false;
+        if (!shard->stream->is_record_kernel()) {
+            ++shard->switch_user_instrs;
+            // We wait until the next user-space instruction after the syscall trace
+            // so that we've seen all syscall related trace entries (like the post-
+            // syscall timestamp).
+            shard->saw_syscall = false;
+            shard->direct_switch_target = INVALID_THREAD_ID;
+        }
         shard->saw_exit = false;
     }
-    if (memref.instr.tid != INVALID_THREAD_ID)
-        shard->counters.threads.insert(workload_tid_t(workload_id, memref.instr.tid));
-    if (memref.marker.type == TRACE_TYPE_MARKER) {
-        if (memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL) {
+    if (is_marker) {
+        if (marker_type == TRACE_MARKER_TYPE_SYSCALL) {
             ++shard->counters.syscalls;
             shard->saw_syscall = true;
-            shard->last_syscall_number = static_cast<int>(memref.marker.marker_value);
-        } else if (memref.marker.marker_type ==
-                   TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL) {
+            shard->last_syscall_number = static_cast<int>(marker_value);
+        } else if (marker_type == TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL) {
             ++shard->counters.maybe_blocking_syscalls;
             shard->saw_syscall = true;
-        } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH) {
+        } else if (marker_type == TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH) {
             ++shard->counters.direct_switch_requests;
-            shard->direct_switch_target = memref.marker.marker_value;
-        } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
-            shard->filetype = static_cast<intptr_t>(memref.marker.marker_value);
-        } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
+            shard->direct_switch_target = marker_value;
+        } else if (marker_type == TRACE_MARKER_TYPE_FILETYPE) {
+            shard->filetype = static_cast<intptr_t>(marker_value);
+        } else if (marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
+            if (shard->stream->is_record_kernel()) {
+                shard->error = "Kernel traces are not expected to have timestamps.";
+                return false;
+            }
             if (shard->last_syscall_number < 0) {
                 // We use get_input_interface() to get the original timestamp
                 // instead of the scheduler-normalized one.
@@ -447,14 +677,16 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
                     shard->stream->get_input_interface()->get_last_timestamp();
             }
         }
-    } else if (memref.exit.type == TRACE_TYPE_THREAD_EXIT)
+    } else if (get_record_type(record) == TRACE_TYPE_THREAD_EXIT)
         shard->saw_exit = true;
     return true;
 }
 
+template <typename RecordType>
 void
-schedule_stats_t::print_percentage(double numerator, double denominator,
-                                   const std::string &label)
+schedule_stats_template_t<RecordType>::print_percentage(double numerator,
+                                                        double denominator,
+                                                        const std::string &label)
 {
     double fraction;
     if (denominator == 0) {
@@ -467,8 +699,9 @@ schedule_stats_t::print_percentage(double numerator, double denominator,
     std::cerr << std::setw(12) << std::setprecision(2) << 100 * fraction << label;
 }
 
+template <typename RecordType>
 void
-schedule_stats_t::print_counters(const counters_t &counters)
+schedule_stats_template_t<RecordType>::print_counters(const counters_t &counters)
 {
     std::cerr << std::setw(12) << counters.threads.size() << " threads";
     if (!counters.threads.empty()) {
@@ -549,6 +782,11 @@ schedule_stats_t::print_counters(const counters_t &counters)
                      "% cpu busy by time, ignoring idle past last instr\n");
     std::cerr << "  Instructions per context switch histogram:\n";
     counters.instrs_per_switch->print();
+    for (const auto &it : counters.tid2instrs_per_switch) {
+        std::cerr << "  Thread W" << it.first.workload_id << ".T" << it.first.tid
+                  << " instructions per context switch histogram:\n";
+        it.second->print();
+    }
     if (!counters.cores_per_thread->empty()) {
         std::cerr << "  Cores per thread:\n";
         counters.cores_per_thread->print();
@@ -565,43 +803,60 @@ schedule_stats_t::print_counters(const counters_t &counters)
     }
 }
 
+template <typename RecordType>
 void
-schedule_stats_t::aggregate_results(counters_t &total)
+schedule_stats_template_t<RecordType>::aggregate_results(counters_t &total)
 {
     std::unordered_map<workload_tid_t, std::unordered_set<int64_t>, workload_tid_hash_t>
         cpu_footprint;
-    for (const auto &shard : shard_map_) {
+    int64_t min_activity = std::numeric_limits<int64_t>::max();
+    int64_t max_activity = std::numeric_limits<int64_t>::min();
+    int64_t min_instrs = std::numeric_limits<int64_t>::max();
+    int64_t max_instrs = std::numeric_limits<int64_t>::min();
+    for (const auto &[index, shard] : shard_map_) {
         // First update our per-shard data with per-shard stats from the scheduler.
-        get_scheduler_stats(shard.second->stream, shard.second->counters);
+        get_scheduler_stats(shard->stream, shard->counters);
 
-        total += shard.second->counters;
+        total += shard->counters;
 
-        for (const workload_tid_t wtid : shard.second->counters.threads) {
-            cpu_footprint[wtid].insert(shard.second->core);
+        // Compute the activity range among cores to give an idea of how "even" the
+        // schedule is. For measuring analyzer worker thread load balancing, it would
+        // be fairer to count all records including loads/stores and markers, but the
+        // focus here is more on how a microarchitectural simulator would view these
+        // cores, so we focus on just instructions and idles. This still gives a good
+        // idea of the worker thread balancing.
+        int64_t activity = shard->counters.instrs + shard->counters.idles;
+        min_activity = std::min(activity, min_activity);
+        max_activity = std::max(activity, max_activity);
+        min_instrs = std::min(shard->counters.instrs, min_instrs);
+        max_instrs = std::max(shard->counters.instrs, max_instrs);
+
+        for (const workload_tid_t wtid : shard->counters.threads) {
+            cpu_footprint[wtid].insert(shard->core);
         }
 
         // Sanity check against the scheduler's own stats, unless the trace
         // is pre-scheduled, or we're in core-serial mode where we don't have access
         // to the separate output streams, or we're in a unit test with a mock
         // stream and no stats.
-        if (TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, shard.second->filetype) ||
+        if (TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, shard->filetype) ||
             serial_stream_ != nullptr ||
-            shard.second->stream->get_schedule_statistic(
+            shard->stream->get_schedule_statistic(
                 memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_INPUT) < 0)
             continue;
         // We assume our counts fit in the get_schedule_statistic()'s double's 54-bit
         // mantissa and thus we can safely use "==".
-        // Currently our switch count ignores input-to-idle.
-        assert(shard.second->counters.total_switches ==
-               shard.second->stream->get_schedule_statistic(
+        // Currently our switch count ignores idle-to-input.
+        assert(shard->counters.total_switches ==
+               shard->stream->get_schedule_statistic(
                    memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_INPUT) +
-                   shard.second->stream->get_schedule_statistic(
-                       memtrace_stream_t::SCHED_STAT_SWITCH_IDLE_TO_INPUT));
-        assert(shard.second->counters.direct_switch_requests ==
-               shard.second->stream->get_schedule_statistic(
+                   shard->stream->get_schedule_statistic(
+                       memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_IDLE));
+        assert(shard->counters.direct_switch_requests ==
+               shard->stream->get_schedule_statistic(
                    memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_ATTEMPTS));
-        assert(shard.second->counters.direct_switches ==
-               shard.second->stream->get_schedule_statistic(
+        assert(shard->counters.direct_switches ==
+               shard->stream->get_schedule_statistic(
                    memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_SUCCESSES));
     }
     // Our observed_migrations are counted on the destination core, while
@@ -616,10 +871,14 @@ schedule_stats_t::aggregate_results(counters_t &total)
     for (const auto &entry : cpu_footprint) {
         total.cores_per_thread->add(entry.second.size());
     }
+
+    max_core_activity_ratio_ = static_cast<double>(max_activity) / min_activity;
+    max_core_instruction_ratio_ = static_cast<double>(max_instrs) / min_instrs;
 }
 
+template <typename RecordType>
 bool
-schedule_stats_t::print_results()
+schedule_stats_template_t<RecordType>::print_results()
 {
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << "Total counts:\n";
@@ -635,16 +894,64 @@ schedule_stats_t::print_results()
         std::cerr << "Core #" << shard.second->core
                   << " schedule: " << shard.second->thread_sequence << "\n";
     }
+    // For the switch-out list, limit entries at low verbosity to avoid spewing
+    // 100K entries to the screen.
+    size_t entries_per_shard = 4;
+    if (knob_verbose_ >= 1) {
+        entries_per_shard = 24;
+        if (knob_verbose_ >= 2) {
+            entries_per_shard = std::numeric_limits<size_t>::max();
+        }
+    }
+    for (const auto &shard : shard_map_) {
+        std::cerr << "Core #" << shard.second->core << " switch-outs:\n";
+        size_t i;
+        for (i = 0; i < std::min(entries_per_shard, shard.second->switch_record.size());
+             ++i) {
+            const schedule_record_t &record = shard.second->switch_record[i];
+            std::cerr << std::setw(5) << i << " W" << record.workload << ".T" << std::left
+                      << std::setw(6) << record.tid << std::right << " @ "
+                      << std::setw(11) << record.input_instr_start_ordinal
+                      << " instrs=" << std::setw(9) << record.instructions
+                      << " sys#=" << std::setw(4) << record.syscall_number
+                      << " latency=" << std::setw(7) << record.syscall_latency
+                      << std::setw(6) << (record.voluntary ? "vol" : "invol")
+                      << std::setw(7) << (record.direct ? "direct" : "") << "\n";
+        }
+        if (i < shard.second->switch_record.size()) {
+            std::cerr << "    ... (increase -verbose to see more)\n";
+        }
+    }
+    std::cerr << "Max activity ratio between cores: " << max_core_activity_ratio_ << "\n";
+    std::cerr << "Max instruction ratio between cores: " << max_core_instruction_ratio_
+              << "\n";
     return true;
 }
 
-schedule_stats_t::counters_t
-schedule_stats_t::get_total_counts()
+template <typename RecordType>
+typename schedule_stats_template_t<RecordType>::counters_t
+schedule_stats_template_t<RecordType>::get_total_counts()
 {
     counters_t total(this);
     aggregate_results(total);
     return total;
 }
+
+template <typename RecordType>
+bool
+schedule_stats_template_t<RecordType>::get_switch_record(
+    int core,
+    std::vector<schedule_stats_template_t<RecordType>::schedule_record_t> &record)
+{
+    const auto &lookup = shard_map_.find(core);
+    if (lookup == shard_map_.end())
+        return false;
+    record = lookup->second->switch_record;
+    return true;
+}
+
+template class schedule_stats_template_t<memref_t>;
+template class schedule_stats_template_t<trace_entry_t>;
 
 } // namespace drmemtrace
 } // namespace dynamorio

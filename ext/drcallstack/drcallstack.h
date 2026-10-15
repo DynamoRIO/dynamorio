@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021 Google, Inc.   All rights reserved.
+ * Copyright (c) 2021-2025 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /* DynamoRIO Callstack Walker. */
 
 #ifndef _DRCALLSTACK_H_
-#define _DRCALLSTACK_H_ 1
+#define _DRCALLSTACK_H_
 
 /**
  * @file drcallstack.h

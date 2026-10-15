@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2021 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,7 +38,7 @@
 #include "drwinapi_private.h"
 #include "ntdll_redir.h"
 
-/* FIXME i#1063: add the rest of the routines in kernel32_redir.h under
+/* XXX i#1063: add the rest of the routines in kernel32_redir.h under
  * Processes and Threads
  */
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -99,9 +99,9 @@ drfront_access(const char *fname, drfront_access_mode_t mode, DR_PARAM_OUT bool 
     }
 
     /* Translate drfront_access_mode_t to msdn _waccess mode */
-    if (TEST(mode, DRFRONT_WRITE))
+    if (TESTANY(mode, DRFRONT_WRITE))
         msdn_mode |= 02;
-    if (TEST(mode, DRFRONT_READ))
+    if (TESTANY(mode, DRFRONT_READ))
         msdn_mode |= 04;
 
     r = _waccess(wfname, msdn_mode);
@@ -111,10 +111,10 @@ drfront_access(const char *fname, drfront_access_mode_t mode, DR_PARAM_OUT bool 
         if (GetLastError() == EACCES)
             return DRFRONT_SUCCESS;
         return DRFRONT_ERROR;
-    } else if (TEST(DRFRONT_WRITE, mode)) {
+    } else if (TESTANY(DRFRONT_WRITE, mode)) {
         DWORD file_attrs = GetFileAttributes(wfname);
         if (file_attrs != INVALID_FILE_ATTRIBUTES &&
-            TEST(file_attrs, FILE_ATTRIBUTE_DIRECTORY)) {
+            TESTANY(file_attrs, FILE_ATTRIBUTE_DIRECTORY)) {
             /* We use an actual write try, to avoid failing on a read-only filesystem
              * (DrMi#1857).
              */
@@ -279,7 +279,7 @@ drfront_get_app_full_path(const char *app, DR_PARAM_OUT char *buf,
     if (wbuf[0] == _T('\0') ||
         /* DrM-i#1617: we might have a same-name directory on the path */
         (drfront_dir_exists(buf, &is_dir) == DRFRONT_SUCCESS && is_dir)) {
-        /* may need to append .exe, FIXME : other executable types */
+        /* may need to append .exe, XXX : other executable types */
         TCHAR tmp_buf[MAX_PATH];
         _sntprintf(tmp_buf, BUFFER_SIZE_ELEMENTS(tmp_buf), _T("%s%s"), wapp, _T(".exe"));
         NULL_TERMINATE_BUFFER(wbuf);
@@ -680,7 +680,7 @@ drfront_dir_exists(const char *path, DR_PARAM_OUT bool *is_dir)
         *is_dir = false;
         return DRFRONT_ERROR_INVALID_PATH;
     } else {
-        if (TEST(file_attrs, FILE_ATTRIBUTE_DIRECTORY))
+        if (TESTANY(file_attrs, FILE_ATTRIBUTE_DIRECTORY))
             *is_dir = true;
         else
             *is_dir = false;

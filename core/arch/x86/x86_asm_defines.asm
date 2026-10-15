@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -40,7 +40,7 @@
  */
 
 #ifndef _X86_ASM_DEFINES_ASM_
-#define _X86_ASM_DEFINES_ASM_ 1
+#define _X86_ASM_DEFINES_ASM_
 
 /* We should give asm_defines.asm all unique names and then include globals.h
  * and avoid all this duplication!
@@ -133,7 +133,7 @@
                                      MCXT_TOTAL_OPMASK_SLOTS_SIZE - PRE_XMM_PADDING)
 
 #if defined(WINDOWS) && !defined(X64)
-/* FIXME: check these selector values on all platforms: these are for XPSP2.
+/* XXX: check these selector values on all platforms: these are for XPSP2.
  * Keep in synch w/ defines in arch.h.
  */
 # define CS32_SELECTOR HEX(23)

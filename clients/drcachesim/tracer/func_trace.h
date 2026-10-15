@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 // func_trace.h: header of module for recording function traces
 
 #ifndef _FUNC_TRACE_
-#define _FUNC_TRACE_ 1
+#define _FUNC_TRACE_
 
 #include <stddef.h>
 #include <sys/types.h>

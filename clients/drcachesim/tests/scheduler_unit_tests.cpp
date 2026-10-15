@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,6 @@
  */
 
 #define NOMINMAX // Avoid windows.h messing up std::min.
-#undef NDEBUG
 #include <assert.h>
 #include <algorithm>
 #include <cctype>
@@ -58,6 +57,7 @@
 #    include "zipfile_istream.h"
 #    include "zipfile_ostream.h"
 #endif
+#include "test_helpers.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -232,6 +232,13 @@ run_lockstep_simulation(scheduler_t &scheduler, int num_outputs, memref_tid_t ti
                 continue;
             }
             assert(status == scheduler_t::STATUS_OK);
+            // Ensure stream API and the trace records are consistent.
+            assert(outputs[i]->get_input_interface()->get_tid() == IDLE_THREAD_ID ||
+                   outputs[i]->get_input_interface()->get_tid() ==
+                       tid_from_memref_tid(memref.instr.tid));
+            assert(outputs[i]->get_input_interface()->get_workload_id() == INVALID_PID ||
+                   outputs[i]->get_input_interface()->get_workload_id() ==
+                       workload_from_memref_tid(memref.instr.tid));
             if (type_is_instr(memref.instr.type)) {
                 bool is_kernel = outputs[i]->is_record_kernel();
                 sched_as_string[i] +=
@@ -284,44 +291,46 @@ test_serial()
     static constexpr memref_tid_t TID_B = 99;
     std::vector<trace_entry_t> refs_A = {
         /* clang-format off */
-        make_thread(TID_A),
-        make_pid(1),
+        test_util::make_thread(TID_A),
+        test_util::make_pid(1),
         // Include a header to test the scheduler queuing it.
-        make_version(4),
+        test_util::make_version(4),
         // Each timestamp is followed by an instr whose PC==time.
-        make_timestamp(10),
-        make_instr(10),
-        make_timestamp(30),
-        make_instr(30),
-        make_timestamp(50),
-        make_instr(50),
-        make_exit(TID_A),
+        test_util::make_timestamp(10),
+        test_util::make_instr(10),
+        test_util::make_timestamp(30),
+        test_util::make_instr(30),
+        test_util::make_timestamp(50),
+        test_util::make_instr(50),
+        test_util::make_exit(TID_A),
         /* clang-format on */
     };
     std::vector<trace_entry_t> refs_B = {
         /* clang-format off */
-        make_thread(TID_B),
-        make_pid(1),
-        make_version(4),
-        make_timestamp(20),
-        make_instr(20),
-        make_timestamp(40),
-        make_instr(40),
-        make_timestamp(60),
-        make_instr(60),
-        make_exit(TID_B),
+        test_util::make_thread(TID_B),
+        test_util::make_pid(1),
+        test_util::make_version(4),
+        test_util::make_timestamp(20),
+        test_util::make_instr(20),
+        test_util::make_timestamp(40),
+        test_util::make_instr(40),
+        test_util::make_timestamp(60),
+        test_util::make_instr(60),
+        test_util::make_exit(TID_B),
         /* clang-format on */
     };
     std::vector<scheduler_t::input_reader_t> readers;
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(refs_A)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), TID_A);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(refs_B)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), TID_B);
     scheduler_t scheduler;
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(std::move(readers));
     if (scheduler.init(sched_inputs, 1,
-                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
+                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/0)) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
     auto *stream = scheduler.get_stream(0);
@@ -349,10 +358,10 @@ test_parallel()
 {
     std::cerr << "\n----------------\nTesting parallel\n";
     std::vector<trace_entry_t> input_sequence = {
-        make_thread(1),
-        make_pid(1),
-        make_instr(42),
-        make_exit(1),
+        test_util::make_thread(1),
+        test_util::make_pid(1),
+        test_util::make_instr(42),
+        test_util::make_exit(1),
     };
     static constexpr int NUM_INPUTS = 3;
     static constexpr int NUM_OUTPUTS = 2;
@@ -366,13 +375,16 @@ test_parallel()
                 record.addr = static_cast<addr_t>(tid);
         }
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(inputs[i])),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            tid);
         sched_inputs.emplace_back(std::move(readers));
     }
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS,
-                       scheduler_t::make_scheduler_parallel_options(/*verbosity=*/4)) !=
+                       scheduler_t::make_scheduler_parallel_options(/*verbosity=*/0)) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
     std::unordered_map<memref_tid_t, int> tid2stream;
@@ -409,12 +421,252 @@ test_parallel()
     assert(count == 2 * NUM_INPUTS);
 }
 
+static std::vector<trace_entry_t>
+get_mock_switch_sequence(int version = TRACE_ENTRY_VERSION,
+                         addr_t thread_switch_pc_start = 0xcafe101,
+                         addr_t process_switch_pc_start = 0xf00d101)
+{
+    constexpr memref_tid_t TID_IN_SWITCHES = 1;
+    constexpr addr_t DONT_CARE = 0xd041ca4e;
+    return {
+        /* clang-format off */
+        test_util::make_header(version),
+        test_util::make_thread(TID_IN_SWITCHES),
+        test_util::make_pid(TID_IN_SWITCHES),
+        test_util::make_version(version),
+        test_util::make_timestamp(1),
+        test_util::make_marker(
+            TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, switch_type_t::SWITCH_PROCESS),
+        test_util::make_instr(process_switch_pc_start),
+        test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, DONT_CARE),
+        test_util::make_instr(process_switch_pc_start + 1,
+            TRACE_TYPE_INSTR_INDIRECT_JUMP),
+        test_util::make_marker(
+            TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, switch_type_t::SWITCH_PROCESS),
+        test_util::make_exit(TID_IN_SWITCHES),
+        test_util::make_footer(),
+        // Test a complete trace after the first one, which is how we plan to store
+        // these in an archive file.
+        test_util::make_header(version),
+        test_util::make_thread(TID_IN_SWITCHES),
+        test_util::make_pid(TID_IN_SWITCHES),
+        test_util::make_version(version),
+        test_util::make_marker(
+            TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, switch_type_t::SWITCH_THREAD),
+        test_util::make_instr(thread_switch_pc_start),
+        test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, DONT_CARE),
+        test_util::make_instr(thread_switch_pc_start + 1, TRACE_TYPE_INSTR_INDIRECT_JUMP),
+        test_util::make_marker(
+            TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, switch_type_t::SWITCH_THREAD),
+        test_util::make_exit(TID_IN_SWITCHES),
+        test_util::make_footer(),
+        /* clang-format on */
+    };
+}
+
+static std::vector<trace_entry_t>
+get_mock_syscall_sequence(int version, int syscall_base,
+                          addr_t syscall_pc_start = 0xfeed101)
+{
+    constexpr memref_tid_t TID_IN_SYSCALLS = 1;
+    constexpr addr_t DONT_CARE = 0xd041ca4e;
+    return {
+        /* clang-format off */
+            test_util::make_header(version),
+            test_util::make_thread(TID_IN_SYSCALLS),
+            test_util::make_pid(TID_IN_SYSCALLS),
+            test_util::make_version(version),
+            test_util::make_timestamp(1),
+            test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, syscall_base),
+            test_util::make_instr(syscall_pc_start),
+            test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, DONT_CARE),
+            test_util::make_instr(syscall_pc_start + 1, TRACE_TYPE_INSTR_INDIRECT_JUMP),
+            test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, syscall_base),
+            // XXX: Currently all syscall traces are concatenated. We may change
+            // this to use an archive file instead.
+            test_util::make_marker(
+                TRACE_MARKER_TYPE_SYSCALL_TRACE_START, syscall_base + 1),
+            test_util::make_instr(syscall_pc_start + 10),
+            test_util::make_instr(syscall_pc_start + 11),
+            test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, DONT_CARE),
+            test_util::make_instr(syscall_pc_start + 12, TRACE_TYPE_INSTR_INDIRECT_JUMP),
+            test_util::make_marker(
+                TRACE_MARKER_TYPE_SYSCALL_TRACE_END, syscall_base + 1),
+            test_util::make_marker(
+                TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
+                DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM),
+            test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, DONT_CARE),
+            test_util::make_instr(syscall_pc_start + 20, TRACE_TYPE_INSTR_INDIRECT_JUMP),
+            test_util::make_marker(
+                TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
+                DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM),
+            test_util::make_exit(TID_IN_SYSCALLS),
+            test_util::make_footer(),
+        /* clang-format on */
+    };
+}
+
+static void
+test_parallel_with_syscall_injection()
+{
+    std::cerr << "\n----------------\nTesting parallel with syscall injection\n";
+    constexpr int SYSCALL_BASE = 10;
+    std::vector<trace_entry_t> input_sequence = {
+        test_util::make_header(TRACE_ENTRY_VERSION),
+        test_util::make_thread(1),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+        test_util::make_timestamp(10),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
+        test_util::make_instr(43),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSCALL_BASE),
+        test_util::make_marker(TRACE_MARKER_TYPE_FUNC_ID, 20),
+        test_util::make_marker(TRACE_MARKER_TYPE_FUNC_ARG, 1),
+        // Expected syscall injection point.
+        test_util::make_marker(TRACE_MARKER_TYPE_FUNC_ID, 20),
+        test_util::make_marker(TRACE_MARKER_TYPE_FUNC_RETVAL, 20),
+        test_util::make_marker(TRACE_MARKER_TYPE_TIMESTAMP, 101),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 102),
+        test_util::make_instr(42),
+        test_util::make_exit(1),
+    };
+
+    std::vector<trace_entry_t> syscall_sequence =
+        get_mock_syscall_sequence(TRACE_ENTRY_VERSION, SYSCALL_BASE);
+    auto syscall_reader = std::unique_ptr<test_util::mock_reader_t>(
+        new test_util::mock_reader_t(syscall_sequence));
+    auto syscall_reader_end =
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t());
+    scheduler_t::scheduler_options_t sched_ops =
+        scheduler_t::make_scheduler_parallel_options(/*verbosity=*/0);
+    sched_ops.kernel_syscall_reader = std::move(syscall_reader);
+    sched_ops.kernel_syscall_reader_end = std::move(syscall_reader_end);
+
+    static constexpr int NUM_INPUTS = 3;
+    static constexpr int NUM_OUTPUTS = 2;
+    std::vector<trace_entry_t> inputs[NUM_INPUTS];
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        memref_tid_t tid = 100 + i;
+        inputs[i] = input_sequence;
+        for (auto &record : inputs[i]) {
+            if (record.type == TRACE_TYPE_THREAD || record.type == TRACE_TYPE_THREAD_EXIT)
+                record.addr = static_cast<addr_t>(tid);
+        }
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(inputs[i])),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            tid);
+        sched_inputs.emplace_back(std::move(readers));
+    }
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    std::unordered_map<memref_tid_t, int> tid2stream;
+    for (int i = 0; i < NUM_OUTPUTS; i++) {
+        auto *stream = scheduler.get_stream(i);
+        memref_t memref;
+
+        // Whether we're currently in the syscall sequence records.
+        bool in_syscall = false;
+        bool saw_syscall_end = false;
+        uint64_t last_input_record_ordinal = 0;
+        uint64_t last_input_instr_ordinal = 0;
+        uint64_t last_branch_target_marker = 0;
+        uint64_t last_next_trace_pc = 0;
+        for (scheduler_t::stream_status_t status = stream->next_record(memref);
+             status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+            assert(status == scheduler_t::STATUS_OK);
+            // Ensure one input thread is only in one output stream.
+            if (tid2stream.find(memref.instr.tid) == tid2stream.end()) {
+                tid2stream[memref.instr.tid] = i;
+                last_next_trace_pc = stream->get_next_trace_pc();
+            } else
+                assert(tid2stream[memref.instr.tid] == i);
+            if (memref.marker.type == TRACE_TYPE_MARKER) {
+                if (memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_START) {
+                    in_syscall = true;
+                } else if (memref.marker.marker_type ==
+                           TRACE_MARKER_TYPE_SYSCALL_TRACE_END) {
+                    saw_syscall_end = true;
+                }
+            }
+            if (type_is_instr_branch(memref.instr.type) &&
+                !type_is_instr_direct_branch(memref.instr.type)) {
+                last_branch_target_marker = memref.instr.indirect_branch_target;
+            }
+            if (type_is_instr(memref.instr.type) && saw_syscall_end) {
+                // Ensure the syscall-trace-final branch target is set
+                // properly to the pc of the instr after the syscall.
+                assert(last_branch_target_marker == memref.instr.addr);
+                saw_syscall_end = false;
+            }
+
+            // Ensure the get_next_trace_pc() output is accurate and changes
+            // only in ways that we expect.
+            uint64_t pc;
+            if (memref.marker.type == TRACE_TYPE_MARKER &&
+                memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL) {
+                // We expect the returned value to change when the decision
+                // to dynamically inject the syscall trace is made when the
+                // syscall num becomes known.
+                assert(last_next_trace_pc != stream->get_next_trace_pc());
+                last_next_trace_pc = stream->get_next_trace_pc();
+            } else if (scheduler_impl_t::record_type_has_pc(memref, pc)) {
+                assert(pc == last_next_trace_pc);
+                last_next_trace_pc = stream->get_next_trace_pc();
+            } else {
+                assert(last_next_trace_pc == stream->get_next_trace_pc());
+            }
+
+            // All syscall records should have the same record and instr input
+            // ordinal as the last user-space one. Remember this analyzer mode
+            // uses USE_INPUT_ORDINALS.
+            if (in_syscall) {
+                assert(stream->get_record_ordinal() == last_input_record_ordinal);
+                assert(stream->get_instruction_ordinal() == last_input_instr_ordinal);
+            } else {
+                last_input_record_ordinal = stream->get_record_ordinal();
+                last_input_instr_ordinal = stream->get_instruction_ordinal();
+            }
+            assert(stream->get_record_ordinal() ==
+                       scheduler
+                               .get_input_stream_interface(
+                                   stream->get_input_stream_ordinal())
+                               ->get_record_ordinal() -
+                           // We readahead by one record to figure out the correct
+                           // injection point for the syscall trace.
+                           (in_syscall ? 1 : 0) ||
+                   // Relax for early on where the scheduler has read ahead for reasons
+                   // other than syscall injection.
+                   stream->get_last_timestamp() == 0);
+            assert(
+                stream->get_instruction_ordinal() ==
+                scheduler.get_input_stream_interface(stream->get_input_stream_ordinal())
+                    ->get_instruction_ordinal());
+            // Test other queries in parallel mode.
+            assert(stream->get_tid() == memref.instr.tid);
+            assert(stream->get_shard_index() == stream->get_input_stream_ordinal());
+            if (memref.marker.type == TRACE_TYPE_MARKER) {
+                if (memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END) {
+                    in_syscall = false;
+                }
+            }
+        }
+    }
+}
+
 static void
 test_invalid_regions()
 {
     std::vector<scheduler_t::input_reader_t> readers;
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t()),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), 1);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), 1);
     std::vector<scheduler_t::range_t> regions;
     // Instr counts are 1-based so 0 is an invalid start.
     regions.emplace_back(0, 2);
@@ -467,71 +719,25 @@ test_legacy_fields()
     std::vector<trace_entry_t> inputs[NUM_INPUTS];
     for (int i = 0; i < NUM_INPUTS; i++) {
         memref_tid_t tid = TID_BASE + i;
-        inputs[i].push_back(make_thread(tid));
-        inputs[i].push_back(make_pid(1));
-        inputs[i].push_back(make_version(TRACE_ENTRY_VERSION));
-        inputs[i].push_back(make_timestamp(START_TIME)); // All the same time priority.
+        inputs[i].push_back(test_util::make_thread(tid));
+        inputs[i].push_back(test_util::make_pid(1));
+        inputs[i].push_back(test_util::make_version(TRACE_ENTRY_VERSION));
+        inputs[i].push_back(
+            test_util::make_timestamp(START_TIME)); // All the same time priority.
         for (int j = 0; j < NUM_INSTRS; j++) {
-            inputs[i].push_back(make_instr(42 + j * 4));
+            inputs[i].push_back(test_util::make_instr(42 + j * 4));
             // Including blocking syscalls.
             if ((i == 0 || i == 1) && j == 1) {
-                inputs[i].push_back(make_timestamp(START_TIME * 2));
-                inputs[i].push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, 42));
+                inputs[i].push_back(test_util::make_timestamp(START_TIME * 2));
                 inputs[i].push_back(
-                    make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
-                inputs[i].push_back(make_timestamp(START_TIME * 2 + BLOCK_LATENCY));
+                    test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 42));
+                inputs[i].push_back(
+                    test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
+                inputs[i].push_back(
+                    test_util::make_timestamp(START_TIME * 2 + BLOCK_LATENCY));
             }
         }
-        inputs[i].push_back(make_exit(tid));
-    }
-    {
-        // Test invalid quantum.
-        std::vector<scheduler_t::input_workload_t> sched_inputs;
-        std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[0])),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()),
-                             TID_BASE);
-        sched_inputs.emplace_back(std::move(readers));
-        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
-                                                   scheduler_t::DEPENDENCY_IGNORE,
-                                                   scheduler_t::SCHEDULER_DEFAULTS);
-        sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
-        sched_ops.quantum_duration = QUANTUM_DURATION;
-        scheduler_t scheduler;
-        assert(scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) ==
-               scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
-    }
-    {
-        // Test invalid block scale.
-        std::vector<scheduler_t::input_workload_t> sched_inputs;
-        std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[0])),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()),
-                             TID_BASE);
-        sched_inputs.emplace_back(std::move(readers));
-        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
-                                                   scheduler_t::DEPENDENCY_IGNORE,
-                                                   scheduler_t::SCHEDULER_DEFAULTS);
-        sched_ops.block_time_scale = BLOCK_SCALE;
-        scheduler_t scheduler;
-        assert(scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) ==
-               scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
-    }
-    {
-        // Test invalid block max.
-        std::vector<scheduler_t::input_workload_t> sched_inputs;
-        std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[0])),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()),
-                             TID_BASE);
-        sched_inputs.emplace_back(std::move(readers));
-        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
-                                                   scheduler_t::DEPENDENCY_IGNORE,
-                                                   scheduler_t::SCHEDULER_DEFAULTS);
-        sched_ops.block_time_max = BLOCK_MAX;
-        scheduler_t scheduler;
-        assert(scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) ==
-               scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
+        inputs[i].push_back(test_util::make_exit(tid));
     }
     {
         // Test valid legacy fields.
@@ -539,14 +745,18 @@ test_legacy_fields()
         for (int i = 0; i < NUM_INPUTS; i++) {
             std::vector<scheduler_t::input_reader_t> readers;
             readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_BASE + i);
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                TID_BASE + i);
             sched_inputs.emplace_back(std::move(readers));
         }
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/4);
+                                                   /*verbosity=*/0);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
         // Simulate binary compatibility with a legacy struct.
         sched_ops.struct_size =
             offsetof(scheduler_t::scheduler_options_t, time_units_per_us);
@@ -597,25 +807,26 @@ test_regions_bare()
     std::cerr << "\n----------------\nTesting bare regions\n";
     std::vector<trace_entry_t> memrefs = {
         /* clang-format off */
-        make_thread(1),
-        make_pid(1),
-        make_marker(TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
-        make_instr(1),
-        make_instr(2), // Region 1 is just this instr.
-        make_instr(3),
-        make_instr(4), // Region 2 is just this instr.
-        make_instr(5), // Region 3 is just this instr.
-        make_instr(6),
-        make_instr(7),
-        make_instr(8), // Region 4 starts here.
-        make_instr(9), // Region 4 ends here.
-        make_instr(10),
-        make_exit(1),
+        test_util::make_thread(1),
+        test_util::make_pid(1),
+        test_util::make_marker(TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+        test_util::make_instr(1),
+        test_util::make_instr(2), // Region 1 is just this instr.
+        test_util::make_instr(3),
+        test_util::make_instr(4), // Region 2 is just this instr.
+        test_util::make_instr(5), // Region 3 is just this instr.
+        test_util::make_instr(6),
+        test_util::make_instr(7),
+        test_util::make_instr(8), // Region 4 starts here.
+        test_util::make_instr(9), // Region 4 ends here.
+        test_util::make_instr(10),
+        test_util::make_exit(1),
         /* clang-format on */
     };
     std::vector<scheduler_t::input_reader_t> readers;
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(memrefs)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), 1);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(memrefs)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), 1);
 
     std::vector<scheduler_t::range_t> regions;
     // Instr counts are 1-based.
@@ -633,7 +844,7 @@ test_regions_bare()
                        scheduler_t::scheduler_options_t(
                            scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
                            scheduler_t::SCHEDULER_DEFAULTS,
-                           /*verbosity=*/4)) != scheduler_t::STATUS_SUCCESS)
+                           /*verbosity=*/0)) != scheduler_t::STATUS_SUCCESS)
         assert(false);
     int ordinal = 0;
     auto *stream = scheduler.get_stream(0);
@@ -691,22 +902,23 @@ test_regions_bare_no_marker()
     std::cerr << "\n----------------\nTesting bare regions with no marker\n";
     std::vector<trace_entry_t> memrefs = {
         /* clang-format off */
-        make_thread(1),
-        make_pid(1),
-        make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+        test_util::make_thread(1),
+        test_util::make_pid(1),
+        test_util::make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
         // This would not happen in a real trace, only in tests.  But it does
         // match a dynamic skip from the middle when an instruction has already
         // been read but not yet passed to the output stream.
-        make_instr(1),
-        make_instr(2), // The region skips the 1st instr.
-        make_instr(3),
-        make_instr(4),
-        make_exit(1),
+        test_util::make_instr(1),
+        test_util::make_instr(2), // The region skips the 1st instr.
+        test_util::make_instr(3),
+        test_util::make_instr(4),
+        test_util::make_exit(1),
         /* clang-format on */
     };
     std::vector<scheduler_t::input_reader_t> readers;
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(memrefs)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), 1);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(memrefs)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), 1);
 
     std::vector<scheduler_t::range_t> regions;
     // Instr counts are 1-based.
@@ -721,7 +933,7 @@ test_regions_bare_no_marker()
                        scheduler_t::scheduler_options_t(
                            scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
                            scheduler_t::SCHEDULER_DEFAULTS,
-                           /*verbosity=*/4)) != scheduler_t::STATUS_SUCCESS)
+                           /*verbosity=*/0)) != scheduler_t::STATUS_SUCCESS)
         assert(false);
     int ordinal = 0;
     auto *stream = scheduler.get_stream(0);
@@ -755,33 +967,34 @@ test_regions_timestamps()
     std::cerr << "\n----------------\nTesting regions\n";
     std::vector<trace_entry_t> memrefs = {
         /* clang-format off */
-        make_thread(1),
-        make_pid(1),
-        make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
-        make_timestamp(10),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
-        make_instr(1),
-        make_instr(2), // Region 1 is just this instr.
-        make_instr(3),
-        make_timestamp(20),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 2),
-        make_timestamp(30),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 3),
-        make_instr(4),
-        make_timestamp(40),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 4),
-        make_instr(5),
-        make_instr(6), // Region 2 starts here.
-        make_timestamp(50),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 5),
-        make_instr(7), // Region 2 ends here.
-        make_instr(8),
-        make_exit(1),
+        test_util::make_thread(1),
+        test_util::make_pid(1),
+        test_util::make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+        test_util::make_timestamp(10),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
+        test_util::make_instr(1),
+        test_util::make_instr(2), // Region 1 is just this instr.
+        test_util::make_instr(3),
+        test_util::make_timestamp(20),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 2),
+        test_util::make_timestamp(30),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 3),
+        test_util::make_instr(4),
+        test_util::make_timestamp(40),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 4),
+        test_util::make_instr(5),
+        test_util::make_instr(6), // Region 2 starts here.
+        test_util::make_timestamp(50),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 5),
+        test_util::make_instr(7), // Region 2 ends here.
+        test_util::make_instr(8),
+        test_util::make_exit(1),
         /* clang-format on */
     };
     std::vector<scheduler_t::input_reader_t> readers;
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(memrefs)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), 1);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(memrefs)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), 1);
 
     std::vector<scheduler_t::range_t> regions;
     // Instr counts are 1-based.
@@ -793,7 +1006,7 @@ test_regions_timestamps()
     sched_inputs.emplace_back(std::move(readers));
     sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
     if (scheduler.init(sched_inputs, 1,
-                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
+                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/0)) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
     int ordinal = 0;
@@ -865,19 +1078,20 @@ test_regions_start()
     std::cerr << "\n----------------\nTesting region at start\n";
     std::vector<trace_entry_t> memrefs = {
         /* clang-format off */
-        make_thread(1),
-        make_pid(1),
-        make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
-        make_timestamp(10),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
-        make_instr(1), // Region 1 starts at the start.
-        make_instr(2),
-        make_exit(1),
+        test_util::make_thread(1),
+        test_util::make_pid(1),
+        test_util::make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+        test_util::make_timestamp(10),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
+        test_util::make_instr(1), // Region 1 starts at the start.
+        test_util::make_instr(2),
+        test_util::make_exit(1),
         /* clang-format on */
     };
     std::vector<scheduler_t::input_reader_t> readers;
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(memrefs)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), 1);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(memrefs)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), 1);
 
     std::vector<scheduler_t::range_t> regions;
     // Instr counts are 1-based.
@@ -888,7 +1102,7 @@ test_regions_start()
     sched_inputs.emplace_back(std::move(readers));
     sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
     if (scheduler.init(sched_inputs, 1,
-                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/5)) !=
+                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/0)) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
     int ordinal = 0;
@@ -928,20 +1142,21 @@ test_regions_too_far()
     std::cerr << "\n----------------\nTesting region going too far\n";
     std::vector<trace_entry_t> memrefs = {
         /* clang-format off */
-        make_thread(1),
-        make_pid(1),
-        make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
-        make_timestamp(10),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
-        make_instr(1),
-        make_instr(2),
-        make_exit(1),
-        make_footer(),
+        test_util::make_thread(1),
+        test_util::make_pid(1),
+        test_util::make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+        test_util::make_timestamp(10),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
+        test_util::make_instr(1),
+        test_util::make_instr(2),
+        test_util::make_exit(1),
+        test_util::make_footer(),
         /* clang-format on */
     };
     std::vector<scheduler_t::input_reader_t> readers;
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(memrefs)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), 1);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(memrefs)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), 1);
 
     std::vector<scheduler_t::range_t> regions;
     // Start beyond the last instruction.
@@ -952,7 +1167,7 @@ test_regions_too_far()
     sched_inputs.emplace_back(std::move(readers));
     sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
     auto status = scheduler.init(
-        sched_inputs, 1, scheduler_t::make_scheduler_serial_options(/*verbosity=*/4));
+        sched_inputs, 1, scheduler_t::make_scheduler_serial_options(/*verbosity=*/0));
     assert(status == scheduler_t::STATUS_ERROR_RANGE_INVALID);
 }
 
@@ -965,30 +1180,31 @@ test_regions_core_sharded()
     static constexpr addr_t PC_POST_FOOTER = 101;
     std::vector<trace_entry_t> memrefs = {
         /* clang-format off */
-        make_thread(TID_A),
-        make_pid(1),
-        make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
-        make_timestamp(10),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
-        make_instr(1),
-        make_instr(2),
-        make_exit(TID_A),
+        test_util::make_thread(TID_A),
+        test_util::make_pid(1),
+        test_util::make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+        test_util::make_timestamp(10),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
+        test_util::make_instr(1),
+        test_util::make_instr(2),
+        test_util::make_exit(TID_A),
         // Test skipping across a footer.
-        make_footer(),
-        make_thread(TID_B),
-        make_pid(1),
-        make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
-        make_timestamp(10),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
-        make_instr(PC_POST_FOOTER),
-        make_instr(PC_POST_FOOTER + 1),
-        make_exit(TID_B),
-        make_footer(),
+        test_util::make_footer(),
+        test_util::make_thread(TID_B),
+        test_util::make_pid(1),
+        test_util::make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+        test_util::make_timestamp(10),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
+        test_util::make_instr(PC_POST_FOOTER),
+        test_util::make_instr(PC_POST_FOOTER + 1),
+        test_util::make_exit(TID_B),
+        test_util::make_footer(),
         /* clang-format on */
     };
     std::vector<scheduler_t::input_reader_t> readers;
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(memrefs)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), 1);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(memrefs)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), 1);
 
     std::vector<scheduler_t::range_t> regions;
     // Start beyond the footer.
@@ -999,7 +1215,7 @@ test_regions_core_sharded()
     sched_inputs.emplace_back(std::move(readers));
     sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
     if (scheduler.init(sched_inputs, 1,
-                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/5)) !=
+                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/0)) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
     int ordinal = 0;
@@ -1050,22 +1266,25 @@ test_regions_by_shard()
         for (int core_idx = 0; core_idx < NUM_CORES_PER_WORKLOAD; core_idx++) {
             std::vector<trace_entry_t> inputs;
             for (int input_idx = 0; input_idx < NUM_ORIGINAL_INPUTS; input_idx++) {
-                inputs.push_back(make_thread(TID_BASE + input_idx));
-                inputs.push_back(make_pid(1)); // Test the same pid across workloads.
+                inputs.push_back(test_util::make_thread(TID_BASE + input_idx));
+                inputs.push_back(
+                    test_util::make_pid(1)); // Test the same pid across workloads.
             }
             // Deliberately interleave all threads on every core.
             for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
                 for (int input_idx = 0; input_idx < NUM_ORIGINAL_INPUTS; input_idx++) {
-                    inputs.push_back(make_thread(TID_BASE + input_idx));
-                    inputs.push_back(make_instr(42 + instr_idx * 4));
+                    inputs.push_back(test_util::make_thread(TID_BASE + input_idx));
+                    inputs.push_back(test_util::make_instr(42 + instr_idx * 4));
                 }
             }
             for (int input_idx = 0; input_idx < NUM_ORIGINAL_INPUTS; input_idx++) {
-                inputs.push_back(make_exit(TID_BASE + input_idx));
+                inputs.push_back(test_util::make_exit(TID_BASE + input_idx));
             }
             readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), -1 /*sentinel*/);
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs)),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                -1 /*sentinel*/);
         }
         sched_inputs.emplace_back(std::move(readers));
     }
@@ -1085,7 +1304,7 @@ test_regions_by_shard()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_CONSISTENT_OUTPUT,
                                                scheduler_t::DEPENDENCY_IGNORE,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/1);
+                                               /*verbosity=*/0);
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
         scheduler_t::STATUS_SUCCESS)
@@ -1126,31 +1345,40 @@ test_only_threads()
     static constexpr memref_tid_t TID_B = 99;
     static constexpr memref_tid_t TID_C = 7;
     std::vector<trace_entry_t> refs_A = {
-        make_thread(TID_A),
-        make_pid(1),
-        make_instr(50),
-        make_exit(TID_A),
+        test_util::make_thread(TID_A),
+        test_util::make_pid(1),
+        test_util::make_instr(50),
+        test_util::make_exit(TID_A),
     };
     std::vector<trace_entry_t> refs_B = {
-        make_thread(TID_B),
-        make_pid(1),
-        make_instr(60),
-        make_exit(TID_B),
+        test_util::make_thread(TID_B),
+        test_util::make_pid(1),
+        test_util::make_instr(60),
+        test_util::make_exit(TID_B),
     };
     std::vector<trace_entry_t> refs_C = {
-        make_thread(TID_C),
-        make_pid(1),
-        make_instr(60),
-        make_exit(TID_C),
+        test_util::make_thread(TID_C),
+        test_util::make_pid(1),
+        test_util::make_instr(60),
+        test_util::make_exit(TID_C),
     };
     auto create_readers = [&]() {
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_C)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_C);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_B)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_B);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_C)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_C);
         return readers;
     };
 
@@ -1162,7 +1390,7 @@ test_only_threads()
         sched_inputs.emplace_back(std::move(readers));
         sched_inputs[0].only_threads.insert(TID_B);
         if (scheduler.init(sched_inputs, 1,
-                           scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
+                           scheduler_t::make_scheduler_serial_options(/*verbosity=*/0)) !=
             scheduler_t::STATUS_SUCCESS)
             assert(false);
         auto *stream = scheduler.get_stream(0);
@@ -1184,7 +1412,7 @@ test_only_threads()
         sched_inputs.emplace_back(std::move(readers));
         sched_inputs[0].only_threads = { TID_A, TID_B + 1, TID_C };
         if (scheduler.init(sched_inputs, 1,
-                           scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
+                           scheduler_t::make_scheduler_serial_options(/*verbosity=*/0)) !=
             scheduler_t::STATUS_ERROR_INVALID_PARAMETER)
             assert(false);
     }
@@ -1197,7 +1425,7 @@ test_only_threads()
         sched_inputs[0].only_shards = { 0, 2 };
         if (scheduler.init(sched_inputs, 1,
                            scheduler_t::make_scheduler_parallel_options(
-                               /*verbosity=*/4)) != scheduler_t::STATUS_SUCCESS)
+                               /*verbosity=*/0)) != scheduler_t::STATUS_SUCCESS)
             assert(false);
         auto *stream = scheduler.get_stream(0);
         memref_t memref;
@@ -1215,7 +1443,7 @@ test_only_threads()
         sched_inputs.emplace_back(std::move(readers));
         sched_inputs[0].only_shards = { 1, 3 };
         if (scheduler.init(sched_inputs, 1,
-                           scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
+                           scheduler_t::make_scheduler_serial_options(/*verbosity=*/0)) !=
             scheduler_t::STATUS_ERROR_INVALID_PARAMETER)
             assert(false);
     }
@@ -1227,43 +1455,56 @@ test_only_threads()
         sched_inputs.emplace_back(std::move(readers));
         sched_inputs[0].only_shards = { 0, -1, 2 };
         if (scheduler.init(sched_inputs, 1,
-                           scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
+                           scheduler_t::make_scheduler_serial_options(/*verbosity=*/0)) !=
             scheduler_t::STATUS_ERROR_INVALID_PARAMETER)
             assert(false);
     }
     {
         // Test starts-idle with only_shards.
         std::vector<trace_entry_t> refs_D = {
-            make_version(TRACE_ENTRY_VERSION),
-            make_thread(IDLE_THREAD_ID),
-            make_pid(INVALID_PID),
-            make_timestamp(static_cast<uint64_t>(-1)),
-            make_marker(TRACE_MARKER_TYPE_CPU_ID, static_cast<uintptr_t>(-1)),
-            make_marker(TRACE_MARKER_TYPE_CORE_IDLE, 0),
-            make_marker(TRACE_MARKER_TYPE_CORE_IDLE, 0),
-            make_marker(TRACE_MARKER_TYPE_CORE_IDLE, 0),
-            make_footer(),
+            test_util::make_version(TRACE_ENTRY_VERSION),
+            test_util::make_thread(IDLE_THREAD_ID),
+            test_util::make_pid(INVALID_PID),
+            test_util::make_timestamp(static_cast<uint64_t>(-1)),
+            test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, static_cast<uintptr_t>(-1)),
+            test_util::make_marker(TRACE_MARKER_TYPE_CORE_IDLE, 0),
+            test_util::make_marker(TRACE_MARKER_TYPE_CORE_IDLE, 0),
+            test_util::make_marker(TRACE_MARKER_TYPE_CORE_IDLE, 0),
+            test_util::make_footer(),
         };
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_D)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_C);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_B)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_B);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_D)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_C);
         scheduler_t scheduler;
         std::vector<scheduler_t::input_workload_t> sched_inputs;
         sched_inputs.emplace_back(std::move(readers));
         sched_inputs[0].only_shards = { 0, 2 };
         if (scheduler.init(sched_inputs, 1,
                            scheduler_t::make_scheduler_parallel_options(
-                               /*verbosity=*/4)) != scheduler_t::STATUS_SUCCESS)
+                               /*verbosity=*/0)) != scheduler_t::STATUS_SUCCESS)
             assert(false);
         auto *stream = scheduler.get_stream(0);
         memref_t memref;
         int idle_count = 0;
         for (scheduler_t::stream_status_t status = stream->next_record(memref);
              status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+            if (status == scheduler_t::STATUS_IDLE) {
+                ++idle_count;
+                continue;
+            }
             assert(status == scheduler_t::STATUS_OK);
             assert(memref.instr.tid == TID_A || memref.instr.tid == IDLE_THREAD_ID ||
                    // In 32-bit the -1 is unsigned so the 64-bit .tid field is not
@@ -1271,9 +1512,6 @@ test_only_threads()
                    static_cast<uint64_t>(memref.instr.tid) ==
                        static_cast<addr_t>(IDLE_THREAD_ID) ||
                    memref.instr.tid == INVALID_THREAD_ID);
-            if (memref.marker.type == TRACE_TYPE_MARKER &&
-                memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_IDLE)
-                ++idle_count;
         }
         assert(idle_count == 3);
     }
@@ -1301,7 +1539,7 @@ test_real_file_queries_and_filters(const char *testdir)
     sched_inputs[1].only_threads.insert(TID_2_A);
     sched_inputs[1].only_threads.insert(TID_2_B);
     if (scheduler.init(sched_inputs, 1,
-                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/1)) !=
+                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/0)) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
     auto *stream = scheduler.get_stream(0);
@@ -1369,22 +1607,23 @@ test_synthetic()
     std::vector<trace_entry_t> inputs[NUM_INPUTS];
     for (int i = 0; i < NUM_INPUTS; i++) {
         memref_tid_t tid = TID_BASE + i;
-        inputs[i].push_back(make_thread(tid));
-        inputs[i].push_back(make_pid(1));
-        inputs[i].push_back(make_version(TRACE_ENTRY_VERSION));
-        inputs[i].push_back(make_timestamp(10)); // All the same time priority.
+        inputs[i].push_back(test_util::make_thread(tid));
+        inputs[i].push_back(test_util::make_pid(1));
+        inputs[i].push_back(test_util::make_version(TRACE_ENTRY_VERSION));
+        inputs[i].push_back(test_util::make_timestamp(10)); // All the same time priority.
         for (int j = 0; j < NUM_INSTRS; j++) {
-            inputs[i].push_back(make_instr(42 + j * 4));
+            inputs[i].push_back(test_util::make_instr(42 + j * 4));
             // Test accumulation of usage across voluntary switches.
             if ((i == 0 || i == 1) && j == 1) {
-                inputs[i].push_back(make_timestamp(20));
-                inputs[i].push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, 42));
+                inputs[i].push_back(test_util::make_timestamp(20));
                 inputs[i].push_back(
-                    make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
-                inputs[i].push_back(make_timestamp(120));
+                    test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 42));
+                inputs[i].push_back(
+                    test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
+                inputs[i].push_back(test_util::make_timestamp(120));
             }
         }
-        inputs[i].push_back(make_exit(tid));
+        inputs[i].push_back(test_util::make_exit(tid));
     }
     // Hardcoding here for the 2 outputs and 7 inputs.
     // We make assumptions on the scheduler's initial runqueue assignment
@@ -1407,14 +1646,18 @@ test_synthetic()
         for (int i = 0; i < NUM_INPUTS; i++) {
             std::vector<scheduler_t::input_reader_t> readers;
             readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_BASE + i);
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                TID_BASE + i);
             sched_inputs.emplace_back(std::move(readers));
         }
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
         sched_ops.quantum_duration_instrs = QUANTUM_DURATION;
         // This was tuned with a 100us threshold: so avoid scheduler.h defaults
         // changes from affecting our output.
@@ -1482,14 +1725,18 @@ test_synthetic()
         for (int i = 0; i < NUM_INPUTS; i++) {
             std::vector<scheduler_t::input_reader_t> readers;
             readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_BASE + i);
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                TID_BASE + i);
             sched_inputs.emplace_back(std::move(readers));
         }
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.time_units_per_us = 1.;
         // This was tuned with a 100us threshold: so avoid scheduler.h defaults
@@ -1529,28 +1776,29 @@ test_synthetic_with_syscall_seq()
     std::vector<trace_entry_t> inputs[NUM_INPUTS];
     for (int i = 0; i < NUM_INPUTS; i++) {
         memref_tid_t tid = TID_BASE + i;
-        inputs[i].push_back(make_thread(tid));
-        inputs[i].push_back(make_pid(1));
-        inputs[i].push_back(make_version(TRACE_ENTRY_VERSION));
-        inputs[i].push_back(make_timestamp(10)); // All the same time priority.
+        inputs[i].push_back(test_util::make_thread(tid));
+        inputs[i].push_back(test_util::make_pid(1));
+        inputs[i].push_back(test_util::make_version(TRACE_ENTRY_VERSION));
+        inputs[i].push_back(test_util::make_timestamp(10)); // All the same time priority.
         for (int j = 0; j < NUM_INSTRS; j++) {
-            inputs[i].push_back(make_instr(42 + j * 4));
+            inputs[i].push_back(test_util::make_instr(42 + j * 4));
             // Test a syscall sequence starting at each offset within a quantum
             // of instrs.
             if (i <= QUANTUM_DURATION && i == j) {
-                inputs[i].push_back(make_timestamp(20));
-                inputs[i].push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSTRACE_NUM));
+                inputs[i].push_back(test_util::make_timestamp(20));
+                inputs[i].push_back(
+                    test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSTRACE_NUM));
                 if (i < 2) {
                     // Thresholds for only blocking syscalls are low enough to
                     // cause a context switch. So only A and B will try a voluntary
                     // switch (which may be delayed due to the syscall trace) after
                     // 1 or 2 instrs respectively.
-                    inputs[i].push_back(
-                        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
+                    inputs[i].push_back(test_util::make_marker(
+                        TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
                 }
-                inputs[i].push_back(make_timestamp(120));
-                inputs[i].push_back(
-                    make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSTRACE_NUM));
+                inputs[i].push_back(test_util::make_timestamp(120));
+                inputs[i].push_back(test_util::make_marker(
+                    TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSTRACE_NUM));
                 // A has just one syscall seq instr to show that it still does the
                 // voluntary switch after the syscall trace is done, even though there
                 // is still room for one more instr in its quantum.
@@ -1561,12 +1809,12 @@ test_synthetic_with_syscall_seq()
                 // preempted by voluntary or quantum switches respectively.
                 int count_syscall_instrs = (i == 0 || i == 3) ? 1 : QUANTUM_DURATION;
                 for (int k = 1; k <= count_syscall_instrs; ++k)
-                    inputs[i].push_back(make_instr(KERNEL_CODE_OFFSET + k));
-                inputs[i].push_back(
-                    make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSTRACE_NUM));
+                    inputs[i].push_back(test_util::make_instr(KERNEL_CODE_OFFSET + k));
+                inputs[i].push_back(test_util::make_marker(
+                    TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSTRACE_NUM));
             }
         }
-        inputs[i].push_back(make_exit(tid));
+        inputs[i].push_back(test_util::make_exit(tid));
     }
     // A has a syscall sequence at [2,2], B has it at [3,5], C has it at [4,6],
     // D has it at [5,5].
@@ -1616,14 +1864,18 @@ test_synthetic_with_syscall_seq()
         for (int i = 0; i < NUM_INPUTS; i++) {
             std::vector<scheduler_t::input_reader_t> readers;
             readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_BASE + i);
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                TID_BASE + i);
             sched_inputs.emplace_back(std::move(readers));
         }
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/4);
+                                                   /*verbosity=*/0);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
         sched_ops.quantum_duration_instrs = QUANTUM_DURATION;
         // This was tuned with a 100us threshold: so avoid scheduler.h defaults
         // changes from affecting our output.
@@ -1730,14 +1982,18 @@ test_synthetic_with_syscall_seq()
         for (int i = 0; i < NUM_INPUTS; i++) {
             std::vector<scheduler_t::input_reader_t> readers;
             readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_BASE + i);
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                TID_BASE + i);
             sched_inputs.emplace_back(std::move(readers));
         }
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/4);
+                                                   /*verbosity=*/0);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.time_units_per_us = 1.;
         // This was tuned with a 100us threshold: so avoid scheduler.h defaults
@@ -1776,20 +2032,21 @@ test_synthetic_time_quanta()
     static constexpr int POST_BLOCK_TIME = 220;
     std::vector<trace_entry_t> refs[NUM_INPUTS];
     for (int i = 0; i < NUM_INPUTS; ++i) {
-        refs[i].push_back(make_thread(TID_BASE + i));
-        refs[i].push_back(make_pid(1));
-        refs[i].push_back(make_version(TRACE_ENTRY_VERSION));
-        refs[i].push_back(make_timestamp(10));
-        refs[i].push_back(make_instr(10));
-        refs[i].push_back(make_instr(30));
+        refs[i].push_back(test_util::make_thread(TID_BASE + i));
+        refs[i].push_back(test_util::make_pid(1));
+        refs[i].push_back(test_util::make_version(TRACE_ENTRY_VERSION));
+        refs[i].push_back(test_util::make_timestamp(10));
+        refs[i].push_back(test_util::make_instr(10));
+        refs[i].push_back(test_util::make_instr(30));
         if (i == 0) {
-            refs[i].push_back(make_timestamp(PRE_BLOCK_TIME));
-            refs[i].push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, 42));
-            refs[i].push_back(make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
-            refs[i].push_back(make_timestamp(POST_BLOCK_TIME));
+            refs[i].push_back(test_util::make_timestamp(PRE_BLOCK_TIME));
+            refs[i].push_back(test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 42));
+            refs[i].push_back(
+                test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
+            refs[i].push_back(test_util::make_timestamp(POST_BLOCK_TIME));
         }
-        refs[i].push_back(make_instr(50));
-        refs[i].push_back(make_exit(TID_BASE + i));
+        refs[i].push_back(test_util::make_instr(50));
+        refs[i].push_back(test_util::make_exit(TID_BASE + i));
     }
     std::string record_fname = "tmp_test_replay_time.zip";
     {
@@ -1797,8 +2054,10 @@ test_synthetic_time_quanta()
         std::vector<scheduler_t::input_reader_t> readers;
         for (int i = 0; i < NUM_INPUTS; ++i) {
             readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(refs[i])),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_BASE + i);
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(refs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                TID_BASE + i);
         }
         scheduler_t scheduler;
         std::vector<scheduler_t::input_workload_t> sched_inputs;
@@ -1806,7 +2065,9 @@ test_synthetic_time_quanta()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/4);
+                                                   /*verbosity=*/0);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.time_units_per_us = 1.;
         sched_ops.quantum_duration_us = 3;
@@ -1918,8 +2179,10 @@ test_synthetic_time_quanta()
         std::vector<scheduler_t::input_reader_t> readers;
         for (int i = 0; i < NUM_INPUTS; ++i) {
             readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(refs[i])),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_BASE + i);
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(refs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                TID_BASE + i);
         }
         scheduler_t scheduler;
         std::vector<scheduler_t::input_workload_t> sched_inputs;
@@ -1927,7 +2190,7 @@ test_synthetic_time_quanta()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/4);
+                                                   /*verbosity=*/0);
         zipfile_istream_t infile(record_fname);
         sched_ops.schedule_replay_istream = &infile;
         if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
@@ -1941,6 +2204,374 @@ test_synthetic_time_quanta()
         // For replay the scheduler has to use wall-clock instead of passed-in time,
         // so the idle portions at the end here can have variable idle and wait
         // record counts.  We thus just check the start.
+        assert(sched_as_string[0].substr(0, 10) == "..A..CCC._");
+        assert(sched_as_string[1].substr(0, 12) == "..BBB.A...._");
+    }
+#endif
+}
+
+static void
+test_synthetic_time_quanta_with_kernel()
+{
+    // This is a test of kernel syscall and switch injection done together
+    // with a case where the syscall is immediately followed by a switch
+    // sequence.
+    std::cerr << "\n----------------\nTesting time quanta with kernel\n";
+#ifdef HAS_ZIP
+    static constexpr memref_tid_t TID_BASE = 42;
+    static constexpr memref_tid_t TID_A = TID_BASE;
+    static constexpr memref_tid_t TID_B = TID_A + 1;
+    static constexpr memref_tid_t TID_C = TID_A + 2;
+    static constexpr memref_tid_t INPUT_ORD_MULTIPLIER = 100;
+    static constexpr memref_tid_t INSTR_1_OFFSET = 10;
+    static constexpr memref_tid_t INSTR_2_OFFSET = 30;
+    static constexpr memref_tid_t INSTR_3_OFFSET = 50;
+    static constexpr int NUM_OUTPUTS = 2;
+    static constexpr int NUM_INPUTS = 3;
+    static constexpr uint64_t BLOCK_THRESHOLD = 100;
+    static constexpr int PRE_BLOCK_TIME = 20;
+    static constexpr int POST_BLOCK_TIME = 220;
+    static constexpr int SYSCALL_BASE = 42;
+    std::vector<trace_entry_t> refs[NUM_INPUTS];
+    for (int i = 0; i < NUM_INPUTS; ++i) {
+        refs[i].push_back(test_util::make_thread(TID_BASE + i));
+        refs[i].push_back(test_util::make_pid(1));
+        refs[i].push_back(test_util::make_version(TRACE_ENTRY_VERSION));
+        refs[i].push_back(test_util::make_timestamp(10));
+        refs[i].push_back(
+            test_util::make_instr(INPUT_ORD_MULTIPLIER * i + INSTR_1_OFFSET));
+        refs[i].push_back(
+            test_util::make_instr(INPUT_ORD_MULTIPLIER * i + INSTR_2_OFFSET));
+        if (i == 0) {
+            refs[i].push_back(test_util::make_timestamp(PRE_BLOCK_TIME));
+            refs[i].push_back(
+                test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSCALL_BASE));
+            refs[i].push_back(
+                test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
+            refs[i].push_back(test_util::make_timestamp(POST_BLOCK_TIME));
+        }
+        refs[i].push_back(
+            test_util::make_instr(INPUT_ORD_MULTIPLIER * i + INSTR_3_OFFSET));
+        refs[i].push_back(test_util::make_exit(TID_BASE + i));
+    }
+
+    constexpr uint64_t SYSCALL_PC_START = 0xfeed101;
+    std::vector<trace_entry_t> syscall_sequence =
+        get_mock_syscall_sequence(TRACE_ENTRY_VERSION, SYSCALL_BASE, SYSCALL_PC_START);
+
+    constexpr uint64_t THREAD_SWITCH_PC_START = 0xcafe101;
+    constexpr uint64_t PROCESS_SWITCH_PC_START = 0xf00d101;
+    std::vector<trace_entry_t> switch_sequence = get_mock_switch_sequence(
+        TRACE_ENTRY_VERSION, THREAD_SWITCH_PC_START, PROCESS_SWITCH_PC_START);
+
+    std::string record_fname = "tmp_test_replay_time.zip";
+    {
+        // Record.
+        std::vector<scheduler_t::input_reader_t> readers;
+        for (int i = 0; i < NUM_INPUTS; ++i) {
+            readers.emplace_back(
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(refs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                TID_BASE + i);
+        }
+        scheduler_t scheduler;
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_IGNORE,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/0);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
+        // Uses same values as test_synthetic_time_quanta().
+        sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+        sched_ops.time_units_per_us = 1.;
+        sched_ops.quantum_duration_us = 3;
+        sched_ops.blocking_switch_threshold = BLOCK_THRESHOLD;
+        sched_ops.block_time_multiplier = 10. / (POST_BLOCK_TIME - PRE_BLOCK_TIME);
+        sched_ops.migration_threshold_us = 0;
+
+        auto syscall_reader = std::unique_ptr<test_util::mock_reader_t>(
+            new test_util::mock_reader_t(syscall_sequence));
+        auto syscall_reader_end =
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t());
+        sched_ops.kernel_syscall_reader = std::move(syscall_reader);
+        sched_ops.kernel_syscall_reader_end = std::move(syscall_reader_end);
+
+        auto switch_reader = std::unique_ptr<test_util::mock_reader_t>(
+            new test_util::mock_reader_t(switch_sequence));
+        auto switch_reader_end =
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t());
+        sched_ops.kernel_switch_reader = std::move(switch_reader);
+        sched_ops.kernel_switch_reader_end = std::move(switch_reader_end);
+
+        zipfile_ostream_t outfile(record_fname);
+        sched_ops.schedule_record_ostream = &outfile;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        auto check_next = [](std::string &sched, scheduler_t::stream_t *stream,
+                             uint64_t time, scheduler_t::stream_status_t expect_status,
+                             memref_tid_t expect_tid = INVALID_THREAD_ID,
+                             trace_type_t expect_type = TRACE_TYPE_READ,
+                             addr_t expect_pc_or_marker_val = 0,
+                             trace_marker_type_t expect_marker_type =
+                                 TRACE_MARKER_TYPE_RESERVED_END,
+                             addr_t expect_indirect_branch_target = 0) {
+            memref_t memref;
+            scheduler_t::stream_status_t status = stream->next_record(memref, time);
+            if (status != expect_status) {
+                std::cerr << "Expected status " << expect_status << " != " << status
+                          << " at time " << time << "\n";
+                assert(false);
+            }
+            if (status == scheduler_t::STATUS_IDLE) {
+                sched += "_";
+            } else if (status == scheduler_t::STATUS_OK) {
+                if (memref.marker.tid != expect_tid) {
+                    std::cerr << "Expected tid " << expect_tid
+                              << " != " << memref.marker.tid << " at time " << time
+                              << "\n";
+                    assert(false);
+                }
+                if (type_is_instr(memref.instr.type)) {
+                    sched += ('A' + (memref.instr.tid - TID_BASE) % 26);
+                    if (expect_pc_or_marker_val != 0 &&
+                        memref.instr.addr != expect_pc_or_marker_val) {
+                        std::cerr << "Expected pc " << expect_pc_or_marker_val
+                                  << " != " << memref.instr.addr << " at time " << time
+                                  << "\n";
+                        assert(false);
+                    }
+                    if (expect_indirect_branch_target != 0 &&
+                        memref.instr.indirect_branch_target !=
+                            expect_indirect_branch_target) {
+                        std::cerr << "Expected indirect_branch_target "
+                                  << expect_indirect_branch_target
+                                  << " != " << memref.instr.indirect_branch_target
+                                  << " at time " << time << "\n";
+                        assert(false);
+                    }
+                }
+                if (memref.marker.type == TRACE_TYPE_MARKER) {
+                    if (expect_marker_type != TRACE_MARKER_TYPE_RESERVED_END) {
+                        if (memref.marker.marker_type != expect_marker_type) {
+                            std::cerr << "Expected marker_type " << expect_marker_type
+                                      << " != " << memref.marker.marker_type
+                                      << " at time " << time << "\n";
+                            assert(false);
+                        }
+                        if (expect_pc_or_marker_val != 0 &&
+                            memref.marker.marker_value != expect_pc_or_marker_val) {
+                            std::cerr
+                                << "Expected marker_value " << expect_pc_or_marker_val
+                                << " != " << memref.marker.marker_value << " at time "
+                                << time << "\n";
+                            assert(false);
+                        }
+                    }
+                    switch (memref.marker.marker_type) {
+                    case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START:
+                    case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END: sched += "c"; break;
+                    case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
+                    case TRACE_MARKER_TYPE_SYSCALL_TRACE_END: sched += "s"; break;
+                    default: sched += "."; break;
+                    }
+                }
+            } else if (status != scheduler_t::STATUS_EOF) {
+                sched += "?";
+            }
+        };
+        static constexpr uint64_t INSTR_1_TID_C_PC =
+            INPUT_ORD_MULTIPLIER * 2 + INSTR_1_OFFSET;
+        static constexpr uint64_t INSTR_2_TID_A_PC =
+            INPUT_ORD_MULTIPLIER * 0 + INSTR_2_OFFSET;
+        static constexpr uint64_t INSTR_3_TID_A_PC =
+            INPUT_ORD_MULTIPLIER * 0 + INSTR_3_OFFSET;
+        static constexpr trace_marker_type_t NO_MARKER = TRACE_MARKER_TYPE_RESERVED_END;
+        uint64_t time = 1;
+        std::string sched_cpu0;
+        auto *cpu0 = scheduler.get_stream(0);
+        std::string sched_cpu1;
+        auto *cpu1 = scheduler.get_stream(1);
+
+        // Advance cpu0 to its switch from TID_A to TID_C.
+        check_next(sched_cpu0, cpu0, time, scheduler_t::STATUS_OK, TID_A,
+                   TRACE_TYPE_MARKER);
+        check_next(sched_cpu0, cpu0, time, scheduler_t::STATUS_OK, TID_A,
+                   TRACE_TYPE_MARKER);
+        check_next(sched_cpu0, cpu0, ++time, scheduler_t::STATUS_OK, TID_A,
+                   TRACE_TYPE_INSTR);
+
+        // Advance cpu1 to its next quantum end.
+        check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_B,
+                   TRACE_TYPE_MARKER);
+        check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_B,
+                   TRACE_TYPE_MARKER);
+        check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_OK, TID_B,
+                   TRACE_TYPE_INSTR);
+
+        // switch sequence on cpu0.
+        check_next(sched_cpu0, cpu0, ++time, scheduler_t::STATUS_OK, TID_C,
+                   TRACE_TYPE_MARKER, switch_type_t::SWITCH_THREAD,
+                   TRACE_MARKER_TYPE_CONTEXT_SWITCH_START);
+        check_next(sched_cpu0, cpu0, time, scheduler_t::STATUS_OK, TID_C,
+                   TRACE_TYPE_INSTR, THREAD_SWITCH_PC_START);
+        check_next(sched_cpu0, cpu0, time, scheduler_t::STATUS_OK, TID_C,
+                   // Ensure indirect_branch_target is correctly set to the 1st instr
+                   // in TID_C.
+                   TRACE_TYPE_INSTR_INDIRECT_JUMP, THREAD_SWITCH_PC_START + 1, NO_MARKER,
+                   INSTR_1_TID_C_PC);
+        check_next(sched_cpu0, cpu0, time, scheduler_t::STATUS_OK, TID_C,
+                   TRACE_TYPE_MARKER, switch_type_t::SWITCH_THREAD,
+                   TRACE_MARKER_TYPE_CONTEXT_SWITCH_END);
+        // Now TID_C starts.
+        check_next(sched_cpu0, cpu0, time, scheduler_t::STATUS_OK, TID_C,
+                   TRACE_TYPE_MARKER, INSTR_1_TID_C_PC);
+        check_next(sched_cpu0, cpu0, time, scheduler_t::STATUS_OK, TID_C,
+                   TRACE_TYPE_MARKER);
+        check_next(sched_cpu0, cpu0, ++time, scheduler_t::STATUS_OK, TID_C,
+                   TRACE_TYPE_INSTR);
+
+        // Advance cpu1 which is now at its quantum end at time 6 and should switch.
+        // However, there's no one else in cpu1's runqueue, so it proceeds with TID_B.
+        check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_OK, TID_B,
+                   TRACE_TYPE_INSTR);
+        check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_OK, TID_B,
+                   TRACE_TYPE_INSTR);
+        check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_B,
+                   TRACE_TYPE_THREAD_EXIT);
+        // cpu1 should now steal TID_A from cpu0.
+
+        // switch sequence on cpu1.
+        check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_OK, TID_A,
+                   TRACE_TYPE_MARKER, switch_type_t::SWITCH_THREAD,
+                   TRACE_MARKER_TYPE_CONTEXT_SWITCH_START);
+        check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
+                   TRACE_TYPE_INSTR, THREAD_SWITCH_PC_START);
+        check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
+                   // Ensure indirect_branch_target is correctly set to the 2nd instr
+                   // in TID_A.
+                   TRACE_TYPE_INSTR_INDIRECT_JUMP, THREAD_SWITCH_PC_START + 1, NO_MARKER,
+                   INSTR_2_TID_A_PC);
+        check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
+                   TRACE_TYPE_MARKER, switch_type_t::SWITCH_THREAD,
+                   TRACE_MARKER_TYPE_CONTEXT_SWITCH_END);
+
+        check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
+                   TRACE_TYPE_INSTR, INSTR_2_TID_A_PC);
+        check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
+                   TRACE_TYPE_MARKER, 0, TRACE_MARKER_TYPE_TIMESTAMP);
+        check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
+                   TRACE_TYPE_MARKER, SYSCALL_BASE, TRACE_MARKER_TYPE_SYSCALL);
+        check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
+                   TRACE_TYPE_MARKER, 0, TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL);
+
+        // Injected syscall sequence after the syscall instr in TID_A.
+        check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
+                   TRACE_TYPE_MARKER, SYSCALL_BASE,
+                   TRACE_MARKER_TYPE_SYSCALL_TRACE_START);
+        check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
+                   TRACE_TYPE_INSTR, SYSCALL_PC_START);
+
+        check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_OK, TID_A,
+                   TRACE_TYPE_INSTR_INDIRECT_JUMP, SYSCALL_PC_START + 1, NO_MARKER,
+                   // Even though there's a context switch on cpu1 after this sequence,
+                   // we set the target pc to the next instr in TID_A, and not the
+                   // first instr of the context switch sequence. If we decide to
+                   // not run TID_A next, this may change later, but for now the
+                   // scheduler's plan is indeed to continue with TID_A.
+                   INSTR_3_TID_A_PC);
+        check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
+                   TRACE_TYPE_MARKER, SYSCALL_BASE, TRACE_MARKER_TYPE_SYSCALL_TRACE_END);
+        check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
+                   TRACE_TYPE_MARKER, 0, TRACE_MARKER_TYPE_TIMESTAMP);
+        // We just hit a blocking syscall in A but there is nothing else to run.
+        check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_IDLE);
+        // Finish off C on cpu 0.  This hits a quantum end but there's no one else.
+        check_next(sched_cpu0, cpu0, ++time, scheduler_t::STATUS_OK, TID_C,
+                   TRACE_TYPE_INSTR);
+        check_next(sched_cpu0, cpu0, ++time, scheduler_t::STATUS_OK, TID_C,
+                   TRACE_TYPE_INSTR);
+        check_next(sched_cpu0, cpu0, time, scheduler_t::STATUS_OK, TID_C,
+                   TRACE_TYPE_THREAD_EXIT);
+        // Both cpus wait until A is unblocked.
+        check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_IDLE);
+        check_next(sched_cpu0, cpu0, ++time, scheduler_t::STATUS_IDLE);
+        check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_IDLE);
+        check_next(sched_cpu0, cpu0, ++time, scheduler_t::STATUS_IDLE);
+        check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_IDLE);
+        check_next(sched_cpu0, cpu0, ++time, scheduler_t::STATUS_IDLE);
+        check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_IDLE);
+
+        // Switch sequence immediately after the syscall sequence on cpu1.
+        check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_OK, TID_A,
+                   TRACE_TYPE_MARKER, switch_type_t::SWITCH_THREAD,
+                   TRACE_MARKER_TYPE_CONTEXT_SWITCH_START);
+        check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
+                   TRACE_TYPE_INSTR, THREAD_SWITCH_PC_START);
+        check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
+                   // Ensure indirect_branch_target is correctly set to the 3rd instr
+                   // in TID_A.
+                   TRACE_TYPE_INSTR_INDIRECT_JUMP, THREAD_SWITCH_PC_START + 1, NO_MARKER,
+                   INSTR_3_TID_A_PC);
+        check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
+                   TRACE_TYPE_MARKER, switch_type_t::SWITCH_THREAD,
+                   TRACE_MARKER_TYPE_CONTEXT_SWITCH_END);
+
+        check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_OK, TID_A,
+                   TRACE_TYPE_INSTR, INSTR_3_TID_A_PC);
+        check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
+                   TRACE_TYPE_THREAD_EXIT);
+        check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_EOF);
+        check_next(sched_cpu0, cpu0, ++time, scheduler_t::STATUS_EOF);
+        if (scheduler.write_recorded_schedule() != scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::cerr << "sched_cpu0: " << sched_cpu0 << "\n";
+        std::cerr << "sched_cpu1: " << sched_cpu1 << "\n";
+        assert(sched_cpu0 == "..AcCCc..CCC___");
+        assert(sched_cpu1 == "..BBBcAAcA...sAAs._____cAAcA");
+    }
+    {
+        replay_file_checker_t checker;
+        zipfile_istream_t infile(record_fname);
+        std::string res = checker.check(&infile);
+        if (!res.empty())
+            std::cerr << "replay file checker failed: " << res;
+        assert(res.empty());
+    }
+    {
+        // Replay.
+        std::vector<scheduler_t::input_reader_t> readers;
+        for (int i = 0; i < NUM_INPUTS; ++i) {
+            readers.emplace_back(
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(refs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                TID_BASE + i);
+        }
+        scheduler_t scheduler;
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
+                                                   scheduler_t::DEPENDENCY_IGNORE,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/0);
+        zipfile_istream_t infile(record_fname);
+        sched_ops.schedule_replay_istream = &infile;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_A);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        // For replay the scheduler has to use wall-clock instead of passed-in time,
+        // so the idle portions at the end here can have variable idle and wait
+        // record counts.  We thus just check the start.
+        // Same as the above but without injected kernel.
         assert(sched_as_string[0].substr(0, 10) == "..A..CCC._");
         assert(sched_as_string[1].substr(0, 12) == "..BBB.A...._");
     }
@@ -1963,24 +2594,26 @@ test_synthetic_with_timestamps()
             memref_tid_t tid =
                 TID_BASE + workload_idx * NUM_INPUTS_PER_WORKLOAD + input_idx;
             std::vector<trace_entry_t> inputs;
-            inputs.push_back(make_thread(tid));
-            inputs.push_back(make_pid(1));
+            inputs.push_back(test_util::make_thread(tid));
+            inputs.push_back(test_util::make_pid(1));
             for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
                 // Sprinkle timestamps every other instruction.
                 if (instr_idx % 2 == 0) {
                     // We have different base timestamps per workload, and we have the
                     // later-ordered inputs in each with the earlier timestamps to
                     // better test scheduler ordering.
-                    inputs.push_back(make_timestamp(
+                    inputs.push_back(test_util::make_timestamp(
                         1000 * workload_idx +
                         100 * (NUM_INPUTS_PER_WORKLOAD - input_idx) + 10 * instr_idx));
                 }
-                inputs.push_back(make_instr(42 + instr_idx * 4));
+                inputs.push_back(test_util::make_instr(42 + instr_idx * 4));
             }
-            inputs.push_back(make_exit(tid));
+            inputs.push_back(test_util::make_exit(tid));
             readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs)),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                tid);
         }
         sched_inputs.emplace_back(std::move(readers));
     }
@@ -1988,23 +2621,26 @@ test_synthetic_with_timestamps()
     // test that it never gets switched out.
     memref_tid_t tid = TID_BASE + NUM_WORKLOADS * NUM_INPUTS_PER_WORKLOAD;
     std::vector<trace_entry_t> inputs;
-    inputs.push_back(make_thread(tid));
-    inputs.push_back(make_pid(1));
+    inputs.push_back(test_util::make_thread(tid));
+    inputs.push_back(test_util::make_pid(1));
     for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
         if (instr_idx % 2 == 0)
-            inputs.push_back(make_timestamp(1 + instr_idx));
-        inputs.push_back(make_instr(42 + instr_idx * 4));
+            inputs.push_back(test_util::make_timestamp(1 + instr_idx));
+        inputs.push_back(test_util::make_instr(42 + instr_idx * 4));
     }
-    inputs.push_back(make_exit(tid));
+    inputs.push_back(test_util::make_exit(tid));
     std::vector<scheduler_t::input_reader_t> readers;
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(inputs)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), tid);
     sched_inputs.emplace_back(std::move(readers));
 
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+                                               /*verbosity=*/0);
+    // Use a round-robin layout for simpler deterministic testing.
+    sched_ops.random_initial_layout = -1;
     sched_ops.quantum_duration_instrs = 3;
     // Test dropping a final "_" from core0.
     sched_ops.exit_if_fraction_inputs_left = 0.1;
@@ -2061,24 +2697,26 @@ test_synthetic_with_priorities()
         for (int input_idx = 0; input_idx < NUM_INPUTS_PER_WORKLOAD; input_idx++) {
             memref_tid_t tid = get_tid(workload_idx, input_idx);
             std::vector<trace_entry_t> inputs;
-            inputs.push_back(make_thread(tid));
-            inputs.push_back(make_pid(1));
+            inputs.push_back(test_util::make_thread(tid));
+            inputs.push_back(test_util::make_pid(1));
             for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
                 // Sprinkle timestamps every other instruction.
                 if (instr_idx % 2 == 0) {
                     // We have different base timestamps per workload, and we have the
                     // later-ordered inputs in each with the earlier timestamps to
                     // better test scheduler ordering.
-                    inputs.push_back(make_timestamp(
+                    inputs.push_back(test_util::make_timestamp(
                         1000 * workload_idx +
                         100 * (NUM_INPUTS_PER_WORKLOAD - input_idx) + 10 * instr_idx));
                 }
-                inputs.push_back(make_instr(42 + instr_idx * 4));
+                inputs.push_back(test_util::make_instr(42 + instr_idx * 4));
             }
-            inputs.push_back(make_exit(tid));
+            inputs.push_back(test_util::make_exit(tid));
             readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs)),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                tid);
         }
         sched_inputs.emplace_back(std::move(readers));
         // Set some different priorities for the middle threads.
@@ -2090,23 +2728,26 @@ test_synthetic_with_priorities()
     // switched out once we get to it among the default-priority inputs.
     memref_tid_t tid = TID_BASE + NUM_WORKLOADS * NUM_INPUTS_PER_WORKLOAD;
     std::vector<trace_entry_t> inputs;
-    inputs.push_back(make_thread(tid));
-    inputs.push_back(make_pid(1));
+    inputs.push_back(test_util::make_thread(tid));
+    inputs.push_back(test_util::make_pid(1));
     for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
         if (instr_idx % 2 == 0)
-            inputs.push_back(make_timestamp(1 + instr_idx));
-        inputs.push_back(make_instr(42 + instr_idx * 4));
+            inputs.push_back(test_util::make_timestamp(1 + instr_idx));
+        inputs.push_back(test_util::make_instr(42 + instr_idx * 4));
     }
-    inputs.push_back(make_exit(tid));
+    inputs.push_back(test_util::make_exit(tid));
     std::vector<scheduler_t::input_reader_t> readers;
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(inputs)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), tid);
     sched_inputs.emplace_back(std::move(readers));
 
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+                                               /*verbosity=*/0);
+    // Use a round-robin layout for simpler deterministic testing.
+    sched_ops.random_initial_layout = -1;
     sched_ops.quantum_duration_instrs = 3;
     // Test dropping a final "_" from core0.
     sched_ops.exit_if_fraction_inputs_left = 0.1;
@@ -2159,20 +2800,22 @@ test_synthetic_with_bindings_time(bool time_deps)
         for (int input_idx = 0; input_idx < NUM_INPUTS_PER_WORKLOAD; input_idx++) {
             memref_tid_t tid = get_tid(workload_idx, input_idx);
             std::vector<trace_entry_t> inputs;
-            inputs.push_back(make_thread(tid));
-            inputs.push_back(make_pid(1));
+            inputs.push_back(test_util::make_thread(tid));
+            inputs.push_back(test_util::make_pid(1));
             for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
                 // Include timestamps but keep each workload with the same time to
                 // avoid complicating the test.
                 if (instr_idx % 2 == 0) {
-                    inputs.push_back(make_timestamp(10 * (instr_idx + 1)));
+                    inputs.push_back(test_util::make_timestamp(10 * (instr_idx + 1)));
                 }
-                inputs.push_back(make_instr(42 + instr_idx * 4));
+                inputs.push_back(test_util::make_instr(42 + instr_idx * 4));
             }
-            inputs.push_back(make_exit(tid));
+            inputs.push_back(test_util::make_exit(tid));
             readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs)),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                tid);
         }
         sched_inputs.emplace_back(std::move(readers));
         // We do a static partitionining of the cores for our workloads with one
@@ -2193,7 +2836,9 @@ test_synthetic_with_bindings_time(bool time_deps)
         // binding lists, which fails the schedule string checks below.
         time_deps ? scheduler_t::DEPENDENCY_TIMESTAMPS : scheduler_t::DEPENDENCY_IGNORE,
         scheduler_t::SCHEDULER_DEFAULTS,
-        /*verbosity=*/3);
+        /*verbosity=*/0);
+    // Use a round-robin layout for simpler deterministic testing.
+    sched_ops.random_initial_layout = -1;
     sched_ops.quantum_duration_instrs = 3;
     // Migration is measured in wall-clock-time for instr quanta
     // so avoid non-determinism by having no threshold.
@@ -2231,15 +2876,18 @@ test_synthetic_with_bindings_more_out()
         std::vector<scheduler_t::input_reader_t> readers;
         memref_tid_t tid = TID_BASE + input_idx;
         std::vector<trace_entry_t> inputs;
-        inputs.push_back(make_thread(tid));
-        inputs.push_back(make_pid(1));
-        inputs.push_back(make_timestamp(10 + input_idx));
+        inputs.push_back(test_util::make_thread(tid));
+        inputs.push_back(test_util::make_pid(1));
+        inputs.push_back(test_util::make_timestamp(10 + input_idx));
         for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
-            inputs.push_back(make_instr(42 + instr_idx * 4));
+            inputs.push_back(test_util::make_instr(42 + instr_idx * 4));
         }
-        inputs.push_back(make_exit(tid));
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+        inputs.push_back(test_util::make_exit(tid));
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(inputs)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            tid);
         sched_inputs.emplace_back(std::move(readers));
         // Bind the 1st 2 inputs to the same core to ensure the 3rd
         // input gets scheduled even after an initially-unscheduled input.
@@ -2259,7 +2907,7 @@ test_synthetic_with_bindings_more_out()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_IGNORE,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+                                               /*verbosity=*/0);
     sched_ops.quantum_duration_instrs = 3;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
@@ -2295,23 +2943,25 @@ test_synthetic_with_bindings_weighted()
         for (int input_idx = 0; input_idx < NUM_INPUTS_PER_WORKLOAD; input_idx++) {
             memref_tid_t tid = get_tid(workload_idx, input_idx);
             std::vector<trace_entry_t> inputs;
-            inputs.push_back(make_thread(tid));
-            inputs.push_back(make_pid(1));
+            inputs.push_back(test_util::make_thread(tid));
+            inputs.push_back(test_util::make_pid(1));
             for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
                 // Use the same inverted timestamps as test_synthetic_with_timestamps()
                 // to cover different code paths; in particular it has a case where
                 // the last entry in the queue is the only one that fits on an output.
                 if (instr_idx % 2 == 0) {
-                    inputs.push_back(make_timestamp(
+                    inputs.push_back(test_util::make_timestamp(
                         1000 * workload_idx +
                         100 * (NUM_INPUTS_PER_WORKLOAD - input_idx) + 10 * instr_idx));
                 }
-                inputs.push_back(make_instr(42 + instr_idx * 4));
+                inputs.push_back(test_util::make_instr(42 + instr_idx * 4));
             }
-            inputs.push_back(make_exit(tid));
+            inputs.push_back(test_util::make_exit(tid));
             readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs)),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                tid);
         }
         sched_inputs.emplace_back(std::move(readers));
         // We do a static partitionining of the cores for our workloads with one
@@ -2329,7 +2979,9 @@ test_synthetic_with_bindings_weighted()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+                                               /*verbosity=*/0);
+    // Use a round-robin layout for simpler deterministic testing.
+    sched_ops.random_initial_layout = -1;
     sched_ops.quantum_duration_instrs = 3;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
@@ -2355,20 +3007,23 @@ test_synthetic_with_bindings_invalid()
     static constexpr memref_tid_t TID_A = 42;
     std::vector<trace_entry_t> refs_A = {
         /* clang-format off */
-        make_thread(TID_A),
-        make_pid(1),
-        make_version(TRACE_ENTRY_VERSION),
-        make_timestamp(1),
-        make_instr(10),
-        make_exit(TID_A),
+        test_util::make_thread(TID_A),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(1),
+        test_util::make_instr(10),
+        test_util::make_exit(TID_A),
         /* clang-format on */
     };
     {
         // Test negative bindings.
         static constexpr int NUM_OUTPUTS = 2;
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
         std::vector<scheduler_t::input_workload_t> sched_inputs;
         sched_inputs.emplace_back(std::move(readers));
         std::set<scheduler_t::output_ordinal_t> cores;
@@ -2377,7 +3032,7 @@ test_synthetic_with_bindings_invalid()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         scheduler_t scheduler;
         assert(scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) ==
                scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
@@ -2386,8 +3041,11 @@ test_synthetic_with_bindings_invalid()
         // Test too-large bindings.
         static constexpr int NUM_OUTPUTS = 2;
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
         std::vector<scheduler_t::input_workload_t> sched_inputs;
         sched_inputs.emplace_back(std::move(readers));
         std::set<scheduler_t::output_ordinal_t> cores;
@@ -2396,7 +3054,7 @@ test_synthetic_with_bindings_invalid()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         scheduler_t scheduler;
         assert(scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) ==
                scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
@@ -2416,15 +3074,18 @@ test_synthetic_with_bindings_overrides()
     for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
         memref_tid_t tid = TID_BASE + input_idx;
         std::vector<trace_entry_t> inputs;
-        inputs.push_back(make_thread(tid));
-        inputs.push_back(make_pid(1));
-        inputs.push_back(make_timestamp(10 + input_idx));
+        inputs.push_back(test_util::make_thread(tid));
+        inputs.push_back(test_util::make_pid(1));
+        inputs.push_back(test_util::make_timestamp(10 + input_idx));
         for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
-            inputs.push_back(make_instr(42 + instr_idx * 4));
+            inputs.push_back(test_util::make_instr(42 + instr_idx * 4));
         }
-        inputs.push_back(make_exit(tid));
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+        inputs.push_back(test_util::make_exit(tid));
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(inputs)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            tid);
     }
     sched_inputs.emplace_back(std::move(readers));
 
@@ -2452,7 +3113,7 @@ test_synthetic_with_bindings_overrides()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_IGNORE,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+                                               /*verbosity=*/0);
     sched_ops.quantum_duration_instrs = 3;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
@@ -2500,9 +3161,9 @@ test_synthetic_with_syscalls_multiple()
         for (int input_idx = 0; input_idx < NUM_INPUTS_PER_WORKLOAD; input_idx++) {
             memref_tid_t tid = get_tid(workload_idx, input_idx);
             std::vector<trace_entry_t> inputs;
-            inputs.push_back(make_thread(tid));
-            inputs.push_back(make_pid(1));
-            inputs.push_back(make_version(TRACE_ENTRY_VERSION));
+            inputs.push_back(test_util::make_thread(tid));
+            inputs.push_back(test_util::make_pid(1));
+            inputs.push_back(test_util::make_version(TRACE_ENTRY_VERSION));
             uint64_t stamp =
                 10000 * workload_idx + 1000 * (NUM_INPUTS_PER_WORKLOAD - input_idx);
             for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
@@ -2512,31 +3173,35 @@ test_synthetic_with_syscalls_multiple()
                 if (instr_idx % 2 == 0 &&
                     (inputs.back().type != TRACE_TYPE_MARKER ||
                      inputs.back().size != TRACE_MARKER_TYPE_TIMESTAMP)) {
-                    inputs.push_back(make_timestamp(stamp));
+                    inputs.push_back(test_util::make_timestamp(stamp));
                 }
-                inputs.push_back(make_instr(42 + instr_idx * 4));
+                inputs.push_back(test_util::make_instr(42 + instr_idx * 4));
                 // Insert some blocking syscalls in the high-priority (see below)
                 // middle threads.
                 if (input_idx == 1 && instr_idx % (workload_idx + 1) == workload_idx) {
-                    inputs.push_back(make_timestamp(stamp + 10));
-                    inputs.push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, 42));
+                    inputs.push_back(test_util::make_timestamp(stamp + 10));
                     inputs.push_back(
-                        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
+                        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 42));
+                    inputs.push_back(test_util::make_marker(
+                        TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
                     // Blocked for 10 time units with our BLOCK_SCALE.
-                    inputs.push_back(make_timestamp(stamp + 10 + 10 * BLOCK_LATENCY));
+                    inputs.push_back(
+                        test_util::make_timestamp(stamp + 10 + 10 * BLOCK_LATENCY));
                 } else {
                     // Insert meta records to keep the locksteps lined up.
-                    inputs.push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
-                    inputs.push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
-                    inputs.push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
-                    inputs.push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
+                    inputs.push_back(test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
+                    inputs.push_back(test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
+                    inputs.push_back(test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
+                    inputs.push_back(test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
                 }
                 stamp += 10;
             }
-            inputs.push_back(make_exit(tid));
+            inputs.push_back(test_util::make_exit(tid));
             readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs)),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                tid);
         }
         sched_inputs.emplace_back(std::move(readers));
         // Set some different priorities for the middle threads.
@@ -2548,23 +3213,26 @@ test_synthetic_with_syscalls_multiple()
     // gets switched out once we get to it among the default-priority inputs.
     memref_tid_t tid = TID_BASE + NUM_WORKLOADS * NUM_INPUTS_PER_WORKLOAD;
     std::vector<trace_entry_t> inputs;
-    inputs.push_back(make_thread(tid));
-    inputs.push_back(make_pid(1));
+    inputs.push_back(test_util::make_thread(tid));
+    inputs.push_back(test_util::make_pid(1));
     for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
         if (instr_idx % 2 == 0)
-            inputs.push_back(make_timestamp(1 + instr_idx));
-        inputs.push_back(make_instr(42 + instr_idx * 4));
+            inputs.push_back(test_util::make_timestamp(1 + instr_idx));
+        inputs.push_back(test_util::make_instr(42 + instr_idx * 4));
     }
-    inputs.push_back(make_exit(tid));
+    inputs.push_back(test_util::make_exit(tid));
     std::vector<scheduler_t::input_reader_t> readers;
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(inputs)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), tid);
     sched_inputs.emplace_back(std::move(readers));
 
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+                                               /*verbosity=*/0);
+    // Use a round-robin layout for simpler deterministic testing.
+    sched_ops.random_initial_layout = -1;
     sched_ops.quantum_duration_us = 3;
     // We use our mock's time==instruction count for a deterministic result.
     sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
@@ -2634,9 +3302,9 @@ test_synthetic_with_syscalls_single()
         for (int input_idx = 0; input_idx < NUM_INPUTS_PER_WORKLOAD; input_idx++) {
             memref_tid_t tid = get_tid(workload_idx, input_idx);
             std::vector<trace_entry_t> inputs;
-            inputs.push_back(make_thread(tid));
-            inputs.push_back(make_pid(1));
-            inputs.push_back(make_version(TRACE_ENTRY_VERSION));
+            inputs.push_back(test_util::make_thread(tid));
+            inputs.push_back(test_util::make_pid(1));
+            inputs.push_back(test_util::make_version(TRACE_ENTRY_VERSION));
             uint64_t stamp =
                 10000 * workload_idx + 1000 * (NUM_INPUTS_PER_WORKLOAD - input_idx);
             for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
@@ -2646,37 +3314,41 @@ test_synthetic_with_syscalls_single()
                 if (instr_idx % 2 == 0 &&
                     (inputs.back().type != TRACE_TYPE_MARKER ||
                      inputs.back().size != TRACE_MARKER_TYPE_TIMESTAMP)) {
-                    inputs.push_back(make_timestamp(stamp));
+                    inputs.push_back(test_util::make_timestamp(stamp));
                 }
-                inputs.push_back(make_instr(42 + instr_idx * 4));
+                inputs.push_back(test_util::make_instr(42 + instr_idx * 4));
                 // Insert some blocking syscalls.
                 if (instr_idx % 3 == 1) {
-                    inputs.push_back(make_timestamp(stamp + 10));
-                    inputs.push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, 42));
+                    inputs.push_back(test_util::make_timestamp(stamp + 10));
                     inputs.push_back(
-                        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
+                        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 42));
+                    inputs.push_back(test_util::make_marker(
+                        TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
                     // Blocked for 3 time units.
-                    inputs.push_back(make_timestamp(stamp + 10 + 3 * BLOCK_LATENCY));
+                    inputs.push_back(
+                        test_util::make_timestamp(stamp + 10 + 3 * BLOCK_LATENCY));
                 } else {
                     // Insert meta records to keep the locksteps lined up.
-                    inputs.push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
-                    inputs.push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
-                    inputs.push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
-                    inputs.push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
+                    inputs.push_back(test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
+                    inputs.push_back(test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
+                    inputs.push_back(test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
+                    inputs.push_back(test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
                 }
                 stamp += 10;
             }
-            inputs.push_back(make_exit(tid));
+            inputs.push_back(test_util::make_exit(tid));
             readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs)),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                tid);
         }
         sched_inputs.emplace_back(std::move(readers));
     }
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/4);
+                                               /*verbosity=*/0);
     sched_ops.quantum_duration_us = 3;
     // We use our mock's time==instruction count for a deterministic result.
     sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
@@ -2704,12 +3376,27 @@ static bool
 check_ref(std::vector<memref_t> &refs, int &idx, memref_tid_t expected_tid,
           trace_type_t expected_type,
           trace_marker_type_t expected_marker = TRACE_MARKER_TYPE_RESERVED_END,
-          uintptr_t expected_marker_value = 0)
+          uintptr_t expected_marker_or_branch_target_value = 0, uint64_t pc = 0)
 {
     if (expected_tid != refs[idx].instr.tid || expected_type != refs[idx].instr.type) {
         std::cerr << "Record " << idx << " has tid " << refs[idx].instr.tid
                   << " and type " << refs[idx].instr.type << " != expected tid "
                   << expected_tid << " and expected type " << expected_type << "\n";
+        return false;
+    }
+
+    if (type_is_instr(expected_type) && pc != 0 && refs[idx].instr.addr != pc) {
+        std::cerr << "Record " << idx << " has instr pc " << std::hex
+                  << refs[idx].instr.addr << " but expected " << pc << std::dec << "\n";
+    }
+    if (type_is_instr_branch(expected_type) &&
+        !type_is_instr_direct_branch(expected_type) &&
+        expected_marker_or_branch_target_value != 0 &&
+        refs[idx].instr.indirect_branch_target !=
+            expected_marker_or_branch_target_value) {
+        std::cerr << "Record " << idx << " has ib target value "
+                  << refs[idx].instr.indirect_branch_target << " but expected "
+                  << expected_marker_or_branch_target_value << "\n";
         return false;
     }
     if (expected_type == TRACE_TYPE_MARKER) {
@@ -2719,11 +3406,11 @@ check_ref(std::vector<memref_t> &refs, int &idx, memref_tid_t expected_tid,
                       << expected_marker << "\n";
             return false;
         }
-        if (expected_marker_value != 0 &&
-            expected_marker_value != refs[idx].marker.marker_value) {
+        if (expected_marker_or_branch_target_value != 0 &&
+            expected_marker_or_branch_target_value != refs[idx].marker.marker_value) {
             std::cerr << "Record " << idx << " has marker value "
                       << refs[idx].marker.marker_value << " but expected "
-                      << expected_marker_value << "\n";
+                      << expected_marker_or_branch_target_value << "\n";
             return false;
         }
     }
@@ -2743,46 +3430,48 @@ test_synthetic_with_syscalls_precise()
     static constexpr uint64_t BLOCK_THRESHOLD = 500;
     std::vector<trace_entry_t> refs_A = {
         /* clang-format off */
-        make_thread(TID_A),
-        make_pid(1),
-        make_version(TRACE_ENTRY_VERSION),
-        make_timestamp(INITIAL_TIMESTAMP),
-        make_instr(10),
-        make_timestamp(PRE_SYS_TIMESTAMP),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSNUM),
-        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
-        make_marker(TRACE_MARKER_TYPE_FUNC_ID, 100),
-        make_marker(TRACE_MARKER_TYPE_FUNC_ARG, 42),
-        make_timestamp(PRE_SYS_TIMESTAMP + BLOCK_THRESHOLD),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
-        make_marker(TRACE_MARKER_TYPE_FUNC_ID, 100),
-        make_marker(TRACE_MARKER_TYPE_FUNC_RETVAL, 0),
-        make_instr(12),
-        make_exit(TID_A),
+        test_util::make_thread(TID_A),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(INITIAL_TIMESTAMP),
+        test_util::make_instr(10),
+        test_util::make_timestamp(PRE_SYS_TIMESTAMP),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSNUM),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_FUNC_ID, 100),
+        test_util::make_marker(TRACE_MARKER_TYPE_FUNC_ARG, 42),
+        test_util::make_timestamp(PRE_SYS_TIMESTAMP + BLOCK_THRESHOLD),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
+        test_util::make_marker(TRACE_MARKER_TYPE_FUNC_ID, 100),
+        test_util::make_marker(TRACE_MARKER_TYPE_FUNC_RETVAL, 0),
+        test_util::make_instr(12),
+        test_util::make_exit(TID_A),
         /* clang-format on */
     };
     std::vector<trace_entry_t> refs_B = {
         /* clang-format off */
-        make_thread(TID_B),
-        make_pid(1),
-        make_version(TRACE_ENTRY_VERSION),
-        make_timestamp(120),
-        make_instr(20),
-        make_instr(21),
-        make_exit(TID_B),
+        test_util::make_thread(TID_B),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(120),
+        test_util::make_instr(20),
+        test_util::make_instr(21),
+        test_util::make_exit(TID_B),
         /* clang-format on */
     };
     std::vector<scheduler_t::input_reader_t> readers;
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(refs_A)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), TID_A);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(refs_B)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), TID_B);
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(std::move(readers));
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+                                               /*verbosity=*/0);
     sched_ops.blocking_switch_threshold = BLOCK_THRESHOLD;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, 1, std::move(sched_ops)) !=
@@ -2836,57 +3525,59 @@ test_synthetic_with_syscalls_latencies()
     static constexpr double BLOCK_SCALE = 1. / (BLOCK_LATENCY);
     std::vector<trace_entry_t> refs_A = {
         /* clang-format off */
-        make_thread(TID_A),
-        make_pid(1),
-        make_version(TRACE_ENTRY_VERSION),
-        make_timestamp(20),
-        make_instr(10),
+        test_util::make_thread(TID_A),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(20),
+        test_util::make_instr(10),
         // Test 0 latency.
-        make_timestamp(120),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSNUM),
-        make_timestamp(120),
-        make_instr(10),
+        test_util::make_timestamp(120),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSNUM),
+        test_util::make_timestamp(120),
+        test_util::make_instr(10),
         // Test large but too-short latency.
-        make_timestamp(200),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSNUM),
-        make_timestamp(699),
-        make_instr(10),
+        test_util::make_timestamp(200),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSNUM),
+        test_util::make_timestamp(699),
+        test_util::make_instr(10),
         // Test just large enough latency, with func markers in between.
-        make_timestamp(1000),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSNUM),
-        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
-        make_marker(TRACE_MARKER_TYPE_FUNC_ID, 100),
-        make_marker(TRACE_MARKER_TYPE_FUNC_ARG, 42),
-        make_timestamp(1000 + BLOCK_LATENCY),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
-        make_marker(TRACE_MARKER_TYPE_FUNC_ID, 100),
-        make_marker(TRACE_MARKER_TYPE_FUNC_RETVAL, 0),
-        make_instr(12),
-        make_exit(TID_A),
+        test_util::make_timestamp(1000),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSNUM),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_FUNC_ID, 100),
+        test_util::make_marker(TRACE_MARKER_TYPE_FUNC_ARG, 42),
+        test_util::make_timestamp(1000 + BLOCK_LATENCY),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
+        test_util::make_marker(TRACE_MARKER_TYPE_FUNC_ID, 100),
+        test_util::make_marker(TRACE_MARKER_TYPE_FUNC_RETVAL, 0),
+        test_util::make_instr(12),
+        test_util::make_exit(TID_A),
         /* clang-format on */
     };
     std::vector<trace_entry_t> refs_B = {
         /* clang-format off */
-        make_thread(TID_B),
-        make_pid(1),
-        make_version(TRACE_ENTRY_VERSION),
-        make_timestamp(2000),
-        make_instr(20),
-        make_instr(21),
-        make_exit(TID_B),
+        test_util::make_thread(TID_B),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(2000),
+        test_util::make_instr(20),
+        test_util::make_instr(21),
+        test_util::make_exit(TID_B),
         /* clang-format on */
     };
     std::vector<scheduler_t::input_reader_t> readers;
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(refs_A)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), TID_A);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(refs_B)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), TID_B);
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(std::move(readers));
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+                                               /*verbosity=*/0);
     // We use a mock time for a deterministic result.
     sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
     sched_ops.time_units_per_us = 1.;
@@ -2960,43 +3651,47 @@ test_synthetic_with_syscalls_idle()
     for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
         memref_tid_t tid = TID_BASE + input_idx;
         std::vector<trace_entry_t> inputs;
-        inputs.push_back(make_thread(tid));
-        inputs.push_back(make_pid(1));
-        inputs.push_back(make_version(TRACE_ENTRY_VERSION));
+        inputs.push_back(test_util::make_thread(tid));
+        inputs.push_back(test_util::make_pid(1));
+        inputs.push_back(test_util::make_version(TRACE_ENTRY_VERSION));
         uint64_t stamp = 10000 * NUM_INPUTS;
-        inputs.push_back(make_timestamp(stamp));
+        inputs.push_back(test_util::make_timestamp(stamp));
         for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
-            inputs.push_back(make_instr(42 + instr_idx * 4));
+            inputs.push_back(test_util::make_instr(42 + instr_idx * 4));
             if (instr_idx == 1) {
                 // Insert a blocking syscall in one input.
                 if (input_idx == 0) {
-                    inputs.push_back(make_timestamp(stamp + 10));
-                    inputs.push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, 42));
+                    inputs.push_back(test_util::make_timestamp(stamp + 10));
                     inputs.push_back(
-                        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
+                        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 42));
+                    inputs.push_back(test_util::make_marker(
+                        TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
                     // Blocked for BLOCK_UNITS time units with BLOCK_SCALE, but
                     // after each queue rejection it should go to the back of
                     // the queue and all the other inputs should be selected
                     // before another retry.
-                    inputs.push_back(
-                        make_timestamp(stamp + 10 + BLOCK_UNITS * BLOCK_LATENCY));
+                    inputs.push_back(test_util::make_timestamp(
+                        stamp + 10 + BLOCK_UNITS * BLOCK_LATENCY));
                 } else {
                     // Insert a timestamp to match the blocked input so the inputs
                     // are all at equal priority in the queue.
-                    inputs.push_back(
-                        make_timestamp(stamp + 10 + BLOCK_UNITS * BLOCK_LATENCY));
+                    inputs.push_back(test_util::make_timestamp(
+                        stamp + 10 + BLOCK_UNITS * BLOCK_LATENCY));
                 }
             }
         }
-        inputs.push_back(make_exit(tid));
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+        inputs.push_back(test_util::make_exit(tid));
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(inputs)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            tid);
     }
     sched_inputs.emplace_back(std::move(readers));
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+                                               /*verbosity=*/0);
     sched_ops.quantum_duration_us = 3;
     // We use a mock time for a deterministic result.
     sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
@@ -3060,7 +3755,7 @@ test_synthetic_multi_threaded(const char *testdir)
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/2);
+                                               /*verbosity=*/0);
     static constexpr int NUM_OUTPUTS = 4;
     static constexpr int QUANTUM_DURATION = 2000;
     sched_ops.quantum_duration_instrs = QUANTUM_DURATION;
@@ -3098,24 +3793,26 @@ test_synthetic_with_output_limit()
         for (int input_idx = 0; input_idx < NUM_INPUTS_PER_WORKLOAD; input_idx++) {
             memref_tid_t tid = get_tid(workload_idx, input_idx);
             std::vector<trace_entry_t> inputs;
-            inputs.push_back(make_thread(tid));
-            inputs.push_back(make_pid(1));
+            inputs.push_back(test_util::make_thread(tid));
+            inputs.push_back(test_util::make_pid(1));
             for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
                 // Sprinkle timestamps every other instruction.
                 if (instr_idx % 2 == 0) {
                     // Like test_synthetic_with_priorities(), we have different base
                     // timestamps per workload, and we have the later-ordered inputs in
                     // each with the earlier timestamps to better test scheduler ordering.
-                    inputs.push_back(make_timestamp(
+                    inputs.push_back(test_util::make_timestamp(
                         1000 * workload_idx +
                         100 * (NUM_INPUTS_PER_WORKLOAD - input_idx) + 10 * instr_idx));
                 }
-                inputs.push_back(make_instr(42 + instr_idx * 4));
+                inputs.push_back(test_util::make_instr(42 + instr_idx * 4));
             }
-            inputs.push_back(make_exit(tid));
+            inputs.push_back(test_util::make_exit(tid));
             readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs)),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                tid);
         }
         sched_inputs.emplace_back(std::move(readers));
         // Set a cap on some of the workloads.
@@ -3124,7 +3821,9 @@ test_synthetic_with_output_limit()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/2);
+                                               /*verbosity=*/0);
+    // Use a round-robin layout for simpler deterministic testing.
+    sched_ops.random_initial_layout = -1;
     // Run everything.
     sched_ops.exit_if_fraction_inputs_left = 0.;
     scheduler_t scheduler;
@@ -3159,32 +3858,33 @@ test_speculation()
     std::cerr << "\n----------------\nTesting speculation\n";
     std::vector<trace_entry_t> memrefs = {
         /* clang-format off */
-        make_thread(1),
-        make_pid(1),
-        make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
-        make_timestamp(10),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
+        test_util::make_thread(1),
+        test_util::make_pid(1),
+        test_util::make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+        test_util::make_timestamp(10),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
         // Conditional branch.
-        make_instr(1, TRACE_TYPE_INSTR_CONDITIONAL_JUMP),
+        test_util::make_instr(1, TRACE_TYPE_INSTR_CONDITIONAL_JUMP),
         // It fell through in the trace.
-        make_instr(2),
+        test_util::make_instr(2),
         // Another conditional branch.
-        make_instr(3, TRACE_TYPE_INSTR_CONDITIONAL_JUMP),
+        test_util::make_instr(3, TRACE_TYPE_INSTR_CONDITIONAL_JUMP),
         // It fell through in the trace.
-        make_instr(4),
-        make_instr(5),
-        make_exit(1),
+        test_util::make_instr(4),
+        test_util::make_instr(5),
+        test_util::make_exit(1),
         /* clang-format on */
     };
     std::vector<scheduler_t::input_reader_t> readers;
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(memrefs)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), 1);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(memrefs)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), 1);
 
     scheduler_t scheduler;
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(std::move(readers));
     scheduler_t::scheduler_options_t sched_ops =
-        scheduler_t::make_scheduler_serial_options(/*verbosity=*/4);
+        scheduler_t::make_scheduler_serial_options(/*verbosity=*/0);
     sched_ops.flags = static_cast<scheduler_t::scheduler_flags_t>(
         static_cast<int>(sched_ops.flags) |
         static_cast<int>(scheduler_t::SCHEDULER_SPECULATE_NOPS));
@@ -3349,11 +4049,11 @@ test_replay()
     std::vector<trace_entry_t> inputs[NUM_INPUTS];
     for (int i = 0; i < NUM_INPUTS; i++) {
         memref_tid_t tid = TID_BASE + i;
-        inputs[i].push_back(make_thread(tid));
-        inputs[i].push_back(make_pid(1));
+        inputs[i].push_back(test_util::make_thread(tid));
+        inputs[i].push_back(test_util::make_pid(1));
         for (int j = 0; j < NUM_INSTRS; j++)
-            inputs[i].push_back(make_instr(42 + j * 4));
-        inputs[i].push_back(make_exit(tid));
+            inputs[i].push_back(test_util::make_instr(42 + j * 4));
+        inputs[i].push_back(test_util::make_exit(tid));
     }
     std::string record_fname = "tmp_test_replay_record.zip";
 
@@ -3364,14 +4064,18 @@ test_replay()
             memref_tid_t tid = TID_BASE + i;
             std::vector<scheduler_t::input_reader_t> readers;
             readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                tid);
             sched_inputs.emplace_back(std::move(readers));
         }
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
         sched_ops.quantum_duration_instrs = QUANTUM_INSTRS;
         // Migration is measured in wall-clock-time for instr quanta
         // so avoid non-determinism by having no threshold.
@@ -3409,14 +4113,16 @@ test_replay()
             memref_tid_t tid = TID_BASE + i;
             std::vector<scheduler_t::input_reader_t> readers;
             readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                tid);
             sched_inputs.emplace_back(std::move(readers));
         }
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/2);
+                                                   /*verbosity=*/0);
         zipfile_istream_t infile(record_fname);
         sched_ops.schedule_replay_istream = &infile;
 
@@ -3499,7 +4205,7 @@ test_replay_multi_threaded(const char *testdir)
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/1);
+                                                   /*verbosity=*/0);
         zipfile_ostream_t outfile(record_fname);
         sched_ops.schedule_record_ostream = &outfile;
         static constexpr int QUANTUM_DURATION = 2000;
@@ -3538,7 +4244,7 @@ test_replay_multi_threaded(const char *testdir)
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/1);
+                                                   /*verbosity=*/0);
         zipfile_istream_t infile(record_fname);
         sched_ops.schedule_replay_istream = &infile;
         if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
@@ -3679,15 +4385,15 @@ test_replay_timestamps()
     std::vector<trace_entry_t> inputs[NUM_INPUTS];
     for (int i = 0; i < NUM_INPUTS; i++) {
         memref_tid_t tid = TID_BASE + i;
-        inputs[i].push_back(make_thread(tid));
-        inputs[i].push_back(make_pid(1));
+        inputs[i].push_back(test_util::make_thread(tid));
+        inputs[i].push_back(test_util::make_pid(1));
         // We need a timestamp so the scheduler will find one for initial
         // input processing.  We do not try to duplicate the timestamp
         // sequences in the stored file and just use a dummy timestamp here.
-        inputs[i].push_back(make_timestamp(10 + i));
+        inputs[i].push_back(test_util::make_timestamp(10 + i));
         for (int j = 0; j < NUM_INSTRS; j++)
-            inputs[i].push_back(make_instr(42 + j * 4));
-        inputs[i].push_back(make_exit(tid));
+            inputs[i].push_back(test_util::make_instr(42 + j * 4));
+        inputs[i].push_back(test_util::make_exit(tid));
     }
 
     // Create a record file with timestamps requiring waiting.
@@ -3703,14 +4409,17 @@ test_replay_timestamps()
     for (int i = 0; i < NUM_INPUTS; i++) {
         memref_tid_t tid = TID_BASE + i;
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(inputs[i])),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            tid);
         sched_inputs.emplace_back(std::move(readers));
     }
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/4);
+                                               /*verbosity=*/0);
     zipfile_istream_t infile(record_fname);
     sched_ops.schedule_replay_istream = &infile;
     scheduler_t scheduler;
@@ -3791,15 +4500,15 @@ test_replay_noeof()
     std::vector<trace_entry_t> inputs[NUM_INPUTS];
     for (int i = 0; i < NUM_INPUTS; i++) {
         memref_tid_t tid = TID_BASE + i;
-        inputs[i].push_back(make_thread(tid));
-        inputs[i].push_back(make_pid(1));
+        inputs[i].push_back(test_util::make_thread(tid));
+        inputs[i].push_back(test_util::make_pid(1));
         // We need a timestamp so the scheduler will find one for initial
         // input processing.  We do not try to duplicate the timestamp
         // sequences in the stored file and just use a dummy timestamp here.
-        inputs[i].push_back(make_timestamp(10 + i));
+        inputs[i].push_back(test_util::make_timestamp(10 + i));
         for (int j = 0; j < NUM_INSTRS; j++)
-            inputs[i].push_back(make_instr(42 + j * 4));
-        inputs[i].push_back(make_exit(tid));
+            inputs[i].push_back(test_util::make_instr(42 + j * 4));
+        inputs[i].push_back(test_util::make_exit(tid));
     }
 
     // Create a record file with timestamps requiring waiting.
@@ -3815,14 +4524,17 @@ test_replay_noeof()
     for (int i = 0; i < NUM_INPUTS; i++) {
         memref_tid_t tid = TID_BASE + i;
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(inputs[i])),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            tid);
         sched_inputs.emplace_back(std::move(readers));
     }
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/4);
+                                               /*verbosity=*/0);
     zipfile_istream_t infile(record_fname);
     sched_ops.schedule_replay_istream = &infile;
     scheduler_t scheduler;
@@ -3846,28 +4558,28 @@ test_replay_skip()
     std::cerr << "\n----------------\nTesting replay of skips\n";
     std::vector<trace_entry_t> memrefs = {
         /* clang-format off */
-        make_thread(1),
-        make_pid(1),
-        make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
-        make_timestamp(10),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
-        make_instr(1),
-        make_instr(2), // Region 1 is just this instr.
-        make_instr(3),
-        make_timestamp(20),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 2),
-        make_timestamp(30),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 3),
-        make_instr(4),
-        make_timestamp(40),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 4),
-        make_instr(5),
-        make_instr(6), // Region 2 starts here.
-        make_timestamp(50),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 5),
-        make_instr(7), // Region 2 ends here.
-        make_instr(8),
-        make_exit(1),
+        test_util::make_thread(1),
+        test_util::make_pid(1),
+        test_util::make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+        test_util::make_timestamp(10),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
+        test_util::make_instr(1),
+        test_util::make_instr(2), // Region 1 is just this instr.
+        test_util::make_instr(3),
+        test_util::make_timestamp(20),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 2),
+        test_util::make_timestamp(30),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 3),
+        test_util::make_instr(4),
+        test_util::make_timestamp(40),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 4),
+        test_util::make_instr(5),
+        test_util::make_instr(6), // Region 2 starts here.
+        test_util::make_timestamp(50),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 5),
+        test_util::make_instr(7), // Region 2 ends here.
+        test_util::make_instr(8),
+        test_util::make_exit(1),
         /* clang-format on */
     };
 
@@ -3881,8 +4593,10 @@ test_replay_skip()
     {
         // Record.
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(memrefs)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), 1);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(memrefs)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), 1);
         std::vector<scheduler_t::input_workload_t> sched_inputs;
         sched_inputs.emplace_back(std::move(readers));
         sched_inputs[0].thread_modifiers.push_back(
@@ -3891,7 +4605,7 @@ test_replay_skip()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/4);
+                                                   /*verbosity=*/0);
         zipfile_ostream_t outfile(record_fname);
         sched_ops.schedule_record_ostream = &outfile;
         if (scheduler.init(sched_inputs, 1, std::move(sched_ops)) !=
@@ -3917,8 +4631,10 @@ test_replay_skip()
     {
         // Replay.
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(memrefs)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), 1);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(memrefs)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), 1);
         std::vector<scheduler_t::input_workload_t> sched_inputs;
         sched_inputs.emplace_back(std::move(readers));
         sched_inputs[0].thread_modifiers.push_back(
@@ -3927,7 +4643,7 @@ test_replay_skip()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/4);
+                                                   /*verbosity=*/0);
         zipfile_istream_t infile(record_fname);
         sched_ops.schedule_replay_istream = &infile;
         if (scheduler.init(sched_inputs, 1, std::move(sched_ops)) !=
@@ -4008,16 +4724,16 @@ test_replay_limit()
     std::cerr << "\n----------------\nTesting replay of ROI-limited inputs\n";
 
     std::vector<trace_entry_t> input_sequence;
-    input_sequence.push_back(make_thread(/*tid=*/1));
-    input_sequence.push_back(make_pid(/*pid=*/1));
-    input_sequence.push_back(make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096));
-    input_sequence.push_back(make_timestamp(10));
-    input_sequence.push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, 1));
+    input_sequence.push_back(test_util::make_thread(/*tid=*/1));
+    input_sequence.push_back(test_util::make_pid(/*pid=*/1));
+    input_sequence.push_back(test_util::make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096));
+    input_sequence.push_back(test_util::make_timestamp(10));
+    input_sequence.push_back(test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 1));
     static constexpr int NUM_INSTRS = 1000;
     for (int i = 0; i < NUM_INSTRS; ++i) {
-        input_sequence.push_back(make_instr(/*pc=*/i));
+        input_sequence.push_back(test_util::make_instr(/*pc=*/i));
     }
-    input_sequence.push_back(make_exit(/*tid=*/1));
+    input_sequence.push_back(test_util::make_exit(/*tid=*/1));
 
     std::vector<scheduler_t::range_t> regions;
     // Instr counts are 1-based.  We stop just before the end, which has hit corner
@@ -4068,8 +4784,10 @@ test_replay_limit()
         for (int i = 0; i < NUM_INPUTS; i++) {
             std::vector<scheduler_t::input_reader_t> readers;
             readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), BASE_TID + i);
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                BASE_TID + i);
             sched_inputs.emplace_back(std::move(readers));
             sched_inputs.back().thread_modifiers.push_back(
                 scheduler_t::input_thread_info_t(regions));
@@ -4078,7 +4796,7 @@ test_replay_limit()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/2);
+                                                   /*verbosity=*/0);
         zipfile_ostream_t outfile(record_fname);
         sched_ops.schedule_record_ostream = &outfile;
         if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
@@ -4114,8 +4832,10 @@ test_replay_limit()
         for (int i = 0; i < NUM_INPUTS; i++) {
             std::vector<scheduler_t::input_reader_t> readers;
             readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), BASE_TID + i);
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                BASE_TID + i);
             sched_inputs.emplace_back(std::move(readers));
             sched_inputs.back().thread_modifiers.push_back(
                 scheduler_t::input_thread_info_t(regions));
@@ -4124,7 +4844,7 @@ test_replay_limit()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/2);
+                                                   /*verbosity=*/0);
         zipfile_istream_t infile(record_fname);
         sched_ops.schedule_replay_istream = &infile;
         if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
@@ -4162,8 +4882,10 @@ test_replay_limit()
         for (int i = 0; i < NUM_INPUTS; i++) {
             std::vector<scheduler_t::input_reader_t> readers;
             readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), BASE_TID + i);
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                BASE_TID + i);
             sched_inputs.emplace_back(std::move(readers));
             sched_inputs.back().thread_modifiers.push_back(
                 scheduler_t::input_thread_info_t(regions));
@@ -4172,7 +4894,7 @@ test_replay_limit()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/2);
+                                                   /*verbosity=*/0);
         zipfile_ostream_t outfile(record_fname);
         sched_ops.schedule_record_ostream = &outfile;
         sched_ops.quantum_duration_instrs = NUM_INSTRS / 10;
@@ -4231,14 +4953,14 @@ test_replay_as_traced()
     std::vector<trace_entry_t> inputs[NUM_INPUTS];
     for (int i = 0; i < NUM_INPUTS; i++) {
         memref_tid_t tid = TID_BASE + i;
-        inputs[i].push_back(make_thread(tid));
-        inputs[i].push_back(make_pid(1));
+        inputs[i].push_back(test_util::make_thread(tid));
+        inputs[i].push_back(test_util::make_pid(1));
         // The last input will be earlier than all others. It will execute
         // 3 instrs on each core. This is to test the case when an output
         // begins in the wait state.
         for (int j = 0; j < (i == NUM_INPUTS - 1 ? 6 : NUM_INSTRS); j++)
-            inputs[i].push_back(make_instr(42 + j * 4));
-        inputs[i].push_back(make_exit(tid));
+            inputs[i].push_back(test_util::make_instr(42 + j * 4));
+        inputs[i].push_back(test_util::make_exit(tid));
     }
 
     // Synthesize a cpu-schedule file.
@@ -4284,14 +5006,17 @@ test_replay_as_traced()
     for (int i = 0; i < NUM_INPUTS; i++) {
         memref_tid_t tid = TID_BASE + i;
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(inputs[i])),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            tid);
         sched_inputs.emplace_back(std::move(readers));
     }
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_RECORDED_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+                                               /*verbosity=*/0);
     zipfile_istream_t infile(cpu_fname);
     sched_ops.replay_as_traced_istream = &infile;
     scheduler_t scheduler;
@@ -4334,71 +5059,150 @@ test_replay_as_traced_i6107_workaround()
     static constexpr uint64_t TIMESTAMP_BASE = 100;
     static constexpr int CPU = 6;
 
-    std::vector<trace_entry_t> inputs[NUM_INPUTS];
-    for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
-        memref_tid_t tid = TID_BASE + input_idx;
-        inputs[input_idx].push_back(make_thread(tid));
-        inputs[input_idx].push_back(make_pid(1));
-        for (int step_idx = 0; step_idx <= CHUNK_NUM_INSTRS / SCHED_STEP_INSTRS;
-             ++step_idx) {
-            inputs[input_idx].push_back(make_timestamp(101 + step_idx));
-            for (int instr_idx = 0; instr_idx < SCHED_STEP_INSTRS; ++instr_idx) {
-                inputs[input_idx].push_back(make_instr(42 + instr_idx));
-            }
-        }
-        inputs[input_idx].push_back(make_exit(tid));
-    }
-
-    // Synthesize a cpu-schedule file with the i#6107 bug.
-    // Interleave the two inputs to test handling that.
-    std::string cpu_fname = "tmp_test_cpu_i6107.zip";
     {
-        std::vector<schedule_entry_t> sched;
-        for (int step_idx = 0; step_idx <= CHUNK_NUM_INSTRS / SCHED_STEP_INSTRS;
-             ++step_idx) {
-            for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
-                sched.emplace_back(TID_BASE + input_idx, TIMESTAMP_BASE + step_idx, CPU,
-                                   // The bug has modulo chunk count as the count.
-                                   step_idx * SCHED_STEP_INSTRS % CHUNK_NUM_INSTRS);
+        std::vector<trace_entry_t> inputs[NUM_INPUTS];
+        for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
+            memref_tid_t tid = TID_BASE + input_idx;
+            inputs[input_idx].push_back(test_util::make_thread(tid));
+            inputs[input_idx].push_back(test_util::make_pid(1));
+            // Deliberately not inserting a version.
+            for (int step_idx = 0; step_idx <= CHUNK_NUM_INSTRS / SCHED_STEP_INSTRS;
+                 ++step_idx) {
+                inputs[input_idx].push_back(test_util::make_timestamp(101 + step_idx));
+                for (int instr_idx = 0; instr_idx < SCHED_STEP_INSTRS; ++instr_idx) {
+                    inputs[input_idx].push_back(test_util::make_instr(42 + instr_idx));
+                }
             }
+            inputs[input_idx].push_back(test_util::make_exit(tid));
         }
-        std::ostringstream cpu_string;
-        cpu_string << CPU;
-        zipfile_ostream_t outfile(cpu_fname);
-        std::string err = outfile.open_new_component(cpu_string.str());
-        assert(err.empty());
-        if (!outfile.write(reinterpret_cast<char *>(sched.data()),
-                           sched.size() * sizeof(sched[0])))
-            assert(false);
-    }
+        // Synthesize a cpu-schedule file with the i#6107 bug.
+        // Interleave the two inputs to test handling that.
+        std::string cpu_fname = "tmp_test_cpu_i6107.zip";
+        {
+            std::vector<schedule_entry_t> sched;
+            for (int step_idx = 0; step_idx <= CHUNK_NUM_INSTRS / SCHED_STEP_INSTRS;
+                 ++step_idx) {
+                for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
+                    sched.emplace_back(TID_BASE + input_idx, TIMESTAMP_BASE + step_idx,
+                                       CPU,
+                                       // The bug has modulo chunk count as the count.
+                                       step_idx * SCHED_STEP_INSTRS % CHUNK_NUM_INSTRS);
+                }
+            }
+            std::ostringstream cpu_string;
+            cpu_string << CPU;
+            zipfile_ostream_t outfile(cpu_fname);
+            std::string err = outfile.open_new_component(cpu_string.str());
+            assert(err.empty());
+            if (!outfile.write(reinterpret_cast<char *>(sched.data()),
+                               sched.size() * sizeof(sched[0])))
+                assert(false);
+        }
 
-    // Replay the recorded schedule.
-    std::vector<scheduler_t::input_workload_t> sched_inputs;
-    for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
-        memref_tid_t tid = TID_BASE + input_idx;
-        std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(
-            std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[input_idx])),
-            std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
-        sched_inputs.emplace_back(std::move(readers));
+        // Replay the recorded schedule.
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
+            memref_tid_t tid = TID_BASE + input_idx;
+            std::vector<scheduler_t::input_reader_t> readers;
+            readers.emplace_back(
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs[input_idx])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                tid);
+            sched_inputs.emplace_back(std::move(readers));
+        }
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_RECORDED_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/0);
+        zipfile_istream_t infile(cpu_fname);
+        sched_ops.replay_as_traced_istream = &infile;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        // Since it initialized we didn't get an invalid schedule order.
+        // Make sure the stream works too.
+        auto *stream = scheduler.get_stream(0);
+        memref_t memref;
+        for (scheduler_t::stream_status_t status = stream->next_record(memref);
+             status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+            assert(status == scheduler_t::STATUS_OK);
+        }
     }
-    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_RECORDED_OUTPUT,
-                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
-                                               scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/2);
-    zipfile_istream_t infile(cpu_fname);
-    sched_ops.replay_as_traced_istream = &infile;
-    scheduler_t scheduler;
-    if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
-        scheduler_t::STATUS_SUCCESS)
-        assert(false);
-    // Since it initialized we didn't get an invalid schedule order.
-    // Make sure the stream works too.
-    auto *stream = scheduler.get_stream(0);
-    memref_t memref;
-    for (scheduler_t::stream_status_t status = stream->next_record(memref);
-         status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
-        assert(status == scheduler_t::STATUS_OK);
+    {
+        // Now test identical timestamps, where the workaround would fail,
+        // except set a newer version number known to not have the bug.
+        std::vector<trace_entry_t> inputs[NUM_INPUTS];
+        for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
+            memref_tid_t tid = TID_BASE + input_idx;
+            inputs[input_idx].push_back(test_util::make_thread(tid));
+            inputs[input_idx].push_back(test_util::make_pid(1));
+            inputs[input_idx].push_back(
+                test_util::make_version(TRACE_ENTRY_VERSION_BRANCH_INFO));
+            for (int step_idx = 0; step_idx <= CHUNK_NUM_INSTRS / SCHED_STEP_INSTRS;
+                 ++step_idx) {
+                inputs[input_idx].push_back(test_util::make_timestamp(101 + step_idx));
+                for (int instr_idx = 0; instr_idx < SCHED_STEP_INSTRS; ++instr_idx) {
+                    inputs[input_idx].push_back(test_util::make_instr(42 + instr_idx));
+                }
+            }
+            inputs[input_idx].push_back(test_util::make_exit(tid));
+        }
+        std::string cpu_fname = "tmp_test_cpu_i6107_duptimes.zip";
+        {
+            std::vector<schedule_entry_t> sched;
+            for (int step_idx = 0; step_idx <= CHUNK_NUM_INSTRS / SCHED_STEP_INSTRS;
+                 ++step_idx) {
+                for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
+                    uint64_t timestamp = TIMESTAMP_BASE + step_idx;
+                    if (step_idx == 1 && input_idx == NUM_INPUTS - 1)
+                        --timestamp; // Duplicate the prior timstamp.
+                    sched.emplace_back(TID_BASE + input_idx, timestamp, CPU,
+                                       // There's no modulo bug.
+                                       step_idx * SCHED_STEP_INSTRS);
+                }
+            }
+            std::ostringstream cpu_string;
+            cpu_string << CPU;
+            zipfile_ostream_t outfile(cpu_fname);
+            std::string err = outfile.open_new_component(cpu_string.str());
+            assert(err.empty());
+            if (!outfile.write(reinterpret_cast<char *>(sched.data()),
+                               sched.size() * sizeof(sched[0])))
+                assert(false);
+        }
+
+        // Replay the recorded schedule.
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
+            memref_tid_t tid = TID_BASE + input_idx;
+            std::vector<scheduler_t::input_reader_t> readers;
+            readers.emplace_back(
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs[input_idx])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                tid);
+            sched_inputs.emplace_back(std::move(readers));
+        }
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_RECORDED_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/0);
+        zipfile_istream_t infile(cpu_fname);
+        sched_ops.replay_as_traced_istream = &infile;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        // Since it initialized we didn't get an invalid schedule order.
+        // Make sure the stream works too.
+        auto *stream = scheduler.get_stream(0);
+        memref_t memref;
+        for (scheduler_t::stream_status_t status = stream->next_record(memref);
+             status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+            assert(status == scheduler_t::STATUS_OK);
+        }
     }
 #endif
 }
@@ -4423,16 +5227,16 @@ test_replay_as_traced_dup_start()
     std::vector<trace_entry_t> inputs[NUM_INPUTS];
     for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
         memref_tid_t tid = TID_A + input_idx;
-        inputs[input_idx].push_back(make_thread(tid));
-        inputs[input_idx].push_back(make_pid(1));
+        inputs[input_idx].push_back(test_util::make_thread(tid));
+        inputs[input_idx].push_back(test_util::make_pid(1));
         // These timestamps do not line up with the schedule file but
         // that does not cause problems and leaving it this way
         // simplifies the testdata construction.
-        inputs[input_idx].push_back(make_timestamp(TIMESTAMP_BASE));
+        inputs[input_idx].push_back(test_util::make_timestamp(TIMESTAMP_BASE));
         for (int instr_idx = 0; instr_idx < NUM_INSTRS; ++instr_idx) {
-            inputs[input_idx].push_back(make_instr(42 + instr_idx));
+            inputs[input_idx].push_back(test_util::make_instr(42 + instr_idx));
         }
-        inputs[input_idx].push_back(make_exit(tid));
+        inputs[input_idx].push_back(test_util::make_exit(tid));
     }
 
     // Synthesize a cpu-schedule file with duplicate starts.
@@ -4476,14 +5280,16 @@ test_replay_as_traced_dup_start()
         memref_tid_t tid = TID_A + input_idx;
         std::vector<scheduler_t::input_reader_t> readers;
         readers.emplace_back(
-            std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[input_idx])),
-            std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(inputs[input_idx])),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            tid);
         sched_inputs.emplace_back(std::move(readers));
     }
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_RECORDED_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/4);
+                                               /*verbosity=*/0);
     zipfile_istream_t infile(cpu_fname);
     sched_ops.replay_as_traced_istream = &infile;
     scheduler_t scheduler;
@@ -4574,18 +5380,18 @@ test_replay_as_traced_sort()
     std::vector<trace_entry_t> inputs[NUM_INPUTS];
     for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
         memref_tid_t tid = TID_BASE + input_idx;
-        inputs[input_idx].push_back(make_thread(tid));
-        inputs[input_idx].push_back(make_pid(1));
+        inputs[input_idx].push_back(test_util::make_thread(tid));
+        inputs[input_idx].push_back(test_util::make_pid(1));
         // These timestamps do not line up with the schedule file but
         // that does not cause problems and leaving it this way
         // simplifies the testdata construction.
-        inputs[input_idx].push_back(make_timestamp(TIMESTAMP_BASE));
+        inputs[input_idx].push_back(test_util::make_timestamp(TIMESTAMP_BASE));
         inputs[input_idx].push_back(
-            make_marker(TRACE_MARKER_TYPE_CPU_ID, CPUIDS[input_idx]));
+            test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, CPUIDS[input_idx]));
         for (int instr_idx = 0; instr_idx < NUM_INSTRS; ++instr_idx) {
-            inputs[input_idx].push_back(make_instr(PC_BASE + instr_idx));
+            inputs[input_idx].push_back(test_util::make_instr(PC_BASE + instr_idx));
         }
-        inputs[input_idx].push_back(make_exit(tid));
+        inputs[input_idx].push_back(test_util::make_exit(tid));
     }
 
     // Synthesize a cpu-schedule file with unsorted entries (see CPUIDS above).
@@ -4610,14 +5416,17 @@ test_replay_as_traced_sort()
     for (int i = 0; i < NUM_INPUTS; i++) {
         memref_tid_t tid = TID_BASE + i;
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(inputs[i])),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            tid);
         sched_inputs.emplace_back(std::move(readers));
     }
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_RECORDED_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/4);
+                                               /*verbosity=*/0);
     zipfile_istream_t infile(cpu_fname);
     sched_ops.replay_as_traced_istream = &infile;
     scheduler_t scheduler;
@@ -4656,7 +5465,7 @@ test_replay_as_traced_from_file(const char *testdir)
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_RECORDED_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/2);
+                                               /*verbosity=*/0);
     std::cerr << "Reading cpu file " << cpu_file << "\n";
     zipfile_istream_t infile(cpu_file);
     sched_ops.replay_as_traced_istream = &infile;
@@ -4690,6 +5499,126 @@ Core #10: 872901 => 872905.*
 }
 
 static void
+test_replay_wrong_inputs()
+{
+#ifdef HAS_ZIP
+    std::cerr << "\n----------------\nTesting replay with the wrong inputs\n";
+    static constexpr int NUM_INPUTS = 2;
+    static constexpr int NUM_OUTPUTS = 1;
+    static constexpr int QUANTUM_INSTRS = 3;
+    static constexpr int NUM_INSTRS_A = 12;
+    static constexpr int NUM_INSTRS_B = 6;
+    static const char *const CORE0_SCHED_STRING = "AAABBBAAABBB.AAAAAA.";
+
+    static constexpr memref_tid_t TID_BASE = 100;
+    std::vector<trace_entry_t> inputs[NUM_INPUTS];
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        memref_tid_t tid = TID_BASE + i;
+        inputs[i].push_back(test_util::make_thread(tid));
+        inputs[i].push_back(test_util::make_pid(1));
+        for (int j = 0; j < (i == 0 ? NUM_INSTRS_A : NUM_INSTRS_B); j++)
+            inputs[i].push_back(test_util::make_instr(42 + j * 4));
+        inputs[i].push_back(test_util::make_exit(tid));
+    }
+    std::string record_fname = "tmp_test_replay_wrong.zip";
+
+    // Record.
+    {
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        for (int i = 0; i < NUM_INPUTS; ++i) {
+            memref_tid_t tid = TID_BASE + i;
+            std::vector<scheduler_t::input_reader_t> readers;
+            readers.emplace_back(
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                tid);
+            sched_inputs.emplace_back(std::move(readers));
+        }
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_IGNORE,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/0);
+        sched_ops.quantum_duration_instrs = QUANTUM_INSTRS;
+        sched_ops.migration_threshold_us = 0;
+        zipfile_ostream_t outfile(record_fname);
+        sched_ops.schedule_record_ostream = &outfile;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        assert(sched_as_string[0] == CORE0_SCHED_STRING);
+        if (scheduler.write_recorded_schedule() != scheduler_t::STATUS_SUCCESS)
+            assert(false);
+    }
+    {
+        replay_file_checker_t checker;
+        zipfile_istream_t infile(record_fname);
+        std::string res = checker.check(&infile);
+        if (!res.empty())
+            std::cerr << "replay file checker failed: " << res;
+        assert(res.empty());
+    }
+    // Now replay with the inputs reversed and make sure it doesn't hang.
+    {
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        for (int i = NUM_INPUTS - 1; i >= 0; --i) {
+            memref_tid_t tid = TID_BASE + i;
+            std::vector<scheduler_t::input_reader_t> readers;
+            readers.emplace_back(
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                tid);
+            sched_inputs.emplace_back(std::move(readers));
+        }
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
+                                                   scheduler_t::DEPENDENCY_IGNORE,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/0);
+        zipfile_istream_t infile(record_fname);
+        sched_ops.schedule_replay_istream = &infile;
+
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<scheduler_t::stream_t *> outputs(NUM_OUTPUTS, nullptr);
+        std::vector<bool> eof(NUM_OUTPUTS, false);
+        for (int i = 0; i < NUM_OUTPUTS; i++)
+            outputs[i] = scheduler.get_stream(i);
+        int num_eof = 0;
+        bool hit_error = false;
+        while (num_eof < NUM_OUTPUTS && !hit_error) {
+            for (int i = 0; i < NUM_OUTPUTS; i++) {
+                if (eof[i])
+                    continue;
+                memref_t memref;
+                scheduler_t::stream_status_t status = outputs[i]->next_record(memref);
+                if (status == scheduler_t::STATUS_EOF) {
+                    ++num_eof;
+                    eof[i] = true;
+                    continue;
+                } else if (status == scheduler_t::STATUS_WAIT ||
+                           status == scheduler_t::STATUS_IDLE) {
+                    continue;
+                } else if (status != scheduler_t::STATUS_OK) {
+                    hit_error = true;
+                    break;
+                }
+            }
+        }
+        assert(hit_error);
+    }
+#endif
+}
+
+static void
 test_times_of_interest()
 {
 #ifdef HAS_ZIP
@@ -4706,17 +5635,17 @@ test_times_of_interest()
     std::vector<trace_entry_t> inputs[NUM_INPUTS];
     for (int i = 0; i < NUM_INPUTS; ++i) {
         memref_tid_t tid = TID_BASE + i;
-        inputs[i].push_back(make_thread(tid));
-        inputs[i].push_back(make_pid(1));
+        inputs[i].push_back(test_util::make_thread(tid));
+        inputs[i].push_back(test_util::make_pid(1));
         for (int j = 0; j < NUM_TIMESTAMPS; ++j) {
             uint64_t timestamp = i == 2 ? (1 + 5 * (j + 1)) : (10 * (j + 1) + 10 * i);
-            inputs[i].push_back(make_timestamp(timestamp));
+            inputs[i].push_back(test_util::make_timestamp(timestamp));
             for (int k = 0; k < NUM_INSTRS_PER_TIMESTAMP; ++k) {
-                inputs[i].push_back(make_instr(PC_BASE + 1 /*1-based ranges*/ +
-                                               j * NUM_INSTRS_PER_TIMESTAMP + k));
+                inputs[i].push_back(test_util::make_instr(
+                    PC_BASE + 1 /*1-based ranges*/ + j * NUM_INSTRS_PER_TIMESTAMP + k));
             }
         }
-        inputs[i].push_back(make_exit(tid));
+        inputs[i].push_back(test_util::make_exit(tid));
     }
 
     // Synthesize a cpu-schedule file.
@@ -4762,8 +5691,10 @@ test_times_of_interest()
         for (int i = 0; i < NUM_INPUTS; i++) {
             memref_tid_t tid = TID_BASE + i;
             readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                tid);
         }
         sched_inputs.emplace_back(std::move(readers));
         // Pick times that have adjacent corresponding instructions: 30 and 32
@@ -4772,7 +5703,7 @@ test_times_of_interest()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         zipfile_istream_t infile(cpu_fname);
         sched_ops.replay_as_traced_istream = &infile;
         scheduler_t scheduler;
@@ -4786,15 +5717,17 @@ test_times_of_interest()
         for (int i = 0; i < NUM_INPUTS; i++) {
             memref_tid_t tid = TID_BASE + i;
             readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                tid);
         }
         sched_inputs.emplace_back(std::move(readers));
         sched_inputs.back().times_of_interest = { { 25, 30 }, { 38, 39 } };
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         zipfile_istream_t infile(cpu_fname);
         sched_ops.replay_as_traced_istream = &infile;
         scheduler_t scheduler;
@@ -4856,44 +5789,52 @@ test_inactive()
     static constexpr int NUM_OUTPUTS = 2;
     std::vector<trace_entry_t> refs_A = {
         /* clang-format off */
-        make_thread(TID_A),
-        make_pid(1),
-        make_version(TRACE_ENTRY_VERSION),
-        make_timestamp(10),
-        make_instr(10),
-        make_instr(30),
-        make_instr(50),
-        make_exit(TID_A),
+        test_util::make_thread(TID_A),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(10),
+        test_util::make_instr(10),
+        test_util::make_instr(30),
+        test_util::make_instr(50),
+        test_util::make_exit(TID_A),
         /* clang-format on */
     };
     std::vector<trace_entry_t> refs_B = {
         /* clang-format off */
-        make_thread(TID_B),
-        make_pid(1),
-        make_version(TRACE_ENTRY_VERSION),
-        make_timestamp(20),
-        make_instr(20),
-        make_instr(40),
-        make_instr(60),
-        make_instr(80),
-        make_exit(TID_B),
+        test_util::make_thread(TID_B),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(20),
+        test_util::make_instr(20),
+        test_util::make_instr(40),
+        test_util::make_instr(60),
+        test_util::make_instr(80),
+        test_util::make_exit(TID_B),
         /* clang-format on */
     };
     std::string record_fname = "tmp_test_replay_inactive.zip";
     {
         // Record.
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_B)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_B);
         scheduler_t scheduler;
         std::vector<scheduler_t::input_workload_t> sched_inputs;
         sched_inputs.emplace_back(std::move(readers));
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/4);
+                                                   /*verbosity=*/0);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
         sched_ops.quantum_duration_instrs = 2;
         zipfile_ostream_t outfile(record_fname);
         sched_ops.schedule_record_ostream = &outfile;
@@ -4994,17 +5935,23 @@ test_inactive()
     {
         // Replay.
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_B)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_B);
         scheduler_t scheduler;
         std::vector<scheduler_t::input_workload_t> sched_inputs;
         sched_inputs.emplace_back(std::move(readers));
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/4);
+                                                   /*verbosity=*/0);
         zipfile_istream_t infile(record_fname);
         sched_ops.schedule_replay_istream = &infile;
         if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
@@ -5022,7 +5969,7 @@ test_inactive()
 }
 
 static void
-test_direct_switch()
+test_direct_switch_base()
 {
     std::cerr << "\n----------------\nTesting direct switches\n";
     // This tests just direct switches with no unscheduled inputs or related
@@ -5038,73 +5985,82 @@ test_direct_switch()
     static constexpr memref_tid_t TID_B = TID_BASE + 1;
     static constexpr memref_tid_t TID_C = TID_BASE + 2;
     std::vector<trace_entry_t> refs_A = {
-        make_thread(TID_A),
-        make_pid(1),
-        make_version(TRACE_ENTRY_VERSION),
+        test_util::make_thread(TID_A),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
         // A has the earliest timestamp and starts.
-        make_timestamp(1001),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_instr(/*pc=*/101),
-        make_instr(/*pc=*/102),
-        make_timestamp(1002),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
-        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_timestamp(1001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(/*pc=*/101),
+        test_util::make_instr(/*pc=*/102),
+        test_util::make_timestamp(1002),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
         // This test focuses on direct only with nothing "unscheduled";
         // thus, we always provide a timeout to avoid going unscheduled.
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
-        make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_C),
-        make_timestamp(4001),
-        make_instr(/*pc=*/401),
-        make_exit(TID_A),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
+        test_util::make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_C),
+        test_util::make_timestamp(4001),
+        test_util::make_instr(/*pc=*/401),
+        test_util::make_exit(TID_A),
     };
     std::vector<trace_entry_t> refs_B = {
-        make_thread(TID_B),
-        make_pid(1),
-        make_version(TRACE_ENTRY_VERSION),
+        test_util::make_thread(TID_B),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
         // B would go next by timestamp, so this is a good test of direct switches.
-        make_timestamp(2001),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_instr(/*pc=*/201),
-        make_instr(/*pc=*/202),
-        make_instr(/*pc=*/203),
-        make_instr(/*pc=*/204),
-        make_exit(TID_B),
+        test_util::make_timestamp(2001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(/*pc=*/201),
+        test_util::make_instr(/*pc=*/202),
+        test_util::make_instr(/*pc=*/203),
+        test_util::make_instr(/*pc=*/204),
+        test_util::make_exit(TID_B),
     };
     std::vector<trace_entry_t> refs_C = {
-        make_thread(TID_C),
-        make_pid(1),
-        make_version(TRACE_ENTRY_VERSION),
-        make_timestamp(3001),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_instr(/*pc=*/301),
-        make_instr(/*pc=*/302),
-        make_timestamp(3002),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
-        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_thread(TID_C),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(3001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(/*pc=*/301),
+        test_util::make_instr(/*pc=*/302),
+        test_util::make_timestamp(3002),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
         // This test focuses on direct only with nothing "unscheduled";
         // thus, we always provide a timeout to avoid going unscheduled.
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
-        make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_A),
-        make_timestamp(5001),
-        make_instr(/*pc=*/501),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
+        test_util::make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_A),
+        test_util::make_timestamp(5001),
+        test_util::make_instr(/*pc=*/501),
         // Test a non-existent target: should be ignored, but not crash.
-        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
         // This test focuses on direct only with nothing "unscheduled".
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
-        make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_BASE + 3),
-        make_exit(TID_C),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
+        test_util::make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_BASE + 3),
+        test_util::make_exit(TID_C),
     };
     {
         // Test the defaults with direct switches enabled.
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_C)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_C);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_B)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_B);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_C)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_C);
         // The string constructor writes "." for markers.
         // We expect A's first switch to be to C even though B has an earlier timestamp.
         // We expect C's direct switch to A to proceed immediately even though A still
@@ -5117,7 +6073,7 @@ test_direct_switch()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         sched_ops.quantum_duration_us = QUANTUM_DURATION;
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
@@ -5142,12 +6098,21 @@ test_direct_switch()
     {
         // Test disabling direct switches.
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_C)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_C);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_B)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_B);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_C)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_C);
         // The string constructor writes "." for markers.
         // We expect A's first switch to be to B with an earlier timestamp.
         // We expect C's direct switch to A to not happen until A's blocked time ends.
@@ -5158,7 +6123,7 @@ test_direct_switch()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         sched_ops.quantum_duration_us = QUANTUM_DURATION;
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
@@ -5184,6 +6149,305 @@ test_direct_switch()
 }
 
 static void
+test_direct_switch_fallback()
+{
+    std::cerr << "\n----------------\nTesting direct switch fallback\n";
+    static constexpr int NUM_OUTPUTS = 2;
+    static constexpr int QUANTUM_DURATION = 100; // Never reached.
+    static constexpr int BLOCK_LATENCY = 100;
+    static constexpr int SWITCH_TIMEOUT = 200;
+    static constexpr double BLOCK_SCALE = 1. / (BLOCK_LATENCY);
+    static constexpr memref_tid_t TID_BASE = 100;
+    static constexpr memref_tid_t TID_A = TID_BASE + 0;
+    static constexpr memref_tid_t TID_B = TID_BASE + 1;
+    static constexpr memref_tid_t TID_C = TID_BASE + 2;
+    static constexpr memref_tid_t TID_D = TID_BASE + 3;
+    // The test scheme:
+    // A is on cpu0 and B is on cpu1.
+    // A tries to switch to B which should fail as B is running on cpu1;
+    // A will then do a regular local switch to C.
+    // C then direct-switches back to A who direct-switches to C who direct-switches
+    // once again back to A.
+    // B does an infinite wait, which should be skipped as we skip the next wait
+    // for a missed target.
+    // B then direct-switches to D who exits and so B runs again.
+    // Now A, B, C, and D are all in the target set.
+    // Now A tries to switch to B again which is running, so it should fall back
+    // to C (it's random but B is running and D has exited).
+    // Then B switches to C which is running so it should fall back to A.
+    std::vector<trace_entry_t> refs_A = {
+        test_util::make_thread(TID_A),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        // A has the earliest timestamp and starts.
+        test_util::make_timestamp(1001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(/*pc=*/101),
+        test_util::make_instr(/*pc=*/102),
+        test_util::make_timestamp(1002),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
+        test_util::make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_B),
+        test_util::make_timestamp(4001),
+        test_util::make_instr(/*pc=*/401),
+        test_util::make_timestamp(4001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
+        test_util::make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_C),
+        test_util::make_timestamp(8001),
+        test_util::make_instr(/*pc=*/401),
+        test_util::make_timestamp(8001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
+        test_util::make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_B),
+        test_util::make_timestamp(8001),
+        test_util::make_instr(/*pc=*/401),
+        test_util::make_instr(/*pc=*/401),
+        test_util::make_exit(TID_A),
+    };
+    std::vector<trace_entry_t> refs_B = {
+        test_util::make_thread(TID_B),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        // B would go next by timestamp, so this is a good test of direct switches.
+        test_util::make_timestamp(2001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(/*pc=*/201),
+        test_util::make_instr(/*pc=*/202),
+        test_util::make_instr(/*pc=*/203),
+        test_util::make_instr(/*pc=*/204),
+        test_util::make_instr(/*pc=*/205),
+        test_util::make_instr(/*pc=*/206),
+        test_util::make_instr(/*pc=*/207),
+        test_util::make_instr(/*pc=*/208),
+        test_util::make_instr(/*pc=*/201),
+        test_util::make_timestamp(2002),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        // A wait with no timeout, which should be skipped.
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
+        test_util::make_timestamp(2004),
+        test_util::make_instr(/*pc=*/202),
+        test_util::make_timestamp(2004),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
+        test_util::make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_D),
+        test_util::make_timestamp(2004),
+        test_util::make_instr(/*pc=*/202),
+        test_util::make_instr(/*pc=*/203),
+        test_util::make_instr(/*pc=*/204),
+        test_util::make_instr(/*pc=*/205),
+        test_util::make_instr(/*pc=*/206),
+        test_util::make_instr(/*pc=*/207),
+        test_util::make_instr(/*pc=*/208),
+        test_util::make_instr(/*pc=*/201),
+        test_util::make_instr(/*pc=*/202),
+        test_util::make_instr(/*pc=*/203),
+        test_util::make_instr(/*pc=*/204),
+        test_util::make_instr(/*pc=*/205),
+        test_util::make_timestamp(2004),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
+        test_util::make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_C),
+        test_util::make_timestamp(2004),
+        test_util::make_exit(TID_B),
+    };
+    std::vector<trace_entry_t> refs_C = {
+        test_util::make_thread(TID_C),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(3001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_timestamp(4001),
+        test_util::make_instr(/*pc=*/201),
+        test_util::make_timestamp(1002),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
+        test_util::make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_A),
+        test_util::make_timestamp(4001),
+        test_util::make_instr(/*pc=*/201),
+        test_util::make_timestamp(1002),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
+        test_util::make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_A),
+        test_util::make_timestamp(4001),
+        test_util::make_instr(/*pc=*/202),
+        test_util::make_instr(/*pc=*/203),
+        test_util::make_instr(/*pc=*/204),
+        test_util::make_instr(/*pc=*/205),
+        test_util::make_instr(/*pc=*/206),
+        test_util::make_instr(/*pc=*/207),
+        test_util::make_instr(/*pc=*/208),
+        test_util::make_instr(/*pc=*/209),
+        test_util::make_instr(/*pc=*/210),
+        test_util::make_exit(TID_C),
+    };
+    std::vector<trace_entry_t> refs_D = {
+        test_util::make_thread(TID_D),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(5001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(/*pc=*/301),
+        test_util::make_exit(TID_D),
+    };
+    {
+        // Test with fallback enabled.
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_B)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_B);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_C)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_C);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_D)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_D);
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/0);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
+        sched_ops.quantum_duration_us = QUANTUM_DURATION;
+        // We use our mock's time==instruction count for a deterministic result.
+        sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+        sched_ops.time_units_per_us = 1.;
+        sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
+        sched_ops.block_time_multiplier = BLOCK_SCALE;
+        sched_ops.direct_switch_fallbacks = true;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/true);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        // See the sequence description at the top of this function.
+        static const char *const CORE0_SCHED_STRING =
+            "...AA...........C.......A.......C.......A.......CCCCCCCCC.";
+        static const char *const CORE1_SCHED_STRING =
+            "...BBBBBBBBB......B..........D._BBBBBBBBBBBB........AA.___";
+        assert(sched_as_string[0] == CORE0_SCHED_STRING);
+        assert(sched_as_string[1] == CORE1_SCHED_STRING);
+        // Ensure we see 5 direct attempts and 4 successes and 0 migrations on core0.
+        verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/5,
+                               /*switch_input_to_idle=*/0, /*switch_idle_to_input=*/0,
+                               /*switch_nop=*/0, /*preempts=*/0, /*direct_attempts=*/5,
+                               /*direct_successes=*/4, /*migrations=*/0);
+        // Ensure we see 2/2 direct attempt and 1 migration on core1.
+        verify_scheduler_stats(scheduler.get_stream(1), /*switch_input_to_input=*/2,
+                               /*switch_input_to_idle=*/2, /*switch_idle_to_input=*/1,
+                               /*switch_nop=*/0, /*preempts=*/0, /*direct_attempts=*/2,
+                               /*direct_successes=*/2, /*migrations=*/1);
+    }
+    {
+        // Test the defaults.
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_B)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_B);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_C)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_C);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_D)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_D);
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/0);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
+        sched_ops.quantum_duration_us = QUANTUM_DURATION;
+        // We use our mock's time==instruction count for a deterministic result.
+        sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+        sched_ops.time_units_per_us = 1.;
+        sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
+        sched_ops.block_time_multiplier = BLOCK_SCALE;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/true);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        // See the fallback-enabled sequence described above.
+        // With defaults, the 2nd A on core0's switch attempt to B falls back
+        // to a regular local switch and with nothing to run the core goes idle
+        // until D is ready. Furthermore, B's switch to C ends up working.
+        static const char *const CORE0_SCHED_STRING =
+            "...AA...........C.......A.......C.......A......._CCCCCCCCC.AA.";
+        static const char *const CORE1_SCHED_STRING =
+            "...BBBBBBBBB......B..........D._BBBBBBBBBBBB........__________";
+        assert(sched_as_string[0] == CORE0_SCHED_STRING);
+        assert(sched_as_string[1] == CORE1_SCHED_STRING);
+        // Ensure we see 5 direct attempts and 3 successes and 0 migrations on core0.
+        verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/5,
+                               /*switch_input_to_idle=*/1, /*switch_idle_to_input=*/1,
+                               /*switch_nop=*/0, /*preempts=*/0, /*direct_attempts=*/5,
+                               /*direct_successes=*/3, /*migrations=*/0);
+        // Ensure we see 1/2 direct attempt and 0 migrations on core1.
+        verify_scheduler_stats(scheduler.get_stream(1), /*switch_input_to_input=*/1,
+                               /*switch_input_to_idle=*/2, /*switch_idle_to_input=*/1,
+                               /*switch_nop=*/0, /*preempts=*/0, /*direct_attempts=*/2,
+                               /*direct_successes=*/1, /*migrations=*/0);
+    }
+}
+
+static void
+test_direct_switch()
+{
+    test_direct_switch_base();
+    test_direct_switch_fallback();
+}
+
+static void
 test_unscheduled_base()
 {
     std::cerr << "\n----------------\nTesting unscheduled inputs\n";
@@ -5198,117 +6462,126 @@ test_unscheduled_base()
     static constexpr memref_tid_t TID_B = TID_BASE + 1;
     static constexpr memref_tid_t TID_C = TID_BASE + 2;
     std::vector<trace_entry_t> refs_A = {
-        make_thread(TID_A),
-        make_pid(1),
-        make_version(TRACE_ENTRY_VERSION),
+        test_util::make_thread(TID_A),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
         // A has the earliest timestamp and starts.
-        make_timestamp(1001),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_instr(/*pc=*/101),
-        make_instr(/*pc=*/102),
-        make_timestamp(1002),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
-        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_timestamp(1001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(/*pc=*/101),
+        test_util::make_instr(/*pc=*/102),
+        test_util::make_timestamp(1002),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
         // Test going unscheduled with no timeout.
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
-        make_timestamp(4202),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
+        test_util::make_timestamp(4202),
         // B makes us scheduled again.
-        make_instr(/*pc=*/103),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
-        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_instr(/*pc=*/103),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
         // Switch to B to test a direct switch to unscheduled.
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
-        make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_B),
-        make_timestamp(4402),
-        make_instr(/*pc=*/401),
-        make_exit(TID_A),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
+        test_util::make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_B),
+        test_util::make_timestamp(4402),
+        test_util::make_instr(/*pc=*/401),
+        test_util::make_exit(TID_A),
     };
     std::vector<trace_entry_t> refs_B = {
-        make_thread(TID_B),
-        make_pid(1),
-        make_version(TRACE_ENTRY_VERSION),
+        test_util::make_thread(TID_B),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
         // B runs next by timestamp.
-        make_timestamp(2001),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_instr(/*pc=*/200),
+        test_util::make_timestamp(2001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(/*pc=*/200),
         // B goes unscheduled with a timeout.
-        make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
-        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
         // C will run at this point.
         // Then, C blocks and our timeout lapses and we run again.
-        make_timestamp(4001),
-        make_instr(/*pc=*/201),
+        test_util::make_timestamp(4001),
+        test_util::make_instr(/*pc=*/201),
         // B tells C to not go unscheduled later.
-        make_timestamp(4002),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
-        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_SCHEDULE, TID_C),
-        make_timestamp(4004),
-        make_instr(/*pc=*/202),
+        test_util::make_timestamp(4002),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_SCHEDULE, TID_C),
+        test_util::make_timestamp(4004),
+        test_util::make_instr(/*pc=*/202),
         // B makes A no longer unscheduled.
-        make_timestamp(4006),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
-        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_SCHEDULE, TID_A),
-        make_timestamp(4011),
-        make_instr(/*pc=*/202),
+        test_util::make_timestamp(4006),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_SCHEDULE, TID_A),
+        test_util::make_timestamp(4011),
+        test_util::make_instr(/*pc=*/202),
         // B now goes unscheduled with no timeout.
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
-        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
         // A switches to us.
-        make_instr(/*pc=*/203),
-        make_instr(/*pc=*/204),
-        make_instr(/*pc=*/205),
-        make_instr(/*pc=*/206),
-        make_exit(TID_B),
+        test_util::make_instr(/*pc=*/203),
+        test_util::make_instr(/*pc=*/204),
+        test_util::make_instr(/*pc=*/205),
+        test_util::make_instr(/*pc=*/206),
+        test_util::make_exit(TID_B),
     };
     std::vector<trace_entry_t> refs_C = {
-        make_thread(TID_C),
-        make_pid(1),
-        make_version(TRACE_ENTRY_VERSION),
+        test_util::make_thread(TID_C),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
         // C goes 3rd by timestamp.
-        make_timestamp(3001),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_instr(/*pc=*/301),
-        make_instr(/*pc=*/302),
-        make_timestamp(3002),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_timestamp(3001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(/*pc=*/301),
+        test_util::make_instr(/*pc=*/302),
+        test_util::make_timestamp(3002),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
         // C makes a long-latency blocking syscall, testing whether
         // A is still unscheduled.
         // We also test _SCHEDULE avoiding a future unschedule when C
         // unblocks.
-        make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
-        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
-        make_timestamp(7002),
-        make_instr(/*pc=*/501),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_timestamp(7002),
+        test_util::make_instr(/*pc=*/501),
         // C asks to go unscheduled with no timeout, but a prior _SCHEDULE
         // means it just continues.
-        make_timestamp(7004),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
-        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
-        make_timestamp(7008),
-        make_instr(/*pc=*/502),
-        make_exit(TID_C),
+        test_util::make_timestamp(7004),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
+        test_util::make_timestamp(7008),
+        test_util::make_instr(/*pc=*/502),
+        test_util::make_exit(TID_C),
     };
     {
         // Test the defaults with direct switches enabled.
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_C)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_C);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_B)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_B);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_C)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_C);
         // The string constructor writes "." for markers.
         // Matching the comments above, we expect A to go unscheduled;
         // Then B runs and goes unscheduled-with-timeout; C takes over and blocks.
@@ -5326,7 +6599,7 @@ test_unscheduled_base()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         sched_ops.quantum_duration_us = QUANTUM_DURATION;
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
@@ -5347,12 +6620,21 @@ test_unscheduled_base()
     {
         // Test disabling direct switches.
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_C)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_C);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_B)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_B);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_C)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_C);
         // The syscall latencies make this schedule not all that different: we just
         // finish B instead of switching to A toward the end.
         static const char *const CORE0_SCHED_STRING =
@@ -5364,7 +6646,7 @@ test_unscheduled_base()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         sched_ops.quantum_duration_us = QUANTUM_DURATION;
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
@@ -5401,99 +6683,108 @@ test_unscheduled_fallback()
     static constexpr memref_tid_t TID_B = TID_BASE + 1;
     static constexpr memref_tid_t TID_C = TID_BASE + 2;
     std::vector<trace_entry_t> refs_A = {
-        make_thread(TID_A),
-        make_pid(1),
-        make_version(TRACE_ENTRY_VERSION),
+        test_util::make_thread(TID_A),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
         // A has the earliest timestamp and starts.
-        make_timestamp(1001),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_instr(/*pc=*/101),
-        make_instr(/*pc=*/102),
-        make_timestamp(1002),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
-        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_timestamp(1001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(/*pc=*/101),
+        test_util::make_instr(/*pc=*/102),
+        test_util::make_timestamp(1002),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
         // Test going unscheduled with no timeout.
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
-        make_timestamp(4202),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
+        test_util::make_timestamp(4202),
         // B makes us scheduled again.
-        make_instr(/*pc=*/102),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
-        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_instr(/*pc=*/102),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
         // Switch to a missing thread to leave us unscheduled; B also went
         // unscheduled, leaving nothing scheduled, to test hang workarounds.
-        make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_BASE + 4),
-        make_timestamp(4402),
+        test_util::make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_BASE + 4),
+        test_util::make_timestamp(4402),
         // We won't get here until the no-scheduled-input hang workaround.
-        make_instr(/*pc=*/401),
-        make_exit(TID_A),
+        test_util::make_instr(/*pc=*/401),
+        test_util::make_exit(TID_A),
     };
     std::vector<trace_entry_t> refs_B = {
-        make_thread(TID_B),
-        make_pid(1),
-        make_version(TRACE_ENTRY_VERSION),
+        test_util::make_thread(TID_B),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
         // B runs next by timestamp.
-        make_timestamp(2001),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_instr(/*pc=*/200),
+        test_util::make_timestamp(2001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(/*pc=*/200),
         // B goes unscheduled with a timeout.
-        make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
-        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
         // C will run at this point.
         // Then, C blocks and our timeout lapses and we run again.
-        make_timestamp(4001),
-        make_instr(/*pc=*/201),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_timestamp(4001),
+        test_util::make_instr(/*pc=*/201),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
         // B makes A no longer unscheduled.
-        make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
-        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_SCHEDULE, TID_A),
-        make_timestamp(4011),
-        make_instr(/*pc=*/202),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_SCHEDULE, TID_A),
+        test_util::make_timestamp(4011),
+        test_util::make_instr(/*pc=*/202),
         // B now goes unscheduled with no timeout.
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
-        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
         // We won't get here until the hang workaround.
-        make_instr(/*pc=*/203),
-        make_instr(/*pc=*/204),
-        make_instr(/*pc=*/205),
-        make_instr(/*pc=*/206),
-        make_exit(TID_B),
+        test_util::make_instr(/*pc=*/203),
+        test_util::make_instr(/*pc=*/204),
+        test_util::make_instr(/*pc=*/205),
+        test_util::make_instr(/*pc=*/206),
+        test_util::make_exit(TID_B),
     };
     std::vector<trace_entry_t> refs_C = {
-        make_thread(TID_C),
-        make_pid(1),
-        make_version(TRACE_ENTRY_VERSION),
+        test_util::make_thread(TID_C),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
         // C goes 3rd by timestamp.
-        make_timestamp(3001),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_instr(/*pc=*/301),
-        make_instr(/*pc=*/302),
-        make_timestamp(3002),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_timestamp(3001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(/*pc=*/301),
+        test_util::make_instr(/*pc=*/302),
+        test_util::make_timestamp(3002),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
         // C makes a long-latency blocking syscall, testing whether
         // A is still unscheduled.
-        make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
-        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
-        make_timestamp(7002),
-        make_instr(/*pc=*/501),
-        make_exit(TID_C),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_timestamp(7002),
+        test_util::make_instr(/*pc=*/501),
+        test_util::make_exit(TID_C),
     };
     {
         // Test with direct switches enabled and infinite timeouts.
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_C)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_C);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_B)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_B);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_C)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_C);
         // This looks like the schedule in test_unscheduled() up until "..A.." when
         // we have an idle period equal to the rebalance_period from the start
         // (so BLOCK_TIME_MAX minus what was run).
@@ -5512,7 +6803,7 @@ test_unscheduled_fallback()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         sched_ops.quantum_duration_us = QUANTUM_DURATION;
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
@@ -5536,12 +6827,21 @@ test_unscheduled_fallback()
     {
         // Test disabling infinite timeouts.
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_C)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_C);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_B)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_B);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_C)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_C);
         // Here we see much shorter idle time before A and B finish.
         static const char *const CORE0_SCHED_STRING =
             "...AA.........B........CC.....__A....._____A._________B......B...._____BBBB."
@@ -5552,7 +6852,7 @@ test_unscheduled_fallback()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         sched_ops.quantum_duration_us = QUANTUM_DURATION;
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
@@ -5576,12 +6876,21 @@ test_unscheduled_fallback()
     {
         // Test disabling direct switches.
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_C)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_C);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_B)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_B);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_C)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_C);
         // This result is identical to the one in test_unscheduled().
         static const char *const CORE0_SCHED_STRING =
             "...AA.........B........CC.....__________________B......B....BBBB._____A....."
@@ -5592,7 +6901,7 @@ test_unscheduled_fallback()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         sched_ops.quantum_duration_us = QUANTUM_DURATION;
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
@@ -5627,50 +6936,56 @@ test_unscheduled_initially()
     static constexpr memref_tid_t TID_A = TID_BASE + 0;
     static constexpr memref_tid_t TID_B = TID_BASE + 1;
     std::vector<trace_entry_t> refs_A = {
-        make_thread(TID_A),
-        make_pid(1),
-        make_version(TRACE_ENTRY_VERSION),
+        test_util::make_thread(TID_A),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
         // A has the earliest timestamp and would start.
-        make_timestamp(1001),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_timestamp(1001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
         // A starts out unscheduled though.
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
-        make_timestamp(4202),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
+        test_util::make_timestamp(4202),
         // B makes us scheduled again.
-        make_instr(/*pc=*/102),
-        make_exit(TID_A),
+        test_util::make_instr(/*pc=*/102),
+        test_util::make_exit(TID_A),
     };
     std::vector<trace_entry_t> refs_B = {
-        make_thread(TID_B),
-        make_pid(1),
-        make_version(TRACE_ENTRY_VERSION),
+        test_util::make_thread(TID_B),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
         // B runs 2nd by timestamp.
-        make_timestamp(3001),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_instr(/*pc=*/200),
-        make_timestamp(3002),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_timestamp(3001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(/*pc=*/200),
+        test_util::make_timestamp(3002),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
         // B makes a long-latency blocking syscall, testing whether
         // A is really unscheduled.
-        make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
-        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
-        make_timestamp(7002),
-        make_instr(/*pc=*/201),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_timestamp(7002),
+        test_util::make_instr(/*pc=*/201),
         // B makes A no longer unscheduled.
-        make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
-        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_SCHEDULE, TID_A),
-        make_timestamp(7021),
-        make_instr(/*pc=*/202),
-        make_exit(TID_B),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_SCHEDULE, TID_A),
+        test_util::make_timestamp(7021),
+        test_util::make_instr(/*pc=*/202),
+        test_util::make_exit(TID_B),
     };
     {
         // Test with infinite timeouts and direct switches enabled.
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_B)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_B);
         // We have an idle period while B is blocked and A unscheduled.
         static const char *const CORE0_SCHED_STRING =
             "...B.....________________________________________B....B......A.";
@@ -5680,7 +6995,7 @@ test_unscheduled_initially()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.time_units_per_us = 1.;
         sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
@@ -5701,10 +7016,16 @@ test_unscheduled_initially()
     {
         // Test without infinite timeouts.
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_B)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_B);
         // We have a medium idle period before A becomes schedulable.
         static const char *const CORE0_SCHED_STRING =
             "...B....._____.....A.__________________________________B....B.";
@@ -5714,7 +7035,7 @@ test_unscheduled_initially()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.time_units_per_us = 1.;
         sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
@@ -5735,10 +7056,16 @@ test_unscheduled_initially()
     {
         // Test disabling direct switches.
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_B)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_B);
         // A runs first as it being unscheduled is ignored.
         static const char *const CORE0_SCHED_STRING =
             ".....A....B.....________________________________________B....B.";
@@ -5748,7 +7075,7 @@ test_unscheduled_initially()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.time_units_per_us = 1.;
@@ -5780,37 +7107,37 @@ test_unscheduled_initially_roi()
     static constexpr memref_tid_t TID_A = TID_BASE + 0;
     static constexpr memref_tid_t TID_B = TID_BASE + 1;
     std::vector<trace_entry_t> refs_A = {
-        make_thread(TID_A),
-        make_pid(1),
-        make_version(TRACE_ENTRY_VERSION),
-        make_timestamp(1001),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_thread(TID_A),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(1001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
         // A starts out unscheduled but we skip that.
         // (In a real trace some other thread would have to wake up A:
         // we omit that here to keep the test small.)
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
-        make_timestamp(4202),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_instr(/*pc=*/101),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
+        test_util::make_timestamp(4202),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(/*pc=*/101),
         // We don't actually start until here.
-        make_instr(/*pc=*/102),
-        make_instr(/*pc=*/103),
-        make_exit(TID_A),
+        test_util::make_instr(/*pc=*/102),
+        test_util::make_instr(/*pc=*/103),
+        test_util::make_exit(TID_A),
     };
     std::vector<trace_entry_t> refs_B = {
-        make_thread(TID_B),
-        make_pid(1),
-        make_version(TRACE_ENTRY_VERSION),
-        make_timestamp(3001),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_instr(/*pc=*/201),
-        make_timestamp(4001),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_instr(/*pc=*/202),
+        test_util::make_thread(TID_B),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(3001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(/*pc=*/201),
+        test_util::make_timestamp(4001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(/*pc=*/202),
         // B starts here, with a lower last timestamp than A.
-        make_instr(/*pc=*/203),
-        make_instr(/*pc=*/204),
-        make_exit(TID_B),
+        test_util::make_instr(/*pc=*/203),
+        test_util::make_instr(/*pc=*/204),
+        test_util::make_exit(TID_B),
     };
     // Instr counts are 1-based.
     std::vector<scheduler_t::range_t> regions_A;
@@ -5825,10 +7152,16 @@ test_unscheduled_initially_roi()
     {
         // Record.
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_B)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_B);
         std::vector<scheduler_t::input_workload_t> sched_inputs;
         sched_inputs.emplace_back(std::move(readers));
         sched_inputs.back().thread_modifiers.push_back(
@@ -5838,7 +7171,7 @@ test_unscheduled_initially_roi()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/4);
+                                                   /*verbosity=*/0);
         zipfile_ostream_t outfile(record_fname);
         sched_ops.schedule_record_ostream = &outfile;
         scheduler_t scheduler;
@@ -5865,17 +7198,23 @@ test_unscheduled_initially_roi()
     {
         // Test replay as it has complexities with skip records.
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_B)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_B);
         std::vector<scheduler_t::input_workload_t> sched_inputs;
         sched_inputs.emplace_back(std::move(readers));
         // The regions are ignored on replay so we do not specify them.
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/4);
+                                                   /*verbosity=*/0);
         zipfile_istream_t infile(record_fname);
         sched_ops.schedule_replay_istream = &infile;
         scheduler_t scheduler;
@@ -5912,46 +7251,48 @@ test_unscheduled_initially_rebalance()
         if (i == 0) {
             // Just one input is runnable.
             refs[i] = {
-                make_thread(TID_BASE + i),
-                make_pid(1),
-                make_version(TRACE_ENTRY_VERSION),
+                test_util::make_thread(TID_BASE + i),
+                test_util::make_pid(1),
+                test_util::make_version(TRACE_ENTRY_VERSION),
                 // Runs last by timestamp.
-                make_timestamp(3001),
-                make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-                make_instr(/*pc=*/200),
-                make_timestamp(3002),
-                make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+                test_util::make_timestamp(3001),
+                test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+                test_util::make_instr(/*pc=*/200),
+                test_util::make_timestamp(3002),
+                test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
                 // Makes a long-latency blocking syscall, testing whether
                 // the other threads are really unscheduled.
-                make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
-                make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
-                make_timestamp(7002),
-                make_instr(/*pc=*/201),
-                make_exit(TID_BASE + i),
+                test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+                test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+                test_util::make_timestamp(7002),
+                test_util::make_instr(/*pc=*/201),
+                test_util::make_exit(TID_BASE + i),
             };
         } else {
             // The rest start unscheduled.
             refs[i] = {
-                make_thread(TID_BASE + i),
-                make_pid(1),
-                make_version(TRACE_ENTRY_VERSION),
+                test_util::make_thread(TID_BASE + i),
+                test_util::make_pid(1),
+                test_util::make_version(TRACE_ENTRY_VERSION),
                 // These have the earliest timestamp and would start.
-                make_timestamp(1001 + i),
-                make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+                test_util::make_timestamp(1001 + i),
+                test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
                 // They start out unscheduled though.  We don't set
                 // honor_infinite_timeouts so this will eventually run.
-                make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
-                make_timestamp(4202),
-                make_instr(/*pc=*/102),
-                make_exit(TID_BASE + i),
+                test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
+                test_util::make_timestamp(4202),
+                test_util::make_instr(/*pc=*/102),
+                test_util::make_exit(TID_BASE + i),
             };
         }
     }
     std::vector<scheduler_t::input_reader_t> readers;
     for (int i = 0; i < NUM_INPUTS; ++i) {
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs[i])),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()),
-                             TID_BASE + i);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs[i])),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_BASE + i);
     }
     // We need the initial runqueue assignment to be unbalanced.
     // We achieve that by using input bindings.
@@ -5970,7 +7311,9 @@ test_unscheduled_initially_rebalance()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+                                               /*verbosity=*/0);
+    // Use a round-robin layout for simpler deterministic testing.
+    sched_ops.random_initial_layout = -1;
     sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
     sched_ops.time_units_per_us = 1.;
     sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
@@ -6013,26 +7356,29 @@ test_unscheduled_small_timeout()
     static constexpr double BLOCK_SCALE = 0.1;
     static constexpr memref_tid_t TID_A = 100;
     std::vector<trace_entry_t> refs_A = {
-        make_thread(TID_A),
-        make_pid(1),
-        make_version(TRACE_ENTRY_VERSION),
-        make_timestamp(1001),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_instr(/*pc=*/101),
-        make_timestamp(1002),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
-        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, UNSCHEDULE_TIMEOUT),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
-        make_timestamp(2002),
-        make_instr(/*pc=*/102),
-        make_exit(TID_A),
+        test_util::make_thread(TID_A),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(1001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(/*pc=*/101),
+        test_util::make_timestamp(1002),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, UNSCHEDULE_TIMEOUT),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
+        test_util::make_timestamp(2002),
+        test_util::make_instr(/*pc=*/102),
+        test_util::make_exit(TID_A),
     };
     {
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
         static const char *const CORE0_SCHED_STRING = "...A......._A.";
 
         std::vector<scheduler_t::input_workload_t> sched_inputs;
@@ -6040,7 +7386,7 @@ test_unscheduled_small_timeout()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.time_units_per_us = 1.;
@@ -6069,27 +7415,30 @@ test_unscheduled_no_alternative()
     static constexpr uint64_t BLOCK_TIME_MAX = 200;
     static constexpr memref_tid_t TID_A = 100;
     std::vector<trace_entry_t> refs_A = {
-        make_thread(TID_A),
-        make_pid(1),
-        make_version(TRACE_ENTRY_VERSION),
-        make_timestamp(1001),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_instr(/*pc=*/101),
-        make_timestamp(1002),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
-        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_thread(TID_A),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(1001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(/*pc=*/101),
+        test_util::make_timestamp(1002),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
         // No timeout means infinite (until the fallback kicks in).
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
-        make_timestamp(2002),
-        make_instr(/*pc=*/102),
-        make_exit(TID_A),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
+        test_util::make_timestamp(2002),
+        test_util::make_instr(/*pc=*/102),
+        test_util::make_exit(TID_A),
     };
     {
         // Test infinite timeouts.
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
         static const char *const CORE0_SCHED_STRING =
             "...A......__________________________________________________A.";
 
@@ -6098,7 +7447,7 @@ test_unscheduled_no_alternative()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.time_units_per_us = 1.;
@@ -6119,8 +7468,11 @@ test_unscheduled_no_alternative()
     {
         // Test finite timeouts.
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
         static const char *const CORE0_SCHED_STRING = "...A......____________________A.";
 
         std::vector<scheduler_t::input_workload_t> sched_inputs;
@@ -6128,13 +7480,106 @@ test_unscheduled_no_alternative()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.time_units_per_us = 1.;
         sched_ops.rebalance_period_us = REBALANCE_PERIOD_US;
         sched_ops.block_time_max_us = BLOCK_TIME_MAX;
         sched_ops.honor_infinite_timeouts = false;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_A, /*send_time=*/true);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        assert(sched_as_string[0] == CORE0_SCHED_STRING);
+    }
+}
+
+static void
+test_unscheduled_latency()
+{
+    // Test the ignore_low_latency_unsched option.
+    std::cerr << "\n----------------\nTesting ignore_low_latency_unsched\n";
+    static constexpr int NUM_OUTPUTS = 1;
+    static constexpr int UNSCHEDULE_TIMEOUT = 8;
+    static constexpr double BLOCK_SCALE = 1.;
+    static constexpr uint64_t BLOCK_THRESHOLD = 500;
+    static constexpr memref_tid_t TID_A = 100;
+    std::vector<trace_entry_t> refs_A = {
+        test_util::make_thread(TID_A),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(1001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(/*pc=*/101),
+        test_util::make_timestamp(1002),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, UNSCHEDULE_TIMEOUT),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
+        test_util::make_timestamp(1002 + BLOCK_THRESHOLD - 1),
+        test_util::make_instr(/*pc=*/102),
+        test_util::make_exit(TID_A),
+    };
+    {
+        // Test defaults.
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        // The unschedule request should result in UNSCHEDULE_TIMEOUT==8
+        // underscores as it blocks.
+        static const char *const CORE0_SCHED_STRING = "...A.......________A.";
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/0);
+        sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+        sched_ops.blocking_switch_threshold = BLOCK_THRESHOLD;
+        sched_ops.time_units_per_us = 1.;
+        sched_ops.block_time_multiplier = BLOCK_SCALE;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_A, /*send_time=*/true);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        assert(sched_as_string[0] == CORE0_SCHED_STRING);
+    }
+    {
+        // Test ignore_low_latency_unsched.
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        // The unschedule request should be ignored, so no underscores.
+        static const char *const CORE0_SCHED_STRING = "...A.......A.";
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/0);
+        sched_ops.ignore_low_latency_unsched = true;
+        sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+        sched_ops.blocking_switch_threshold = BLOCK_THRESHOLD;
+        sched_ops.time_units_per_us = 1.;
+        sched_ops.block_time_multiplier = BLOCK_SCALE;
         scheduler_t scheduler;
         if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
             scheduler_t::STATUS_SUCCESS)
@@ -6158,6 +7603,7 @@ test_unscheduled()
     test_unscheduled_initially_rebalance();
     test_unscheduled_small_timeout();
     test_unscheduled_no_alternative();
+    test_unscheduled_latency();
 }
 
 static std::vector<std::string>
@@ -6182,6 +7628,10 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
     std::vector<bool> in_syscall(num_outputs, false);
     std::vector<uint64> prev_in_ord(num_outputs, 0);
     std::vector<uint64> prev_out_ord(num_outputs, 0);
+    std::vector<uint64_t> last_next_trace_pc(num_outputs, 0);
+    for (int i = 0; i < num_outputs; ++i) {
+        last_next_trace_pc[i] = outputs[i]->get_next_trace_pc();
+    }
     while (num_eof < num_outputs) {
         for (int i = 0; i < num_outputs; i++) {
             if (eof[i])
@@ -6204,12 +7654,44 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
                 continue;
             }
             assert(status == scheduler_t::STATUS_OK);
+
+            // Tests for get_next_trace_pc().
+            uint64_t pc;
+            if (
+                // We expect the returned next trace pc to change when the decision to
+                // inject a syscall or switch trace is made.
+                // XXX: Could we avoid this and do some read-ahead so we can provide the
+                // actual next pc when returning the prior user-space instr? Perhaps
+                // doable for syscalls but not so easy for context switches as that
+                // would mean moving up the context switch decision to happen earlier
+                // than when it needs to be made.
+                (memref.marker.type == TRACE_TYPE_MARKER &&
+                 (memref.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_START ||
+                  memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL)) ||
+                // If we're not doing switch injection, then we'd see an abrupt change
+                // when the input switches.
+                (for_syscall_seq && prev_tid[i] != memref.instr.tid)) {
+                last_next_trace_pc[i] = outputs[i]->get_next_trace_pc();
+            } else if (scheduler_impl_t::record_type_has_pc(memref, pc)) {
+                assert(last_next_trace_pc[i] == pc);
+                last_next_trace_pc[i] = outputs[i]->get_next_trace_pc();
+            } else {
+                assert(last_next_trace_pc[i] == outputs[i]->get_next_trace_pc());
+            }
+
+            // Ensure stream API and the trace records are consistent.
+            assert(outputs[i]->get_input_interface()->get_tid() == IDLE_THREAD_ID ||
+                   outputs[i]->get_input_interface()->get_tid() ==
+                       tid_from_memref_tid(memref.instr.tid));
+            assert(outputs[i]->get_input_interface()->get_workload_id() == INVALID_PID ||
+                   outputs[i]->get_input_interface()->get_workload_id() ==
+                       workload_from_memref_tid(memref.instr.tid));
             refs[i].push_back(memref);
             if (memref.instr.tid != prev_tid[i]) {
                 if (!sched_as_string[i].empty())
                     sched_as_string[i] += ',';
-                sched_as_string[i] +=
-                    'A' + static_cast<char>(memref.instr.tid - tid_base);
+                sched_as_string[i] += 'A' +
+                    static_cast<char>(tid_from_memref_tid(memref.instr.tid) - tid_base);
             }
             if (memref.marker.type == TRACE_TYPE_MARKER) {
                 if (memref.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_START)
@@ -6236,20 +7718,28 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
                             TRACE_MARKER_TYPE_CONTEXT_SWITCH_START));
                 assert(outputs[i]->get_record_ordinal() > prev_out_ord[i]);
             } else if (in_syscall[i]) {
+                bool is_trace_start = memref.marker.type == TRACE_TYPE_MARKER &&
+                    memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_START;
+                bool is_trace_end = memref.marker.type == TRACE_TYPE_MARKER &&
+                    memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END;
                 // Test that syscall code is marked synthetic.
                 assert(outputs[i]->is_record_synthetic());
                 // Test that it's marked as kernel, unless it's the end marker.
-                assert(
-                    outputs[i]->is_record_kernel() ||
-                    (memref.marker.type == TRACE_TYPE_MARKER &&
-                     memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END));
+                assert(outputs[i]->is_record_kernel() || is_trace_end);
                 // Test that dynamically injected syscall code doesn't count toward
                 // input ordinals, but does toward output ordinals.
                 assert(outputs[i]->get_input_interface()->get_record_ordinal() ==
-                       prev_in_ord[i]);
+                           prev_in_ord[i] ||
+                       // We readahead by one record to decide when to inject the
+                       // syscall trace, so the input interface record ordinal will
+                       // be advanced by one at trace start.
+                       is_trace_start);
                 assert(outputs[i]->get_record_ordinal() > prev_out_ord[i]);
             } else
                 assert(!outputs[i]->is_record_synthetic());
+            assert(outputs[i]->get_tid() == tid_from_memref_tid(memref.instr.tid) &&
+                   outputs[i]->get_input_workload_ordinal() ==
+                       workload_from_memref_tid(memref.instr.tid));
             if (type_is_instr(memref.instr.type))
                 sched_as_string[i] += 'i';
             else if (memref.marker.type == TRACE_TYPE_MARKER) {
@@ -6261,14 +7751,19 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
                     in_switch[i] = false;
                     ANNOTATE_FALLTHROUGH;
                 case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START:
-                    if (memref.marker.marker_value == scheduler_t::SWITCH_PROCESS)
+                    if (memref.marker.marker_value == switch_type_t::SWITCH_PROCESS)
                         sched_as_string[i] += 'p';
-                    else if (memref.marker.marker_value == scheduler_t::SWITCH_THREAD)
+                    else if (memref.marker.marker_value == switch_type_t::SWITCH_THREAD)
                         sched_as_string[i] += 't';
                     else
                         assert(false && "unknown context switch type");
                     break;
-                case TRACE_MARKER_TYPE_SYSCALL: sched_as_string[i] += 's'; break;
+                case TRACE_MARKER_TYPE_FUNC_ID:
+                case TRACE_MARKER_TYPE_FUNC_ARG:
+                case TRACE_MARKER_TYPE_FUNC_RETVAL: sched_as_string[i] += 'F'; break;
+                case TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL:
+                case TRACE_MARKER_TYPE_SYSCALL_FAILED: sched_as_string[i] += 's'; break;
+                case TRACE_MARKER_TYPE_SYSCALL: sched_as_string[i] += 'S'; break;
                 case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
                     in_syscall[i] = false;
                     ANNOTATE_FALLTHROUGH;
@@ -6276,7 +7771,19 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
                     sched_as_string[i] += '1' +
                         static_cast<char>(memref.marker.marker_value - syscall_base);
                     break;
+                case TRACE_MARKER_TYPE_KERNEL_EVENT:
+                case TRACE_MARKER_TYPE_KERNEL_XFER: sched_as_string[i] += 'k'; break;
                 default: sched_as_string[i] += '?'; break;
+                }
+                // A context switch should happen only at the context_switch_start marker.
+                // TODO i#7495: Add invariant checks that ensure this property for
+                // core-sharded-on-disk traces. This would need moving the synthetic
+                // tid-pid markers before the injected switch trace.
+                if (memref.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_START) {
+                    assert(prev_tid[i] != tid_from_memref_tid(memref.instr.tid));
+                } else {
+                    assert(for_syscall_seq || prev_tid[i] == INVALID_THREAD_ID ||
+                           prev_tid[i] == memref.instr.tid);
                 }
             }
             prev_tid[i] = memref.instr.tid;
@@ -6291,42 +7798,8 @@ static void
 test_kernel_switch_sequences()
 {
     std::cerr << "\n----------------\nTesting kernel switch sequences\n";
-    static constexpr memref_tid_t TID_IN_SWITCHES = 1;
-    static constexpr addr_t PROCESS_SWITCH_PC_START = 0xfeed101;
-    static constexpr addr_t THREAD_SWITCH_PC_START = 0xcafe101;
-    static constexpr uint64_t PROCESS_SWITCH_TIMESTAMP = 12345678;
-    static constexpr uint64_t THREAD_SWITCH_TIMESTAMP = 87654321;
-    std::vector<trace_entry_t> switch_sequence = {
-        /* clang-format off */
-        make_header(TRACE_ENTRY_VERSION),
-        make_thread(TID_IN_SWITCHES),
-        make_pid(TID_IN_SWITCHES),
-        make_version(TRACE_ENTRY_VERSION),
-        make_marker(TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, scheduler_t::SWITCH_PROCESS),
-        make_timestamp(PROCESS_SWITCH_TIMESTAMP),
-        make_instr(PROCESS_SWITCH_PC_START),
-        make_instr(PROCESS_SWITCH_PC_START + 1),
-        make_marker(TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, scheduler_t::SWITCH_PROCESS),
-        make_exit(TID_IN_SWITCHES),
-        make_footer(),
-        // Test a complete trace after the first one, which is how we plan to store
-        // these in an archive file.
-        make_header(TRACE_ENTRY_VERSION),
-        make_thread(TID_IN_SWITCHES),
-        make_pid(TID_IN_SWITCHES),
-        make_version(TRACE_ENTRY_VERSION),
-        make_marker(TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, scheduler_t::SWITCH_THREAD),
-        make_timestamp(THREAD_SWITCH_TIMESTAMP),
-        make_instr(THREAD_SWITCH_PC_START),
-        make_instr(THREAD_SWITCH_PC_START+1),
-        make_marker(TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, scheduler_t::SWITCH_THREAD),
-        make_exit(TID_IN_SWITCHES),
-        make_footer(),
-        /* clang-format on */
-    };
-    auto switch_reader =
-        std::unique_ptr<mock_reader_t>(new mock_reader_t(switch_sequence));
-    auto switch_reader_end = std::unique_ptr<mock_reader_t>(new mock_reader_t());
+    std::vector<trace_entry_t> switch_sequence =
+        get_mock_switch_sequence(TRACE_ENTRY_VERSION);
     static constexpr int NUM_WORKLOADS = 3;
     static constexpr int NUM_INPUTS_PER_WORKLOAD = 3;
     static constexpr int NUM_OUTPUTS = 2;
@@ -6334,140 +7807,344 @@ test_kernel_switch_sequences()
     static constexpr int INSTR_QUANTUM = 3;
     static constexpr uint64_t TIMESTAMP = 44226688;
     static constexpr memref_tid_t TID_BASE = 100;
+    static constexpr int TID_MULTIPLIER = 100;
+    static constexpr int INSTR_BASE = 42;
+    static constexpr uint64_t THREAD_3_INSTR_1_PC =
+        (TID_BASE + 2) * TID_MULTIPLIER + INSTR_BASE;
+    static constexpr uint64_t THREAD_5_INSTR_1_PC =
+        (TID_BASE + 4) * TID_MULTIPLIER + INSTR_BASE;
+    static constexpr uint64_t THREAD_7_INSTR_1_PC =
+        (TID_BASE + 6) * TID_MULTIPLIER + INSTR_BASE;
+    static constexpr trace_marker_type_t NO_MARKER = TRACE_MARKER_TYPE_RESERVED_END;
+    static constexpr uintptr_t NO_VAL = 0;
     std::vector<scheduler_t::input_workload_t> sched_inputs;
+    std::vector<record_scheduler_t::input_workload_t> sched_record_inputs;
+
     for (int workload_idx = 0; workload_idx < NUM_WORKLOADS; workload_idx++) {
         std::vector<scheduler_t::input_reader_t> readers;
+        std::vector<record_scheduler_t::input_reader_t> record_readers;
         for (int input_idx = 0; input_idx < NUM_INPUTS_PER_WORKLOAD; input_idx++) {
             std::vector<trace_entry_t> inputs;
-            inputs.push_back(make_header(TRACE_ENTRY_VERSION));
+            inputs.push_back(test_util::make_header(TRACE_ENTRY_VERSION));
             memref_tid_t tid =
                 TID_BASE + workload_idx * NUM_INPUTS_PER_WORKLOAD + input_idx;
-            inputs.push_back(make_thread(tid));
-            inputs.push_back(make_pid(1));
-            inputs.push_back(make_version(TRACE_ENTRY_VERSION));
-            inputs.push_back(make_timestamp(TIMESTAMP));
+            inputs.push_back(test_util::make_thread(tid));
+            inputs.push_back(test_util::make_pid(1));
+            inputs.push_back(test_util::make_version(TRACE_ENTRY_VERSION));
+            inputs.push_back(test_util::make_timestamp(TIMESTAMP));
             for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
-                inputs.push_back(make_instr(42 + instr_idx * 4));
+                inputs.push_back(test_util::make_instr(static_cast<addr_t>(
+                    tid * TID_MULTIPLIER + INSTR_BASE + instr_idx * 4)));
             }
-            inputs.push_back(make_exit(tid));
+            inputs.push_back(test_util::make_exit(tid));
+
             readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs)),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                tid);
+            record_readers.emplace_back(std::unique_ptr<test_util::mock_record_reader_t>(
+                                            new test_util::mock_record_reader_t(inputs)),
+                                        std::unique_ptr<test_util::mock_record_reader_t>(
+                                            new test_util::mock_record_reader_t()),
+                                        tid);
         }
         sched_inputs.emplace_back(std::move(readers));
+        sched_record_inputs.emplace_back(std::move(record_readers));
     }
-    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
-                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
-                                               scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
-    sched_ops.quantum_duration_instrs = INSTR_QUANTUM;
-    sched_ops.kernel_switch_reader = std::move(switch_reader);
-    sched_ops.kernel_switch_reader_end = std::move(switch_reader_end);
-    scheduler_t scheduler;
-    if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
-        scheduler_t::STATUS_SUCCESS)
-        assert(false);
-
-    std::vector<std::vector<memref_t>> refs;
-    std::vector<std::string> sched_as_string =
-        run_lockstep_simulation_for_kernel_seq(scheduler, NUM_OUTPUTS, TID_BASE, 0, refs,
-                                               /*for_syscall_seq=*/false);
-    // Check the high-level strings.
-    for (int i = 0; i < NUM_OUTPUTS; i++) {
-        std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
-    }
-    assert(sched_as_string[0] ==
-           "Av0iii,Ct0iitv0iii,Ep0iipv0iii,Gp0iipv0iii,It0iitv0iii,Ap0iipiii,Ct0iitiii,"
-           "Ep0iipiii,Gp0iipiii,It0iitiii,Ap0iipiii,Ct0iitiii,Ep0iipiii,Gp0iipiii,"
-           "It0iitiii");
-    assert(
-        sched_as_string[1] ==
-        "Bv0iii,Dp0iipv0iii,Ft0iitv0iii,Hp0iipv0iii,Bp0iipiii,Dp0iipiii,Ft0iitiii,"
-        "Hp0iipiii,Bp0iipiii,Dp0iipiii,Ft0iitiii,Hp0iipiii___________________________");
-
-    // Zoom in and check the first sequence record by record with value checks.
-    int idx = 0;
-    bool res = true;
-    memref_tid_t workload1_tid1_final =
-        (1ULL << MEMREF_ID_WORKLOAD_SHIFT) | (TID_BASE + 4);
-    res = res &&
-        check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
-        check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
-                  TIMESTAMP) &&
-        check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
-        // Thread switch.
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
-                  TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, scheduler_t::SWITCH_THREAD) &&
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
-                  // Verify that the timestamp is updated.
-                  TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
-                  TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, scheduler_t::SWITCH_THREAD) &&
-        // We now see the headers for this thread.
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
-                  TRACE_MARKER_TYPE_VERSION) &&
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
-                  TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
-        // The 3-instr quantum should not count the 2 switch instrs.
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
-        // Process switch.
-        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
-                  TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, scheduler_t::SWITCH_PROCESS) &&
-        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
-                  // Verify that the timestamp is updated.
-                  TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
-        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
-                  TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, scheduler_t::SWITCH_PROCESS) &&
-        // We now see the headers for this thread.
-        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
-                  TRACE_MARKER_TYPE_VERSION) &&
-        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
-                  TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
-        // The 3-instr quantum should not count the 2 switch instrs.
-        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR);
-    assert(res);
-
     {
+        auto switch_reader = std::unique_ptr<test_util::mock_reader_t>(
+            new test_util::mock_reader_t(switch_sequence));
+        auto switch_reader_end =
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t());
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/0);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
+        sched_ops.quantum_duration_instrs = INSTR_QUANTUM;
+        sched_ops.kernel_switch_reader = std::move(switch_reader);
+        sched_ops.kernel_switch_reader_end = std::move(switch_reader_end);
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+
+        std::vector<std::vector<memref_t>> refs;
+        std::vector<std::string> sched_as_string = run_lockstep_simulation_for_kernel_seq(
+            scheduler, NUM_OUTPUTS, TID_BASE, 0, refs,
+            /*for_syscall_seq=*/false);
+        // Check the high-level strings.
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        assert(sched_as_string[0] ==
+               "Av0iii,Ctiitv0iii,Epiipv0iii,Gpiipv0iii,Itiitv0iii,Apiipiii,Ctiitiii,"
+               "Epiipiii,Gpiipiii,Itiitiii,Apiipiii,Ctiitiii,Epiipiii,Gpiipiii,"
+               "Itiitiii");
+        assert(sched_as_string[1] ==
+               "Bv0iii,Dpiipv0iii,Ftiitv0iii,Hpiipv0iii,Bpiipiii,Dpiipiii,Ftiitiii,"
+               "Hpiipiii,Bpiipiii,Dpiipiii,Ftiitiii,Hpiipiii________________________");
+        // Zoom in and check the first sequence record by record with value checks.
+        int idx = 0;
+        bool res = true;
+        memref_tid_t workload1_tid1_final =
+            (1ULL << MEMREF_ID_WORKLOAD_SHIFT) | (TID_BASE + 4);
+        res = res &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_VERSION) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
+            // Thread switch.
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+                      switch_type_t::SWITCH_THREAD) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR_INDIRECT_JUMP,
+                      TRACE_MARKER_TYPE_RESERVED_END,
+                      // Points to the 1st instruction in thread 3.
+                      static_cast<uintptr_t>(THREAD_3_INSTR_1_PC)) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
+                      switch_type_t::SWITCH_THREAD) &&
+            // We now see the headers for this thread.
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_VERSION) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
+            // The 3-instr quantum should not count the 2 switch instrs.
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR, NO_MARKER, NO_VAL,
+                      THREAD_3_INSTR_1_PC) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
+            // Process switch.
+            check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+                      switch_type_t::SWITCH_PROCESS) &&
+            check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR_INDIRECT_JUMP,
+                      TRACE_MARKER_TYPE_RESERVED_END,
+                      // Points to the 1th instr in thread 5.
+                      static_cast<uintptr_t>(THREAD_5_INSTR_1_PC)) &&
+            check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
+                      switch_type_t::SWITCH_PROCESS) &&
+            // We now see the headers for this thread.
+            check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_VERSION) &&
+            check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
+            // The 3-instr quantum should not count the 2 switch instrs.
+            check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR, NO_MARKER,
+                      NO_VAL, THREAD_5_INSTR_1_PC) &&
+            check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR);
+        assert(res);
+    }
+    {
+        auto switch_reader = std::unique_ptr<test_util::mock_record_reader_t>(
+            new test_util::mock_record_reader_t(switch_sequence));
+        auto switch_reader_end = std::unique_ptr<test_util::mock_record_reader_t>(
+            new test_util::mock_record_reader_t());
+        record_scheduler_t scheduler;
+
+        record_scheduler_t::scheduler_options_t sched_ops(
+            record_scheduler_t::MAP_TO_ANY_OUTPUT,
+            record_scheduler_t::DEPENDENCY_TIMESTAMPS,
+            record_scheduler_t::SCHEDULER_DEFAULTS,
+            /*verbosity=*/0);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
+        sched_ops.quantum_duration_instrs = INSTR_QUANTUM;
+        sched_ops.kernel_switch_reader = std::move(switch_reader);
+        sched_ops.kernel_switch_reader_end = std::move(switch_reader_end);
+        if (scheduler.init(sched_record_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            record_scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        auto *stream0 = scheduler.get_stream(0);
+        auto check_next = [](record_scheduler_t::stream_t *stream,
+                             record_scheduler_t::stream_status_t expect_status,
+                             trace_type_t expect_type = TRACE_TYPE_MARKER,
+                             addr_t expect_addr = 0, addr_t expect_size = 0) {
+            trace_entry_t record;
+            record_scheduler_t::stream_status_t status = stream->next_record(record);
+            assert(status == expect_status);
+            if (status == record_scheduler_t::STATUS_OK) {
+                if (record.type != expect_type) {
+                    std::cerr << "Expected type " << expect_type << " != " << record.type
+                              << "\n";
+                    assert(false);
+                }
+                if (expect_size != 0 && record.size != expect_size) {
+                    std::cerr << "Expected size " << expect_size << " != " << record.size
+                              << "\n";
+                    assert(false);
+                }
+                if (expect_addr != 0 && record.addr != expect_addr) {
+                    std::cerr << "Expected addr " << expect_addr << " != " << record.addr
+                              << "\n";
+                    assert(false);
+                }
+            }
+        };
+
+        // cpu0 at TID_BASE.
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_HEADER);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD, TID_BASE);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, 1);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 0,
+                   TRACE_MARKER_TYPE_VERSION);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 0,
+                   TRACE_MARKER_TYPE_TIMESTAMP);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+        assert(stream0->get_instruction_ordinal() == 3);
+        assert(stream0->get_input_interface()->get_instruction_ordinal() == 3);
+        // The synthetic TRACE_TYPE_THREAD and TRACE_TYPE_PID for the new
+        // input before the injected context switch trace. This allows identifying
+        // the injected context switch sequence records with the new input's
+        // tid/pid, like what the stream APIs do.
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD,
+                   TID_BASE + 2);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, 1);
+        // Injected context switch sequence.
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 1,
+                   TRACE_MARKER_TYPE_CONTEXT_SWITCH_START);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER,
+                   THREAD_3_INSTR_1_PC, TRACE_MARKER_TYPE_BRANCH_TARGET);
+        check_next(stream0, record_scheduler_t::STATUS_OK,
+                   TRACE_TYPE_INSTR_INDIRECT_JUMP);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 1,
+                   TRACE_MARKER_TYPE_CONTEXT_SWITCH_END);
+
+        // cpu0 at TID_BASE+2.
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_HEADER);
+        // Original tid-pid entries from the input.
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD,
+                   TID_BASE + 2);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, 1);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 0,
+                   TRACE_MARKER_TYPE_VERSION);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 0,
+                   TRACE_MARKER_TYPE_TIMESTAMP);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR,
+                   THREAD_3_INSTR_1_PC);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+        assert(stream0->get_instruction_ordinal() == 8);
+        assert(stream0->get_input_interface()->get_instruction_ordinal() == 3);
+        // Synthetic tid-pid records.
+        check_next(
+            stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD,
+            static_cast<addr_t>((1ULL << MEMREF_ID_WORKLOAD_SHIFT) | (TID_BASE + 4)));
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID,
+                   static_cast<addr_t>((1ULL << MEMREF_ID_WORKLOAD_SHIFT) | 1));
+        // Injected context switch sequence.
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 2,
+                   TRACE_MARKER_TYPE_CONTEXT_SWITCH_START);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER,
+                   THREAD_5_INSTR_1_PC, TRACE_MARKER_TYPE_BRANCH_TARGET);
+        check_next(stream0, record_scheduler_t::STATUS_OK,
+                   TRACE_TYPE_INSTR_INDIRECT_JUMP);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 2,
+                   TRACE_MARKER_TYPE_CONTEXT_SWITCH_END);
+        // cpu0 at TID_BASE+4.
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_HEADER);
+        // Original tid-pid records from the input.
+        check_next(
+            stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD,
+            static_cast<addr_t>((1ULL << MEMREF_ID_WORKLOAD_SHIFT) | (TID_BASE + 4)));
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID,
+                   static_cast<addr_t>((1ULL << MEMREF_ID_WORKLOAD_SHIFT) | 1));
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 0,
+                   TRACE_MARKER_TYPE_VERSION);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 0,
+                   TRACE_MARKER_TYPE_TIMESTAMP);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR,
+                   THREAD_5_INSTR_1_PC);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+        assert(stream0->get_instruction_ordinal() == 13);
+        assert(stream0->get_input_interface()->get_instruction_ordinal() == 3);
+
+        // Synthetic tid-pid records.
+        check_next(
+            stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD,
+            static_cast<addr_t>((2ULL << MEMREF_ID_WORKLOAD_SHIFT) | (TID_BASE + 6)));
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID,
+                   static_cast<addr_t>((2ULL << MEMREF_ID_WORKLOAD_SHIFT) | 1));
+        // Injected context switch sequence.
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 2,
+                   TRACE_MARKER_TYPE_CONTEXT_SWITCH_START);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER,
+                   THREAD_7_INSTR_1_PC, TRACE_MARKER_TYPE_BRANCH_TARGET);
+        check_next(stream0, record_scheduler_t::STATUS_OK,
+                   TRACE_TYPE_INSTR_INDIRECT_JUMP);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 2,
+                   TRACE_MARKER_TYPE_CONTEXT_SWITCH_END);
+        // cpu0 at TID_BASE+6.
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_HEADER);
+        // Original tid-pid records from the input.
+        check_next(
+            stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD,
+            static_cast<addr_t>((2ULL << MEMREF_ID_WORKLOAD_SHIFT) | (TID_BASE + 6)));
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID,
+                   static_cast<addr_t>((2ULL << MEMREF_ID_WORKLOAD_SHIFT) | 1));
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 0,
+                   TRACE_MARKER_TYPE_VERSION);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 0,
+                   TRACE_MARKER_TYPE_TIMESTAMP);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR,
+                   THREAD_7_INSTR_1_PC);
+    }
+    {
+        static constexpr memref_tid_t TID_IN_SWITCHES = 1;
+        constexpr addr_t PROCESS_SWITCH_PC_START = 0xfeed101;
         // Test a bad input sequence.
         std::vector<trace_entry_t> bad_switch_sequence = {
             /* clang-format off */
-        make_header(TRACE_ENTRY_VERSION),
-        make_thread(TID_IN_SWITCHES),
-        make_pid(TID_IN_SWITCHES),
-        make_marker(TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, scheduler_t::SWITCH_PROCESS),
-        make_instr(PROCESS_SWITCH_PC_START),
-        make_marker(TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, scheduler_t::SWITCH_PROCESS),
-        make_footer(),
-        make_header(TRACE_ENTRY_VERSION),
-        make_thread(TID_IN_SWITCHES),
-        make_pid(TID_IN_SWITCHES),
+        test_util::make_header(TRACE_ENTRY_VERSION),
+        test_util::make_thread(TID_IN_SWITCHES),
+        test_util::make_pid(TID_IN_SWITCHES),
+        test_util::make_marker(
+            TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, switch_type_t::SWITCH_PROCESS),
+        test_util::make_instr(PROCESS_SWITCH_PC_START),
+        test_util::make_marker(
+            TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, switch_type_t::SWITCH_PROCESS),
+        test_util::make_footer(),
+        test_util::make_header(TRACE_ENTRY_VERSION),
+        test_util::make_thread(TID_IN_SWITCHES),
+        test_util::make_pid(TID_IN_SWITCHES),
         // Error: duplicate type.
-        make_marker(TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, scheduler_t::SWITCH_PROCESS),
-        make_instr(PROCESS_SWITCH_PC_START),
-        make_marker(TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, scheduler_t::SWITCH_PROCESS),
-        make_footer(),
+        test_util::make_marker(
+            TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, switch_type_t::SWITCH_PROCESS),
+        test_util::make_instr(PROCESS_SWITCH_PC_START),
+        test_util::make_marker(
+            TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, switch_type_t::SWITCH_PROCESS),
+        test_util::make_footer(),
             /* clang-format on */
         };
-        auto bad_switch_reader =
-            std::unique_ptr<mock_reader_t>(new mock_reader_t(bad_switch_sequence));
-        auto bad_switch_reader_end = std::unique_ptr<mock_reader_t>(new mock_reader_t());
+        auto bad_switch_reader = std::unique_ptr<test_util::mock_reader_t>(
+            new test_util::mock_reader_t(bad_switch_sequence));
+        auto bad_switch_reader_end =
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t());
         std::vector<scheduler_t::input_workload_t> test_sched_inputs;
         std::vector<scheduler_t::input_reader_t> readers;
         std::vector<trace_entry_t> inputs;
-        inputs.push_back(make_header(TRACE_ENTRY_VERSION));
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()),
-                             TID_BASE);
+        inputs.push_back(test_util::make_header(TRACE_ENTRY_VERSION));
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(inputs)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_BASE);
         test_sched_inputs.emplace_back(std::move(readers));
         scheduler_t::scheduler_options_t test_sched_ops(
             scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_TIMESTAMPS,
@@ -6480,79 +8157,245 @@ test_kernel_switch_sequences()
             scheduler_t::STATUS_ERROR_INVALID_PARAMETER)
             assert(false);
     }
+    {
+        // Missing version test.
+        std::vector<trace_entry_t> old_switch_sequence =
+            get_mock_switch_sequence(TRACE_ENTRY_VERSION - 1);
+        std::vector<scheduler_t::input_reader_t> readers;
+        for (int workload_idx = 0; workload_idx < NUM_WORKLOADS; workload_idx++) {
+            std::vector<trace_entry_t> inputs;
+            inputs.push_back(test_util::make_header(TRACE_ENTRY_VERSION));
+            memref_tid_t tid = TID_BASE + workload_idx;
+            inputs.push_back(test_util::make_thread(tid));
+            inputs.push_back(test_util::make_pid(1));
+            inputs.push_back(test_util::make_version(TRACE_ENTRY_VERSION));
+            inputs.push_back(test_util::make_timestamp(TIMESTAMP));
+            for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
+                inputs.push_back(
+                    test_util::make_instr(static_cast<addr_t>(tid + instr_idx)));
+            }
+            inputs.push_back(test_util::make_exit(tid));
+            readers.emplace_back(
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs)),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                tid);
+        }
+        std::vector<scheduler_t::input_workload_t> inputs;
+        inputs.emplace_back(std::move(readers));
+        auto switch_reader = std::unique_ptr<test_util::mock_reader_t>(
+            new test_util::mock_reader_t(old_switch_sequence));
+        auto switch_reader_end =
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t());
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/0);
+        sched_ops.quantum_duration_instrs = INSTR_QUANTUM;
+        sched_ops.kernel_switch_reader = std::move(switch_reader);
+        sched_ops.kernel_switch_reader_end = std::move(switch_reader_end);
+        scheduler_t scheduler;
+        if (scheduler.init(inputs, 1, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        scheduler_t::stream_t *stream = scheduler.get_stream(0);
+        memref_t memref;
+        scheduler_t::stream_status_t status = stream->next_record(memref);
+        for (; status == scheduler_t::STATUS_OK || status == scheduler_t::STATUS_IDLE;
+             status = stream->next_record(memref)) {
+        }
+        assert(status == scheduler_t::STATUS_MISSING_TEMPLATE);
+    }
+    {
+        // Multi-version test.
+        std::vector<trace_entry_t> old_switch =
+            get_mock_switch_sequence(TRACE_ENTRY_VERSION - 1);
+        std::vector<trace_entry_t> new_switch =
+            get_mock_switch_sequence(TRACE_ENTRY_VERSION);
+        std::vector<trace_entry_t> multi_switch;
+        multi_switch.reserve(old_switch.size() + new_switch.size());
+        multi_switch.insert(multi_switch.end(), old_switch.begin(), old_switch.end());
+        multi_switch.insert(multi_switch.end(), new_switch.begin(), new_switch.end());
+        std::vector<scheduler_t::input_reader_t> readers;
+        for (int workload_idx = 0; workload_idx < NUM_WORKLOADS; workload_idx++) {
+            std::vector<trace_entry_t> inputs;
+            int version =
+                workload_idx % 2 == 0 ? TRACE_ENTRY_VERSION : TRACE_ENTRY_VERSION - 1;
+            inputs.push_back(test_util::make_header(version));
+            memref_tid_t tid = TID_BASE + workload_idx;
+            inputs.push_back(test_util::make_thread(tid));
+            inputs.push_back(test_util::make_pid(1));
+            inputs.push_back(test_util::make_version(version));
+            inputs.push_back(test_util::make_timestamp(TIMESTAMP));
+            for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
+                inputs.push_back(
+                    test_util::make_instr(static_cast<addr_t>(tid + instr_idx)));
+            }
+            inputs.push_back(test_util::make_exit(tid));
+            readers.emplace_back(
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs)),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                tid);
+        }
+        std::vector<scheduler_t::input_workload_t> inputs;
+        inputs.emplace_back(std::move(readers));
+        auto switch_reader = std::unique_ptr<test_util::mock_reader_t>(
+            new test_util::mock_reader_t(multi_switch));
+        auto switch_reader_end =
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t());
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/0);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
+        sched_ops.quantum_duration_instrs = INSTR_QUANTUM;
+        sched_ops.kernel_switch_reader = std::move(switch_reader);
+        sched_ops.kernel_switch_reader_end = std::move(switch_reader_end);
+        scheduler_t scheduler;
+        if (scheduler.init(inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::vector<memref_t>> refs;
+        std::vector<std::string> sched_as_string = run_lockstep_simulation_for_kernel_seq(
+            scheduler, NUM_OUTPUTS, TID_BASE, 0, refs,
+            /*for_syscall_seq=*/false);
+        // Check the high-level strings.
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        assert(sched_as_string[0] ==
+               "Av0iii,Ctiitv0iii,Atiitiii,Ctiitiii,Atiitiii,Ctiitiii");
+        assert(sched_as_string[1] == "Bv0iiiiiiiii________________________________");
+    }
 }
 
 static void
 test_kernel_syscall_sequences()
 {
     std::cerr << "\n----------------\nTesting kernel syscall sequences\n";
-    static constexpr memref_tid_t TID_IN_SYSCALLS = 1;
     static constexpr int SYSCALL_BASE = 42;
-    static constexpr addr_t SYSCALL_PC_START = 0xfeed101;
     static constexpr int NUM_OUTPUTS = 2;
     static constexpr memref_tid_t TID_BASE = 100;
     static constexpr offline_file_type_t FILE_TYPE =
         offline_file_type_t::OFFLINE_FILE_TYPE_SYSCALL_NUMBERS;
     {
-        std::vector<trace_entry_t> syscall_sequence = {
-            /* clang-format off */
-            make_header(TRACE_ENTRY_VERSION),
-            make_thread(TID_IN_SYSCALLS),
-            make_pid(TID_IN_SYSCALLS),
-            make_version(TRACE_ENTRY_VERSION),
-            make_timestamp(0),
-            make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_BASE),
-            make_instr(SYSCALL_PC_START),
-            make_instr(SYSCALL_PC_START + 1),
-            make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE),
-            // XXX: Currently all syscall traces are concatenated. We may change
-            // this to use an archive file instead.
-            make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_BASE + 1),
-            make_instr(SYSCALL_PC_START + 10),
-            make_instr(SYSCALL_PC_START + 11),
-            make_instr(SYSCALL_PC_START + 12),
-            make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE + 1),
-            make_exit(TID_IN_SYSCALLS),
-            make_footer(),
-            /* clang-format on */
-        };
-        auto syscall_reader =
-            std::unique_ptr<mock_reader_t>(new mock_reader_t(syscall_sequence));
-        auto syscall_reader_end = std::unique_ptr<mock_reader_t>(new mock_reader_t());
+        std::vector<trace_entry_t> syscall_sequence =
+            get_mock_syscall_sequence(TRACE_ENTRY_VERSION, SYSCALL_BASE);
+        auto syscall_reader = std::unique_ptr<test_util::mock_reader_t>(
+            new test_util::mock_reader_t(syscall_sequence));
+        auto syscall_reader_end =
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t());
         static constexpr int NUM_INPUTS = 3;
         static constexpr int NUM_INSTRS = 9;
         static constexpr int INSTR_QUANTUM = 3;
         static constexpr uint64_t TIMESTAMP = 44226688;
+        static constexpr uint64_t SIGNAL_INT_PC = 0xdecafbad;
+        static constexpr int TID_MULTIPLIER = 42;
+        static constexpr uint64_t THREAD_1_INSTR_2_PC = TID_MULTIPLIER * TID_BASE + 1 * 4;
+        static constexpr uint64_t THREAD_1_INSTR_4_PC = TID_MULTIPLIER * TID_BASE + 3 * 4;
+        static constexpr uint64_t THREAD_3_INSTR_2_PC =
+            TID_MULTIPLIER * (TID_BASE + 2) + 1 * 4;
+        static constexpr trace_marker_type_t NO_MARKER = TRACE_MARKER_TYPE_RESERVED_END;
+        static constexpr uintptr_t NO_VAL = 0;
         std::vector<scheduler_t::input_workload_t> sched_inputs;
         std::vector<scheduler_t::input_reader_t> readers;
         for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
             std::vector<trace_entry_t> inputs;
-            inputs.push_back(make_header(TRACE_ENTRY_VERSION));
+            inputs.push_back(test_util::make_header(TRACE_ENTRY_VERSION));
             memref_tid_t tid = TID_BASE + input_idx;
-            inputs.push_back(make_thread(tid));
-            inputs.push_back(make_pid(1));
-            inputs.push_back(make_version(TRACE_ENTRY_VERSION));
+            inputs.push_back(test_util::make_thread(tid));
+            inputs.push_back(test_util::make_pid(1));
+            inputs.push_back(test_util::make_version(TRACE_ENTRY_VERSION));
             inputs.push_back(
                 // Just a non-zero filetype.
-                make_marker(TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE));
-            inputs.push_back(make_timestamp(TIMESTAMP));
+                test_util::make_marker(TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE));
+            inputs.push_back(test_util::make_timestamp(TIMESTAMP));
             for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
-                inputs.push_back(make_instr(42 + instr_idx * 4));
+                inputs.push_back(test_util::make_instr(
+                    static_cast<addr_t>(TID_MULTIPLIER * tid + instr_idx * 4),
+                    TRACE_TYPE_INSTR,
+                    /*size=*/4));
+                // Every other instr is a syscall.
                 if (instr_idx % 2 == 0) {
-                    inputs.push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL,
-                                                 SYSCALL_BASE + (instr_idx / 2) % 2));
+                    // The markers after the syscall instr are supposed to be bracketed
+                    // by timestamp markers.
+                    bool add_post_timestamp = true;
+                    inputs.push_back(test_util::make_timestamp(TIMESTAMP + instr_idx));
+                    inputs.push_back(test_util::make_marker(
+                        // We specify syscall_num = SYSCALL_BASE + {0, 1, or 2}.
+                        // SYSCALL_BASE+2 does not have a trace specified by our test
+                        // template file, so will use the default one.
+                        TRACE_MARKER_TYPE_SYSCALL, SYSCALL_BASE + (instr_idx / 2) % 3));
+                    // Every other syscall is a blocking syscall.
+                    if (instr_idx % 4 == 0) {
+                        inputs.push_back(test_util::make_marker(
+                            TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, /*value=*/0));
+                    }
+                    if (instr_idx == 0) {
+                        // Assuming the first syscall was specified in -record_syscall,
+                        // so we'll have additional markers.
+                        inputs.push_back(test_util::make_marker(
+                            TRACE_MARKER_TYPE_FUNC_ID,
+                            static_cast<uintptr_t>(
+                                func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
+                                SYSCALL_BASE));
+                        inputs.push_back(test_util::make_marker(
+                            TRACE_MARKER_TYPE_FUNC_ARG, /*value=*/10));
+                        if (input_idx == 0) {
+                            // First syscall on first input was interrupted by a signal,
+                            // so no post-syscall event.
+                            // Generally the signal interruption pc in the kernel_event
+                            // marker is the target of the prior instr and the next instr
+                            // is at the signal handler which may be a further away pc.
+                            // But we keep setup simple and pretend the signal
+                            // interruption pc is SIGNAL_INT_PC. We only want to ensure
+                            // that this PC shows up as the branch_target marker value
+                            // for the syscall-trace-final indirect branch for the
+                            // prior injected syscall trace.
+                            inputs.push_back(test_util::make_marker(
+                                TRACE_MARKER_TYPE_KERNEL_EVENT, SIGNAL_INT_PC));
+                            inputs.push_back(test_util::make_marker(
+                                TRACE_MARKER_TYPE_KERNEL_XFER, /*value=*/1));
+                            add_post_timestamp = false;
+                        } else if (input_idx == 1) {
+                            // First syscall on second input is a sigreturn that also
+                            // adds a kernel_xfer marker.
+                            inputs.push_back(test_util::make_marker(
+                                TRACE_MARKER_TYPE_KERNEL_XFER, /*value=*/1));
+                        } else {
+                            inputs.push_back(test_util::make_marker(
+                                TRACE_MARKER_TYPE_FUNC_ID,
+                                static_cast<uintptr_t>(
+                                    func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
+                                    SYSCALL_BASE));
+                            inputs.push_back(test_util::make_marker(
+                                TRACE_MARKER_TYPE_FUNC_RETVAL, /*value=*/1));
+                            inputs.push_back(test_util::make_marker(
+                                TRACE_MARKER_TYPE_SYSCALL_FAILED, /*value=*/1));
+                        }
+                    }
+                    if (add_post_timestamp) {
+                        inputs.push_back(
+                            test_util::make_timestamp(TIMESTAMP + instr_idx + 1));
+                    }
                 }
             }
-            inputs.push_back(make_exit(tid));
+            inputs.push_back(test_util::make_exit(tid));
             readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs)),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                tid);
         }
         sched_inputs.emplace_back(std::move(readers));
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
         sched_ops.quantum_duration_instrs = INSTR_QUANTUM;
         sched_ops.kernel_syscall_reader = std::move(syscall_reader);
         sched_ops.kernel_syscall_reader_end = std::move(syscall_reader_end);
@@ -6571,17 +8414,17 @@ test_kernel_syscall_sequences()
         // The instrs in the injected syscall sequence count towards the #instr
         // quantum, but no context switch happens in the middle of the syscall seq.
         assert(sched_as_string[0] ==
-               "Avf0is1ii1,Cvf0is1ii1,Aiis2iii2,Ciis2iii2,Aiis1ii1,Ciis1ii1,Aiis2iii2,"
-               "Ciis2iii2,Aiis1ii1,Ciis1ii1");
+               "Avf0i0SsFF1ii1kk,Cvf0i0SsFF1ii1FFs0,Aii0S2iii20,Cii0S2iii20,"
+               "Aii0Ss3i30,Cii0Ss3i30,Aii0S1ii10,Cii0S1ii10,Aii0Ss2iii20,Cii0Ss2iii20");
         assert(sched_as_string[1] ==
-               "Bvf0is1ii1iis2iii2iis1ii1iis2iii2iis1ii1_____________________________"
-               "___________");
-
+               "Bvf0i0SsFF1ii1k0ii0S2iii20ii0Ss3i30ii0S1ii10ii0Ss2iii20______________"
+               "___________________________________________");
         // Zoom in and check the first few syscall sequences on the first output record
         // by record with value checks.
         int idx = 0;
         bool res = true;
         res = res &&
+            // First thread.
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_VERSION) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
@@ -6591,16 +8434,37 @@ test_kernel_syscall_sequences()
                       TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL, SYSCALL_BASE) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_FUNC_ID,
+                      static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
+                          SYSCALL_BASE) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_FUNC_ARG, 10) &&
 
             // Syscall_1 trace on first thread.
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_BASE) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
-            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR_INDIRECT_JUMP,
+                      // As this syscall was interrupted by the signal, the branch target
+                      // at the syscall trace end is the interruption pc. The kernel_event
+                      // marker coming up next shows the transfer to the signal handler.
+                      NO_MARKER, SIGNAL_INT_PC) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE) &&
 
+            // Signal interruption on first thread.
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_KERNEL_EVENT, SIGNAL_INT_PC) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_KERNEL_XFER, 1) &&
+
+            // Second thread.
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_VERSION) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
@@ -6610,18 +8474,52 @@ test_kernel_syscall_sequences()
                       TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL, SYSCALL_BASE) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_FUNC_ID,
+                      static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
+                          SYSCALL_BASE) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_FUNC_ARG, 10) &&
 
-            // Syscall_1 trace on second thread.
+            // Syscall_1 trace on third thread.
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_BASE) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
-            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR_INDIRECT_JUMP,
+                      NO_MARKER,
+                      // This points to the next instruction on this thread
+                      // itself, even though the output switches to a new input
+                      // after this.
+                      static_cast<uintptr_t>(THREAD_3_INSTR_2_PC)) &&
+
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE) &&
 
+            // Post-syscall markers
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_FUNC_ID,
+                      static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
+                          SYSCALL_BASE) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_FUNC_RETVAL, 1) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_SYSCALL_FAILED, 1) &&
+
+            // Post syscall timestamp.
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
+
+            // Back to thread 1.
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR, NO_MARKER, NO_VAL,
+                      THREAD_1_INSTR_2_PC) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
-            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL, SYSCALL_BASE + 1) &&
             // Syscall_2 trace on first thread.
@@ -6629,42 +8527,54 @@ test_kernel_syscall_sequences()
                       TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_BASE + 1) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
-            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR_INDIRECT_JUMP,
+                      // Points to the next instruction on this thread.
+                      NO_MARKER, THREAD_1_INSTR_4_PC) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
-                      TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE + 1);
+                      TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE + 1) &&
+            // Post syscall timestamp.
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR, NO_MARKER, NO_VAL,
+                      THREAD_3_INSTR_2_PC);
         assert(res);
     }
     {
+        constexpr memref_tid_t TID_IN_SYSCALLS = 1;
+        constexpr addr_t SYSCALL_PC_START = 0xfeed101;
         // Test a bad input sequence.
         std::vector<trace_entry_t> bad_syscall_sequence = {
             /* clang-format off */
-        make_header(TRACE_ENTRY_VERSION),
-        make_thread(TID_IN_SYSCALLS),
-        make_pid(TID_IN_SYSCALLS),
-        make_version(TRACE_ENTRY_VERSION),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_BASE),
-        make_instr(SYSCALL_PC_START),
-        make_instr(SYSCALL_PC_START + 1),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE),
+        test_util::make_header(TRACE_ENTRY_VERSION),
+        test_util::make_thread(TID_IN_SYSCALLS),
+        test_util::make_pid(TID_IN_SYSCALLS),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_BASE),
+        test_util::make_instr(SYSCALL_PC_START),
+        test_util::make_instr(SYSCALL_PC_START + 1),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE),
         // Error: duplicate trace for the same syscall.
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_BASE),
-        make_instr(SYSCALL_PC_START),
-        make_instr(SYSCALL_PC_START + 1),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE),
-        make_exit(TID_IN_SYSCALLS),
-        make_footer(),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_BASE),
+        test_util::make_instr(SYSCALL_PC_START),
+        test_util::make_instr(SYSCALL_PC_START + 1),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE),
+        test_util::make_exit(TID_IN_SYSCALLS),
+        test_util::make_footer(),
             /* clang-format on */
         };
-        auto bad_syscall_reader =
-            std::unique_ptr<mock_reader_t>(new mock_reader_t(bad_syscall_sequence));
-        auto bad_syscall_reader_end = std::unique_ptr<mock_reader_t>(new mock_reader_t());
+        auto bad_syscall_reader = std::unique_ptr<test_util::mock_reader_t>(
+            new test_util::mock_reader_t(bad_syscall_sequence));
+        auto bad_syscall_reader_end =
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t());
         std::vector<scheduler_t::input_workload_t> test_sched_inputs;
         std::vector<scheduler_t::input_reader_t> readers;
         std::vector<trace_entry_t> inputs;
-        inputs.push_back(make_header(TRACE_ENTRY_VERSION));
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()),
-                             TID_BASE);
+        inputs.push_back(test_util::make_header(TRACE_ENTRY_VERSION));
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(inputs)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_BASE);
         test_sched_inputs.emplace_back(std::move(readers));
         scheduler_t::scheduler_options_t test_sched_ops(
             scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_TIMESTAMPS,
@@ -6676,6 +8586,147 @@ test_kernel_syscall_sequences()
                                 std::move(test_sched_ops)) !=
             scheduler_t::STATUS_ERROR_INVALID_PARAMETER)
             assert(false);
+    }
+    {
+        // Missing version test.
+        std::vector<trace_entry_t> old_sequence =
+            get_mock_syscall_sequence(TRACE_ENTRY_VERSION - 1, SYSCALL_BASE);
+        std::vector<scheduler_t::input_reader_t> readers;
+        static constexpr int NUM_WORKLOADS = 3;
+        static constexpr int NUM_INSTRS = 9;
+        static constexpr int INSTR_QUANTUM = 3;
+        static constexpr uint64_t TIMESTAMP = 44226688;
+        for (int workload_idx = 0; workload_idx < NUM_WORKLOADS; workload_idx++) {
+            std::vector<trace_entry_t> inputs;
+            inputs.push_back(test_util::make_header(TRACE_ENTRY_VERSION));
+            memref_tid_t tid = TID_BASE + workload_idx;
+            inputs.push_back(test_util::make_thread(tid));
+            inputs.push_back(test_util::make_pid(1));
+            inputs.push_back(test_util::make_version(TRACE_ENTRY_VERSION));
+            inputs.push_back(test_util::make_timestamp(TIMESTAMP));
+            for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
+                inputs.push_back(
+                    test_util::make_instr(static_cast<addr_t>(tid + instr_idx)));
+                // As above, every other instr is a syscall, but to simplify we have
+                // no maybe-blocking and always have post timestamps.
+                if (instr_idx % 2 == 0) {
+                    inputs.push_back(test_util::make_timestamp(TIMESTAMP + instr_idx));
+                    inputs.push_back(test_util::make_marker(
+                        TRACE_MARKER_TYPE_SYSCALL, SYSCALL_BASE + (instr_idx / 2) % 3));
+                    inputs.push_back(
+                        test_util::make_timestamp(TIMESTAMP + instr_idx + 1));
+                }
+            }
+            inputs.push_back(test_util::make_exit(tid));
+            readers.emplace_back(
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs)),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                tid);
+        }
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        auto syscall_reader = std::unique_ptr<test_util::mock_reader_t>(
+            new test_util::mock_reader_t(old_sequence));
+        auto syscall_reader_end =
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t());
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/0);
+        sched_ops.quantum_duration_instrs = INSTR_QUANTUM;
+        sched_ops.kernel_syscall_reader = std::move(syscall_reader);
+        sched_ops.kernel_syscall_reader_end = std::move(syscall_reader_end);
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, 1, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        scheduler_t::stream_t *stream = scheduler.get_stream(0);
+        memref_t memref;
+        scheduler_t::stream_status_t status = stream->next_record(memref);
+        for (; status == scheduler_t::STATUS_OK || status == scheduler_t::STATUS_IDLE;
+             status = stream->next_record(memref)) {
+        }
+        assert(status == scheduler_t::STATUS_MISSING_TEMPLATE);
+    }
+    {
+        // Multi-version test.
+        std::vector<trace_entry_t> old_syscall =
+            get_mock_syscall_sequence(TRACE_ENTRY_VERSION - 1, SYSCALL_BASE);
+        std::vector<trace_entry_t> new_syscall =
+            get_mock_syscall_sequence(TRACE_ENTRY_VERSION, SYSCALL_BASE);
+        std::vector<trace_entry_t> multi_syscall;
+        multi_syscall.reserve(old_syscall.size() + new_syscall.size());
+        multi_syscall.insert(multi_syscall.end(), old_syscall.begin(), old_syscall.end());
+        multi_syscall.insert(multi_syscall.end(), new_syscall.begin(), new_syscall.end());
+        std::vector<scheduler_t::input_reader_t> readers;
+        static constexpr int NUM_WORKLOADS = 3;
+        static constexpr int NUM_INSTRS = 9;
+        static constexpr int INSTR_QUANTUM = 3;
+        static constexpr uint64_t TIMESTAMP = 44226688;
+        for (int workload_idx = 0; workload_idx < NUM_WORKLOADS; workload_idx++) {
+            std::vector<trace_entry_t> inputs;
+            int version =
+                workload_idx % 2 == 0 ? TRACE_ENTRY_VERSION : TRACE_ENTRY_VERSION - 1;
+            inputs.push_back(test_util::make_header(version));
+            memref_tid_t tid = TID_BASE + workload_idx;
+            inputs.push_back(test_util::make_thread(tid));
+            inputs.push_back(test_util::make_pid(1));
+            inputs.push_back(test_util::make_version(version));
+            inputs.push_back(test_util::make_timestamp(TIMESTAMP));
+            for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
+                inputs.push_back(
+                    test_util::make_instr(static_cast<addr_t>(tid + instr_idx)));
+                // As above, every other instr is a syscall, but to simplify we have
+                // no maybe-blocking and always have post timestamps.
+                if (instr_idx % 2 == 0) {
+                    inputs.push_back(test_util::make_timestamp(TIMESTAMP + instr_idx));
+                    inputs.push_back(test_util::make_marker(
+                        TRACE_MARKER_TYPE_SYSCALL, SYSCALL_BASE + (instr_idx / 2) % 3));
+                    inputs.push_back(
+                        test_util::make_timestamp(TIMESTAMP + instr_idx + 1));
+                }
+            }
+            inputs.push_back(test_util::make_exit(tid));
+            readers.emplace_back(
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs)),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                tid);
+        }
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        auto syscall_reader = std::unique_ptr<test_util::mock_reader_t>(
+            new test_util::mock_reader_t(multi_syscall));
+        auto syscall_reader_end =
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t());
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/0);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
+        sched_ops.quantum_duration_instrs = INSTR_QUANTUM;
+        sched_ops.kernel_syscall_reader = std::move(syscall_reader);
+        sched_ops.kernel_syscall_reader_end = std::move(syscall_reader_end);
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::vector<memref_t>> refs;
+        std::vector<std::string> sched_as_string = run_lockstep_simulation_for_kernel_seq(
+            scheduler, NUM_OUTPUTS, TID_BASE, SYSCALL_BASE, refs,
+            /*for_syscall_seq=*/true);
+        // Check the high-level strings.
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        assert(sched_as_string[0] ==
+               "Av0i0S1ii10,Cv0i0S1ii10,Aii0S2iii20,Cii0S2iii20,Aii0S3i30,Cii0S3i30,"
+               "Aii0S1ii10,Cii0S1ii10,Aii0S2iii20,Cii0S2iii20");
+        assert(sched_as_string[1] ==
+               "Bv0i0S1ii10ii0S2iii20ii0S3i30ii0S1ii10ii0S2iii20_________________________"
+               "_______________________");
     }
 }
 
@@ -6692,14 +8743,14 @@ test_random_schedule()
     std::vector<trace_entry_t> inputs[NUM_INPUTS];
     for (int i = 0; i < NUM_INPUTS; i++) {
         memref_tid_t tid = TID_BASE + i;
-        inputs[i].push_back(make_thread(tid));
-        inputs[i].push_back(make_pid(1));
-        inputs[i].push_back(make_version(TRACE_ENTRY_VERSION));
-        inputs[i].push_back(make_timestamp(10)); // All the same time priority.
+        inputs[i].push_back(test_util::make_thread(tid));
+        inputs[i].push_back(test_util::make_pid(1));
+        inputs[i].push_back(test_util::make_version(TRACE_ENTRY_VERSION));
+        inputs[i].push_back(test_util::make_timestamp(10)); // All the same time priority.
         for (int j = 0; j < NUM_INSTRS; j++) {
-            inputs[i].push_back(make_instr(42 + j * 4));
+            inputs[i].push_back(test_util::make_instr(42 + j * 4));
         }
-        inputs[i].push_back(make_exit(tid));
+        inputs[i].push_back(test_util::make_exit(tid));
     }
     std::vector<std::set<std::string>> scheds_by_cpu(NUM_OUTPUTS);
     for (int iter = 0; iter < ITERS; ++iter) {
@@ -6707,14 +8758,16 @@ test_random_schedule()
         for (int i = 0; i < NUM_INPUTS; i++) {
             std::vector<scheduler_t::input_reader_t> readers;
             readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_BASE + i);
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                TID_BASE + i);
             sched_inputs.emplace_back(std::move(readers));
         }
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         sched_ops.randomize_next_input = true;
         sched_ops.quantum_duration_instrs = QUANTUM_DURATION;
         scheduler_t scheduler;
@@ -6736,6 +8789,31 @@ test_random_schedule()
     }
 }
 
+void
+check_next(record_scheduler_t::stream_t *stream,
+           record_scheduler_t::stream_status_t expect_status,
+           trace_type_t expect_type = TRACE_TYPE_MARKER, addr_t expect_addr = 0,
+           addr_t expect_size = 0)
+{
+    trace_entry_t record;
+    record_scheduler_t::stream_status_t status = stream->next_record(record);
+    assert(status == expect_status);
+    if (status == record_scheduler_t::STATUS_OK) {
+        if (record.type != expect_type) {
+            std::cerr << "Expected type " << expect_type << " != " << record.type << "\n";
+            assert(false);
+        }
+        if (expect_size != 0 && record.size != expect_size) {
+            std::cerr << "Expected size " << expect_size << " != " << record.size << "\n";
+            assert(false);
+        }
+        if (expect_addr != 0 && record.addr != expect_addr) {
+            std::cerr << "Expected addr " << expect_addr << " != " << record.addr << "\n";
+            assert(false);
+        }
+    }
+};
+
 static void
 test_record_scheduler()
 {
@@ -6756,56 +8834,60 @@ test_record_scheduler()
     static constexpr uint64_t BLOCK_THRESHOLD = 500;
     std::vector<trace_entry_t> refs_A = {
         /* clang-format off */
-        make_thread(TID_A),
-        make_pid(PID_A),
-        make_version(TRACE_ENTRY_VERSION),
-        make_timestamp(INITIAL_TIMESTAMP_A),
-        make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
-        make_instr(10),
-        make_timestamp(PRE_SYS_TIMESTAMP),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL, 42),
-        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
-        make_timestamp(PRE_SYS_TIMESTAMP + BLOCK_THRESHOLD),
-        make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
-        make_instr(30),
-        make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
-        make_instr(50),
-        make_exit(TID_A),
+        test_util::make_thread(TID_A),
+        test_util::make_pid(PID_A),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(INITIAL_TIMESTAMP_A),
+        test_util::make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
+        test_util::make_instr(10),
+        test_util::make_timestamp(PRE_SYS_TIMESTAMP),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 42),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_timestamp(PRE_SYS_TIMESTAMP + BLOCK_THRESHOLD),
+        test_util::make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
+        test_util::make_instr(30),
+        test_util::make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
+        test_util::make_instr(50),
+        test_util::make_exit(TID_A),
         /* clang-format on */
     };
     std::vector<trace_entry_t> refs_B = {
         /* clang-format off */
-        make_thread(TID_B),
-        make_pid(PID_B),
-        make_version(TRACE_ENTRY_VERSION),
-        make_timestamp(INITIAL_TIMESTAMP_B),
-        make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
-        make_instr(20),
-        make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
-        make_instr(40),
-        make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
+        test_util::make_thread(TID_B),
+        test_util::make_pid(PID_B),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(INITIAL_TIMESTAMP_B),
+        test_util::make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
+        test_util::make_instr(20),
+        test_util::make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
+        test_util::make_instr(40),
+        test_util::make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
         // Test a target marker between the encoding and the instr.
-        make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, 42),
-        make_instr(60),
+        test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, 42),
+        test_util::make_instr(60),
         // No encoding for repeated instr.
-        make_instr(20),
-        make_exit(TID_B),
+        test_util::make_instr(20),
+        test_util::make_exit(TID_B),
         /* clang-format on */
     };
     std::vector<record_scheduler_t::input_reader_t> readers;
-    readers.emplace_back(
-        std::unique_ptr<mock_record_reader_t>(new mock_record_reader_t(refs_A)),
-        std::unique_ptr<mock_record_reader_t>(new mock_record_reader_t()), TID_A);
-    readers.emplace_back(
-        std::unique_ptr<mock_record_reader_t>(new mock_record_reader_t(refs_B)),
-        std::unique_ptr<mock_record_reader_t>(new mock_record_reader_t()), TID_B);
+    readers.emplace_back(std::unique_ptr<test_util::mock_record_reader_t>(
+                             new test_util::mock_record_reader_t(refs_A)),
+                         std::unique_ptr<test_util::mock_record_reader_t>(
+                             new test_util::mock_record_reader_t()),
+                         TID_A);
+    readers.emplace_back(std::unique_ptr<test_util::mock_record_reader_t>(
+                             new test_util::mock_record_reader_t(refs_B)),
+                         std::unique_ptr<test_util::mock_record_reader_t>(
+                             new test_util::mock_record_reader_t()),
+                         TID_B);
     record_scheduler_t scheduler;
     std::vector<record_scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(std::move(readers));
     record_scheduler_t::scheduler_options_t sched_ops(
         record_scheduler_t::MAP_TO_ANY_OUTPUT, record_scheduler_t::DEPENDENCY_IGNORE,
         record_scheduler_t::SCHEDULER_DEFAULTS,
-        /*verbosity=*/4);
+        /*verbosity=*/0);
     sched_ops.quantum_duration_instrs = 2;
     sched_ops.block_time_multiplier = 0.001; // Do not stay blocked.
     sched_ops.blocking_switch_threshold = BLOCK_THRESHOLD;
@@ -6813,26 +8895,6 @@ test_record_scheduler()
         record_scheduler_t::STATUS_SUCCESS)
         assert(false);
     auto *stream0 = scheduler.get_stream(0);
-    auto check_next = [](record_scheduler_t::stream_t *stream,
-                         record_scheduler_t::stream_status_t expect_status,
-                         trace_type_t expect_type = TRACE_TYPE_MARKER,
-                         addr_t expect_addr = 0) {
-        trace_entry_t record;
-        record_scheduler_t::stream_status_t status = stream->next_record(record);
-        assert(status == expect_status);
-        if (status == record_scheduler_t::STATUS_OK) {
-            if (record.type != expect_type) {
-                std::cerr << "Expected type " << expect_type << " != " << record.type
-                          << "\n";
-                assert(false);
-            }
-            if (expect_addr != 0 && record.addr != expect_addr) {
-                std::cerr << "Expected addr " << expect_addr << " != " << record.addr
-                          << "\n";
-                assert(false);
-            }
-        }
-    };
     // Advance cpu0 on TID_A to its 1st context switch.
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD, TID_A);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, PID_A);
@@ -6842,7 +8904,10 @@ test_record_scheduler()
     assert(stream0->get_instruction_ordinal() == 0);
     assert(stream0->get_input_interface()->get_instruction_ordinal() == 0);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
-    // The encoding should have incremented the ordinal.
+    // The encoding should have incremented the ordinal. Note that the
+    // record_reader_t and the corresponding scheduler both increment
+    // these ordinals upon seeing the pre-instr encoding or branch_target marker
+    // (if any).
     assert(stream0->get_instruction_ordinal() == 1);
     assert(stream0->get_input_interface()->get_instruction_ordinal() == 1);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
@@ -6894,6 +8959,168 @@ test_record_scheduler()
 }
 
 static void
+test_record_scheduler_i7574()
+{
+    // Demonstrates how the scheduler responds to traces with the i#7574 issue.
+    // When there's an abandoned branch_target marker in the previous chunk, with
+    // other markers before the corresponding encoding+instr in the next chunk, it
+    // affects the scheduler in unexpected ways: the instr ordinals are erroneously
+    // incremented for just the branch_target and then again at the encoding+instr, and
+    // there may be a context switch that splits up the branch_target marker and its
+    // corresponding instruction.
+    // TODO i#7574: Workaround this issue in the scheduler and modify this test to
+    // prove correct operation.
+    std::cerr
+        << "\n----------------\nTesting record_scheduler_t to show the i#7574 issue\n";
+    static constexpr memref_tid_t TID_A = 42;
+    static constexpr memref_tid_t TID_B = TID_A + 1;
+    static constexpr memref_tid_t PID_A = 142;
+    static constexpr memref_tid_t PID_B = PID_A + 1;
+    static constexpr int NUM_OUTPUTS = 1;
+    static constexpr addr_t ENCODING_SIZE = 2;
+    static constexpr addr_t ENCODING_IGNORE = 0xfeed;
+    static constexpr uint64_t INITIAL_TIMESTAMP_A = 10;
+    static constexpr uint64_t INITIAL_TIMESTAMP_B = 20;
+    std::vector<trace_entry_t> refs_A = {
+        /* clang-format off */
+        test_util::make_thread(TID_A),
+        test_util::make_pid(PID_A),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(INITIAL_TIMESTAMP_A),
+        test_util::make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
+        test_util::make_instr(10),
+        // Second instr, but the chunk end breaks up the
+        // branch_target marker and the instr (i#7574).
+        test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, 1),
+        test_util::make_marker(TRACE_MARKER_TYPE_CHUNK_FOOTER, 1),
+        test_util::make_marker(TRACE_MARKER_TYPE_RECORD_ORDINAL, 1),
+        test_util::make_timestamp(INITIAL_TIMESTAMP_A + 1),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
+        test_util::make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
+        test_util::make_instr(30),
+        // No encoding for repeated instr.
+        test_util::make_instr(10),
+        test_util::make_exit(TID_A),
+        /* clang-format on */
+    };
+    std::vector<trace_entry_t> refs_B = {
+        /* clang-format off */
+        test_util::make_thread(TID_B),
+        test_util::make_pid(PID_B),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(INITIAL_TIMESTAMP_B),
+        test_util::make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
+        test_util::make_instr(20),
+        test_util::make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
+        test_util::make_instr(40),
+        test_util::make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
+        test_util::make_instr(60),
+        test_util::make_exit(TID_B),
+        /* clang-format on */
+    };
+    std::vector<record_scheduler_t::input_reader_t> readers;
+    readers.emplace_back(std::unique_ptr<test_util::mock_record_reader_t>(
+                             new test_util::mock_record_reader_t(refs_A)),
+                         std::unique_ptr<test_util::mock_record_reader_t>(
+                             new test_util::mock_record_reader_t()),
+                         TID_A);
+    readers.emplace_back(std::unique_ptr<test_util::mock_record_reader_t>(
+                             new test_util::mock_record_reader_t(refs_B)),
+                         std::unique_ptr<test_util::mock_record_reader_t>(
+                             new test_util::mock_record_reader_t()),
+                         TID_B);
+    record_scheduler_t scheduler;
+    std::vector<record_scheduler_t::input_workload_t> sched_inputs;
+    sched_inputs.emplace_back(std::move(readers));
+    record_scheduler_t::scheduler_options_t sched_ops(
+        record_scheduler_t::MAP_TO_ANY_OUTPUT, record_scheduler_t::DEPENDENCY_IGNORE,
+        record_scheduler_t::SCHEDULER_DEFAULTS,
+        /*verbosity=*/0);
+    sched_ops.quantum_duration_instrs = 2;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+        record_scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    auto *stream0 = scheduler.get_stream(0);
+    // Advance cpu0 on TID_A to its 1st context switch.
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD, TID_A);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, PID_A);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER);
+    // Test input/output instr ordinals.
+    assert(stream0->get_instruction_ordinal() == 0);
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 0);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
+    // The encoding should have incremented the input/output instr ordinals. Note
+    // that the record_reader_t and the corresponding scheduler both increment
+    // these ordinals upon seeing the pre-instr encoding or branch_target marker
+    // (if any).
+    assert(stream0->get_instruction_ordinal() == 1);
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 1);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+    // The instr should not have further incremented it.
+    assert(stream0->get_instruction_ordinal() == 1);
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 1);
+
+    // The branch_target marker should have incremented the input/output
+    // instr ordinals.
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 0,
+               TRACE_MARKER_TYPE_BRANCH_TARGET);
+    assert(stream0->get_instruction_ordinal() == 2);
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 2);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 0,
+               TRACE_MARKER_TYPE_CHUNK_FOOTER);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 0,
+               TRACE_MARKER_TYPE_RECORD_ORDINAL);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 0,
+               TRACE_MARKER_TYPE_TIMESTAMP);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 0,
+               TRACE_MARKER_TYPE_CPU_ID);
+
+    // TODO i#7574: A context switch happens here because the input A has
+    // seen all instrs for its quantum (the abandoned branch_target is erroneously
+    // counted as one), and this is considered a safe spot for a context switch.
+    // This needs to be worked around in the scheduler so that, in traces affected
+    // by i#7574, the branch_target marker and the corresponding instr are not
+    // split up.
+
+    // Input B on core 0.
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD, TID_B);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, PID_B);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+    assert(stream0->get_instruction_ordinal() == 4);
+    // Back to input A because input B has seen all instrs for its quantum.
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD, TID_A);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, PID_A);
+
+    // TODO i#7574: This instr is split from its branch_target marker. Would
+    // increment the input/output instr ordinals again erroneously.
+    // Note that at this point, the encoding entry has been read from the
+    // input, but not returned by the scheduler yet; so only the input instr
+    // ordinal is seen incremented.
+    assert(stream0->get_instruction_ordinal() == 4);
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 3);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+    assert(stream0->get_instruction_ordinal() == 5);
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 3);
+
+    // Remaining content from inputs A and B.
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD_EXIT);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD, TID_B);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, PID_B);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD_EXIT);
+    check_next(stream0, record_scheduler_t::STATUS_EOF);
+}
+
+static void
 test_rebalancing()
 {
     std::cerr << "\n----------------\nTesting rebalancing\n";
@@ -6917,65 +9144,70 @@ test_rebalancing()
     static constexpr uint64_t TIMESTAMP_START_INSTRS = 9999;
 
     std::vector<trace_entry_t> refs_controller;
-    refs_controller.push_back(make_thread(TID_A));
-    refs_controller.push_back(make_pid(1));
-    refs_controller.push_back(make_version(TRACE_ENTRY_VERSION));
-    refs_controller.push_back(make_timestamp(1001));
-    refs_controller.push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
+    refs_controller.push_back(test_util::make_thread(TID_A));
+    refs_controller.push_back(test_util::make_pid(1));
+    refs_controller.push_back(test_util::make_version(TRACE_ENTRY_VERSION));
+    refs_controller.push_back(test_util::make_timestamp(1001));
+    refs_controller.push_back(test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
     // Our controller switches to the first thread, who then switches to
     // the next, etc.
-    refs_controller.push_back(make_instr(/*pc=*/101));
-    refs_controller.push_back(make_instr(/*pc=*/102));
-    refs_controller.push_back(make_timestamp(1101));
-    refs_controller.push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
-    refs_controller.push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, 999));
+    refs_controller.push_back(test_util::make_instr(/*pc=*/101));
+    refs_controller.push_back(test_util::make_instr(/*pc=*/102));
+    refs_controller.push_back(test_util::make_timestamp(1101));
+    refs_controller.push_back(test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
+    refs_controller.push_back(test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999));
     refs_controller.push_back(
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, BLOCK_LATENCY));
-    refs_controller.push_back(make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_B));
-    refs_controller.push_back(make_timestamp(1201));
-    refs_controller.push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
-    refs_controller.push_back(make_instr(/*pc=*/401));
-    refs_controller.push_back(make_exit(TID_A));
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, BLOCK_LATENCY));
+    refs_controller.push_back(
+        test_util::make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_B));
+    refs_controller.push_back(test_util::make_timestamp(1201));
+    refs_controller.push_back(test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
+    refs_controller.push_back(test_util::make_instr(/*pc=*/401));
+    refs_controller.push_back(test_util::make_exit(TID_A));
     // Our unsched threads all start unscheduled.
     std::vector<std::vector<trace_entry_t>> refs_unsched(NUM_INPUTS_UNSCHED);
     for (int i = 0; i < NUM_INPUTS_UNSCHED; ++i) {
-        refs_unsched[i].push_back(make_thread(TID_B + i));
-        refs_unsched[i].push_back(make_pid(1));
-        refs_unsched[i].push_back(make_version(TRACE_ENTRY_VERSION));
-        refs_unsched[i].push_back(make_timestamp(2001));
-        refs_unsched[i].push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
+        refs_unsched[i].push_back(test_util::make_thread(TID_B + i));
+        refs_unsched[i].push_back(test_util::make_pid(1));
+        refs_unsched[i].push_back(test_util::make_version(TRACE_ENTRY_VERSION));
+        refs_unsched[i].push_back(test_util::make_timestamp(2001));
+        refs_unsched[i].push_back(test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
         // B starts unscheduled with no timeout.
-        refs_unsched[i].push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, 999));
+        refs_unsched[i].push_back(test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999));
         refs_unsched[i].push_back(
-            make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
-        refs_unsched[i].push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0));
-        refs_unsched[i].push_back(make_timestamp(3001));
-        refs_unsched[i].push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
+            test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
+        refs_unsched[i].push_back(
+            test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0));
+        refs_unsched[i].push_back(test_util::make_timestamp(3001));
+        refs_unsched[i].push_back(test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
         // Once scheduled, wake up the next thread.
-        refs_unsched[i].push_back(make_timestamp(1101 + 100 * i));
-        refs_unsched[i].push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
-        refs_unsched[i].push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, 999));
+        refs_unsched[i].push_back(test_util::make_timestamp(1101 + 100 * i));
+        refs_unsched[i].push_back(test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
+        refs_unsched[i].push_back(test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999));
         refs_unsched[i].push_back(
-            make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, BLOCK_LATENCY));
-        refs_unsched[i].push_back(
-            make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_B + i + 1));
+            test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, BLOCK_LATENCY));
+        refs_unsched[i].push_back(test_util::make_marker(
+            TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_B + i + 1));
         // Give everyone the same timestamp so we alternate on preempts.
-        refs_unsched[i].push_back(make_timestamp(TIMESTAMP_START_INSTRS));
-        refs_unsched[i].push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
+        refs_unsched[i].push_back(test_util::make_timestamp(TIMESTAMP_START_INSTRS));
+        refs_unsched[i].push_back(test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
         // Now run a bunch of instrs so we'll reach our rebalancing period.
         for (int instrs = 0; instrs < NUM_INSTRS; ++instrs) {
-            refs_unsched[i].push_back(make_instr(/*pc=*/200 + instrs));
+            refs_unsched[i].push_back(test_util::make_instr(/*pc=*/200 + instrs));
         }
-        refs_unsched[i].push_back(make_exit(TID_B + i));
+        refs_unsched[i].push_back(test_util::make_exit(TID_B + i));
     }
     std::vector<scheduler_t::input_reader_t> readers;
     readers.emplace_back(
-        std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_controller)),
-        std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+        std::unique_ptr<test_util::mock_reader_t>(
+            new test_util::mock_reader_t(refs_controller)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), TID_A);
     for (int i = 0; i < NUM_INPUTS_UNSCHED; ++i) {
         readers.emplace_back(
-            std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_unsched[i])),
-            std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B + i);
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_unsched[i])),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_B + i);
     }
 
     std::vector<scheduler_t::input_workload_t> sched_inputs;
@@ -6983,7 +9215,7 @@ test_rebalancing()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+                                               /*verbosity=*/0);
     // We use our mock's time==instruction count for a deterministic result.
     sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
     sched_ops.time_units_per_us = 1.;
@@ -7034,58 +9266,63 @@ test_initial_migrate()
     // right before the trace started, which is how we treat them now.
     std::vector<trace_entry_t> refs_A = {
         /* clang-format off */
-        make_thread(TID_A),
-        make_pid(1),
-        make_version(4),
-        make_timestamp(TIMESTAMP_START),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_instr(10),
-        make_instr(11),
-        make_instr(12),
-        make_instr(13),
-        make_instr(14),
-        make_instr(15),
-        make_exit(TID_A),
+        test_util::make_thread(TID_A),
+        test_util::make_pid(1),
+        test_util::make_version(4),
+        test_util::make_timestamp(TIMESTAMP_START),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(10),
+        test_util::make_instr(11),
+        test_util::make_instr(12),
+        test_util::make_instr(13),
+        test_util::make_instr(14),
+        test_util::make_instr(15),
+        test_util::make_exit(TID_A),
         /* clang-format on */
     };
     std::vector<trace_entry_t> refs_B = {
         /* clang-format off */
-        make_thread(TID_B),
-        make_pid(1),
-        make_version(4),
-        make_timestamp(TIMESTAMP_START),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_instr(20),
-        make_exit(TID_B),
+        test_util::make_thread(TID_B),
+        test_util::make_pid(1),
+        test_util::make_version(4),
+        test_util::make_timestamp(TIMESTAMP_START),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(20),
+        test_util::make_exit(TID_B),
         /* clang-format on */
     };
     std::vector<trace_entry_t> refs_C = {
         /* clang-format off */
-        make_thread(TID_C),
-        make_pid(1),
-        make_version(4),
-        make_timestamp(TIMESTAMP_START + 10),
-        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-        make_instr(30),
-        make_instr(31),
-        make_instr(32),
-        make_exit(TID_C),
+        test_util::make_thread(TID_C),
+        test_util::make_pid(1),
+        test_util::make_version(4),
+        test_util::make_timestamp(TIMESTAMP_START + 10),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(30),
+        test_util::make_instr(31),
+        test_util::make_instr(32),
+        test_util::make_exit(TID_C),
         /* clang-format on */
     };
 
     std::vector<scheduler_t::input_reader_t> readers;
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_C)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_C);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(refs_A)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), TID_A);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(refs_B)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), TID_B);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(refs_C)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), TID_C);
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(std::move(readers));
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+                                               /*verbosity=*/0);
+    // Use a round-robin layout for simpler deterministic testing.
+    sched_ops.random_initial_layout = -1;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
         scheduler_t::STATUS_SUCCESS)
@@ -7104,6 +9341,248 @@ test_initial_migrate()
     assert(sched_as_string[1] == CORE1_SCHED_STRING);
 }
 
+static scheduler_t::scheduler_options_t
+set_up_steal_period_options(std::vector<trace_entry_t> refs_A, memref_tid_t TID_A,
+                            std::vector<trace_entry_t> refs_B, memref_tid_t TID_B,
+                            std::vector<trace_entry_t> refs_C, memref_tid_t TID_C,
+                            std::vector<trace_entry_t> refs_D, memref_tid_t TID_D,
+                            std::vector<trace_entry_t> refs_E, memref_tid_t TID_E,
+                            std::vector<trace_entry_t> refs_F, memref_tid_t TID_F,
+                            uint64_t BLOCK_THRESHOLD,
+                            std::vector<scheduler_t::input_workload_t> &sched_inputs)
+{
+    static constexpr uint64_t MIGRATION_THRESHOLD = 10;
+    static constexpr uint64_t STEAL_ATTEMPT_PERIOD = 4;
+    std::vector<scheduler_t::input_reader_t> readers;
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(refs_A)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), TID_A);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(refs_B)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), TID_B);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(refs_C)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), TID_C);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(refs_D)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), TID_D);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(refs_E)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), TID_E);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(refs_F)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), TID_F);
+    sched_inputs.emplace_back(std::move(readers));
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/0);
+    // Run everything.
+    sched_ops.exit_if_fraction_inputs_left = 0.;
+    // Use a round-robin layout for simpler deterministic testing.
+    sched_ops.random_initial_layout = -1;
+    sched_ops.block_time_multiplier = 0.001; // Do not stay blocked.
+    sched_ops.blocking_switch_threshold = BLOCK_THRESHOLD;
+    sched_ops.time_units_per_us = 1.;
+    sched_ops.migration_threshold_us = MIGRATION_THRESHOLD;
+    sched_ops.steal_attempt_period = STEAL_ATTEMPT_PERIOD;
+    return sched_ops;
+}
+
+static void
+test_steal_period()
+{
+    std::cerr << "\n----------------\nTesting steal period\n";
+    static constexpr int NUM_OUTPUTS = 2;
+    static constexpr memref_tid_t TID_BASE = 100;
+    static constexpr memref_tid_t TID_A = TID_BASE + 0;
+    static constexpr memref_tid_t TID_B = TID_BASE + 1;
+    static constexpr memref_tid_t TID_C = TID_BASE + 2;
+    static constexpr memref_tid_t TID_D = TID_BASE + 3;
+    static constexpr memref_tid_t TID_E = TID_BASE + 4;
+    static constexpr memref_tid_t TID_F = TID_BASE + 5;
+    static constexpr uint64_t TIMESTAMP_START = 10;
+    static constexpr uint64_t PRE_SYS_TIMESTAMP = TIMESTAMP_START + 100;
+    static constexpr uint64_t BLOCK_THRESHOLD = 500;
+
+    // We set up a round-robin assignemt with 3 inputs on each output: A, C, E
+    // on output #0 and B, D, F on #1.
+    // A and C both block quickly and #1 runs E the rest of the time.
+    // B, D, and F are short, so #1 finishes and goes idle, where it steals
+    // A and C: but it fails with each initially as they haven't met the migration
+    // threshold.
+    std::vector<trace_entry_t> refs_A = {
+        /* clang-format off */
+        test_util::make_thread(TID_A),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(TIMESTAMP_START),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(10),
+        test_util::make_timestamp(PRE_SYS_TIMESTAMP),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 42),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_timestamp(PRE_SYS_TIMESTAMP + BLOCK_THRESHOLD),
+        test_util::make_instr(11),
+        test_util::make_exit(TID_A),
+        /* clang-format on */
+    };
+    std::vector<trace_entry_t> refs_B = {
+        /* clang-format off */
+        test_util::make_thread(TID_B),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(TIMESTAMP_START + 10),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(10),
+        test_util::make_exit(TID_B),
+        /* clang-format on */
+    };
+    std::vector<trace_entry_t> refs_C = {
+        /* clang-format off */
+        test_util::make_thread(TID_C),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(TIMESTAMP_START + 20),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(10),
+        test_util::make_instr(11),
+        test_util::make_instr(12),
+        test_util::make_timestamp(PRE_SYS_TIMESTAMP),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 42),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_timestamp(PRE_SYS_TIMESTAMP + BLOCK_THRESHOLD),
+        test_util::make_instr(13),
+        test_util::make_exit(TID_C),
+        /* clang-format on */
+    };
+    std::vector<trace_entry_t> refs_D = {
+        /* clang-format off */
+        test_util::make_thread(TID_D),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(TIMESTAMP_START + 30),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(10),
+        test_util::make_exit(TID_D),
+        /* clang-format on */
+    };
+    std::vector<trace_entry_t> refs_E = {
+        /* clang-format off */
+        test_util::make_thread(TID_E),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(TIMESTAMP_START + 40),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_exit(TID_E),
+        /* clang-format on */
+    };
+    std::vector<trace_entry_t> refs_F = {
+        /* clang-format off */
+        test_util::make_thread(TID_F),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(TIMESTAMP_START + 50),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(10),
+        test_util::make_exit(TID_F),
+        /* clang-format on */
+    };
+    {
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        scheduler_t::scheduler_options_t sched_ops = set_up_steal_period_options(
+            refs_A, TID_A, refs_B, TID_B, refs_C, TID_C, refs_D, TID_D, refs_E, TID_E,
+            refs_F, TID_F, BLOCK_THRESHOLD, sched_inputs);
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/true);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        // As described above, #1 steals A and C but only after first going idle
+        // (because the targets haven't hit the migration threshold yet), thus
+        // testing repeated steal attempts: each steal is after multiple of 4 idles
+        // (the steal period).
+        static const char *const CORE0_SCHED_STRING =
+            "...A.......CCC.......EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE.";
+        static const char *const CORE1_SCHED_STRING =
+            "...B....D....F.________A.____C.__________________________";
+        assert(sched_as_string[0] == CORE0_SCHED_STRING);
+        assert(sched_as_string[1] == CORE1_SCHED_STRING);
+        assert(scheduler.get_stream(0)->get_schedule_statistic(
+                   memtrace_stream_t::SCHED_STAT_MIGRATIONS) == 2);
+        assert(scheduler.get_stream(1)->get_schedule_statistic(
+                   memtrace_stream_t::SCHED_STAT_RUNQUEUE_STEALS) == 2);
+    }
+    {
+        // Now run without steal retries.
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        scheduler_t::scheduler_options_t sched_ops = set_up_steal_period_options(
+            refs_A, TID_A, refs_B, TID_B, refs_C, TID_C, refs_D, TID_D, refs_E, TID_E,
+            refs_F, TID_F, BLOCK_THRESHOLD, sched_inputs);
+        // Disable retries: only attempt when first go idle.
+        sched_ops.steal_attempt_period *= 100;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/true);
+        // There are now no steals since #1 only tries when it first goes idle.
+        static const char *const CORE0_SCHED_STRING =
+            "...A.......CCC.......EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE.A.C.";
+        static const char *const CORE1_SCHED_STRING =
+            "...B....D....F.______________________________________________";
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+            assert(scheduler.get_stream(i)->get_schedule_statistic(
+                       memtrace_stream_t::SCHED_STAT_MIGRATIONS) == 0);
+        }
+        assert(sched_as_string[0] == CORE0_SCHED_STRING);
+        assert(sched_as_string[1] == CORE1_SCHED_STRING);
+        assert(scheduler.get_stream(1)->get_schedule_statistic(
+                   memtrace_stream_t::SCHED_STAT_RUNQUEUE_STEALS) == 0);
+    }
+}
+
 static void
 test_exit_early()
 {
@@ -7118,22 +9597,24 @@ test_exit_early()
     std::vector<trace_entry_t> inputs[NUM_INPUTS];
     for (int i = 0; i < NUM_INPUTS; i++) {
         memref_tid_t tid = TID_BASE + i;
-        inputs[i].push_back(make_thread(tid));
-        inputs[i].push_back(make_pid(1));
-        inputs[i].push_back(make_version(TRACE_ENTRY_VERSION));
-        inputs[i].push_back(make_timestamp(TIMESTAMP)); // All the same time priority.
+        inputs[i].push_back(test_util::make_thread(tid));
+        inputs[i].push_back(test_util::make_pid(1));
+        inputs[i].push_back(test_util::make_version(TRACE_ENTRY_VERSION));
+        inputs[i].push_back(
+            test_util::make_timestamp(TIMESTAMP)); // All the same time priority.
         for (int j = 0; j < NUM_INSTRS; j++) {
-            inputs[i].push_back(make_instr(42 + j * 4));
+            inputs[i].push_back(test_util::make_instr(42 + j * 4));
             // One input has a long blocking syscall toward the end.
             if (i == 0 && j == NUM_INSTRS - 2) {
-                inputs[i].push_back(make_timestamp(TIMESTAMP));
-                inputs[i].push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, 42));
+                inputs[i].push_back(test_util::make_timestamp(TIMESTAMP));
                 inputs[i].push_back(
-                    make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
-                inputs[i].push_back(make_timestamp(TIMESTAMP + BLOCK_LATENCY));
+                    test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 42));
+                inputs[i].push_back(
+                    test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
+                inputs[i].push_back(test_util::make_timestamp(TIMESTAMP + BLOCK_LATENCY));
             }
         }
-        inputs[i].push_back(make_exit(tid));
+        inputs[i].push_back(test_util::make_exit(tid));
     }
     {
         // Run without any early exit.
@@ -7141,14 +9622,18 @@ test_exit_early()
         for (int i = 0; i < NUM_INPUTS; i++) {
             std::vector<scheduler_t::input_reader_t> readers;
             readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_BASE + i);
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                TID_BASE + i);
             sched_inputs.emplace_back(std::move(readers));
         }
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/2);
+                                                   /*verbosity=*/0);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.time_units_per_us = 1.;
         sched_ops.quantum_duration_instrs = QUANTUM_DURATION;
@@ -7179,14 +9664,18 @@ test_exit_early()
         for (int i = 0; i < NUM_INPUTS; i++) {
             std::vector<scheduler_t::input_reader_t> readers;
             readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_BASE + i);
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                TID_BASE + i);
             sched_inputs.emplace_back(std::move(readers));
         }
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/2);
+                                                   /*verbosity=*/0);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.time_units_per_us = 1.;
         sched_ops.quantum_duration_instrs = QUANTUM_DURATION;
@@ -7213,13 +9702,13 @@ test_exit_early()
 }
 
 static void
-test_marker_updates()
+test_dynamic_marker_updates()
 {
     std::cerr << "\n----------------\nTesting marker and tid/pid updates\n";
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_IGNORE,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/2);
+                                               /*verbosity=*/0);
     static constexpr int NUM_INPUTS = 5;
     static constexpr int NUM_OUTPUTS = 3;
     // We need at least enough instrs to cover INSTRS_PER_US==time_units_per_us.
@@ -7238,31 +9727,34 @@ test_marker_updates()
     for (int i = 0; i < NUM_INPUTS; i++) {
         // Each input is a separate workload with the same pid and tid.
         memref_tid_t tid = TID_BASE;
-        inputs[i].push_back(make_thread(tid));
-        inputs[i].push_back(make_pid(PID_BASE));
-        inputs[i].push_back(make_version(TRACE_ENTRY_VERSION));
+        inputs[i].push_back(test_util::make_thread(tid));
+        inputs[i].push_back(test_util::make_pid(PID_BASE));
+        inputs[i].push_back(test_util::make_version(TRACE_ENTRY_VERSION));
         // Add a randomly-increasing-value timestamp.
         uint64_t cur_timestamp = TIMESTAMP_BASE;
         cur_timestamp += rand_gen();
-        inputs[i].push_back(make_timestamp(cur_timestamp));
+        inputs[i].push_back(test_util::make_timestamp(cur_timestamp));
         // Add a cpuid with a random value.
-        inputs[i].push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, rand_gen()));
+        inputs[i].push_back(test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, rand_gen()));
         for (int j = 0; j < NUM_INSTRS; j++) {
-            inputs[i].push_back(make_instr(42 + j * 4));
+            inputs[i].push_back(test_util::make_instr(42 + j * 4));
             // Add a randomly-increasing-value timestamp.
             cur_timestamp += rand_gen();
-            inputs[i].push_back(make_timestamp(cur_timestamp));
+            inputs[i].push_back(test_util::make_timestamp(cur_timestamp));
             // Add a cpuid with a random value.
-            inputs[i].push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, rand_gen()));
+            inputs[i].push_back(
+                test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, rand_gen()));
         }
-        inputs[i].push_back(make_exit(tid));
+        inputs[i].push_back(test_util::make_exit(tid));
     }
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     for (int i = 0; i < NUM_INPUTS; i++) {
         std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()),
-                             TID_BASE);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(inputs[i])),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_BASE);
         sched_inputs.emplace_back(std::move(readers));
     }
     scheduler_t scheduler;
@@ -7318,6 +9810,100 @@ test_marker_updates()
         assert(last_timestamp[i] - first_timestamp[i] >= TIMESTAMP_GAP_US);
     }
     assert(instrs_seen == NUM_INPUTS * NUM_INSTRS);
+}
+
+static void
+test_static_marker_updates()
+{
+    std::cerr << "\n----------------\nTesting static marker updates\n";
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_CONSISTENT_OUTPUT,
+                                               scheduler_t::DEPENDENCY_IGNORE,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/0);
+    static constexpr int NUM_INPUTS = 2;
+    static constexpr int NUM_OUTPUTS = 2;
+    const int NUM_INSTRS = 12;
+    static constexpr memref_tid_t TID_BASE = 100;
+    static constexpr memref_pid_t PID_BASE = 200;
+    static constexpr uint64_t TIMESTAMP_BASE = 12340000;
+
+    std::vector<trace_entry_t> inputs[NUM_INPUTS];
+
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        memref_tid_t tid = TID_BASE;
+        inputs[i].push_back(test_util::make_thread(tid));
+        inputs[i].push_back(test_util::make_pid(PID_BASE));
+        inputs[i].push_back(test_util::make_version(TRACE_ENTRY_VERSION));
+        uint64_t cur_timestamp = TIMESTAMP_BASE + i;
+        inputs[i].push_back(test_util::make_timestamp(cur_timestamp));
+        inputs[i].push_back(test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 1));
+        for (int j = 0; j < NUM_INSTRS; j++) {
+            inputs[i].push_back(test_util::make_instr(42 + j * 4));
+            // Include idle and wait markers, which should get transformed.
+            // We have one idle and one wait for every instruction.
+            inputs[i].push_back(test_util::make_marker(TRACE_MARKER_TYPE_CORE_IDLE, 0));
+            inputs[i].push_back(test_util::make_marker(TRACE_MARKER_TYPE_CORE_WAIT, 0));
+        }
+        inputs[i].push_back(test_util::make_exit(tid));
+    }
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(inputs[i])),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_BASE);
+        sched_inputs.emplace_back(std::move(readers));
+    }
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    std::vector<scheduler_t::stream_t *> outputs(NUM_OUTPUTS, nullptr);
+    std::vector<bool> eof(NUM_OUTPUTS, false);
+    for (int i = 0; i < NUM_OUTPUTS; i++)
+        outputs[i] = scheduler.get_stream(i);
+    int num_eof = 0, num_idle = 0, num_wait = 0, num_instr = 0;
+    while (num_eof < NUM_OUTPUTS) {
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            if (eof[i])
+                continue;
+            memref_t memref;
+            scheduler_t::stream_status_t status = outputs[i]->next_record(memref);
+            if (status == scheduler_t::STATUS_EOF) {
+                ++num_eof;
+                eof[i] = true;
+                continue;
+            }
+            if (status == scheduler_t::STATUS_IDLE) {
+                ++num_idle;
+                continue;
+            }
+            if (status == scheduler_t::STATUS_WAIT) {
+                ++num_wait;
+                continue;
+            }
+            assert(status == scheduler_t::STATUS_OK);
+            // The idle and wait markers should have turned into statuses above.
+            assert(memref.marker.type != TRACE_TYPE_MARKER ||
+                   (memref.marker.marker_type != TRACE_MARKER_TYPE_CORE_IDLE &&
+                    memref.marker.marker_type != TRACE_MARKER_TYPE_CORE_WAIT));
+            if (type_is_instr(memref.instr.type))
+                ++num_instr;
+        }
+    }
+    assert(num_instr == NUM_INSTRS * NUM_INPUTS);
+    // We should have one idle and one wait for every instruction.
+    assert(num_instr == num_idle);
+    assert(num_instr == num_wait);
+}
+
+static void
+test_marker_updates()
+{
+    test_dynamic_marker_updates();
+    test_static_marker_updates();
 }
 
 class test_options_t : public scheduler_fixed_tmpl_t<memref_t, reader_t> {
@@ -7419,23 +10005,25 @@ test_noise_generator()
     std::vector<trace_entry_t> inputs[NUM_INPUTS];
     for (int i = 0; i < NUM_INPUTS; i++) {
         memref_tid_t tid = TID_BASE + i;
-        inputs[i].push_back(make_thread(tid));
-        inputs[i].push_back(make_pid(1));
+        inputs[i].push_back(test_util::make_thread(tid));
+        inputs[i].push_back(test_util::make_pid(1));
         // Add a timestamp after the PID as required by the scheduler.
         uint64_t cur_timestamp = TIMESTAMP_BASE + i * 10;
-        inputs[i].push_back(make_timestamp(cur_timestamp));
+        inputs[i].push_back(test_util::make_timestamp(cur_timestamp));
         // Add instruction fetches.
         for (int j = 0; j < NUM_INSTRS; j++) {
-            inputs[i].push_back(make_instr(42 + j * 4));
-            inputs[i].push_back(make_memref(0xaaaaaaaa, TRACE_TYPE_READ));
+            inputs[i].push_back(test_util::make_instr(42 + j * 4));
+            inputs[i].push_back(test_util::make_memref(0xaaaaaaaa, TRACE_TYPE_READ));
         }
-        inputs[i].push_back(make_exit(tid));
+        inputs[i].push_back(test_util::make_exit(tid));
     }
     std::vector<scheduler_t::input_reader_t> readers;
     for (int i = 0; i < NUM_INPUTS; i++) {
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()),
-                             TID_BASE + i);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(inputs[i])),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_BASE + i);
     }
 
     // Create a noise generator.
@@ -7465,7 +10053,7 @@ test_noise_generator()
     // for the noise generator.
     scheduler_t::scheduler_options_t sched_ops(
         scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
-        scheduler_t::SCHEDULER_DEFAULTS, /*verbose=*/4);
+        scheduler_t::SCHEDULER_DEFAULTS, /*verbosity=*/0);
     // This is the default quantum_unit, but we specify it anyway in case it changes in
     // the future.
     sched_ops.quantum_unit = scheduler_t::QUANTUM_INSTRUCTIONS;
@@ -7502,6 +10090,599 @@ test_noise_generator()
     assert(found_at_least_one_noise_generator_read);
 }
 
+void
+test_random_layout()
+{
+    std::cerr << "\n----------------\nTesting random layout\n";
+    static constexpr int NUM_INPUTS = 8;
+    static constexpr int NUM_OUTPUTS = 3;
+    static constexpr int NUM_INSTRS = 9;
+    static constexpr int QUANTUM_DURATION = 3;
+    static constexpr int NUM_ITERS = 12;
+    static constexpr memref_tid_t TID_BASE = 100;
+    std::vector<trace_entry_t> inputs[NUM_INPUTS];
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        memref_tid_t tid = TID_BASE + i;
+        inputs[i].push_back(test_util::make_thread(tid));
+        inputs[i].push_back(test_util::make_pid(1));
+        inputs[i].push_back(test_util::make_version(TRACE_ENTRY_VERSION));
+        inputs[i].push_back(test_util::make_timestamp(10)); // All the same time priority.
+        for (int j = 0; j < NUM_INSTRS; j++) {
+            inputs[i].push_back(test_util::make_instr(42 + j * 4));
+        }
+        inputs[i].push_back(test_util::make_exit(tid));
+    }
+    std::vector<std::vector<std::string>> sched_string(NUM_ITERS);
+    for (int iter = 0; iter < NUM_ITERS; ++iter) {
+        sched_string[iter].reserve(NUM_OUTPUTS);
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        for (int i = 0; i < NUM_INPUTS; i++) {
+            std::vector<scheduler_t::input_reader_t> readers;
+            readers.emplace_back(
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                TID_BASE + i);
+            sched_inputs.emplace_back(std::move(readers));
+        }
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_IGNORE,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/0);
+        // The first 3rd have no randomness; the next 3rd enable random layout
+        // with a constant seed; the final 3rd use a different seed each time.
+        if (iter >= NUM_ITERS * 2 / 3) {
+            sched_ops.random_initial_layout = iter;
+        } else if (iter >= NUM_ITERS / 3) {
+            sched_ops.random_initial_layout = 1;
+        }
+        sched_ops.quantum_duration_instrs = QUANTUM_DURATION;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        sched_string[iter] = run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "iter " << iter << " cpu #" << i
+                      << " schedule: " << sched_string[iter][i] << "\n";
+        }
+    }
+    // An actual output to illustrate the 1/3 shifts:
+    // Round robin:
+    //   iter 0 cpu #0 schedule: ..AAA..DDD..GGGAAADDDGGGAAA.DDD.GGG._
+    //   iter 0 cpu #1 schedule: ..BBB..EEE..HHHBBBEEEHHHBBB.EEE.HHH.
+    //   iter 0 cpu #2 schedule: ..CCC..FFFCCCFFFCCC.FFF.____________
+    //   iter 1 cpu #0 schedule: ..AAA..DDD..GGGAAADDDGGGAAA.DDD.GGG._
+    //   iter 1 cpu #1 schedule: ..BBB..EEE..HHHBBBEEEHHHBBB.EEE.HHH.
+    //   iter 1 cpu #2 schedule: ..CCC..FFFCCCFFFCCC.FFF.____________
+    //   iter 2 cpu #0 schedule: ..AAA..DDD..GGGAAADDDGGGAAA.DDD.GGG._
+    //   iter 2 cpu #1 schedule: ..BBB..EEE..HHHBBBEEEHHHBBB.EEE.HHH.
+    //   iter 2 cpu #2 schedule: ..CCC..FFFCCCFFFCCC.FFF.____________
+    //   iter 3 cpu #0 schedule: ..AAA..DDD..GGGAAADDDGGGAAA.DDD.GGG._
+    //   iter 3 cpu #1 schedule: ..BBB..EEE..HHHBBBEEEHHHBBB.EEE.HHH.
+    //   iter 3 cpu #2 schedule: ..CCC..FFFCCCFFFCCC.FFF.____________
+    // Random with the same seed:
+    //   iter 4 cpu #0 schedule: ..BBB..CCCBBBCCCBBB.CCC._____________
+    //   iter 4 cpu #1 schedule: ..AAA..DDD..EEEAAADDDEEEAAA.DDD.EEE._
+    //   iter 4 cpu #2 schedule: ..FFF..GGG..HHHFFFGGGHHHFFF.GGG.HHH.
+    //   iter 5 cpu #0 schedule: ..BBB..CCCBBBCCCBBB.CCC._____________
+    //   iter 5 cpu #1 schedule: ..AAA..DDD..EEEAAADDDEEEAAA.DDD.EEE._
+    //   iter 5 cpu #2 schedule: ..FFF..GGG..HHHFFFGGGHHHFFF.GGG.HHH.
+    //   iter 6 cpu #0 schedule: ..BBB..CCCBBBCCCBBB.CCC._____________
+    //   iter 6 cpu #1 schedule: ..AAA..DDD..EEEAAADDDEEEAAA.DDD.EEE._
+    //   iter 6 cpu #2 schedule: ..FFF..GGG..HHHFFFGGGHHHFFF.GGG.HHH.
+    //   iter 7 cpu #0 schedule: ..BBB..CCCBBBCCCBBB.CCC._____________
+    //   iter 7 cpu #1 schedule: ..AAA..DDD..EEEAAADDDEEEAAA.DDD.EEE._
+    //   iter 7 cpu #2 schedule: ..FFF..GGG..HHHFFFGGGHHHFFF.GGG.HHH.
+    // Random with a different seed each time:
+    //   iter 8 cpu #0 schedule: ..BBB..FFF..GGGBBBFFFGGGBBB.FFF.GGG._
+    //   iter 8 cpu #1 schedule: ..DDD..EEE..HHHDDDEEEHHHDDD.EEE.HHH.
+    //   iter 8 cpu #2 schedule: ..AAA..CCCAAACCCAAA.CCC.____________
+    //   iter 9 cpu #0 schedule: ..AAA..BBB..HHHAAABBBHHHAAA.BBB.HHH._
+    //   iter 9 cpu #1 schedule: ..CCC..DDD..EEECCCDDDEEECCC.DDD.EEE.
+    //   iter 9 cpu #2 schedule: ..FFF..GGGFFFGGGFFF.GGG.____________
+    //   iter 10 cpu #0 schedule: ..BBB..CCC..GGGBBBCCCGGGBBB.CCC.GGG._
+    //   iter 10 cpu #1 schedule: ..AAA..EEE..FFFAAAEEEFFFAAA.EEE.FFF.
+    //   iter 10 cpu #2 schedule: ..DDD..HHHDDDHHHDDD.HHH.____________
+    //   iter 11 cpu #0 schedule: ..BBB..CCC..HHHBBBCCCHHHBBB.CCC.HHH._
+    //   iter 11 cpu #1 schedule: ..EEE..GGGEEEGGGEEE.GGG._____________
+    //   iter 11 cpu #2 schedule: ..AAA..DDD..FFFAAADDDFFFAAA.DDD.FFF.
+    int random_match_count = 0;
+    for (int iter = 0; iter < NUM_ITERS; ++iter) {
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            // The first 3rd have no randomness; the next 3rd enable random layout
+            // with a constant seed; the final 3rd use a different seed each time.
+            if (iter >= NUM_ITERS * 2 / 3) {
+                // A different seed should produce a different layout most of
+                // the time.
+                if (sched_string[iter][i] == sched_string[iter - 1][i])
+                    ++random_match_count;
+            } else if (iter > NUM_ITERS / 3) {
+                // The same seed should produce the same layout.
+                assert(sched_string[iter][i] == sched_string[iter - 1][i]);
+            } else if (iter == NUM_ITERS / 3) {
+                // The random shouldn't match the round robin, but there is
+                // a chance it might so we can't really assert.
+                // This was tested manually and it did differ.
+            } else if (iter > 0) {
+                assert(sched_string[iter][i] == sched_string[iter - 1][i]);
+            }
+        }
+    }
+    // We want some kind of check; it seems pretty unlikely more than one of the
+    // random schedules will match another.
+    // In a test with ctest --repeat_until_failure this passed 1000x in a row
+    // so this seems a good balance of avoiding flakiness while still checking
+    // something in an automated fashion.
+    assert(random_match_count <= NUM_OUTPUTS);
+}
+
+void
+test_canonicalize()
+{
+#ifndef X64
+    return;
+#else
+    std::cerr << "\n----------------\nTesting address canonicalization\n";
+    static constexpr memref_tid_t TID_A = 42;
+    static constexpr addr_t TOP_PC_A = 0xab00123400560078;
+    static constexpr addr_t TOP_PC_A_CANON = 0x0000123400560078;
+    static constexpr addr_t TOP_PC_B = 0xeeffa23400560078;
+    static constexpr addr_t TOP_PC_B_CANON = 0xffffa23400560078;
+    static constexpr addr_t TOP_ADDR_A = 0x5700432100560078;
+    static constexpr addr_t TOP_ADDR_A_CANON = 0x0000432100560078;
+    static constexpr addr_t TOP_ADDR_B = 0xcdff832100780056;
+    static constexpr addr_t TOP_ADDR_B_CANON = 0xffff832100780056;
+    std::vector<trace_entry_t> refs_A = {
+        /* clang-format off */
+        test_util::make_thread(TID_A),
+        test_util::make_pid(1),
+        test_util::make_version(4),
+        test_util::make_timestamp(10),
+        test_util::make_instr(TOP_PC_A),
+        test_util::make_memref(TOP_ADDR_A, TRACE_TYPE_WRITE),
+        test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, TOP_PC_A),
+        test_util::make_instr(TOP_PC_B, TRACE_TYPE_INSTR_INDIRECT_JUMP),
+        test_util::make_memref(TOP_ADDR_B),
+        test_util::make_instr(TOP_PC_A),
+        test_util::make_memref(TOP_ADDR_A, TRACE_TYPE_PREFETCH_READ_L1),
+        test_util::make_instr(TOP_PC_B),
+        test_util::make_memref(TOP_ADDR_A, TRACE_TYPE_INSTR_FLUSH),
+        test_util::make_memref(TOP_ADDR_A, TRACE_TYPE_INSTR_FLUSH_END),
+        test_util::make_instr(TOP_PC_A),
+        test_util::make_memref(TOP_ADDR_B, TRACE_TYPE_DATA_FLUSH),
+        test_util::make_memref(TOP_ADDR_B, TRACE_TYPE_DATA_FLUSH_END),
+        test_util::make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, TOP_PC_A),
+        test_util::make_marker(TRACE_MARKER_TYPE_KERNEL_XFER, TOP_PC_A),
+        test_util::make_marker(TRACE_MARKER_TYPE_FUNC_RETADDR, TOP_PC_A),
+        test_util::make_marker(TRACE_MARKER_TYPE_RSEQ_ABORT, TOP_PC_A),
+        test_util::make_marker(TRACE_MARKER_TYPE_PHYSICAL_ADDRESS, TOP_ADDR_A),
+        test_util::make_marker(TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, TOP_ADDR_A),
+        test_util::make_marker(TRACE_MARKER_TYPE_RSEQ_ENTRY, TOP_PC_A),
+        test_util::make_marker(TRACE_MARKER_TYPE_HARDWARE_EVENT, TOP_PC_B),
+        test_util::make_marker(TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, TOP_PC_B),
+        test_util::make_exit(TID_A),
+        /* clang-format on */
+    };
+    {
+        // Test with canonicalization.
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_IGNORE,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/0);
+        sched_ops.canonicalize_addresses = true;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, /*outputs=*/1, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        auto *stream = scheduler.get_stream(0);
+        memref_t memref;
+        for (scheduler_t::stream_status_t status = stream->next_record(memref);
+             status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+            assert(status == scheduler_t::STATUS_OK);
+            if (type_is_instr(memref.instr.type)) {
+                assert(memref.instr.addr == TOP_PC_A_CANON ||
+                       memref.instr.addr == TOP_PC_B_CANON);
+                assert(memref.instr.indirect_branch_target == 0 ||
+                       memref.instr.indirect_branch_target == TOP_PC_A_CANON ||
+                       memref.instr.indirect_branch_target == TOP_PC_B_CANON);
+            } else if (type_is_prefetch(memref.data.type) ||
+                       memref.data.type == TRACE_TYPE_READ ||
+                       memref.data.type == TRACE_TYPE_WRITE) {
+                assert(memref.data.addr == TOP_ADDR_A_CANON ||
+                       memref.data.addr == TOP_ADDR_B_CANON);
+                assert(memref.data.pc == TOP_PC_A_CANON ||
+                       memref.data.pc == TOP_PC_B_CANON);
+            } else if (memref.flush.type == TRACE_TYPE_INSTR_FLUSH ||
+                       memref.flush.type == TRACE_TYPE_INSTR_FLUSH_END ||
+                       memref.flush.type == TRACE_TYPE_DATA_FLUSH ||
+                       memref.flush.type == TRACE_TYPE_DATA_FLUSH_END) {
+                assert(memref.flush.addr == TOP_ADDR_A_CANON ||
+                       memref.flush.addr == TOP_ADDR_B_CANON);
+                assert(memref.flush.pc == TOP_PC_A_CANON ||
+                       memref.flush.pc == TOP_PC_B_CANON);
+            } else if (memref.marker.type == TRACE_TYPE_MARKER &&
+                       (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_RETADDR ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_VIRTUAL_ADDRESS ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ENTRY ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_BRANCH_TARGET ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_HARDWARE_EVENT ||
+                        memref.marker.marker_type ==
+                            TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN)) {
+                assert(memref.marker.marker_value == TOP_ADDR_A_CANON ||
+                       memref.marker.marker_value == TOP_ADDR_B_CANON ||
+                       memref.marker.marker_value == TOP_PC_A_CANON ||
+                       memref.marker.marker_value == TOP_PC_B_CANON);
+            }
+        }
+        std::cerr << "Auto-canonicalized "
+                  << scheduler.get_stream(0)->get_schedule_statistic(
+                         memtrace_stream_t::SCHED_STAT_CANONICALIZED_ADDRESSES)
+                  << " addresses\n";
+        assert(stream->get_schedule_statistic(
+                   memtrace_stream_t::SCHED_STAT_CANONICALIZED_ADDRESSES) == 29);
+    }
+    {
+        // Test without canonicalization.
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_IGNORE,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/0);
+        sched_ops.canonicalize_addresses = false;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, /*outputs=*/1, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        auto *stream = scheduler.get_stream(0);
+        memref_t memref;
+        for (scheduler_t::stream_status_t status = stream->next_record(memref);
+             status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+            assert(status == scheduler_t::STATUS_OK);
+            if (type_is_instr(memref.instr.type)) {
+                assert(memref.instr.addr == TOP_PC_A || memref.instr.addr == TOP_PC_B);
+                assert(memref.instr.indirect_branch_target == 0 ||
+                       memref.instr.indirect_branch_target == TOP_PC_A ||
+                       memref.instr.indirect_branch_target == TOP_PC_B);
+            } else if (type_is_prefetch(memref.data.type) ||
+                       memref.data.type == TRACE_TYPE_READ ||
+                       memref.data.type == TRACE_TYPE_WRITE) {
+                assert(memref.data.addr == TOP_ADDR_A || memref.data.addr == TOP_ADDR_B);
+                assert(memref.data.pc == TOP_PC_A || memref.data.pc == TOP_PC_B);
+            } else if (memref.flush.type == TRACE_TYPE_INSTR_FLUSH ||
+                       memref.flush.type == TRACE_TYPE_INSTR_FLUSH_END ||
+                       memref.flush.type == TRACE_TYPE_DATA_FLUSH ||
+                       memref.flush.type == TRACE_TYPE_DATA_FLUSH_END) {
+                assert(memref.flush.addr == TOP_ADDR_A ||
+                       memref.flush.addr == TOP_ADDR_B);
+                assert(memref.flush.pc == TOP_PC_A || memref.flush.pc == TOP_PC_B);
+            } else if (memref.marker.type == TRACE_TYPE_MARKER &&
+                       (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_RETADDR ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_VIRTUAL_ADDRESS ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ENTRY ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_BRANCH_TARGET ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_HARDWARE_EVENT ||
+                        memref.marker.marker_type ==
+                            TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN)) {
+                assert(memref.marker.marker_value == TOP_ADDR_A ||
+                       memref.marker.marker_value == TOP_ADDR_B ||
+                       memref.marker.marker_value == TOP_PC_A ||
+                       memref.marker.marker_value == TOP_PC_B);
+            }
+        }
+        assert(stream->get_schedule_statistic(
+                   memtrace_stream_t::SCHED_STAT_CANONICALIZED_ADDRESSES) == 0);
+    }
+#endif
+}
+
+static void
+test_whole_system_invalid_options()
+{
+    std::cerr << "\n----------------\nTesting whole-system invalid options\n";
+    static constexpr memref_tid_t TID = 42;
+    static constexpr addr_t PC = 0x1000;
+
+    std::vector<trace_entry_t> refs = {
+        test_util::make_header(TRACE_ENTRY_VERSION),
+        test_util::make_thread(TID),
+        test_util::make_pid(1),
+        // Filetype marker with WHOLE_SYSTEM bit.
+        test_util::make_marker(TRACE_MARKER_TYPE_FILETYPE,
+                               OFFLINE_FILE_TYPE_WHOLE_SYSTEM),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(10),
+        test_util::make_instr(PC),
+        test_util::make_exit(TID),
+    };
+
+    auto make_workload = [&](const std::vector<trace_entry_t> &input_refs) {
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(input_refs)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID);
+        sched_inputs.emplace_back(std::move(readers));
+        return sched_inputs;
+    };
+
+    // Test 1: MAP_TO_ANY_OUTPUT (default) -> should fail.
+    {
+        std::vector<scheduler_t::input_workload_t> sched_inputs = make_workload(refs);
+        scheduler_t scheduler;
+        scheduler_t::scheduler_options_t sched_ops(
+            scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
+            scheduler_t::SCHEDULER_DEFAULTS, /*verbosity=*/0);
+        scheduler_t::scheduler_status_t status =
+            scheduler.init(sched_inputs, 1, std::move(sched_ops));
+        assert(status == scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
+    }
+
+    // Test 2: MAP_TO_CONSISTENT_OUTPUT + DEPENDENCY_TIMESTAMPS -> should fail.
+    {
+        std::vector<scheduler_t::input_workload_t> sched_inputs = make_workload(refs);
+        scheduler_t scheduler;
+        scheduler_t::scheduler_options_t sched_ops(
+            scheduler_t::MAP_TO_CONSISTENT_OUTPUT, scheduler_t::DEPENDENCY_TIMESTAMPS,
+            scheduler_t::SCHEDULER_DEFAULTS, /*verbosity=*/0);
+        scheduler_t::scheduler_status_t status =
+            scheduler.init(sched_inputs, 1, std::move(sched_ops));
+        assert(status == scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
+    }
+
+    // Test 3: MAP_TO_CONSISTENT_OUTPUT + DEPENDENCY_IGNORE -> should succeed.
+    {
+        std::vector<scheduler_t::input_workload_t> sched_inputs = make_workload(refs);
+        scheduler_t scheduler;
+        scheduler_t::scheduler_options_t sched_ops(
+            scheduler_t::MAP_TO_CONSISTENT_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
+            scheduler_t::SCHEDULER_DEFAULTS, /*verbosity=*/0);
+        scheduler_t::scheduler_status_t status =
+            scheduler.init(sched_inputs, 1, std::move(sched_ops));
+        assert(status == scheduler_t::STATUS_SUCCESS);
+    }
+
+    // Test 3b: make_scheduler_parallel_options -> should succeed.
+    {
+        std::vector<scheduler_t::input_workload_t> sched_inputs = make_workload(refs);
+        scheduler_t scheduler;
+        scheduler_t::scheduler_options_t sched_ops =
+            scheduler_t::make_scheduler_parallel_options(/*verbosity=*/0);
+        scheduler_t::scheduler_status_t status =
+            scheduler.init(sched_inputs, 1, std::move(sched_ops));
+        assert(status == scheduler_t::STATUS_SUCCESS);
+    }
+
+    // Test 4: MAP_TO_ANY_OUTPUT (default) + read_inputs_in_init(false) -> init succeeds,
+    // but reading fails.
+    {
+        std::vector<scheduler_t::input_workload_t> sched_inputs = make_workload(refs);
+        scheduler_t scheduler;
+        scheduler_t::scheduler_options_t sched_ops(
+            scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
+            scheduler_t::SCHEDULER_DEFAULTS, /*verbosity=*/0);
+        sched_ops.read_inputs_in_init = false;
+        scheduler_t::scheduler_status_t status =
+            scheduler.init(sched_inputs, 1, std::move(sched_ops));
+        assert(status == scheduler_t::STATUS_SUCCESS);
+
+        auto *stream = scheduler.get_stream(0);
+        memref_t res_entry;
+        scheduler_t::stream_status_t read_status;
+        int count = 0;
+        do {
+            read_status = stream->next_record(res_entry);
+            if (read_status == scheduler_t::STATUS_INVALID)
+                break;
+            assert(read_status == scheduler_t::STATUS_OK);
+            if (++count > 10)
+                break;
+        } while (true);
+        assert(read_status == scheduler_t::STATUS_INVALID);
+    }
+}
+
+// Helpers to get type and marker type in a templated way.
+template <typename RecordType>
+static trace_type_t
+get_record_type(const RecordType &record);
+
+template <>
+trace_type_t
+get_record_type<memref_t>(const memref_t &record)
+{
+    return record.marker.type;
+}
+
+template <>
+trace_type_t
+get_record_type<trace_entry_t>(const trace_entry_t &record)
+{
+    return static_cast<trace_type_t>(record.type);
+}
+
+template <typename RecordType>
+static trace_marker_type_t
+get_marker_type(const RecordType &record);
+
+template <>
+trace_marker_type_t
+get_marker_type<memref_t>(const memref_t &record)
+{
+    return record.marker.marker_type;
+}
+
+template <>
+trace_marker_type_t
+get_marker_type<trace_entry_t>(const trace_entry_t &record)
+{
+    return static_cast<trace_marker_type_t>(record.size);
+}
+
+template <typename RecordType, typename ReaderType>
+static void
+assert_kernel_and_next_tmpl(
+    scheduler_tmpl_t<RecordType, ReaderType> &scheduler,
+    typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream,
+    RecordType &record)
+{
+    using SchedType = scheduler_tmpl_t<RecordType, ReaderType>;
+    assert(stream->is_record_kernel());
+    // Also check the underlying reader_t or record_reader_t.
+    assert(scheduler.get_input_stream_interface(0)->is_record_kernel());
+    typename SchedType::stream_status_t status = stream->next_record(record);
+    assert(status == SchedType::STATUS_OK);
+}
+
+template <typename RecordType, typename ReaderType>
+static void
+assert_user_and_next_tmpl(
+    scheduler_tmpl_t<RecordType, ReaderType> &scheduler,
+    typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream,
+    RecordType &record)
+{
+    using SchedType = scheduler_tmpl_t<RecordType, ReaderType>;
+    assert(!stream->is_record_kernel());
+    // Also check the underlying reader_t or record_reader_t.
+    assert(!scheduler.get_input_stream_interface(0)->is_record_kernel());
+    typename SchedType::stream_status_t status = stream->next_record(record);
+    assert(status == SchedType::STATUS_OK);
+}
+
+template <typename RecordType, typename ReaderType, typename MockReaderType>
+static void
+test_hardware_event_kernel_regions_tmpl()
+{
+    using SchedType = scheduler_tmpl_t<RecordType, ReaderType>;
+    static constexpr memref_tid_t TID = 42;
+    static constexpr addr_t PC_USER = 0x1000;
+    static constexpr addr_t PC_KERNEL = 0x2000;
+    static constexpr addr_t SYSNUM = 42;
+    std::vector<trace_entry_t> inputs = {
+        /* clang-format off */
+        test_util::make_header(TRACE_ENTRY_VERSION),
+        test_util::make_thread(TID),
+        test_util::make_pid(TID),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_marker(TRACE_MARKER_TYPE_FILETYPE,
+                               OFFLINE_FILE_TYPE_WHOLE_SYSTEM),
+        test_util::make_timestamp(10),
+        test_util::make_instr(PC_USER),
+
+        // Syscall with a hardware event nested in it.
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSNUM),
+        test_util::make_instr(PC_KERNEL + 100),
+        test_util::make_marker(TRACE_MARKER_TYPE_HARDWARE_EVENT, PC_KERNEL + 104),
+        test_util::make_instr(PC_KERNEL + 200),
+        test_util::make_marker(
+            TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, PC_KERNEL + 204),
+        test_util::make_instr(PC_KERNEL + 104),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSNUM),
+
+        test_util::make_instr(PC_USER + 4),
+
+        // Hardware event nested within another.
+        test_util::make_marker(TRACE_MARKER_TYPE_HARDWARE_EVENT, PC_USER + 8),
+        test_util::make_instr(PC_KERNEL + 100),
+        test_util::make_marker(TRACE_MARKER_TYPE_HARDWARE_EVENT, PC_KERNEL + 104),
+        test_util::make_instr(PC_KERNEL + 200),
+        test_util::make_marker(
+            TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, PC_KERNEL + 204),
+        test_util::make_instr(PC_KERNEL + 104),
+        test_util::make_marker(
+            TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, PC_KERNEL + 108),
+
+        test_util::make_exit(TID),
+        /* clang-format on */
+    };
+
+    std::vector<typename SchedType::input_workload_t> sched_inputs;
+    std::vector<typename SchedType::input_reader_t> readers;
+    readers.emplace_back(std::unique_ptr<MockReaderType>(new MockReaderType(inputs)),
+                         std::unique_ptr<MockReaderType>(new MockReaderType()), TID);
+    sched_inputs.emplace_back(std::move(readers));
+
+    typename SchedType::scheduler_options_t sched_ops(SchedType::MAP_TO_CONSISTENT_OUTPUT,
+                                                      SchedType::DEPENDENCY_IGNORE,
+                                                      SchedType::SCHEDULER_DEFAULTS,
+                                                      /*verbosity=*/0);
+    SchedType scheduler;
+    if (scheduler.init(sched_inputs, /*outputs=*/1, std::move(sched_ops)) !=
+        SchedType::STATUS_SUCCESS) {
+        std::cerr << scheduler.get_error_string() << "\n";
+        assert(false);
+    }
+
+    auto *stream = scheduler.get_stream(0);
+    RecordType record;
+    typename SchedType::stream_status_t status;
+    status = stream->next_record(record);
+    assert(status == SchedType::STATUS_OK);
+
+    do {
+        assert_user_and_next_tmpl<RecordType, ReaderType>(scheduler, stream, record);
+    } while (!(get_record_type(record) == TRACE_TYPE_MARKER &&
+               get_marker_type(record) == TRACE_MARKER_TYPE_SYSCALL_TRACE_START));
+
+    do {
+        assert_kernel_and_next_tmpl<RecordType, ReaderType>(scheduler, stream, record);
+    } while (!(get_record_type(record) == TRACE_TYPE_MARKER &&
+               get_marker_type(record) == TRACE_MARKER_TYPE_SYSCALL_TRACE_END));
+    assert_kernel_and_next_tmpl<RecordType, ReaderType>(scheduler, stream, record);
+
+    do {
+        assert_user_and_next_tmpl<RecordType, ReaderType>(scheduler, stream, record);
+    } while (!(get_record_type(record) == TRACE_TYPE_MARKER &&
+               get_marker_type(record) == TRACE_MARKER_TYPE_HARDWARE_EVENT));
+
+    do {
+        assert_kernel_and_next_tmpl<RecordType, ReaderType>(scheduler, stream, record);
+    } while (get_record_type(record) != TRACE_TYPE_THREAD_EXIT);
+
+    assert(!stream->is_record_kernel());
+    status = stream->next_record(record);
+    assert(status == SchedType::STATUS_EOF);
+}
+
+static void
+test_hardware_event_kernel_regions()
+{
+    test_hardware_event_kernel_regions_tmpl<memref_t, reader_t,
+                                            test_util::mock_reader_t>();
+}
+
+static void
+test_record_hardware_event_kernel_regions()
+{
+    test_hardware_event_kernel_regions_tmpl<trace_entry_t, record_reader_t,
+                                            test_util::mock_record_reader_t>();
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -7512,6 +10693,7 @@ test_main(int argc, const char *argv[])
 
     test_serial();
     test_parallel();
+    test_parallel_with_syscall_injection();
     test_param_checks();
     test_regions();
     test_only_threads();
@@ -7519,6 +10701,7 @@ test_main(int argc, const char *argv[])
     test_synthetic();
     test_synthetic_with_syscall_seq();
     test_synthetic_time_quanta();
+    test_synthetic_time_quanta_with_kernel();
     test_synthetic_with_timestamps();
     test_synthetic_with_priorities();
     test_synthetic_with_bindings();
@@ -7537,20 +10720,28 @@ test_main(int argc, const char *argv[])
     test_replay_as_traced_i6107_workaround();
     test_replay_as_traced_dup_start();
     test_replay_as_traced_sort();
+    test_replay_wrong_inputs();
     test_times_of_interest();
     test_inactive();
     test_direct_switch();
     test_unscheduled();
     test_kernel_switch_sequences();
     test_kernel_syscall_sequences();
+    test_hardware_event_kernel_regions();
+    test_record_hardware_event_kernel_regions();
+    test_whole_system_invalid_options();
     test_random_schedule();
     test_record_scheduler();
+    test_record_scheduler_i7574();
     test_rebalancing();
     test_initial_migrate();
+    test_steal_period();
     test_exit_early();
     test_marker_updates();
     test_options_match();
     test_noise_generator();
+    test_random_layout();
+    test_canonicalize();
 
     dr_standalone_exit();
     return 0;

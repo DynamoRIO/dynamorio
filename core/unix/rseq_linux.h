@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2019-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2025 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -35,7 +35,7 @@
  */
 
 #ifndef _RSEQ_H_
-#define _RSEQ_H_ 1
+#define _RSEQ_H_
 
 #include "../globals.h"
 #include "../module_shared.h"

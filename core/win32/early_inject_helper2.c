@@ -41,7 +41,8 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-__declspec(dllexport) void dr_early_inject_helper2_dummy_func()
+__declspec(dllexport) void
+dr_early_inject_helper2_dummy_func()
 {
     /* nothing */
 }

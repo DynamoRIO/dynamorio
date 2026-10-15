@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2014-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -70,6 +70,19 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
             os_tls->os_seg_info.priv_lib_tls_base);
         write_thread_register(os_tls->os_seg_info.priv_lib_tls_base);
         ASSERT(get_segment_base(TLS_REG_LIB) == os_tls->os_seg_info.priv_lib_tls_base);
+#ifdef STATIC_LIBRARY
+    } else if (read_thread_register(TLS_REG_LIB) == 0) {
+        /* XXX i#7670: Use privload_tls_init() to set up a more representative
+         * TLS layout.
+         */
+        byte *tls = heap_mmap(2 * PAGE_SIZE, MEMPROT_READ | MEMPROT_WRITE,
+                              VMM_SPECIAL_MMAP | VMM_PER_THREAD);
+        /* Point to the middle to support access on both sides. */
+        write_thread_register(tls + PAGE_SIZE);
+        ASSERT((byte *)read_thread_register(TLS_REG_LIB) == tls + PAGE_SIZE);
+        ASSERT(os_tls->os_seg_info.priv_lib_tls_base == NULL);
+        os_tls->custom_alloc = true;
+#endif
     } else {
         /* Use the app's base which is already in place for static DR.
          * We don't support other use cases of -no_private_loader.
@@ -77,14 +90,14 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
         ASSERT(read_thread_register(TLS_REG_LIB) != 0);
         ASSERT(os_tls->os_seg_info.priv_lib_tls_base == NULL);
     }
-    ASSERT(*get_dr_tls_base_addr() == NULL ||
+    ASSERT(os_tls->custom_alloc || *get_dr_tls_base_addr() == NULL ||
            *get_dr_tls_base_addr() == TLS_SLOT_VAL_EXITED);
     *get_dr_tls_base_addr() = segment;
     os_tls->tls_type = TLS_TYPE_SLOT;
 }
 
 bool
-tls_thread_preinit()
+tls_thread_preinit(void)
 {
     return true;
 }
@@ -100,11 +113,17 @@ tls_thread_free(tls_type_t tls_type, int index)
     ASSERT(dr_tls_base_addr != NULL);
     os_tls = (os_local_state_t *)*dr_tls_base_addr;
     ASSERT(os_tls->self == os_tls);
-    /* FIXME i#1578: support detach on ARM.  We need some way to
+    /* XXX i#1578: support detach on ARM.  We need some way to
      * determine whether a thread has exited (for deadlock_avoidance_unlock,
      * e.g.) after dcontext and os_tls are freed.  For now we store -1 in this
      * slot and assume the app will never use that value (we check in
      * os_enter_dynamorio()).
      */
     *dr_tls_base_addr = TLS_SLOT_VAL_EXITED;
+#ifdef STATIC_LIBRARY
+    if (os_tls->custom_alloc) {
+        heap_munmap((byte *)read_thread_register(TLS_REG_LIB) - PAGE_SIZE, 2 * PAGE_SIZE,
+                    VMM_SPECIAL_MMAP | VMM_PER_THREAD);
+    }
+#endif
 }

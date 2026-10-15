@@ -72,7 +72,7 @@
 byte *
 insert_relative_target(byte *pc, cache_pc target, bool hot_patch)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -80,7 +80,7 @@ insert_relative_target(byte *pc, cache_pc target, bool hot_patch)
 byte *
 insert_relative_jump(byte *pc, cache_pc target, bool hot_patch)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -88,7 +88,7 @@ insert_relative_jump(byte *pc, cache_pc target, bool hot_patch)
 uint
 nop_pad_ilist(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist, bool emitting)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return 0;
 }
@@ -131,8 +131,8 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
         *pc++ = RAW_C_NOP_INST;
     }
 
-    /* FIXME i#3544: coarse-grain NYI on RISCV64 */
-    ASSERT_NOT_IMPLEMENTED(!TEST(FRAG_COARSE_GRAIN, f->flags));
+    /* TODO i#3544: coarse-grain NYI on RISCV64 */
+    ASSERT_NOT_IMPLEMENTED(!TESTANY(FRAG_COARSE_GRAIN, f->flags));
 
     if (LINKSTUB_DIRECT(l_flags)) {
         APP(&ilist,
@@ -467,7 +467,7 @@ patchable_exit_cti_align_offs(dcontext_t *dcontext, instr_t *inst, cache_pc pc)
 cache_pc
 exit_cti_disp_pc(cache_pc branch_pc)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -543,7 +543,7 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
     ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
     ASSERT(LINKSTUB_INDIRECT(l->flags));
     /* Target is always the same, so if it's already unlinked, this is a nop. */
-    if (!TEST(LINK_LINKED, l->flags))
+    if (!TESTANY(LINK_LINKED, l->flags))
         return;
     ibl_code = get_ibl_routine_code(dcontext, extract_branchtype(l->flags), f->flags);
     exit_target = ibl_code->unlinked_ibl_entry;
@@ -561,7 +561,7 @@ indirect_linkstub_stub_pc(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
     if (decode_raw_is_jmp(dcontext, cti))
         return decode_raw_jmp_target(dcontext, cti);
 
-    /* FIXME: i#3544: In trace, we might have direct branch to indirect linkstubs. */
+    /* XXX: i#3544: In trace, we might have direct branch to indirect linkstubs. */
 
     /* There should be no other types of branch to linkstubs. */
     ASSERT_NOT_REACHED();
@@ -571,8 +571,8 @@ indirect_linkstub_stub_pc(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 cache_pc
 cbr_fallthrough_exit_cti(cache_pc prev_cti_pc)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    /* XXX i#3544: Not implemented */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return NULL;
 }
 
@@ -583,7 +583,7 @@ cbr_fallthrough_exit_cti(cache_pc prev_cti_pc)
 cache_pc
 entrance_stub_jmp(cache_pc stub)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -591,7 +591,7 @@ entrance_stub_jmp(cache_pc stub)
 bool
 coarse_is_entrance_stub(cache_pc stub)
 {
-    /* FIXME i#3544: coarse-grain NYI on RISCV64 */
+    /* TODO i#3544: coarse-grain NYI on RISCV64 */
     return false;
 }
 
@@ -697,33 +697,36 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
                 opnd_create_immed_int(
                     DCONTEXT_ACTUAL_TO_TLS_OFFSET(VREG_OFFSET(DR_REG_VR0)), OPSZ_12b)));
         memopnd = opnd_create_base_disp(DR_REG_A1, REG_NULL, 0, 0,
-                                        reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_8));
+                                        reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_1));
         /* ma:   mask agnostic
          * ta:   tail agnostic
          * sew:  selected element width
          * lmul: vector register group multiplier
          *
-         *           ma            ta         sew=8       lmul=8 */
-        vtypei = (0b1 << 7) | (0b1 << 6) | (0b000 << 3) | 0b011;
-        /* For the following vector instructions, set the element width to 8b, and use 8
-         * registers as a group (lmul=8).
+         *           ma            ta         sew=8       lmul=1 */
+        vtypei = (0b1 << 7) | (0b1 << 6) | (0b000 << 3) | 0b000;
+        /* For the following vector instructions, set the element width to 8b, and use 1
+         * register as a group (lmul=1).
          */
         APP(ilist,
             INSTR_CREATE_vsetvli(dcontext, opnd_create_reg(DR_REG_A0),
                                  opnd_create_reg(DR_REG_ZERO),
                                  opnd_create_immed_uint(vtypei, OPSZ_11b)));
-        /* Uses lmul=8 to copy 8 registers at a time. */
-        for (int reg = DR_REG_VR0; reg <= DR_REG_VR31; reg += 8) {
+        /* Copies one register at a time into the low vlenb bytes of its dr_simd_t slot,
+         * so the mcontext layout (VREG_OFFSET(reg) == &simd[reg - VR0]) holds for any
+         * VLEN <= 256 bits, not just VLEN == 256.
+         */
+        for (int reg = DR_REG_VR0; reg <= DR_REG_VR31; reg++) {
             APP(ilist,
                 INSTR_CREATE_vle8_v(dcontext, opnd_create_reg(reg), memopnd,
                                     opnd_create_immed_int(1, OPSZ_1b) /* mask disabled */,
                                     opnd_create_immed_int(0, OPSZ_3b) /* nfields = 1 */));
-            /* If it's the last vector register group, no need to increase the offset. */
-            if (reg != DR_REG_VR24) {
+            /* If it's the last vector register, no need to increase the offset. */
+            if (reg != DR_REG_VR31) {
                 APP(ilist,
                     INSTR_CREATE_addi(
                         dcontext, opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A1),
-                        opnd_create_immed_int(8 * sizeof(dr_simd_t), OPSZ_12b)));
+                        opnd_create_immed_int(sizeof(dr_simd_t), OPSZ_12b)));
             }
         }
     }
@@ -767,7 +770,7 @@ append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool abs
                 generated_code_t *code, linkstub_t *linkstub, bool coarse_info)
 {
     if (linkstub != NULL) {
-        /* FIXME i#3544: NYI for coarse-grain stub. */
+        /* TODO i#3544: NYI for coarse-grain stub. */
         ASSERT_NOT_IMPLEMENTED(false);
     }
 
@@ -835,33 +838,36 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
                 opnd_create_immed_int(
                     DCONTEXT_ACTUAL_TO_TLS_OFFSET(VREG_OFFSET(DR_REG_VR0)), OPSZ_12b)));
         memopnd = opnd_create_base_disp(DR_REG_A1, REG_NULL, 0, 0,
-                                        reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_8));
+                                        reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_1));
         /* ma:   mask agnostic
          * ta:   tail agnostic
          * sew:  selected element width
          * lmul: vector register group multiplier
          *
-         *           ma            ta         sew=8       lmul=8 */
-        vtypei = (0b1 << 7) | (0b1 << 6) | (0b000 << 3) | 0b011;
-        /* For the following vector instructions, set the element width to 8b, and use 8
-         * registers as a group (lmul=8).
+         *           ma            ta         sew=8       lmul=1 */
+        vtypei = (0b1 << 7) | (0b1 << 6) | (0b000 << 3) | 0b000;
+        /* For the following vector instructions, set the element width to 8b, and use 1
+         * register as a group (lmul=1).
          */
         APP(ilist,
             INSTR_CREATE_vsetvli(dcontext, opnd_create_reg(DR_REG_A2),
                                  opnd_create_reg(DR_REG_ZERO),
                                  opnd_create_immed_uint(vtypei, OPSZ_11b)));
-        /* Uses lmul=8 to copy 8 registers at a time. */
-        for (int reg = DR_REG_VR0; reg <= DR_REG_VR31; reg += 8) {
+        /* Copies one register at a time into the low vlenb bytes of its dr_simd_t slot,
+         * so the mcontext layout (VREG_OFFSET(reg) == &simd[reg - VR0]) holds for any
+         * VLEN <= 256 bits, not just VLEN == 256.
+         */
+        for (int reg = DR_REG_VR0; reg <= DR_REG_VR31; reg++) {
             APP(ilist,
                 INSTR_CREATE_vse8_v(dcontext, memopnd, opnd_create_reg(reg),
                                     opnd_create_immed_int(1, OPSZ_1b) /* mask disabled */,
                                     opnd_create_immed_int(0, OPSZ_3b) /* nfields = 1 */));
-            /* If it's the last vector register group, no need to increase the offset. */
-            if (reg != DR_REG_VR24) {
+            /* If it's the last vector register, no need to increase the offset. */
+            if (reg != DR_REG_VR31) {
                 APP(ilist,
                     INSTR_CREATE_addi(
                         dcontext, opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A1),
-                        opnd_create_immed_int(8 * sizeof(dr_simd_t), OPSZ_12b)));
+                        opnd_create_immed_int(sizeof(dr_simd_t), OPSZ_12b)));
             }
         }
     }
@@ -915,7 +921,7 @@ void
 insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where, uint flags,
                    bool tls, bool absolute)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
@@ -923,7 +929,7 @@ void
 insert_restore_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                       uint flags, bool tls, bool absolute)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
@@ -931,7 +937,7 @@ byte *
 emit_inline_ibl_stub(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code,
                      bool target_trace_table)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -1191,14 +1197,53 @@ void
 relink_special_ibl_xfer(dcontext_t *dcontext, int index,
                         ibl_entry_point_type_t entry_type, ibl_branch_type_t ibl_type)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    generated_code_t *code;
+    byte *ibl_tgt;
+    uint32_t *pc;
+    if (dcontext == GLOBAL_DCONTEXT) {
+        ASSERT(!special_ibl_xfer_is_thread_private()); /* else shouldn't be called */
+        code = SHARED_GENCODE_MATCH_THREAD(get_thread_private_dcontext());
+    } else {
+        ASSERT(special_ibl_xfer_is_thread_private()); /* else shouldn't be called */
+        code = THREAD_GENCODE(dcontext);
+    }
+    /* RV64 uses shared gencode only, thus code must be valid. */
+    ASSERT(code != NULL);
+    ibl_tgt = special_ibl_xfer_tgt(dcontext, code, entry_type, ibl_type);
+    ASSERT(code->special_ibl_xfer[index] != NULL);
+    pc = (uint32_t *)(code->special_ibl_xfer[index] +
+                      code->special_ibl_unlink_offs[index]);
+    uint32_t *write_pc = (uint32_t *)vmcode_get_writable_addr((byte *)pc);
+
+    protect_generated_code(code, WRITABLE);
+
+    /*
+     * ld a1, offs(x(stolen))
+     * Relinking does not require the branch instruction to change, just the
+     * target load, e.g.
+     *
+     *  31 OFFSET 20 19     rs1   15 14 width 12 11 rd 7 6 OPCODE 0
+     * |            |               |           |       |          |
+     * | tls offset | dr_reg_stolen |   0x03    |   a1  |   0x03   |
+     * | ********** |               |           |       |          |
+     *  to be changed
+     *
+     * See INSTR_CREATE_ld followed by XINST_CREATE_jump_reg() calls in
+     * emit_special_ibl_xfer(), where special_ibl_unlink_offs has been adjusted
+     * to point to the ld.
+     */
+    *write_pc = (uint32_t)(0x3 | (0x3 << 12) | ((SCRATCH_REG1 - DR_REG_X0) << 7) |
+                           ((dr_reg_stolen - DR_REG_X0) << 15) |
+                           (get_ibl_entry_tls_offs(dcontext, ibl_tgt) << 20));
+
+    machine_cache_sync(pc, pc + 1, true);
+    protect_generated_code(code, READONLY);
 }
 
 bool
 fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size)
 {
-    /* FIXME i#3544: We need to detect if C-extension is available and use
+    /* XXX i#3544: We need to detect if C-extension is available and use
      * the appropriate NOP encoding.
      */
     const size_t nop_sz = RAW_C_NOP_INST_SZ;
@@ -1229,7 +1274,7 @@ void
 append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
     ASSERT_NOT_IMPLEMENTED(!absolute &&
-                           !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
+                           !TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
 
     instr_t *no_signals = INSTR_CREATE_label(dcontext);
 

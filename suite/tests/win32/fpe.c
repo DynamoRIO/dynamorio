@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -50,7 +50,8 @@
 jmp_buf mark; /* Address for long jump to jump to */
 int fperr;    /* Global error number */
 
-void __cdecl fphandler(int sig, int num); /* Prototypes */
+void __cdecl
+fphandler(int sig, int num); /* Prototypes */
 void
 fpcheck(void);
 
@@ -134,7 +135,7 @@ fpcheck(void)
     case _FPE_INVALID: strcpy(fpstr, "Invalid number"); break;
     case _FPE_OVERFLOW: strcpy(fpstr, "Overflow"); break;
     case _FPE_UNDERFLOW: strcpy(fpstr, "Underflow"); break;
-    /* FIXME i#910: on win8 this is raised instead of _FPE_ZERODIVIDE */
+    /* XXX i#910: on win8 this is raised instead of _FPE_ZERODIVIDE */
     case _FPE_MULTIPLE_TRAPS:
         fperr = _FPE_ZERODIVIDE;
         /* fall-through */

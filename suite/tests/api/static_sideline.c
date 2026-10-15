@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -54,11 +54,38 @@ static void *child_exit[NUM_SIDELINE_THREADS];
 volatile static bool first_detach = true;
 static int num_bbs;
 
+/* For static TLS testing: */
+#ifdef WINDOWS
+#    define TLS_ATTR __declspec(thread)
+#    pragma warning(disable : 4100) /* Unreferenced formal parameter. */
+#else
+#    define TLS_ATTR __thread
+#endif
+
+/* Test a simple initialized value. */
+#define STATIC_TLS_INIT_VAL 0xdeadbeef
+TLS_ATTR volatile unsigned int static_tls_test = STATIC_TLS_INIT_VAL;
+
 static void
 sideline_run(void *arg)
 {
     int i = (int)(ptr_int_t)(arg);
     dr_fprintf(STDERR, "client thread %d is alive\n", i);
+
+    /* Test TLS to ensure it works even without private library support. */
+    if (static_tls_test != STATIC_TLS_INIT_VAL) {
+        dr_fprintf(STDERR, "TLS val is wrong: expect 0x%x but found 0x%x\n",
+                   STATIC_TLS_INIT_VAL, static_tls_test);
+    }
+
+    /* Run some library code to further test TLS by running app code that
+     * accesses TLS in a client thread.
+     */
+    char buf[MAXIMUM_PATH];
+    strcpy(buf, "sideline_tmp_XXXXXX");
+    int fd = mkstemp(buf);
+    close(fd);
+
     dr_event_signal(child_alive[i]);
     if (first_detach) {
         /* wait till event_exit in the first detachment */
@@ -92,14 +119,13 @@ event_exit(void)
     first_detach = false;
 }
 
-DR_EXPORT void
-dr_client_main(client_id_t id, int argc, const char *argv[])
+static void
+event_post_attach(void)
 {
-    int i;
-    print("in dr_client_main\n");
-    dr_register_bb_event(event_bb);
-    dr_register_exit_event(event_exit);
-    for (i = 0; i < NUM_SIDELINE_THREADS; i++) {
+    /* Client threads are paused until attach, so we can't do this in
+     * dr_client_main().
+     */
+    for (int i = 0; i < NUM_SIDELINE_THREADS; i++) {
         child_alive[i] = dr_event_create();
         if (first_detach) {
             child_continue[i] = dr_event_create();
@@ -108,6 +134,15 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         dr_create_client_thread(sideline_run, (void *)(ptr_int_t)i);
         dr_event_wait(child_alive[i]);
     }
+}
+
+DR_EXPORT void
+dr_client_main(client_id_t id, int argc, const char *argv[])
+{
+    print("in dr_client_main\n");
+    dr_register_bb_event(event_bb);
+    dr_register_post_attach_event(event_post_attach);
+    dr_register_exit_event(event_exit);
     /* XXX i#975: add some more thorough tests of different events */
 }
 
@@ -126,6 +161,7 @@ do_some_work(void)
 void *
 thread_func(void *arg)
 {
+    assert(static_tls_test == STATIC_TLS_INIT_VAL);
     int idx = (int)(ptr_int_t)arg;
     if (do_some_work() < 0)
         print("error in computation\n");
@@ -139,16 +175,15 @@ main(int argc, const char *argv[])
     int i;
     pthread_t thread[NUM_APP_THREADS];
 
+    assert(static_tls_test == STATIC_TLS_INIT_VAL);
+
     /* test attaching to multi-threaded app */
     for (i = 0; i < NUM_APP_THREADS; i++) {
         pthread_create(&thread[i], NULL, thread_func, (void *)(ptr_int_t)i);
     }
     print("pre-DR init\n");
-    dr_app_setup();
     assert(!dr_app_running_under_dynamorio());
-
-    print("pre-DR start\n");
-    dr_app_start();
+    dr_app_setup_and_start();
     assert(dr_app_running_under_dynamorio());
 
     for (i = 0; i < NUM_APP_THREADS; i++) {

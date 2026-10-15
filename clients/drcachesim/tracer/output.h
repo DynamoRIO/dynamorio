@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * **********************************************************/
 
@@ -32,7 +32,7 @@
  */
 
 #ifndef _OUTPUT_
-#define _OUTPUT_ 1
+#define _OUTPUT_
 
 #include "dr_api.h"
 #include "tracer.h"
@@ -47,13 +47,17 @@ int
 append_unit_header(void *drcontext, byte *buf_ptr, thread_id_t tid, ptr_int_t window);
 
 void
-process_and_output_buffer(void *drcontext, bool skip_size_cap);
+process_and_output_buffer(void *drcontext, bool skip_size_cap,
+                          bool at_thread_exit = false);
 
 void
 init_thread_io(void *drcontext);
 
 void
 exit_thread_io(void *drcontext);
+
+void
+fork_exit_thread_io(void *drcontext);
 
 void
 init_buffers(per_thread_t *data);
@@ -74,6 +78,14 @@ is_new_window_buffer_empty(per_thread_t *data)
         BUF_PTR(data->seg_base) == data->buf_base + buf_hdr_slots_size &&
         data->cur_window_instr_count == 0;
 }
+
+#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
+// write_syscall_record() is a per-syscall callback function. The syscall_record_buffer
+// is used to batch records and defer I/O to improve performance by reducing the the
+// frequency of file writes.
+size_t
+write_syscall_record(void *drcontext, char *buf, size_t size);
+#endif
 
 } // namespace drmemtrace
 } // namespace dynamorio

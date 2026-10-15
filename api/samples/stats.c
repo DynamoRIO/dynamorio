@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -60,7 +60,7 @@
 #    error WINDOWS-only!
 #endif
 
-#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
+#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment) - 1)) == 0)
 
 /* We export a set of stats in shared memory.
  * drstats.exe reads and displays them.
@@ -250,7 +250,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         strncpy(stats->names[i], stat_names[i], CLIENTSTAT_NAME_MAX_LEN);
         stats->names[i][CLIENTSTAT_NAME_MAX_LEN - 1] = '\0';
     }
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
     if (!drmgr_register_bb_instrumentation_event(event_analyze_bb,
                                                  event_insert_instrumentation, NULL))
         DR_ASSERT(false);

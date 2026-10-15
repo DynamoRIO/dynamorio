@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,6 +42,7 @@
 #define _WIN32_WINNT 0x0600
 
 #define _GNU_SOURCE 1 /* for REG_RIP, etc. */
+#include "dr_project_wide_defines.h"
 #include "configure.h"
 #include "drlibc.h"
 #include <stdarg.h>
@@ -161,13 +162,6 @@ extern "C" {
 #define DR_DO_NOT_DEFINE_bool
 #include "c_defines.h"
 
-/* check if all bits in mask are set in var */
-#define TESTALL(mask, var) (((mask) & (var)) == (mask))
-/* check if any bit in mask is set in var */
-#define TESTANY(mask, var) (((mask) & (var)) != 0)
-/* check if a single bit is set in var */
-#define TEST TESTANY
-
 #ifdef USE_DYNAMO
 /* to avoid non-api tests depending on dr_api headers we rely on test
  * including dr_api.h before tools.h (though then must include
@@ -265,7 +259,7 @@ page_size(void)
     }
     return size;
 #else
-    /* FIXME i#1680: On Windows determine page size using system call. */
+    /* XXX i#1680: On Windows determine page size using system call. */
     return 4096;
 #endif
 }
@@ -291,16 +285,8 @@ page_size(void)
 #else /* UNIX */
 #    define EXPORT __attribute__((visibility("default")))
 #    define IMPORT extern
-#    define NOINLINE __attribute__((noinline))
+#    define NOINLINE __attribute__((__noinline__))
 #endif
-
-/* convenience macros for secure string buffer operations */
-#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
-#define BUFFER_LAST_ELEMENT(buf) buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
-#define BUFFER_ROOM_LEFT_W(wbuf) (BUFFER_SIZE_ELEMENTS(wbuf) - wcslen(wbuf) - 1)
-#define BUFFER_ROOM_LEFT(abuf) (BUFFER_SIZE_ELEMENTS(abuf) - strlen(abuf) - 1)
 
 #define PUSHF_MASK 0x00fcffff
 
@@ -319,11 +305,6 @@ typedef enum {
     COPY_CROSS_PAGE,
 } Copy_Mode;
 
-#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((ptr_uint_t)(alignment)-1)))
-#define ALIGN_FORWARD(x, alignment) \
-    ((((ptr_uint_t)x) + (((ptr_uint_t)alignment) - 1)) & (~(((ptr_uint_t)alignment) - 1)))
-#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
-
 #ifdef UNIX
 #    ifndef MAP_ANONYMOUS
 #        define MAP_ANONYMOUS MAP_ANON /* MAP_ANON on Mac */
@@ -333,7 +314,7 @@ typedef enum {
 #if VERBOSE
 #    define VERBOSE_PRINT print
 #else
-/* FIXME: varargs for windows...for now since we don't care about efficiency we do this:
+/* XXX: varargs for windows...for now since we don't care about efficiency we do this:
  */
 static inline void
 VERBOSE_PRINT(const char *fmt, ...)
@@ -877,7 +858,7 @@ get_drmarker_field(uint offset)
         + (uint)landing_pad + 5;             /* relative */
 #    endif
     drmarker = (byte *)ALIGN_BACKWARD((ptr_uint_t)drmarker, PAGE_SIZE);
-    /* FIXME: check magic fields */
+    /* XXX: check magic fields */
     field = *((byte **)(drmarker + offset));
     return field;
 }
@@ -938,5 +919,15 @@ my_getenv(const char *var, char *dest, size_t size)
     return ret > 0 && ret <= size;
 #endif
 }
+
+/* Repeatedly call "run", upto "tries" times, starting with the
+ * initial value for "param" and adjusting it according to whether
+ * "run" sets *adjust to a positive, negative or zero value. If
+ * "stop_on_hit" is true then stop when "run" returns true. Returns
+ * the number of times that "run" returned true.
+ */
+int
+adaptive_retry(bool (*run)(int *adjust, unsigned long long param, void *arg), int tries,
+               unsigned long long param, void *arg, bool stop_on_hit);
 
 #endif /* TOOLS_H */

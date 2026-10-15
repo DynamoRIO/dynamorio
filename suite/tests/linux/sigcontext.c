@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,6 +33,7 @@
 /* Tests a signal handler accessing sigcontext */
 
 #include "tools.h"
+#include "dr_project_wide_defines.h"
 /* we want the latest defs so we can get at ymm state */
 #include "../../../core/unix/include/sigcontext.h"
 #include "../../../core/unix/include/syscall.h"
@@ -75,6 +76,15 @@ static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     int i, j;
+    kernel_xstate_t *saved_xstate = (kernel_xstate_t *)ucxt->uc_mcontext.fpregs;
+    if (saved_xstate != NULL &&
+        saved_xstate->fpstate.sw_reserved.magic1 == FP_XSTATE_MAGIC1) {
+        /* i#7996: Enabled CPU features need not all be available in this frame.
+         * In particular, claiming absent AMX tile data makes sigreturn fail.
+         */
+        assert(!TESTANY(~saved_xstate->fpstate.sw_reserved.xstate_bv,
+                        saved_xstate->xstate_hdr.xstate_bv));
+    }
     switch (sig) {
     case SIGUSR1: {
         if (ucxt->uc_mcontext.fpregs == NULL) {

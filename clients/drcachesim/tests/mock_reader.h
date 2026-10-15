@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,24 +33,26 @@
 /* A mock reader that iterates over a vector of trace_entry_t, for tests. */
 
 #ifndef _MOCK_READER_H_
-#define _MOCK_READER_H_ 1
+#define _MOCK_READER_H_
 
 #include <vector>
 
 #include "reader.h"
+#include "record_file_reader.h"
 #include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
+namespace test_util {
 
 // A mock reader that iterates over a vector of records.
 class mock_reader_t : public reader_t {
 public:
     mock_reader_t() = default;
     explicit mock_reader_t(const std::vector<trace_entry_t> &trace)
-        : trace_(trace)
+        : reader_t(/*online=*/false, /*verbosity=*/2, "mock_reader_t")
+        , trace_(trace)
     {
-        verbosity_ = 3;
     }
     bool
     init() override
@@ -62,9 +64,6 @@ public:
     trace_entry_t *
     read_next_entry() override
     {
-        trace_entry_t *entry = read_queued_entry();
-        if (entry != nullptr)
-            return entry;
         ++index_;
         if (index_ >= static_cast<int>(trace_.size())) {
             at_eof_ = true;
@@ -88,27 +87,27 @@ class mock_record_reader_t : public record_reader_t {
 public:
     mock_record_reader_t() = default;
     explicit mock_record_reader_t(const std::vector<trace_entry_t> &trace)
-        : trace_(trace)
+        : record_reader_t(/*online=*/false, /*verbosity=*/3, "mock_record_reader_t")
+        , trace_(trace)
     {
-        verbosity_ = 3;
     }
     bool
     init() override
     {
-        eof_ = false;
+        at_eof_ = false;
         ++*this;
         return true;
     }
-    bool
+    trace_entry_t *
     read_next_entry() override
     {
         ++index_;
         if (index_ >= static_cast<int>(trace_.size())) {
-            eof_ = true;
-            return false;
+            at_eof_ = true;
+            return nullptr;
         }
-        cur_entry_ = trace_[index_];
-        return true;
+        entry_copy_ = trace_[index_];
+        return &entry_copy_;
     }
     std::string
     get_stream_name() const override
@@ -235,6 +234,7 @@ make_encoding(unsigned short size, addr_t encoding)
     return entry;
 }
 
+} // namespace test_util
 } // namespace drmemtrace
 } // namespace dynamorio
 

@@ -185,7 +185,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         DR_ASSERT(false);
 
     /* Register opcode event. */
-    dr_register_exit_event(dynamorio::samples::event_exit);
+    drmgr_register_exit_event(dynamorio::samples::event_exit);
     if (!drmgr_register_opcode_instrumentation_event(
             dynamorio::samples::event_opcode_instruction, valid_opcode, NULL, NULL) ||
         !drmgr_register_bb_instrumentation_event(

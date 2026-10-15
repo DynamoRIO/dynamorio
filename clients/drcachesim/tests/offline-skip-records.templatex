@@ -1,0 +1,14 @@
+.*
+          11           4: W0.T1992554 ifetch       8 byte\(s\) @ 0x0000000000401012 48 8d 34 25 00 20 40 lea    0x00402000, %rsi
+          11           4: W0.T1992554                                             00
+          12           5: W0.T1992554 ifetch       7 byte\(s\) @ 0x000000000040101a 48 c7 c2 0d 00 00 00 mov    \$0x0000000d, %rdx
+          13           6: W0.T1992554 ifetch       5 byte\(s\) @ 0x0000000000401021 b8 01 00 00 00       mov    \$0x00000001, %eax
+          14           7: W0.T1992554 ifetch       2 byte\(s\) @ 0x0000000000401026 0f 05                syscall
+          15           7: W0.T1992554 <marker: timestamp 13352268558646106>
+View tool results:
+              4 : total instructions
+
+===========================================================================
+Opcode mix tool results:
+              4 : total executed instructions
+.*

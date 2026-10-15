@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,7 +32,7 @@
  */
 
 #ifndef _DR_PROC_H_
-#define _DR_PROC_H_ 1
+#define _DR_PROC_H_
 
 /****************************************************************************
  * PROCESSOR-SPECIFIC UTILITY ROUTINES AND CONSTANTS
@@ -439,16 +439,17 @@ typedef enum {
  * proc_get_cache_size_str().
  */
 typedef enum {
-    CACHE_SIZE_8_KB,   /**< L1 or L2 cache size of 8 KB. */
-    CACHE_SIZE_16_KB,  /**< L1 or L2 cache size of 16 KB. */
-    CACHE_SIZE_32_KB,  /**< L1 or L2 cache size of 32 KB. */
-    CACHE_SIZE_64_KB,  /**< L1 or L2 cache size of 64 KB. */
-    CACHE_SIZE_128_KB, /**< L1 or L2 cache size of 128 KB. */
-    CACHE_SIZE_256_KB, /**< L1 or L2 cache size of 256 KB. */
-    CACHE_SIZE_512_KB, /**< L1 or L2 cache size of 512 KB. */
-    CACHE_SIZE_1_MB,   /**< L1 or L2 cache size of 1 MB. */
-    CACHE_SIZE_2_MB,   /**< L1 or L2 cache size of 2 MB. */
-    CACHE_SIZE_UNKNOWN /**< Unknown L1 or L2 cache size. */
+    CACHE_SIZE_8_KB,    /**< L1 or L2 cache size of 8 KB. */
+    CACHE_SIZE_16_KB,   /**< L1 or L2 cache size of 16 KB. */
+    CACHE_SIZE_32_KB,   /**< L1 or L2 cache size of 32 KB. */
+    CACHE_SIZE_64_KB,   /**< L1 or L2 cache size of 64 KB. */
+    CACHE_SIZE_128_KB,  /**< L1 or L2 cache size of 128 KB. */
+    CACHE_SIZE_256_KB,  /**< L1 or L2 cache size of 256 KB. */
+    CACHE_SIZE_512_KB,  /**< L1 or L2 cache size of 512 KB. */
+    CACHE_SIZE_1_MB,    /**< L1 or L2 cache size of 1 MB. */
+    CACHE_SIZE_2_MB,    /**< L1 or L2 cache size of 2 MB. */
+    CACHE_SIZE_UNKNOWN, /**< Unknown L1 or L2 cache size. */
+    CACHE_SIZE_48_KB,   /**< L1 or L2 cache size of 48 KB. */
 } cache_size_t;
 
 DR_API
@@ -537,7 +538,7 @@ DR_API
  * decode.
  */
 void
-enable_all_test_cpu_features();
+enable_all_test_cpu_features(void);
 #endif
 
 DR_API
@@ -679,6 +680,10 @@ DR_API
  * and restore the x87 floating-point/MMX state.
  * If the client needs to do so inside the code cache the client should implement
  * that itself.
+ * \note Floating-point state handling applies only to managed DynamoRIO modes.
+ * In standalone decoder mode, this routine is stubbed out and does not save
+ * any state; standalone decoding does not execute application code and does not
+ * manage x87/SSE state.
  * Returns number of bytes written.
  */
 size_t
@@ -698,6 +703,9 @@ DR_API
  *
  * When the FXSR feature is present, the fxsave format matches the bitwidth
  * of the ISA mode of the current thread (see dr_get_isa_mode()).
+ * \note Floating-point state handling applies only to managed DynamoRIO modes.
+ * In standalone decoder mode, this routine is stubbed out and does not restore
+ * any state.
  */
 void
 proc_restore_fpstate(byte *buf);

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,7 +37,7 @@
  */
 
 #ifndef _ELF_LOADER_H_
-#define _ELF_LOADER_H_ 1
+#define _ELF_LOADER_H_
 
 #include <stdint.h>
 #include <sys/stat.h>

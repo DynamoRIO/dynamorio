@@ -63,7 +63,7 @@ function send_email()
 }
 
 # builds are all merged now, so look for latest build
-# FIXME: temporarily look only at 25xxx builds
+# XXX: temporarily look only at 25xxx builds
 # in the future, check multiple builds: 22xxx and 25xxx
 latest_num=`ls -1t /mnt/build | grep '^25' | head -1`;
 latest=/mnt/build/$latest_num

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2026 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -37,7 +37,7 @@ set(run_tests ON)
 set(CTEST_SOURCE_DIRECTORY "${CTEST_SCRIPT_DIRECTORY}/..")
 if (APPLE)
   # For now we run just a quarter of the tests, using a test label.
-  # FIXME i#1815: get all the tests working.
+  # XXX i#1815: get all the tests working.
   set(extra_ctest_args INCLUDE_LABEL OSX)
 endif ()
 include("${CTEST_SCRIPT_DIRECTORY}/runsuite_common_pre.cmake")
@@ -255,11 +255,11 @@ endif ()
 # However, there's no simple way to do that.  For now we punt until someone
 # changes one of those.
 #
-# Prefer named version 14.0 from apt.llvm.org.
+# Prefer named version 21 from apt.llvm.org.
 if (DEFINED ENV{DISABLE_FORMAT_CHECKS} AND "$ENV{DISABLE_FORMAT_CHECKS}" STREQUAL "yes")
   message("format check disabled")
 else ()
-  find_program(CLANG_FORMAT_DIFF clang-format-diff-14 DOC "clang-format-diff")
+  find_program(CLANG_FORMAT_DIFF clang-format-diff-21 DOC "clang-format-diff")
   if (NOT CLANG_FORMAT_DIFF)
     find_program(CLANG_FORMAT_DIFF clang-format-diff DOC "clang-format-diff")
   endif ()
@@ -277,7 +277,7 @@ else ()
       RESULT_VARIABLE format_result
       ERROR_VARIABLE format_err
       OUTPUT_VARIABLE format_out)
-    if (format_result OR format_err)
+    if (format_err)
       message(FATAL_ERROR
         "Error (${format_result}) running clang-format-diff: ${format_err}")
     endif ()
@@ -288,6 +288,9 @@ else ()
         "Changes are not formatted properly:\n${format_out}")
       message(FATAL_ERROR
         "FATAL ERROR: Changes are not formatted properly (see diff above)!")
+    elseif (format_result)
+      message(FATAL_ERROR
+        "Error (${format_result}) running clang-format-diff")
     else ()
       message("clang-format check passed")
     endif ()

@@ -51,8 +51,6 @@ else () # Qt5 and CMake 3.2+
 
   include(../../make/policies.cmake NO_POLICY_SCOPE)
 
-  cmake_policy(SET CMP0043 OLD)
-
   # Set ouput_dir since drgui_qt is the only executable extension
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/ext/${INSTALL_BIN}")
 

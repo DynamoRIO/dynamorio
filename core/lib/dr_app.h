@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -38,7 +38,7 @@
  */
 
 #ifndef _DR_APP_H_
-#define _DR_APP_H_ 1
+#define _DR_APP_H_
 
 #ifdef WINDOWS
 #    ifdef DR_APP_EXPORTS
@@ -47,7 +47,8 @@
 #        define DR_APP_API __declspec(dllimport)
 #    endif
 #else /* UNIX */
-#    if defined(DR_APP_EXPORTS) && defined(USE_VISIBILITY_ATTRIBUTES)
+#    if defined(DR_APP_EXPORTS) && defined(USE_VISIBILITY_ATTRIBUTES) && \
+        !defined(LINUX_KERNEL)
 #        define DR_APP_API __attribute__((visibility("default")))
 #    else
 #        define DR_APP_API
@@ -56,6 +57,13 @@
 
 /****************************************************************************
  * DR Application Interface
+ */
+
+/* XXX i#7598: Once we make -synchronous_attach on by default, we need the
+ * following changes:
+ * + Document that dr_app_setup() suspends all threads until dr_app_start() is called;
+ *   possibly deprecate use of separate _setup from _start.
+ * + Deprecate separate stop from cleanup.
  */
 
 /**
@@ -78,7 +86,8 @@ dr_app_cleanup(void);
 
 /**
  * Causes the application to run under DR control upon return from this call.
- * Attempts to take over any existing threads in the application.
+ * Attempts to take over any existing threads in the application. Must be called
+ * from the same thread as dr_app_setup.
  *
  * \warning On Linux, DR detects threads by listing thread ids in the current
  * process's thread group.  This, and other queries about the current process

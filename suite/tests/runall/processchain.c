@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -31,7 +31,7 @@
  * DAMAGE.
  */
 
-/* FIXME: nothing here tests that a child is under DR */
+/* XXX: nothing here tests that a child is under DR */
 #include "tools.h"
 #include "Windows.h"
 

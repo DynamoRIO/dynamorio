@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -68,13 +68,13 @@ join_thread(thread_t thread)
     pthread_join(thread, NULL);
 }
 
-void
+static inline void
 thread_sleep(int ms)
 {
     usleep(1000 * ms);
 }
 
-void
+static inline void
 thread_yield(void)
 {
     sched_yield();
@@ -135,7 +135,7 @@ resume_thread(thread_t thread)
     ResumeThread(thread);
 }
 
-#    ifndef STATIC_LIBRARY /* FIXME i#975: conflicts with DR's symbols. */
+#    ifndef STATIC_LIBRARY /* XXX i#975: conflicts with DR's symbols. */
 void
 thread_yield()
 {

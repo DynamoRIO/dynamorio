@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _FUNC_VIEW_H_
-#define _FUNC_VIEW_H_ 1
+#define _FUNC_VIEW_H_
 
 #include <stddef.h>
 #include <stdint.h>

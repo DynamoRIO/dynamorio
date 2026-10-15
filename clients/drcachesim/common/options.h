@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /* shared options for the frontend, the client, and the documentation */
 
 #ifndef _OPTIONS_H_
-#define _OPTIONS_H_ 1
+#define _OPTIONS_H_
 
 // Tool names (for -tool option).
 #define CPU_CACHE_LEGACY "cache"
@@ -60,6 +60,7 @@
 #define REPLACE_POLICY_BIT_PLRU "BIT_PLRU"
 #define REPLACE_POLICY_LFU "LFU"
 #define REPLACE_POLICY_FIFO "FIFO"
+#define REPLACE_POLICY_RRIP "RRIP"
 #define PREFETCH_POLICY_NEXTLINE "nextline"
 #define PREFETCH_POLICY_NONE "none"
 #define PREFETCH_POLICY_CUSTOM "custom"
@@ -67,6 +68,9 @@
 #define CACHE_TYPE_DATA "data"
 #define CACHE_TYPE_UNIFIED "unified"
 #define CACHE_PARENT_MEMORY "memory"
+
+// Constant used for "-outdir none" mode (i.e., no I/O).
+#define OUTDIR_NONE "none"
 
 // The expected pattern for a single_op_value is:
 //     function_name|function_id|arguments_num
@@ -129,6 +133,10 @@ extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_max_t
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
     op_max_global_trace_refs;
 extern dynamorio::droption::droption_t<bool> op_align_endpoints;
+#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
+extern dynamorio::droption::droption_t<bool> op_collect_syscall_records;
+#endif
+extern dynamorio::droption::droption_t<bool> op_memdump_on_window;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
     op_trace_after_instrs;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
@@ -139,7 +147,12 @@ extern dynamorio::droption::droption_t<std::string> op_trace_instr_intervals_fil
 extern dynamorio::droption::droption_t<bool> op_split_windows;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
     op_exit_after_tracing;
+extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
+    op_main_buf_records;
+extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
+    op_trace_buf_records;
 extern dynamorio::droption::droption_t<std::string> op_raw_compress;
+extern dynamorio::droption::droption_t<int> op_raw_compress_level;
 extern dynamorio::droption::droption_t<std::string> op_trace_compress;
 extern dynamorio::droption::droption_t<bool> op_online_instr_types;
 extern dynamorio::droption::droption_t<std::string> op_replace_policy;
@@ -173,11 +186,16 @@ extern dynamorio::droption::droption_t<int> op_only_thread;
 extern dynamorio::droption::droption_t<std::string> op_only_threads;
 extern dynamorio::droption::droption_t<std::string> op_only_shards;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_skip_instrs;
+extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_skip_records;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_skip_refs;
 extern dynamorio::droption::droption_t<uint64_t> op_skip_to_timestamp;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_warmup_refs;
 extern dynamorio::droption::droption_t<double> op_warmup_fraction;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_sim_refs;
+extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
+    op_exit_after_instrs;
+extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
+    op_exit_after_records;
 extern dynamorio::droption::droption_t<std::string> op_config_file;
 extern dynamorio::droption::droption_t<bool> op_add_noise_generator;
 extern dynamorio::droption::droption_t<unsigned int> op_report_top;
@@ -224,8 +242,10 @@ extern dynamorio::droption::droption_t<bool> op_sched_disable_direct_switches;
 extern dynamorio::droption::droption_t<bool> op_sched_infinite_timeouts;
 extern dynamorio::droption::droption_t<uint64_t> op_sched_migration_threshold_us;
 extern dynamorio::droption::droption_t<uint64_t> op_sched_rebalance_period_us;
+extern dynamorio::droption::droption_t<uint64_t> op_sched_steal_attempt_period;
 extern dynamorio::droption::droption_t<double> op_sched_time_units_per_us;
 extern dynamorio::droption::droption_t<double> op_sched_exit_if_fraction_inputs_left;
+extern dynamorio::droption::droption_t<int> op_sched_random_initial_layout;
 extern dynamorio::droption::droption_t<int> op_sched_max_cores;
 extern dynamorio::droption::droption_t<uint64_t> op_schedule_stats_print_every;
 extern dynamorio::droption::droption_t<std::string> op_syscall_template_file;
@@ -238,8 +258,21 @@ extern dynamorio::droption::droption_t<std::string> op_filter_func_ids;
 extern dynamorio::droption::droption_t<std::string> op_modify_marker_value;
 extern dynamorio::droption::droption_t<uint64_t> op_trim_before_timestamp;
 extern dynamorio::droption::droption_t<uint64_t> op_trim_after_timestamp;
+extern dynamorio::droption::droption_t<uint64_t> op_trim_before_instr;
+extern dynamorio::droption::droption_t<uint64_t> op_trim_after_instr;
+extern dynamorio::droption::droption_t<bool> op_filter_kernel;
+extern dynamorio::droption::droption_t<bool> op_filter_kernel_except_syscalls;
 extern dynamorio::droption::droption_t<bool> op_abort_on_invariant_error;
 extern dynamorio::droption::droption_t<bool> op_pt2ir_best_effort;
+extern dynamorio::droption::droption_t<int> op_scale_timers;
+extern dynamorio::droption::droption_t<int> op_scale_timeouts;
+extern dynamorio::droption::droption_t<double> op_max_load_imbalance;
+
+inline bool
+outdir_is_none(const std::string &outdir)
+{
+    return outdir == OUTDIR_NONE;
+}
 
 } // namespace drmemtrace
 } // namespace dynamorio

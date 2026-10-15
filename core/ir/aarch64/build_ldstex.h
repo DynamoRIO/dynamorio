@@ -31,7 +31,7 @@
  */
 
 #ifndef BUILD_LDSTEX_H
-#define BUILD_LDSTEX_H 1
+#define BUILD_LDSTEX_H
 
 byte *
 decode_with_ldstex(dcontext_t *dcontext, byte *pc, instr_t *instr);

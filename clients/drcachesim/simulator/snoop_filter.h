@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _SNOOP_FILTER_H_
-#define _SNOOP_FILTER_H_ 1
+#define _SNOOP_FILTER_H_
 
 #include <stdint.h>
 

@@ -30,7 +30,7 @@
  */
 
 #ifndef TRIE_H
-#define TRIE_H 1
+#define TRIE_H
 
 #include <stdint.h>
 

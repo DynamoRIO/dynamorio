@@ -466,3 +466,10 @@ OPCODE(gf2p8mulb_regreg, gf2p8mulb, gf2p8mulb, 0, REGARG(XMM0), REGARG(XMM1))
 OPCODE(gf2p8mulb_regmem, gf2p8mulb, gf2p8mulb, 0, REGARG(XMM0), MEMARG(OPSZ_16))
 OPCODE(gf2p8mulb_reghireg, gf2p8mulb, gf2p8mulb, X64_ONLY, REGARG(XMM0), REGARG(XMM8))
 OPCODE(gf2p8mulb_hiregreg, gf2p8mulb, gf2p8mulb, X64_ONLY, REGARG(XMM8), REGARG(XMM0))
+
+/****************************************************************************/
+/* CET */
+OPCODE(wrss_32, wrss, wrss, 0, MEMARG(OPSZ_4), REGARG(EAX))
+OPCODE(wrss_64, wrss, wrss, X64_ONLY, MEMARG(OPSZ_8), REGARG(RAX))
+OPCODE(wruss_32, wruss, wruss, 0, MEMARG(OPSZ_4), REGARG(EAX))
+OPCODE(wruss_64, wruss, wruss, X64_ONLY, MEMARG(OPSZ_8), REGARG(RAX))

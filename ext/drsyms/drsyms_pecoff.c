@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -215,7 +215,7 @@ drsym_obj_mod_init_pre(byte *map_base, size_t map_size)
      * with the current code setup.
      */
     if (is_mingw &&
-        TEST(IMAGE_FILE_LOCAL_SYMS_STRIPPED, nt->FileHeader.Characteristics) &&
+        TESTANY(IMAGE_FILE_LOCAL_SYMS_STRIPPED, nt->FileHeader.Characteristics) &&
         mod->symbol_count == 0) {
         mod->exports_only = true;
         NOTIFY(1, "%s: no pecoff symbols and likely no pdb, so using exports\n",

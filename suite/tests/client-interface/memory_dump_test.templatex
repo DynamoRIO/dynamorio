@@ -28,6 +28,8 @@ Hello, world!
 Section Headers:
 .*\[Nr\] Name              Type             Address           Offset
        Size              EntSize          Flags  Link  Info  Align
+.* \[vvar\]            PROGBITS.*
+.* \[vdso\]            PROGBITS.*
 .* shstrtab          STRTAB.*
 Program Headers:
   Type           Offset             VirtAddr           PhysAddr

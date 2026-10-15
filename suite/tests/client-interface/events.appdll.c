@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -41,7 +41,8 @@ foo_export(void)
 
 #ifdef UNIX
 
-void __attribute__((constructor)) my_init(void)
+void __attribute__((constructor))
+my_init(void)
 {
     print("appdll initialized\n");
 }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -130,7 +130,7 @@ KSTAT_DEF("in bb cache out from trace cache, [not propagated]", fcache_bb_trace)
  */
 KSTAT_DEF("wait event (+context switch) [not propagated]", wait_event)
 
-/* FIXME: we should add all critical section bodies as suggested in
+/* XXX: we should add all critical section bodies as suggested in
  * the mutex_t definition - if only we can share LOCK_RANK definitions
  * in lockx.h and it will just work
  */

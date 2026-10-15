@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -55,7 +55,7 @@ DECL_EXTERN(unexpected_return)
 /* we share dynamorio_syscall w/ preload */
 #ifdef UNIX
 /* to avoid libc wrappers we roll our own syscall here
- * hardcoded to use int 0x80 for 32-bit -- FIXME: use something like do_syscall
+ * hardcoded to use int 0x80 for 32-bit -- XXX: use something like do_syscall
  * and syscall for 64-bit.
  * signature: dynamorio_syscall(sysnum, num_args, arg1, arg2, ...)
  * For Linux, the argument max is 6.

@@ -28,7 +28,7 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# FIXME: use a real tag in CVS when this is done for real
+# XXX: use a real tag in CVS when this is done for real
 
 # -kv doesn't handle properly binary files
 

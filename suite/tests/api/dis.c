@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -52,7 +52,7 @@ read_data(void *drcontext, byte *start, size_t size)
 {
     byte *pc = start, *prev_pc;
     while (pc < start + size) {
-        /* FIXME: want to cut it off instead of reading beyond for
+        /* XXX: want to cut it off instead of reading beyond for
          * end of file!  If weren't printing it out as go along could
          * mark invalid after seeing whether instr overflows.
          */
@@ -73,7 +73,7 @@ read_data(void *drcontext, byte *start, size_t size)
             pc = decode_next_pc(drcontext, prev_pc);
 #else
         /* If invalid, try next byte */
-        /* FIXME: udis86 is going to byte after the one that makes it
+        /* XXX: udis86 is going to byte after the one that makes it
          * invalid: so if 1st byte is invalid opcode, go to 2nd;
          * if modrm makes it invalid (0xc5 0xc5), go to 3rd.
          * not clear that's nec. better but we need to reconcile that w/

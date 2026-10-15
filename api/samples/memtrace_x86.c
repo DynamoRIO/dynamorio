@@ -158,7 +158,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     drutil_init();
     client_id = id;
     mutex = dr_mutex_create();
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
     if (!drmgr_register_thread_init_event(event_thread_init) ||
         !drmgr_register_thread_exit_event(event_thread_exit) ||
         !drmgr_register_bb_app2app_event(event_bb_app2app, &priority) ||
@@ -187,7 +187,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 }
 
 static void
-event_exit()
+event_exit(void)
 {
 #ifdef SHOW_RESULTS
     char msg[512];

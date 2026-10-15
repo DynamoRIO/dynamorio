@@ -508,19 +508,19 @@ GLOBAL_LABEL(atomic_swap:)
 #ifdef UNIX
         DECLARE_FUNC(client_int_syscall)
 GLOBAL_LABEL(client_int_syscall:)
-/* FIXME i#3544: Not implemented */
+/* XXX i#3544: Not implemented */
         jal       GLOBAL_REF(unexpected_return)
         END_FUNC(client_int_syscall)
 
         DECLARE_FUNC(native_plt_call)
 GLOBAL_LABEL(native_plt_call:)
-/* FIXME i#3544: Not implemented */
+/* XXX i#3544: Not implemented */
         jal       GLOBAL_REF(unexpected_return)
         END_FUNC(native_plt_call)
 
         DECLARE_FUNC(_dynamorio_runtime_resolve)
 GLOBAL_LABEL(_dynamorio_runtime_resolve:)
-/* FIXME i#3544: Not implemented */
+/* XXX i#3544: Not implemented */
         jal       GLOBAL_REF(unexpected_return)
         END_FUNC(_dynamorio_runtime_resolve)
 #endif /* UNIX */
@@ -558,7 +558,7 @@ GLOBAL_LABEL(main_signal_handler:)
 
         DECLARE_FUNC(hashlookup_null_handler)
 GLOBAL_LABEL(hashlookup_null_handler:)
-/* FIXME i#3544: Not implemented */
+/* XXX i#3544: Not implemented */
         jal       GLOBAL_REF(unexpected_return)
         END_FUNC(hashlookup_null_handler)
 
@@ -566,13 +566,13 @@ GLOBAL_LABEL(hashlookup_null_handler:)
 GLOBAL_LABEL(back_from_native_retstubs:)
 DECLARE_GLOBAL(back_from_native_retstubs_end)
 ADDRTAKEN_LABEL(back_from_native_retstubs_end:)
-/* FIXME i#3544: Not implemented */
+/* XXX i#3544: Not implemented */
         jal       GLOBAL_REF(unexpected_return)
         END_FUNC(back_from_native_retstubs)
 
         DECLARE_FUNC(back_from_native)
 GLOBAL_LABEL(back_from_native:)
-/* FIXME i#3544: Not implemented */
+/* XXX i#3544: Not implemented */
         jal       GLOBAL_REF(unexpected_return)
         END_FUNC(back_from_native)
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,7 +32,7 @@
  */
 
 #ifndef _DR_IR_UTILS_H_
-#define _DR_IR_UTILS_H_ 1
+#define _DR_IR_UTILS_H_
 
 /**************************************************
  * CODE TRANSFORMATION UTILITIES
@@ -279,7 +279,7 @@ DR_API
 reg_t
 dr_merge_arith_flags(reg_t cur_xflags, reg_t saved_xflag);
 
-/* FIXME PR 315327: add routines to save, restore and access from C code xmm registers
+/* XXX PR 315327: add routines to save, restore and access from C code xmm registers
  * from our dcontext slots.  Not clear we really need to since we can't do it all
  * that much faster than the client can already with read/write tls field (only one
  * extra load) or (if -thread_private) absolute addresses.
@@ -352,7 +352,7 @@ instrlist_meta_fault_append(instrlist_t *ilist, instr_t *instr);
 
 /* dr_insert_* are used by general DR */
 
-/* FIXME PR 213600: for clean call args that reference memory the
+/* XXX PR 213600: for clean call args that reference memory the
  * client may prefer to receive the fault itself rather than it being treated
  * as an app exception (xref PR 302951).
  */
@@ -362,6 +362,8 @@ DR_API
  * for a call, switch to this thread's DR stack, set up the passed-in
  * parameters, make a call to \p callee, clean up the parameters, and
  * then restore the saved state.
+ * If \p where is NULL, the clean call is inserted at the default pre-insertion
+ * point for the instruction list, which currently appends to the list.
  *
  * The callee must use the standard C calling convention that matches the
  * underlying 32-bit or 64-bit binary interface convention ("cdecl"). Other
@@ -567,6 +569,9 @@ DR_API
  * \warning On x86, this routine does NOT save the x87 floating-point or MMX state: to do
  * that the instrumentation routine should call proc_save_fpstate() to save and then
  * proc_restore_fpstate() to restore (or use dr_insert_clean_call()).
+ * \note Floating-point state handling applies only to managed DynamoRIO modes.
+ * In standalone decoder mode, proc_save_fpstate()/proc_restore_fpstate() are
+ * no-ops and no x87/FPU state is preserved.
  *
  * \note The preparation modifies the DR_REG_XSP and DR_REG_XAX registers
  * (after saving them).  Use dr_insert_clean_call() instead if an
@@ -700,7 +705,7 @@ void
 dr_insert_cbr_instrumentation_ex(void *drcontext, instrlist_t *ilist, instr_t *instr,
                                  void *callee, opnd_t user_data);
 
-/* FIXME: will never see any ubrs! */
+/* XXX: will never see any ubrs! */
 DR_API
 /**
  * Assumes that \p instr is a direct, near, unconditional branch.
@@ -804,8 +809,10 @@ DR_API
  *
  * Even when #DR_MC_CONTROL is specified, does NOT copy the pc field,
  * except for system call events, when it will point at the
- * post-syscall address, and kernel transfer events, when it will point to the
- * target pc.
+ * post-syscall address; for kernel transfer events, when it will point to the
+ * target pc; and thread exit events, when it will point to the thread's final
+ * (or detach-time) pc (which is the next pc to execute: it was not itself
+ * executed under DR).
  *
  * Returns false if called from the init event or the initial thread's
  * init event; returns true otherwise (cannot distinguish whether the
@@ -887,7 +894,7 @@ DR_API
 bool
 dr_set_mcontext(void *drcontext, dr_mcontext_t *context);
 
-/* FIXME - combine with dr_set_mcontext()?  Implementation wise it's nice to split the
+/* XXX - combine with dr_set_mcontext()?  Implementation wise it's nice to split the
  * two since handling the pc with dr_set_mcontext() would complicate the clean call
  * handling. But perhaps would be nicer from an interface perspective to combine them. */
 DR_API

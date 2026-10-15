@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -126,6 +126,15 @@ test_alarm_signals(void *arg)
     /* Test alarm signals not being rerouted from handlers. */
     pthread_t init_thread = (pthread_t)arg;
     unblocked_thread = pthread_self();
+    /* We must unblock SIGALRM in the helper thread because it inherited the
+     * blocked mask from the main thread, and we need it unblocked here so that
+     * process-wide SIGALRM signals (from setitimer) can be delivered to this
+     * thread to verify they are not incorrectly rerouted by DR.
+     */
+    sigset_t unblock_set;
+    sigemptyset(&unblock_set);
+    sigaddset(&unblock_set, SIGALRM);
+    pthread_sigmask(SIG_UNBLOCK, &unblock_set, NULL);
     intercept_signal(SIGALRM, alarm_handler, false);
 
     /* Get init thread inside its handler. */
@@ -223,12 +232,26 @@ main(int argc, char **argv)
      * It would be nice to have a guarantee that the signal will come here but
      * that doesn't seem possible.
      */
+
+    /* We block SIGALRM here to avoid a race condition where the helper thread
+     * sends SIGALRM via pthread_kill before this main thread actually enters
+     * sigsuspend. If that happens, the signal is delivered early, and the
+     * subsequent sigsuspend would block indefinitely because no further signals
+     * are sent. Sigsuspend will atomically unblock it (since 'set' is empty
+     * for sigsuspend below).
+     */
+    sigemptyset(&set);
+    sigaddset(&set, SIGALRM);
+    sigprocmask(SIG_BLOCK, &set, NULL);
+
     if (pthread_create(&thread, NULL, test_alarm_signals, (void *)pthread_self()) != 0) {
         perror("failed to create thread");
         exit(1);
     }
     sigemptyset(&set);
+    bool did_sigsuspend = false;
     while (!should_exit) {
+        did_sigsuspend = true;
         /* We expect just one signal but best practice is to always loop. */
         sigsuspend(&set);
     }
@@ -238,6 +261,9 @@ main(int argc, char **argv)
     destroy_cond_var(child_ready);
     destroy_cond_var(child_exit);
 
+    if (!did_sigsuspend) {
+        print("ERROR: app did not execute the sigsuspend\n");
+    }
     print("all done\n");
 
     return 0;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -192,13 +192,13 @@ SYSCALL(TerminateJobObject,           true,     2, 0x08, NONE, NONE, NONE, 0xdf,
      *   (NtContinue is already up above)
      *   plus grep 'Alert|Wait' in ntdll.h (ZwDelayExecution)
      */
-    /* FIXME - don't think all of these are in fact alertable, plus many file
+    /* XXX - don't think all of these are in fact alertable, plus many file
      * io syscalls are alertable depending on the options passed when the file
      * handle was created.  There also may other alertable system calls we
      * don't know about and since we don't even use ignore syscalls (with no
      * plan to bring it back) having them in our arrays doesn't serve much
      * purpose. */
-    /* FIXME: NT4.0 (only) has two more exported *Wait* routines,
+    /* XXX: NT4.0 (only) has two more exported *Wait* routines,
      * NtSetHighWaitLowThread and NtSetLowWaitHighThread, that each
      * have a gap in the system call numbering, but in the ntdll dump
      * they look like int 2b and 2c, resp.  Now, Inside Win2K lists int 2c as

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -64,24 +64,17 @@ namespace drmemtrace {
 const std::string view_t::TOOL_NAME = "View tool";
 
 analysis_tool_t *
-view_tool_create(const std::string &module_file_path, uint64_t skip_refs,
-                 uint64_t sim_refs, const std::string &syntax, unsigned int verbose,
-                 const std::string &alt_module_dir)
+view_tool_create(const std::string &module_file_path, const std::string &syntax,
+                 unsigned int verbose, const std::string &alt_module_dir)
 {
-    return new view_t(module_file_path, skip_refs, sim_refs, syntax, verbose,
-                      alt_module_dir);
+    return new view_t(module_file_path, syntax, verbose, alt_module_dir);
 }
 
-view_t::view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t sim_refs,
-               const std::string &syntax, unsigned int verbose,
-               const std::string &alt_module_dir)
+view_t::view_t(const std::string &module_file_path, const std::string &syntax,
+               unsigned int verbose, const std::string &alt_module_dir)
     : module_file_path_(module_file_path)
     , knob_verbose_(verbose)
     , trace_version_(-1)
-    , knob_skip_refs_(skip_refs)
-    , skip_refs_left_(knob_skip_refs_)
-    , knob_sim_refs_(sim_refs)
-    , sim_refs_left_(knob_sim_refs_)
     , knob_syntax_(syntax)
     , knob_alt_module_dir_(alt_module_dir)
     , num_disasm_instrs_(0)
@@ -116,6 +109,14 @@ view_t::parallel_shard_init_stream(int shard_index, void *worker_data,
 bool
 view_t::parallel_shard_exit(void *shard_data)
 {
+    // If the framework exited (-exit_after_records, e.g.), be sure to print
+    // out a delayed timestamp.
+    if (timestamp_ > 0) {
+        memtrace_stream_t *memstream = reinterpret_cast<memtrace_stream_t *>(shard_data);
+        print_prefix(memstream, timestamp_memref_, timestamp_record_ord_);
+        std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
+        timestamp_ = 0;
+    }
     return true;
 }
 
@@ -125,30 +126,6 @@ view_t::parallel_shard_error(void *shard_data)
     // Our parallel operation ignores all but one thread, so we need just
     // the one global error string.
     return error_string_;
-}
-
-bool
-view_t::should_skip(memtrace_stream_t *memstream, const memref_t &memref)
-{
-    if (skip_refs_left_ > 0) {
-        skip_refs_left_--;
-        // I considered printing the version and filetype even when skipped but
-        // it adds more confusion from the memref counting than it removes.
-        // A user can do two views, one without a skip, to see the headers.
-        return true;
-    }
-    if (knob_sim_refs_ > 0) {
-        if (sim_refs_left_ == 0)
-            return true;
-        sim_refs_left_--;
-        if (sim_refs_left_ == 0 && timestamp_ > 0) {
-            // Print this timestamp right before the final record.
-            print_prefix(memstream, memref, timestamp_record_ord_);
-            std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
-            timestamp_ = 0;
-        }
-    }
-    return false;
 }
 
 bool
@@ -241,70 +218,17 @@ bool
 view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
     memtrace_stream_t *memstream = reinterpret_cast<memtrace_stream_t *>(shard_data);
-    // Even for -skip_refs we need to process the up-front version and type.
-    if (memref.marker.type == TRACE_TYPE_MARKER) {
-        switch (memref.marker.marker_type) {
-        case TRACE_MARKER_TYPE_VERSION:
-            // We delay printing until we know the tid.
-            if (trace_version_ == -1) {
-                trace_version_ = static_cast<int>(memref.marker.marker_value);
-            } else if (trace_version_ != static_cast<int>(memref.marker.marker_value)) {
-                error_string_ = std::string("Version mismatch across files");
-                return false;
-            }
-            version_record_ord_ = memstream->get_record_ordinal();
-            return true; // Do not count toward -sim_refs yet b/c we don't have tid.
-        case TRACE_MARKER_TYPE_FILETYPE:
-            // We delay printing until we know the tid.
-            if (filetype_ == -1) {
-                filetype_ = static_cast<offline_file_type_t>(memref.marker.marker_value);
-                if (!init_from_filetype()) {
-                    return false;
-                }
-            } else if (filetype_ !=
-                       static_cast<offline_file_type_t>(memref.marker.marker_value)) {
-                error_string_ = std::string("Filetype mismatch across files");
-                return false;
-            }
-            filetype_record_ord_ = memstream->get_record_ordinal();
-            return true; // Do not count toward -sim_refs yet b/c we don't have tid.
-        case TRACE_MARKER_TYPE_TIMESTAMP:
-            // Delay to see whether this is a new window.  We assume a timestamp
-            // is always followed by another marker (cpu or window).
-            // We can't easily reorder and place window markers before timestamps
-            // since memref iterators use the timestamps to order buffer units.
-            timestamp_ = memref.marker.marker_value;
-            timestamp_record_ord_ = memstream->get_record_ordinal();
-            if (should_skip(memstream, memref))
-                timestamp_ = 0;
-            return true;
-        default: break;
-        }
-    }
-
-    // We delay the initial markers until we know the tid.
-    // There are always at least 2 markers (timestamp+cpu) immediately after the
-    // first two, and on newer versions there is a 3rd (line size).
-    if (memref.marker.type == TRACE_TYPE_MARKER && memref.marker.tid != 0 &&
-        printed_header_.find(memref.marker.tid) == printed_header_.end()) {
-        printed_header_.insert(memref.marker.tid);
-        if (trace_version_ != -1) { // Old versions may not have a version marker.
-            if (!should_skip(memstream, memref)) {
-                print_prefix(memstream, memref, version_record_ord_);
-                std::cerr << "<marker: version " << trace_version_ << ">\n";
-            }
-        }
-        if (filetype_ != -1) { // Handle old/malformed versions.
-            if (!should_skip(memstream, memref)) {
-                print_prefix(memstream, memref, filetype_record_ord_);
-                std::cerr << "<marker: filetype 0x" << std::hex << filetype_ << std::dec
-                          << ">\n";
-            }
-        }
-    }
-
-    if (should_skip(memstream, memref))
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
+        // Delay to see whether this is a new window.  We assume a timestamp
+        // is always followed by another marker (cpu or window).
+        // We can't easily reorder and place window markers before timestamps
+        // since memref iterators use the timestamps to order buffer units.
+        timestamp_ = memref.marker.marker_value;
+        timestamp_record_ord_ = memstream->get_record_ordinal();
+        timestamp_memref_ = memref;
         return true;
+    }
 
     if (memref.marker.type == TRACE_TYPE_MARKER) {
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_WINDOW_ID) {
@@ -337,10 +261,33 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     if (memref.marker.type == TRACE_TYPE_MARKER) {
         switch (memref.marker.marker_type) {
         case TRACE_MARKER_TYPE_VERSION:
-            // Handled above.
+            if (trace_version_ == -1) {
+                trace_version_ = static_cast<int>(memref.marker.marker_value);
+            } else if (trace_version_ != static_cast<int>(memref.marker.marker_value)) {
+                if (TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES,
+                            filetype_)) {
+                    // No error for a multi-version kernel template file.
+                    trace_version_ = static_cast<int>(memref.marker.marker_value);
+                } else {
+                    error_string_ = std::string("Version mismatch across files");
+                    return false;
+                }
+            }
+            std::cerr << "<marker: version " << trace_version_ << ">\n";
             break;
         case TRACE_MARKER_TYPE_FILETYPE:
-            // Handled above.
+            if (filetype_ == -1) {
+                filetype_ = static_cast<offline_file_type_t>(memref.marker.marker_value);
+                if (!init_from_filetype()) {
+                    return false;
+                }
+            } else if (filetype_ !=
+                       static_cast<offline_file_type_t>(memref.marker.marker_value)) {
+                error_string_ = std::string("Filetype mismatch across files");
+                return false;
+            }
+            std::cerr << "<marker: filetype 0x" << std::hex << filetype_ << std::dec
+                      << ">\n";
             break;
         case TRACE_MARKER_TYPE_TIMESTAMP:
             // Handled above.
@@ -506,10 +453,33 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             std::cerr << "<marker: wait for another core>\n";
             break;
         case TRACE_MARKER_TYPE_CORE_IDLE: std::cerr << "<marker: core is idle>\n"; break;
-        case TRACE_MARKER_TYPE_VECTOR_LENGTH:
+        case TRACE_MARKER_TYPE_VECTOR_LENGTH: {
             std::cerr << "<marker: vector length " << memref.marker.marker_value
                       << " bytes>\n";
+#ifdef AARCH64
+            const int new_vl_bits = memref.marker.marker_value * 8;
+            if (dr_get_vector_length() != new_vl_bits) {
+                // XXX i#6646: Ideally all uses wouldn't have to set this (we have to do
+                // this in raw2trace and invariant_checker as well) and there would be a
+                // non-0 accurate default set in drdecode's initializer, or for
+                // drmemtrace possibly the reader or decode cache: though there are
+                // problems with those (reader doesn't use libdynamorio, and decode
+                // cache doesn't see all records).  For dynamic changes to the vector
+                // length (xref i#6625), users would have to update it: but that is
+                // likely very rare? Or maybe that argues for decode cache being given
+                // access to every record?
+                dr_set_vector_length(new_vl_bits);
+                if (decode_cache_ != nullptr) {
+                    // Ensure we print the proper offset for SVE load/store instructions
+                    // whose offset depends on the vector length. The vector length
+                    // can change dynamically so this could happen mid-trace (at least
+                    // once i#6625 is finished so drmemtrace outputs a new marker).
+                    decode_cache_->clear_cache();
+                }
+            }
+#endif
             break;
+        }
         case TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION:
             // The value stores the encoding of the uncompleted instruction up
             // to the length of a pointer. The encoding may not be complete so
@@ -517,6 +487,17 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             // ISA.
             std::cerr << "<marker: uncompleted instruction, encoding 0x" << std::hex
                       << memref.marker.marker_value << std::dec << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_HARDWARE_EVENT:
+            std::cerr << "<marker: hardware xfer from 0x" << std::hex
+                      << memref.marker.marker_value << std::dec << " to handler>\n";
+            break;
+        case TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN:
+            std::cerr << "<marker: hardware context return\n";
+            break;
+        case TRACE_MARKER_TYPE_SKIPPED_MEMREF:
+            std::cerr << "<marker: skipped memref 0x" << std::hex
+                      << memref.marker.marker_value << std::dec << "\n";
             break;
         default:
             std::cerr << "<marker: type " << memref.marker.marker_type << "; value "
@@ -580,7 +561,15 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     if (!init_from_filetype()) {
         return false;
     }
-    std::cerr << std::left << std::setw(name_width) << "ifetch" << std::right
+    // In some configurations (e.g., when using -skip_instrs), we may not see the
+    // TRACE_MARKER_TYPE_VERSION marker at all, so we get it from the
+    // memtrace_stream_t when we get to the instrs.
+    if (trace_version_ == -1) {
+        trace_version_ = static_cast<int>(serial_stream_->get_version());
+    }
+    const char *instr_name =
+        (memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH ? "non-fetched" : "ifetch");
+    std::cerr << std::left << std::setw(name_width) << instr_name << std::right
               << std::setw(2) << memref.instr.size << " byte(s) @ 0x" << std::hex
               << std::setfill('0') << std::setw(sizeof(void *) * 2) << memref.instr.addr
               << std::dec << std::setfill(' ');
@@ -606,6 +595,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         case TRACE_TYPE_INSTR_RETURN: std::cerr << "return\n"; break;
         case TRACE_TYPE_INSTR_NO_FETCH: std::cerr << "non-fetched instruction\n"; break;
         case TRACE_TYPE_INSTR_SYSENTER: std::cerr << "sysenter\n"; break;
+        case TRACE_TYPE_INSTR_REPEATED: std::cerr << "repeated instruction\n"; break;
         default: error_string_ = "Unknown instruction type\n"; return false;
         }
         ++num_disasm_instrs_;
@@ -648,6 +638,8 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 bool
 view_t::print_results()
 {
+    if (!parallel_shard_exit(serial_stream_))
+        return false;
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << std::setw(15) << num_disasm_instrs_ << " : total instructions\n";
     return true;

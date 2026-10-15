@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2021-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -73,7 +73,7 @@ d_r_print_encoding_second_line_to_buffer(char *buf, size_t bufsz,
                                          byte *next_pc, int extra_sz,
                                          const char *extra_bytes_prefix)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
 }
 
 static const char *
@@ -114,17 +114,17 @@ opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM
 bool
 opnd_disassemble_arch(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT, opnd_t opnd)
 {
-    if (opnd_is_immed_int(opnd) && TEST(DR_OPND_IS_SHIFT, opnd_get_flags(opnd))) {
+    if (opnd_is_immed_int(opnd) && TESTANY(DR_OPND_IS_SHIFT, opnd_get_flags(opnd))) {
         dr_shift_type_t t = (dr_shift_type_t)opnd_get_immed_int(opnd);
         print_to_buffer(buf, bufsz, sofar, "%s", shift_name(t));
         return true;
     }
-    if (opnd_is_immed_int(opnd) && TEST(DR_OPND_IS_EXTEND, opnd_get_flags(opnd))) {
+    if (opnd_is_immed_int(opnd) && TESTANY(DR_OPND_IS_EXTEND, opnd_get_flags(opnd))) {
         dr_extend_type_t t = (dr_extend_type_t)opnd_get_immed_int(opnd);
         print_to_buffer(buf, bufsz, sofar, "%s", extend_name(t));
         return true;
     }
-    if (opnd_is_immed_int(opnd) && TEST(DR_OPND_IS_CONDITION, opnd_get_flags(opnd))) {
+    if (opnd_is_immed_int(opnd) && TESTANY(DR_OPND_IS_CONDITION, opnd_get_flags(opnd))) {
         dr_pred_type_t pred = DR_PRED_EQ + opnd_get_immed_int(opnd);
         print_to_buffer(buf, bufsz, sofar, "%s", pred_names[pred]);
         return true;
@@ -138,7 +138,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOU
                             opnd_t opnd, bool prev, bool multiple_encodings, bool dst,
                             int *idx DR_PARAM_OUT)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return false;
 }
 

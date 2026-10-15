@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited.  All rights reserved.
  * **********************************************************/
 
@@ -35,6 +35,7 @@
 
 #include "configure.h"
 #include "dr_api.h"
+#include "dr_project_wide_defines.h"
 #include "tools.h"
 
 #define GD GLOBAL_DCONTEXT
@@ -43,9 +44,6 @@
     ((void)((!(x)) ? (print("ASSERT FAILURE: %s:%d: %s\n", __FILE__, __LINE__, #x), \
                       abort(), 0)                                                   \
                    : 0))
-
-#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
 
 static void
 test_disasm(void)
@@ -90,7 +88,7 @@ test_mov_instr_addr(void)
     __builtin___clear_cache((char *)generated_code,
                             (char *)generated_code + gencode_max_size);
 
-    uint written = ((uint(*)(void))generated_code)();
+    uint written = ((uint (*)(void))generated_code)();
     ASSERT(written == 0xdeadbeef);
 
     instrlist_clear_and_destroy(GD, ilist);
@@ -243,8 +241,105 @@ test_store_source(void)
     instr_destroy(GD, in);
 }
 
+static void
+test_isa_features(void)
+{
+    /* We can only reliably test the BASE ISA feature with raw encodings, as we are not
+     * using the standalone decoder, so the machine this test runs on would need to have
+     * the required feature (e.g., SVE) to decode the instr_t first.
+     */
+    const uint raw_instr_encodings[] = {
+        0x12020000, /* and %w0 $0x40000000   -> %w0 : ISA_FEAT_BASE */
+        0x0b010000, /* add %w0 %w1 lsl $0x00 -> %w0 : ISA_FEAT_BASE */
+    };
+
+    const uint expected_instr_isa_features[] = {
+        ISA_FEAT_BASE,
+        ISA_FEAT_BASE,
+    };
+
+    const char *expected_instr_isa_feature_names[] = {
+        "BASE",
+        "BASE",
+    };
+
+    const size_t NUM_INSTRS = BUFFER_SIZE_ELEMENTS(raw_instr_encodings);
+    const size_t NUM_ISA_FEATURES = BUFFER_SIZE_ELEMENTS(expected_instr_isa_features);
+    ASSERT(NUM_INSTRS == NUM_ISA_FEATURES);
+
+    const size_t MAX_STRNCMP_MATCH_LENGTH = 512;
+    byte *pc = NULL;
+    instr_noalloc_t noalloc;
+    instr_noalloc_init(GD, &noalloc);
+    instr_t *instr_to_reuse = instr_from_noalloc(&noalloc);
+    for (size_t i = 0; i < NUM_INSTRS; i++) {
+        pc = decode(GD, (byte *)&raw_instr_encodings[i], instr_to_reuse);
+        ASSERT(pc != NULL);
+        uint instr_isa_feat = instr_get_isa_feature(pc, instr_to_reuse);
+        ASSERT(instr_isa_feat == expected_instr_isa_features[i]);
+        const char *instr_isa_feat_name = instr_get_isa_feature_name(instr_isa_feat);
+        ASSERT(strncmp(instr_isa_feat_name, expected_instr_isa_feature_names[i],
+                       strnlen(expected_instr_isa_feature_names[i],
+                               MAX_STRNCMP_MATCH_LENGTH)) == 0);
+        instr_reset(GD, instr_to_reuse);
+    }
+
+    /* We test additional ISA features by directly creating the instruction for it. */
+    uint unused_buf = 0;
+    instr_t *instr = NULL;
+    uint isa_feat = ISA_FEAT_INVALID;
+
+    /* ISA feature defined in core/ir/aarch64/codec_v80.txt.
+     * Test bcond with distant target to reproduce the check reachability issue.
+     * We use a target PC that is far away from &unused_buf to trigger the reachability
+     * failure, if reachability checking were incorrectly enabled. That would cause
+     * instr_get_isa_feature() to return ISA_FEAT_INVALID instead of ISA_FEAT_BASE.
+     */
+    instr =
+        INSTR_CREATE_bcond(GD, opnd_create_pc((app_pc)((byte *)&unused_buf + 0x1000000)));
+    instr_set_predicate(instr, DR_PRED_EQ);
+    isa_feat = instr_get_isa_feature((byte *)&unused_buf, instr);
+    ASSERT(isa_feat == ISA_FEAT_BASE);
+    ASSERT(strncmp(instr_get_isa_feature_name(isa_feat), "BASE", strlen("BASE")) == 0);
+    instr_destroy(GD, instr);
+
+    /* ISA feature defined in core/ir/aarch64/codec_v81.txt. */
+    instr = INSTR_CREATE_sqrdmlsh_scalar(GD, opnd_create_reg(DR_REG_H0),
+                                         opnd_create_reg(DR_REG_H0),
+                                         opnd_create_reg(DR_REG_H0));
+    isa_feat = instr_get_isa_feature((byte *)&unused_buf, instr);
+    ASSERT(isa_feat == ISA_FEAT_RDM);
+    ASSERT(strncmp(instr_get_isa_feature_name(isa_feat), "RDM", strlen("RDM")) == 0);
+    instr_destroy(GD, instr);
+
+    /* ISA feature defined in core/ir/aarch64/codec_v85.txt. */
+    instr = INSTR_CREATE_bti(GD, opnd_create_immed_uint(0, OPSZ_3b));
+    isa_feat = instr_get_isa_feature((byte *)&unused_buf, instr);
+    ASSERT(isa_feat == ISA_FEAT_BTI);
+    ASSERT(strncmp(instr_get_isa_feature_name(isa_feat), "BTI", strlen("BTI")) == 0);
+    instr_destroy(GD, instr);
+
+    /* ISA feature defined in core/ir/aarch64/codec_sve.txt. */
+    instr = INSTR_CREATE_add_sve_shift(
+        GD, opnd_create_reg_element_vector(DR_REG_Z0, OPSZ_1),
+        opnd_create_immed_uint(0, OPSZ_1), opnd_create_immed_uint(0, OPSZ_1b));
+    isa_feat = instr_get_isa_feature((byte *)&unused_buf, instr);
+    ASSERT(isa_feat == ISA_FEAT_SVE);
+    ASSERT(strncmp(instr_get_isa_feature_name(isa_feat), "SVE", strlen("SVE")) == 0);
+    instr_destroy(GD, instr);
+
+    /* ISA feature defined in core/ir/aarch64/codec_sve2.txt. */
+    instr = INSTR_CREATE_aesd_sve(GD, opnd_create_reg_element_vector(DR_REG_Z0, OPSZ_1),
+                                  opnd_create_reg_element_vector(DR_REG_Z0, OPSZ_1));
+    isa_feat = instr_get_isa_feature((byte *)&unused_buf, instr);
+    ASSERT(isa_feat == ISA_FEAT_SVEAES);
+    ASSERT(strncmp(instr_get_isa_feature_name(isa_feat), "SVEAES", strlen("SVEAES")) ==
+           0);
+    instr_destroy(GD, instr);
+}
+
 int
-main()
+main(int argc, const char *argv[])
 {
     test_disasm();
 
@@ -255,6 +350,8 @@ main()
     test_categories();
 
     test_store_source();
+
+    test_isa_features();
 
     print("done\n");
 

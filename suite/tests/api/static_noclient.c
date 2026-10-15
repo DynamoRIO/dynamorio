@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -53,7 +53,7 @@ do_some_work(int seed)
 static void
 test_static_decode_before_attach(void)
 {
-    /* FIXME i#2040: this hits the app_fls_data assert on Windows. */
+    /* XXX i#2040: this hits the app_fls_data assert on Windows. */
 #ifdef UNIX
     /* Test restoration of signal state. */
     int res;

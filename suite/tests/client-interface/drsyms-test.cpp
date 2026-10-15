@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -69,7 +69,7 @@ public:
     short z;
     char a[4];
 };
-}
+} // namespace
 
 int NOINLINE
 Foo::Bar(int a)
@@ -149,25 +149,25 @@ templated_func(T *t)
 /* test some nesting */
 namespace name_outer {
 namespace name_middle {
-    namespace name_inner {
-        template <typename X> class sample_class {
-        public:
-            template <typename Y> class nested_class {
-            public:
-                template <typename T>
-                T *
-                templated_func(T *t)
-                {
-                    return t;
-                }
-                union {
-                    int zz;
-                };
-            };
+namespace name_inner {
+template <typename X> class sample_class {
+public:
+    template <typename Y> class nested_class {
+    public:
+        template <typename T>
+        T *
+        templated_func(T *t)
+        {
+            return t;
+        }
+        union {
+            int zz;
         };
-    }
-}
-}
+    };
+};
+} // namespace name_inner
+} // namespace name_middle
+} // namespace name_outer
 
 void
 test_templates(void)

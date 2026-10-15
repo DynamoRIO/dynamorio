@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -242,7 +242,7 @@ const instr_info_t T32_16_ext_bits_10_9[][4] = {
 };
 
 /* Indexed by if Rn is listed in reglist:
- * + whether TEST(1 << Rn, reglistbits), take entry 0
+ * + whether TESTANY(1 << Rn, reglistbits), take entry 0
  * + else, take entry 1
  */
 const instr_info_t T32_16_ext_bits_10_8[][2] = {

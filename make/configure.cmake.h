@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -37,7 +37,7 @@
 /* We disable formatting as it messes up the ${var} references: */
 /* clang-format off */
 #ifndef _CONFIGURE_H_
-#define _CONFIGURE_H_ 1
+#define _CONFIGURE_H_
 
 /* exposed options */
 #cmakedefine INTERNAL
@@ -113,6 +113,10 @@
 #cmakedefine HAVE_FNOSANITIZE_NULL
 #cmakedefine HAVE_TYPELIMITS_CONTROL
 #cmakedefine ANNOTATIONS
+#ifdef LINUX_KERNEL
+/* Binary annotations are not supported in the kernel module. */
+#    undef ANNOTATIONS
+#endif
 #cmakedefine HAVE_RSEQ
 #cmakedefine HAVE_HALF_FLOAT
 
@@ -127,7 +131,7 @@
 #cmakedefine DR_DO_NOT_DEFINE_uint64
 #cmakedefine DR_DO_NOT_DEFINE_ushort
 #cmakedefine DR__Bool_EXISTS
-#if defined(UNIX) && !defined(CPP2ASM)
+#if defined(UNIX) && !defined(CPP2ASM) && !defined(LINUX_KERNEL)
 /* i#1812: our check for these types searches sys/types.h, which we include in
  * globals_shared.h, but some tests do not include that.  To get everything to
  * work consistently we include it here.
@@ -188,7 +192,7 @@
 
 # optimization of dynamo
 #    ($(D)RETURN_STACK: deprecated and now removed)
-#    $(D)TRACE_HEAD_CACHE_INCR   (incompatible with security FIXME:?)
+#    $(D)TRACE_HEAD_CACHE_INCR   (incompatible with security XXX:?)
 #    $(D)DISALLOW_CACHE_RESIZING (use as temporary hack when developing)
 # external interface
 #    $(D)ANNOTATIONS -- optional instrumentation of binary annotations
@@ -266,7 +270,14 @@
 #  define HAVE_SIGALTSTACK
 # elif defined(LINUX)
 #  define HAVE_MEMINFO
-#  define HAVE_MEMINFO_MAPS
+#  ifdef LINUX_KERNEL
+/* The kernel module has no /proc/self/maps to parse, so it has no all_memory_areas
+ * cache: memory attributes are queried directly from the kernel page tables.
+ */
+#    define HAVE_MEMINFO_QUERY
+#  else
+#    define HAVE_MEMINFO_MAPS
+#  endif
 #  define HAVE_TLS
 #  define HAVE_SIGALTSTACK
 # else
@@ -312,7 +323,7 @@
 # define DR_APP_EXPORTS
 #endif
 
-/* FIXME: some GBOP hooks depend on hotp_only HOT_PATCHING_INTERFACE */
+/* XXX: some GBOP hooks depend on hotp_only HOT_PATCHING_INTERFACE */
 
 #ifdef DEBUG
    /* for bug fixing this is useful so we turn on for all debug builds */

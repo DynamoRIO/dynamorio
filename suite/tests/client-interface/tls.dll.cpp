@@ -237,7 +237,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 
     drmgr_init();
 
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
 
     dr_raw_tls_calloc(&(tls_raw_reg), &(tls_raw_base), 4, 0);
 

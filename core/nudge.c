@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -82,7 +82,7 @@ void
 generic_nudge_target(nudge_arg_t *arg)
 {
     /* Fix for case 5130; volatile forces a 'call' instruction to be generated
-     * rather than 'jmp' during optimization.  FIXME: need a standardized &
+     * rather than 'jmp' during optimization.  XXX: need a standardized &
      * better way of stopping core from emulating itself.
      */
     volatile bool nudge_result;
@@ -113,7 +113,7 @@ nudge_thread_cleanup(dcontext_t *dcontext, bool exit_process, uint exit_code)
 
     /* Case 9020: no EXITING_DR() as os_terminate will do that for us */
 
-    /* FIXME - these nudge threads do hit dll mains for thread attach so app may have
+    /* XXX - these nudge threads do hit dll mains for thread attach so app may have
      * allocated some TLS memory which won't end up being freed since this won't go
      * through dll main thread detach. The app may also object to unbalanced attach to
      * detach ratio though we haven't seen that in practice. Long term we should take
@@ -142,7 +142,7 @@ nudge_thread_cleanup(dcontext_t *dcontext, bool exit_process, uint exit_code)
      */
 
     if (dynamo_exited || !dynamo_initialized || dcontext == NULL) {
-        /* FIXME - no cleanup so we'll leak any memory allocated for this thread
+        /* XXX - no cleanup so we'll leak any memory allocated for this thread
          * including the application's stack and arg if we were supposed to free them.
          * We only expect to get here in rare races where the nudge thread was created
          * before dr exited (i.e. before drmarker was freed) but didn't end up getting
@@ -224,14 +224,14 @@ generic_nudge_handler(nudge_arg_t *arg_dont_use)
     nudge_action_mask = safe_arg.nudge_action_mask;
 
     /* if needed tell thread exit to free the application stack */
-    if (!TEST(NUDGE_NUDGER_FREE_STACK, safe_arg.flags)) {
+    if (!TESTANY(NUDGE_NUDGER_FREE_STACK, safe_arg.flags)) {
         dcontext->free_app_stack = true;
     }
 
-    /* FIXME - would be nice to inform nudge creator if we need to nop the nudge. */
+    /* XXX - would be nice to inform nudge creator if we need to nop the nudge. */
 
     /* Fix for case 5702.  If a nudge thread comes in during process exit,
-     * don't process it, i.e., nop it. FIXME - this leaks the app stack and nudge arg
+     * don't process it, i.e., nop it. XXX - this leaks the app stack and nudge arg
      * if the nudge was supposed to free them. */
     if (dynamo_exited)
         goto nudge_finished;
@@ -259,7 +259,7 @@ generic_nudge_handler(nudge_arg_t *arg_dont_use)
             /* Allow a syscall for our test in debug build. */
             IF_DEBUG(&&!check_filter("win32.tls.exe",
                                      get_short_name(get_application_name())))) {
-        /* FIXME - should we report this likely attempt to attack us? need
+        /* XXX - should we report this likely attempt to attack us? need
          * a unit test for this (though will then have to tone this down). */
         ASSERT(false && "unauthorized thread tried to nudge");
         /* If we really are under attack we should terminate immediately and
@@ -270,7 +270,7 @@ generic_nudge_handler(nudge_arg_t *arg_dont_use)
     }
 
     /* Free the arg if requested. */
-    if (TEST(NUDGE_FREE_ARG, safe_arg.flags)) {
+    if (TESTANY(NUDGE_FREE_ARG, safe_arg.flags)) {
         nt_free_virtual_memory(arg_dont_use);
     }
 
@@ -316,7 +316,7 @@ handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
      * case 8888. */
 #define VALID_THIN_CLIENT_NUDGES (NUDGE_GENERIC(process_control) | NUDGE_GENERIC(detach))
     if (DYNAMO_OPTION(thin_client)) {
-        if (TEST(VALID_THIN_CLIENT_NUDGES, nudge_action_mask)) {
+        if (TESTANY(VALID_THIN_CLIENT_NUDGES, nudge_action_mask)) {
             /* If it is a valid thin client nudge, then disable all others. */
             nudge_action_mask &= VALID_THIN_CLIENT_NUDGES;
         } else {
@@ -324,71 +324,71 @@ handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
         }
     }
 
-    /* FIXME: NYI action handlers. As implemented move to desired order. */
-    if (TEST(NUDGE_GENERIC(upgrade), nudge_action_mask)) {
-        /* FIXME: watch out for flushed clean-call fragment */
+    /* TODO: NYI action handlers. As implemented move to desired order. */
+    if (TESTANY(NUDGE_GENERIC(upgrade), nudge_action_mask)) {
+        /* XXX: watch out for flushed clean-call fragment */
         nudge_action_mask &= ~NUDGE_GENERIC(upgrade);
         ASSERT_NOT_IMPLEMENTED(false && "case 4179");
     }
-    if (TEST(NUDGE_GENERIC(kstats), nudge_action_mask)) {
+    if (TESTANY(NUDGE_GENERIC(kstats), nudge_action_mask)) {
         nudge_action_mask &= ~NUDGE_GENERIC(kstats);
         ASSERT_NOT_IMPLEMENTED(false);
     }
 #ifdef INTERNAL
-    if (TEST(NUDGE_GENERIC(stats), nudge_action_mask)) {
+    if (TESTANY(NUDGE_GENERIC(stats), nudge_action_mask)) {
         nudge_action_mask &= ~NUDGE_GENERIC(stats);
         ASSERT_NOT_IMPLEMENTED(false);
     }
-    if (TEST(NUDGE_GENERIC(invalidate), nudge_action_mask)) {
-        /* FIXME: watch out for flushed clean-call fragment  */
+    if (TESTANY(NUDGE_GENERIC(invalidate), nudge_action_mask)) {
+        /* XXX: watch out for flushed clean-call fragment  */
         nudge_action_mask &= ~NUDGE_GENERIC(invalidate);
         ASSERT_NOT_IMPLEMENTED(false);
     }
-    if (TEST(NUDGE_GENERIC(recreate_pc), nudge_action_mask)) {
+    if (TESTANY(NUDGE_GENERIC(recreate_pc), nudge_action_mask)) {
         nudge_action_mask &= ~NUDGE_GENERIC(recreate_pc);
         ASSERT_NOT_IMPLEMENTED(false);
     }
-    if (TEST(NUDGE_GENERIC(recreate_state), nudge_action_mask)) {
+    if (TESTANY(NUDGE_GENERIC(recreate_state), nudge_action_mask)) {
         nudge_action_mask &= ~NUDGE_GENERIC(recreate_state);
         ASSERT_NOT_IMPLEMENTED(false);
     }
-    if (TEST(NUDGE_GENERIC(reattach), nudge_action_mask)) {
-        /* FIXME: watch out for flushed clean-call fragment */
+    if (TESTANY(NUDGE_GENERIC(reattach), nudge_action_mask)) {
+        /* XXX: watch out for flushed clean-call fragment */
         nudge_action_mask &= ~NUDGE_GENERIC(reattach);
         ASSERT_NOT_IMPLEMENTED(false);
     }
 #endif /* INTERNAL */
-    if (TEST(NUDGE_GENERIC(diagnose), nudge_action_mask)) {
+    if (TESTANY(NUDGE_GENERIC(diagnose), nudge_action_mask)) {
         nudge_action_mask &= ~NUDGE_GENERIC(diagnose);
         ASSERT_NOT_IMPLEMENTED(false);
     }
 
     /* Implemented action handlers */
-    if (TEST(NUDGE_GENERIC(opt), nudge_action_mask)) {
+    if (TESTANY(NUDGE_GENERIC(opt), nudge_action_mask)) {
         nudge_action_mask &= ~NUDGE_GENERIC(opt);
         synchronize_dynamic_options();
     }
-    if (TEST(NUDGE_GENERIC(ldmp), nudge_action_mask)) {
+    if (TESTANY(NUDGE_GENERIC(ldmp), nudge_action_mask)) {
         nudge_action_mask &= ~NUDGE_GENERIC(ldmp);
         os_dump_core("Nudge triggered ldmp.");
     }
-    if (TEST(NUDGE_GENERIC(freeze), nudge_action_mask)) {
+    if (TESTANY(NUDGE_GENERIC(freeze), nudge_action_mask)) {
         nudge_action_mask &= ~NUDGE_GENERIC(freeze);
-        coarse_units_freeze_all(true /*in-place: FIXME: separate nudge for non?*/);
+        coarse_units_freeze_all(true /*in-place: XXX: separate nudge for non?*/);
     }
-    if (TEST(NUDGE_GENERIC(persist), nudge_action_mask)) {
+    if (TESTANY(NUDGE_GENERIC(persist), nudge_action_mask)) {
         nudge_action_mask &= ~NUDGE_GENERIC(persist);
         coarse_units_freeze_all(false /*!in-place==persist*/);
     }
-    if (TEST(NUDGE_GENERIC(client), nudge_action_mask)) {
+    if (TESTANY(NUDGE_GENERIC(client), nudge_action_mask)) {
         nudge_action_mask &= ~NUDGE_GENERIC(client);
         instrument_nudge(dcontext, arg->client_id, arg->client_arg);
     }
 #ifdef PROCESS_CONTROL
-    if (TEST(NUDGE_GENERIC(process_control), nudge_action_mask)) { /* Case 8594 */
+    if (TESTANY(NUDGE_GENERIC(process_control), nudge_action_mask)) { /* Case 8594 */
         nudge_action_mask &= ~NUDGE_GENERIC(process_control);
         /* Need to synchronize because process control can be switched between
-         * on (allow or block list) & off.  FIXME - the nudge mask should specify this,
+         * on (allow or block list) & off.  XXX - the nudge mask should specify this,
          * but doesn't hurt to do it again. */
         synchronize_dynamic_options();
         if (IS_PROCESS_CONTROL_ON())
@@ -412,7 +412,7 @@ handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
     }
 #endif
 #ifdef PROGRAM_SHEPHERDING
-    if (TEST(NUDGE_GENERIC(violation), nudge_action_mask)) {
+    if (TESTANY(NUDGE_GENERIC(violation), nudge_action_mask)) {
         nudge_action_mask &= ~NUDGE_GENERIC(violation);
         /* Use nudge mechanism to trigger a security violation at an
          * arbitrary time. Note - is only useful for testing kill process attack
@@ -422,7 +422,7 @@ handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
                            OPTION_BLOCK | OPTION_REPORT);
     }
 #endif
-    if (TEST(NUDGE_GENERIC(reset), nudge_action_mask)) {
+    if (TESTANY(NUDGE_GENERIC(reset), nudge_action_mask)) {
         nudge_action_mask &= ~NUDGE_GENERIC(reset);
         if (DYNAMO_OPTION(enable_reset)) {
             d_r_mutex_lock(&reset_pending_lock);
@@ -436,7 +436,7 @@ handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
     }
 #if defined(WINDOWS) || defined(LINUX)
     /* The detach handler is last since in the common case it doesn't return. */
-    if (TEST(NUDGE_GENERIC(detach), nudge_action_mask)) {
+    if (TESTANY(NUDGE_GENERIC(detach), nudge_action_mask)) {
 #    ifdef WINDOWS
         dcontext->free_app_stack = false;
         nudge_action_mask &= ~NUDGE_GENERIC(detach);
@@ -586,10 +586,14 @@ nudge_internal(process_id_t pid, uint nudge_action_mask, uint64 client_arg,
         nudge_add_pending(dcontext, &nudge_arg);
         return DR_SUCCESS;
     } else {
+#    ifndef LINUX_KERNEL
         if (send_nudge_signal(pid, nudge_action_mask, client_id, client_arg))
             return DR_SUCCESS;
         else
             return DR_FAILURE;
+#    else
+        return DR_FAILURE;
+#    endif
     }
 #endif /* WINDOWS -> UNIX */
 }

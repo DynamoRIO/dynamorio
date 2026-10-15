@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -110,7 +110,7 @@ opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM
 {
     int scale = opnd_get_scale(opnd);
     if (scale > 1) {
-        if (TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask)))
+        if (TESTANY(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask)))
             print_to_buffer(buf, bufsz, sofar, "*%d", scale);
         else
             print_to_buffer(buf, bufsz, sofar, ",%d", scale);
@@ -172,7 +172,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOU
             /* if has implicit st0 then don't print it */
             (opnd_get_reg(opnd) == REG_ST0 && instr_memory_reference_size(instr) > 0))
             return false;
-        /* else fall through */
+        DR_FALLTHROUGH;
     case TYPE_A:
     case TYPE_B:
     case TYPE_C:
@@ -219,12 +219,13 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOU
     case TYPE_XLAT:
     case TYPE_MASKMOVQ:
         if (opnd_get_segment(opnd) != SEG_DS) {
-            /* FIXME: really we should put before opcode */
+            /* XXX: really we should put before opcode */
             if (prev)
                 print_to_buffer(buf, bufsz, sofar, ", ");
             reg_disassemble(buf, bufsz, sofar, opnd_get_segment(opnd), 0, "", "");
             return true;
         }
+        DR_FALLTHROUGH;
     case TYPE_Y:
     case TYPE_FLOATCONST:
     case TYPE_XREG:
@@ -251,7 +252,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOU
 static const char *
 instr_opcode_name(instr_t *instr)
 {
-    if (TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask))) {
+    if (TESTANY(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask))) {
         switch (instr_get_opcode(instr)) {
         /* remove "l" prefix */
         case OP_call_far: return "call";
@@ -292,7 +293,8 @@ suppress_memory_size_annotations(instr_t *instr)
     switch (instr_get_opcode(instr)) {
     case OP_movdir64b:
     case OP_enqcmd:
-    case OP_enqcmds: return true;
+    case OP_enqcmds:
+    case OP_umonitor: return true;
     default: return false;
     }
 }
@@ -300,11 +302,11 @@ suppress_memory_size_annotations(instr_t *instr)
 static const char *
 instr_opcode_name_suffix(instr_t *instr)
 {
-    if (TESTANY(DR_DISASM_INTEL | DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask))) {
+    bool att = TESTANY(DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask));
+    bool intel = TESTANY(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask));
+    if ((att || intel) && instr_operands_valid(instr)) {
         /* add "b" or "d" suffix */
         switch (instr_get_opcode(instr)) {
-        case OP_pushf:
-        case OP_popf:
         case OP_xlat:
         case OP_ins:
         case OP_rep_ins:
@@ -331,27 +333,62 @@ instr_opcode_name_suffix(instr_t *instr)
                 return "d";
             else if (sz == 8)
                 return "q";
+            break;
+        }
+        case OP_pushf:
+        case OP_popf: {
+            uint sz = instr_memory_reference_size(instr);
+            if (sz == 2)
+                return att ? "w" : "";
+            else if (sz == 4)
+                return "d"; /* Some tools use "l" for att. */
+            else if (sz == 8)
+                return "q";
+            break;
         }
         case OP_pusha:
         case OP_popa: {
             uint sz = instr_memory_reference_size(instr);
             if (sz == 16)
-                return "w";
+                return att ? "w" : "";
             else if (sz == 32)
-                return "d";
+                return "d"; /* Some tools use "l" for att. */
+            break;
         }
         case OP_iret: {
             uint sz = instr_memory_reference_size(instr);
             if (sz == 6)
-                return "w";
+                return att ? "w" : "";
             else if (sz == 12)
-                return "d";
+                return "d"; /* Some tools use "l" for att. */
             else if (sz == 40)
                 return "q";
+            break;
         }
+        case OP_rdssp: {
+            opnd_size_t sz = opnd_get_size(instr_get_dst(instr, 0));
+            if (sz == OPSZ_4)
+                return "d";
+            else if (sz == OPSZ_8)
+                return "q";
+            break;
+        }
+        case OP_incssp:
+        case OP_wrss:
+        case OP_wruss: {
+            opnd_size_t sz = opnd_get_size(instr_get_src(instr, 0));
+            if (sz == OPSZ_4)
+                return "d";
+            else if (sz == OPSZ_8)
+                return "q";
+            break;
+        }
+        case OP_clrssbsy:
+        case OP_rstorssp: return "";
         }
     }
-    if (TEST(DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask)) && instr_operands_valid(instr)) {
+    if (TESTANY(DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask)) &&
+        instr_operands_valid(instr)) {
         /* XXX: requiring both src and dst.  Ideally we'd wait until we
          * see if there is a register or in some cases an immed operand
          * and then go back and add the suffix.  This will do for now.
@@ -386,11 +423,11 @@ void
 print_instr_prefixes(dcontext_t *dcontext, instr_t *instr, char *buf, size_t bufsz,
                      size_t *sofar DR_PARAM_OUT)
 {
-    if (TEST(PREFIX_XACQUIRE, instr->prefixes))
+    if (TESTANY(PREFIX_XACQUIRE, instr->prefixes))
         print_to_buffer(buf, bufsz, sofar, "xacquire ");
-    if (TEST(PREFIX_XRELEASE, instr->prefixes))
+    if (TESTANY(PREFIX_XRELEASE, instr->prefixes))
         print_to_buffer(buf, bufsz, sofar, "xrelease ");
-    if (TEST(PREFIX_LOCK, instr->prefixes))
+    if (TESTANY(PREFIX_LOCK, instr->prefixes))
         print_to_buffer(buf, bufsz, sofar, "lock ");
     /* Note that we do not try to figure out data16 or addr16 prefixes
      * if they are not already set from a recent decode;
@@ -401,16 +438,20 @@ print_instr_prefixes(dcontext_t *dcontext, instr_t *instr, char *buf, size_t buf
      * REG_CX, or string ops, maskmov*, or xlat of REG_DI or REG_SI.
      * For data16, we'd look for 16-bit reg or OPSZ_2 immed or base_disp.
      */
-    if (!TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask))) {
-        if (TEST(PREFIX_DATA, instr->prefixes))
+    if (!TESTANY(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask))) {
+        if (TESTANY(PREFIX_DATA, instr->prefixes)) {
+            /* XXX i#8044: Xed now prints "data16" so maybe we should
+             * reconsider whether to print this for Intel style.
+             */
             print_to_buffer(buf, bufsz, sofar, "data16 ");
-        if (TEST(PREFIX_ADDR, instr->prefixes) &&
+        }
+        if (TESTANY(PREFIX_ADDR, instr->prefixes) &&
             !suppress_memory_size_annotations(instr)) {
             print_to_buffer(buf, bufsz, sofar,
                             X64_MODE_DC(dcontext) ? "addr32 " : "addr16 ");
         }
 #if 0 /* disabling for PR 256226 */
-        if (TEST(PREFIX_REX_W, instr->prefixes))
+        if (TESTANY(PREFIX_REX_W, instr->prefixes))
             print_to_buffer(buf, bufsz, sofar, "rex.w ");
 #endif
     }
@@ -419,10 +460,10 @@ print_instr_prefixes(dcontext_t *dcontext, instr_t *instr, char *buf, size_t buf
 int
 print_opcode_suffix(instr_t *instr, char *buf, size_t bufsz, size_t *sofar DR_PARAM_OUT)
 {
-    if (TEST(PREFIX_JCC_TAKEN, instr->prefixes)) {
+    if (TESTANY(PREFIX_JCC_TAKEN, instr->prefixes)) {
         print_to_buffer(buf, bufsz, sofar, ",pt");
         return 2;
-    } else if (TEST(PREFIX_JCC_NOT_TAKEN, instr->prefixes)) {
+    } else if (TESTANY(PREFIX_JCC_NOT_TAKEN, instr->prefixes)) {
         print_to_buffer(buf, bufsz, sofar, ",pn");
         return 2;
     }

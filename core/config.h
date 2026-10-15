@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -36,7 +36,7 @@
  */
 
 #ifndef _CONFIG_H_
-#define _CONFIG_H_ 1
+#define _CONFIG_H_
 
 #include "dr_config.h" /* for dr_platform_t */
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -61,6 +61,7 @@
 
 #include "dr_api.h"
 #include "drsyms.h"
+#include "dr_project_wide_defines.h"
 #include <assert.h>
 #include <imagehlp.h>
 #include <stdio.h>
@@ -71,11 +72,6 @@
 #else
 #    define EXPORT __declspec(dllexport)
 #endif
-
-#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof((buf)[0]))
-#define BUFFER_LAST_ELEMENT(buf) (buf)[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
 
 /* global params */
 static bool expect_int2e = false;
@@ -106,8 +102,11 @@ static const char *const usercall_imp_names[] = {
      * I bailed on further investigation as we assume the numbers are
      * the same across bitwidths.
      */
-    "_imp__NtUserCallOneParam", "_imp__NtUserCallHwnd", "_imp__NtUserCallHwndOpt",
-    "_imp__NtUserCallHwndParam", "_imp__NtUserCallHwndLock",
+    "_imp__NtUserCallOneParam",
+    "_imp__NtUserCallHwnd",
+    "_imp__NtUserCallHwndOpt",
+    "_imp__NtUserCallHwndParam",
+    "_imp__NtUserCallHwndLock",
     "_imp__NtUserCallHwndParamLock",
     "_imp__NtUserCallTwoParam", /* For 32-bit we use ALT_TWOPARAM */
 };
@@ -214,7 +213,7 @@ decode_function(void *dcontext, byte *entry)
 static void
 check_Ki(const char *name)
 {
-    /* FIXME: eventually we should automatically analyze these, but
+    /* XXX: eventually we should automatically analyze these, but
      * not worth the time at this point.  Once we have automatic
      * analysis code, should put it into DR debug build init too!  For
      * now we issue manual instructions about verifying our
@@ -267,7 +266,7 @@ process_syscall_instr(void *dcontext, instr_t *instr, bool found_eax, bool found
      * indirect call via edx is a system call on XP and later
      * On XP SP1 it's call *edx, while on XP SP2 it's call *(edx)
      * For wow it's a call through fs.
-     * FIXME - core exports various is_*_syscall routines (such as
+     * XXX - core exports various is_*_syscall routines (such as
      * instr_is_wow64_syscall()) which we could use here instead of
      * duplicating if they were more flexible about when they could
      * be called (instr_is_wow64_syscall() for ex. asserts if not
@@ -372,7 +371,7 @@ process_syscall_call(void *dcontext, byte *next_pc, instr_t *call, bool found_ea
 static bool
 decode_syscall_num(void *dcontext, byte *entry, syscall_info_t *info, LOADED_IMAGE *img)
 {
-    /* FIXME: would like to fail gracefully rather than have a DR assertion
+    /* XXX: would like to fail gracefully rather than have a DR assertion
      * on non-code! => use DEBUG=0 INTERNAL=1 DR build!
      */
     bool found_syscall = false, found_eax = false, found_edx = false, found_ecx = false;
@@ -388,7 +387,7 @@ decode_syscall_num(void *dcontext, byte *entry, syscall_info_t *info, LOADED_IMA
     info->fixup_index = -1;
     instr = instr_create(dcontext);
     pc = entry;
-    /* FIXME - we don't support decoding 64bit instructions in 32bit mode, but I want
+    /* XXX - we don't support decoding 64bit instructions in 32bit mode, but I want
      * this to work on 32bit machines.  Hack fix based on the wrapper pattern, we skip
      * the first instruction (mov r10, rcx) here, the rest should decode ok.
      * Xref PR 236203. */

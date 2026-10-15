@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -72,13 +72,13 @@ event_app_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
             prev_was_mov_const = false;
     }
 #else
-        /* XXX i#3329: port to ARM if possible. */
+    /* XXX i#3329: port to ARM if possible. */
 #endif
     return DR_EMIT_DEFAULT;
 }
 
 static void
-suspend_test_1_func()
+suspend_test_1_func(void)
 {
 #ifdef X86_64
     void **drcontexts = NULL;
@@ -119,7 +119,7 @@ suspend_test_1_func()
 }
 
 static void
-suspend_test_2_func()
+suspend_test_2_func(void)
 {
 #ifdef X86_64
     void **drcontexts = NULL;
@@ -218,7 +218,7 @@ dr_init(client_id_t id)
     if (!drmgr_init())
         CHECK(false, "init failed");
     /* register events */
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
     if (!drmgr_register_bb_instrumentation_event(event_app_analysis,
                                                  event_app_instruction, NULL))
         CHECK(false, "init failed");

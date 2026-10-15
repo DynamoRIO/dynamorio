@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -38,7 +38,7 @@
 /* file "dispatch.h" */
 
 #ifndef _DISPATCH_H_
-#define _DISPATCH_H_ 1
+#define _DISPATCH_H_
 
 /* returns true if pc is a point at which DynamoRIO should stop interpreting */
 bool
@@ -77,6 +77,6 @@ transfer_to_dispatch(dcontext_t *dcontext, priv_mcontext_t *mc, bool full_DR_sta
     } while (0);
 
 /* magic value to set next_tag to, to indicate a return to native_exec */
-#define BACK_TO_NATIVE_AFTER_SYSCALL ((app_pc)(ptr_uint_t)-1)
+#define BACK_TO_NATIVE_AFTER_SYSCALL ((app_pc)(ptr_uint_t) - 1)
 
 #endif /* _DISPATCH_H_ */

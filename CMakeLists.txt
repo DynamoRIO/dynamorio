@@ -1,7 +1,8 @@
 # **********************************************************
-# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2026 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2018 Arm Limited          All rights reserved.
+# Copyright (c) 2026 Meta Platforms, Inc. All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -408,19 +409,17 @@ option(TEST_SUITE "we are running a series of builds for official purposes")
 if (INTERNAL OR DEBUG)
   set(KSTATS_DEFAULT ON)
 else (INTERNAL OR DEBUG)
-  set(KSTATS_DEFAULT 0FF)
+  set(KSTATS_DEFAULT OFF)
 endif (INTERNAL OR DEBUG)
 
 # no KSTATS for caller profiling: we want to be as close to release
 # build as we can, but w/o optimizations
 if (CALLPROF)
-  set(KSTATS_DEFAULT 0FF)
+  set(KSTATS_DEFAULT OFF)
 endif (CALLPROF)
 
 set(KSTATS "" CACHE STRING "internal kstat profiling: ON or OFF overrides default")
-# FIXME i#170: once CMake 2.8 is released we can detect whether 2.8 is
-# in use, and if so use a value-enum to get drop-down of possible values, like so:
-#   set_property(CACHE KSTATS PROPERTY STRINGS "" "ON" "OFF")
+set_property(CACHE KSTATS PROPERTY STRINGS "" "ON" "OFF")
 if ("${KSTATS}" STREQUAL "")
     set(KSTATS ${KSTATS_DEFAULT})
 endif()
@@ -571,6 +570,9 @@ else (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
   if (EXISTS "${PROJECT_SOURCE_DIR}/.git")
     find_program(GIT git DOC "git client")
     if (GIT)
+      # Avoid local git configs that change the log format, as we're about to
+      # parse it as text.
+      set(ENV{GIT_CONFIG_GLOBAL} /dev/null)
       # We want the committer date (not author date) (xref i#1565).  We request UNIX
       # timestamp format and then divide down to days to get a small enough number
       # for the Windows resource limits.
@@ -612,9 +614,12 @@ else (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
   endif (EXISTS "${PROJECT_SOURCE_DIR}/.git")
 endif (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
 
-# N.B.: When updating this, update all the default versions in ci-package.yml
-# and ci-docs.yml.  We should find a way to share (xref i#1565).
-set(VERSION_NUMBER_DEFAULT "11.90.${VERSION_NUMBER_PATCHLEVEL}")
+# Read version.txt to get the current major.minor version of DynamoRIO.
+file(READ ${PROJECT_SOURCE_DIR}/make/version.txt major_dot_minor_version_number)
+# Remove trailing '\n'.
+string(STRIP "${major_dot_minor_version_number}" major_dot_minor_version_number)
+# Set the version.
+set(VERSION_NUMBER_DEFAULT "${major_dot_minor_version_number}.${VERSION_NUMBER_PATCHLEVEL}")
 # do not store the default VERSION_NUMBER in the cache to prevent a stale one
 # from preventing future version updates in a pre-existing build dir
 set(VERSION_NUMBER "" CACHE STRING "Version number: leave empty for default")
@@ -674,8 +679,6 @@ if (AARCH64 AND UNIX)
   set(CFLAGS_SVE "-march=armv8-a+sve")
   set(CFLAGS_SVE2 "-march=armv8-a+sve2")
   set(CFLAGS_PAUTH "-march=armv8.3-a -mbranch-protection=standard")
-  set(ASMFLAGS_SVE "-march=armv8-a+sve")
-  set(ASMFLAGS_SVE2 "-march=armv8-a+sve2")
   check_sve_processor_and_compiler_support(proc_supports_sve proc_sve_vl)
   check_sve2_processor_and_compiler_support(proc_supports_sve2)
   check_pauth_processor_and_compiler_support(proc_supports_pauth)
@@ -733,7 +736,7 @@ if (UNIX)
   check_if_linker_is_gnu_gold(LINKER_IS_GNU_GOLD)
   check_if_linker_is_llvm_lld(LINKER_IS_LLVM_LLD)
 
-  # FIXME i#2949: static 32-bit release-build linking with gcc 7.3.1 fails when
+  # XXX i#2949: static 32-bit release-build linking with gcc 7.3.1 fails when
   # static C++ clients like drmemtrace or drmemtrace_raw2trace are linked in.
   # For now we disable those builds.
   if (UNIX AND NOT X64 AND NOT DEBUG AND NOT CLANG AND
@@ -792,37 +795,6 @@ if (NOT PERL_FOUND)
   message(FATAL_ERROR "perl is required to build")
 endif (NOT PERL_FOUND)
 
-if (UNIX) # unlikely to be an issue on Windows
-  # Check for uint, etc. typedef conflicts like on rhel3 (i#18)
-  # and set DR_DO_NOT_DEFINE_*
-  # Note that for later gcc uint and ushort seem to be "soft typedefs":
-  # defined, but overridable: ?!?
-  include(CheckTypeSize)
-  CHECK_TYPE_SIZE(uint DR_DO_NOT_DEFINE_uint)
-  CHECK_TYPE_SIZE(ushort DR_DO_NOT_DEFINE_ushort)
-  CHECK_TYPE_SIZE(bool DR_DO_NOT_DEFINE_bool)
-  CHECK_TYPE_SIZE(byte DR_DO_NOT_DEFINE_byte)
-  CHECK_TYPE_SIZE(sbyte DR_DO_NOT_DEFINE_sbyte)
-  CHECK_TYPE_SIZE(uint32 DR_DO_NOT_DEFINE_uint32)
-  CHECK_TYPE_SIZE(uint64 DR_DO_NOT_DEFINE_uint64)
-  CHECK_TYPE_SIZE(int32 DR_DO_NOT_DEFINE_int32)
-  CHECK_TYPE_SIZE(int64 DR_DO_NOT_DEFINE_int64)
-  # we could do CHECK_SYMBOL_EXISTS for MAX and MIN but they're not
-  # in standard headers so up to user to define if an issue
-  if (DR_DO_NOT_DEFINE_bool)
-    # i#488: ensure bool compatibility with C++
-    if (NOT ${DR_DO_NOT_DEFINE_bool} EQUAL 1)
-      message(FATAL_ERROR "incompatible pre-defined \"bool\" type is larger than 1 byte")
-    endif (NOT ${DR_DO_NOT_DEFINE_bool} EQUAL 1)
-  endif (DR_DO_NOT_DEFINE_bool)
-  CHECK_TYPE_SIZE(_Bool DR__Bool_EXISTS)
-  if (DR__Bool_EXISTS)
-    if (NOT ${DR__Bool_EXISTS} EQUAL 1)
-      message(FATAL_ERROR "incompatible \"_Bool\" type is larger than 1 byte")
-    endif (NOT ${DR__Bool_EXISTS} EQUAL 1)
-  endif (DR__Bool_EXISTS)
-endif (UNIX)
-
 ###########################################################################
 # basic build rules and flags
 
@@ -847,14 +819,23 @@ endmacro()
 set(BASE_CFLAGS "")
 set(BASE_CONLY_FLAGS "")
 set(BASE_CXXONLY_FLAGS "")
-CHECK_CXX_COMPILER_FLAG("-std=c++17" cxx17_available)
 if (UNIX)
-  set(BASE_CXXONLY_FLAGS "${BASE_CXXONLY_FLAGS} -std=c++11")
+  CHECK_CXX_COMPILER_FLAG("-std=c++17" cxx17_available)
+else ()
+  CHECK_CXX_COMPILER_FLAG("/std:c++17" cxx17_available)
+endif()
+if (NOT cxx17_available)
+  FATAL_ERROR("A C++17-capable toolchain is required to build")
+endif ()
+if (UNIX)
+  set(BASE_CXXONLY_FLAGS "${BASE_CXXONLY_FLAGS} -std=c++17")
   # -std=c99 doesn't quite work
-  # FIXME case 191480: we used to pass -pedantic just to cpp;
+  # XXX case 191480: we used to pass -pedantic just to cpp;
   # now w/ no separate cpp step we should eliminate the
   # warnings and pass -pedantic to main gcc
   set(BASE_CONLY_FLAGS "${BASE_CONLY_FLAGS} -std=gnu99")
+  # i#7975: required by our style guide and Kbuild
+  set(BASE_CONLY_FLAGS "${BASE_CONLY_FLAGS} -Wstrict-prototypes")
   # disable strict aliasing opt in gcc 3.3.3 -- gives warnings and makes bad assumptions
   set(BASE_CFLAGS "${BASE_CFLAGS} -fno-strict-aliasing")
   # Ensure DR is interoperable with other toolchains: do not assume char is signed
@@ -866,6 +847,10 @@ if (UNIX)
   if (no_stack_protector_avail)
     set(BASE_CFLAGS "${BASE_CFLAGS} -fno-stack-protector")
   endif (no_stack_protector_avail)
+  CHECK_C_COMPILER_FLAG("-Wimplicit-fallthrough" implicit_fallthrough_avail)
+  if (implicit_fallthrough_avail)
+    set(BASE_CFLAGS "${BASE_CFLAGS} -Wimplicit-fallthrough")
+  endif (implicit_fallthrough_avail)
   # Prefer the new 'override' keyword.
   CHECK_CXX_COMPILER_FLAG("-Wsuggest-override" suggest_override_avail)
   if (suggest_override_avail)
@@ -1019,7 +1004,8 @@ if (UNIX)
   endif ()
   set(LINK_EXTRA_FLAGS "")
 else (UNIX)
-  # FIXME: why isn't ${CMAKE_CL_NOLOGO} set?
+  set(BASE_CXXONLY_FLAGS "${BASE_CXXONLY_FLAGS} /std:c++17")
+  # XXX: why isn't ${CMAKE_CL_NOLOGO} set?
   set(BASE_CFLAGS "${BASE_CFLAGS} /nologo")
   # build in parallel, always.
   # note that /MP is not officially supported on VS 2005 and others
@@ -1034,7 +1020,7 @@ else (UNIX)
     # This is recommended after /Fd but it seems to work here.
     set(BASE_CFLAGS "${BASE_CFLAGS} /FS")
   endif()
-  # FIXME case 191729: we should try to enable this.
+  # XXX case 191729: we should try to enable this.
   # Currently we get "unresolved external symbol ___security_cookie"
   set(BASE_CFLAGS "${BASE_CFLAGS} /GS-")
   # VS2010 has /MD as the default (and does declspec(dllimport) for
@@ -1142,7 +1128,7 @@ if (UNIX)
   else ()
     # Better to use -dT when passing linker options through gcc, but ld
     # prior to 2.18 only supports -T
-    # FIXME: should we duplicate this in DynamoRIOConfig.cmake?
+    # XXX: should we duplicate this in DynamoRIOConfig.cmake?
     execute_process(COMMAND
       ${CMAKE_LINKER} --help
       RESULT_VARIABLE ld_result
@@ -1283,7 +1269,7 @@ if (DEBUG)
 else (DEBUG)
   if (CALLPROF)
     # no opts -- we need to avoid messing up call frame walking
-    # FIXME: just disable frame ptr elim opt: but /Oy- ran into some issues
+    # XXX: just disable frame ptr elim opt: but /Oy- ran into some issues
     set (OPT "")
   endif (CALLPROF)
   set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${BASE_CONLY_FLAGS} ${OPT} $ENV{CFLAGS}")
@@ -1296,6 +1282,42 @@ if (NOT DISABLE_WARNINGS)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${WARN}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${WARN}")
 endif (NOT DISABLE_WARNINGS)
+
+# Now that the compilation flags are decided, we verify type sizes. Particularly,
+# the availability of bool on C depends on -std=gnu99 set above.
+include(CheckTypeSize)
+CHECK_TYPE_SIZE(bool DR_DO_NOT_DEFINE_bool)
+CHECK_TYPE_SIZE(_Bool DR__Bool_EXISTS)
+
+if (DR_DO_NOT_DEFINE_bool)
+  # i#488: ensure bool compatibility with C++
+  if (NOT ${DR_DO_NOT_DEFINE_bool} EQUAL 1)
+    message(FATAL_ERROR "incompatible pre-defined \"bool\" type is larger than 1 byte")
+  endif (NOT ${DR_DO_NOT_DEFINE_bool} EQUAL 1)
+endif (DR_DO_NOT_DEFINE_bool)
+
+if (DR__Bool_EXISTS)
+  if (NOT ${DR__Bool_EXISTS} EQUAL 1)
+    message(FATAL_ERROR "incompatible \"_Bool\" type is larger than 1 byte")
+  endif (NOT ${DR__Bool_EXISTS} EQUAL 1)
+endif (DR__Bool_EXISTS)
+
+if (UNIX) # unlikely to be an issue on Windows
+  # Check for uint, etc. typedef conflicts like on rhel3 (i#18)
+  # and set DR_DO_NOT_DEFINE_*
+  # Note that for later gcc uint and ushort seem to be "soft typedefs":
+  # defined, but overridable: ?!?
+  CHECK_TYPE_SIZE(uint DR_DO_NOT_DEFINE_uint)
+  CHECK_TYPE_SIZE(ushort DR_DO_NOT_DEFINE_ushort)
+  CHECK_TYPE_SIZE(byte DR_DO_NOT_DEFINE_byte)
+  CHECK_TYPE_SIZE(sbyte DR_DO_NOT_DEFINE_sbyte)
+  CHECK_TYPE_SIZE(uint32 DR_DO_NOT_DEFINE_uint32)
+  CHECK_TYPE_SIZE(uint64 DR_DO_NOT_DEFINE_uint64)
+  CHECK_TYPE_SIZE(int32 DR_DO_NOT_DEFINE_int32)
+  CHECK_TYPE_SIZE(int64 DR_DO_NOT_DEFINE_int64)
+  # We could do CHECK_SYMBOL_EXISTS for MAX and MIN but they're not
+  # in standard headers so up to user to define if an issue.
+endif (UNIX)
 
 if (LINUX)
   CHECK_INCLUDE_FILE("linux/rseq.h" HAVE_RSEQ)
@@ -1334,6 +1356,14 @@ if (LINUX AND X86 AND X64)
 else (LINUX AND X86 AND X64)
   message(STATUS "PT related libraries only supported on Linux x86_64")
 endif (LINUX AND X86 AND X64)
+
+set(BUILD_DRMEMTRACE_WITH_DR_SYSCALL OFF)
+# TODO i#7399: Add Android, MUSL, RISCV64, and Windows support to DrSyscall.
+# TODO i#5383: Add macOS ARM64 support to DrSyscall.
+if (LINUX AND (X86 OR (AARCH64 AND NOT APPLE)) AND NOT MUSL AND NOT ANDROID)
+  set(BUILD_DRMEMTRACE_WITH_DR_SYSCALL ON)
+  add_definitions(-DBUILD_DRMEMTRACE_WITH_DR_SYSCALL)
+endif ()
 
 ###########################################################################
 
@@ -1524,6 +1554,7 @@ endif (EXISTS ${defines_file})
 include_directories(BEFORE
   ${PROJECT_BINARY_DIR} # for configure.h, configure_defines.h, events.h, and event_strings.h
   )
+include_directories(BEFORE ${PROJECT_SOURCE_DIR}/common)
 
 # Export targets for importing by clients.
 # We include DynamoRIO and all Extensions in the same file for simplicity,
@@ -1655,11 +1686,18 @@ endif (WIN32)
 
 option(BUILD_EXT "build Extension libraries" ON)
 
+# i#1972: allow disabling DrGUI even when Qt5 is found, for reproducible
+# builds and to avoid Qt5-related build failures or unwanted build time/disk
+# space.
+option(DISABLE_DRGUI "Disable looking for and using Qt5 for DrGUI" OFF)
+
 # should we disallow selecting samples when core is not built?
 # right now the samples build will just fail
 option(BUILD_SAMPLES "build client samples" ON)
 
 option(BUILD_CLIENTS "build client tools" ON)
+
+option(BUILD_KERNEL_MODULE "build DynamoRIO as a kernel module (experimental)" OFF)
 
 if (ANDROID)
   # TODO i#1874: Android does not build drcachesim or drcpusim, which have
@@ -1682,6 +1720,41 @@ if (BUILD_TESTS)
   # add Dashboard support
   include(CTest)
 endif (BUILD_TESTS)
+
+if (BUILD_KERNEL_MODULE)
+  if (NOT LINUX)
+    message(FATAL_ERROR "BUILD_KERNEL_MODULE is only supported on Linux")
+  endif()
+
+  # TODO i#8021: support AARCH64.
+  if (NOT X86 OR NOT X64)
+    message(FATAL_ERROR
+      "BUILD_KERNEL_MODULE is currently only supported on X86_64 architecture")
+  endif()
+
+  if (NOT BUILD_CORE)
+    message(FATAL_ERROR "BUILD_KERNEL_MODULE requires BUILD_CORE")
+  endif()
+
+  set(KERNEL_DIR "/lib/modules/${CMAKE_SYSTEM_VERSION}/build" CACHE PATH
+    "Path to the kernel build directory")
+
+  find_program(MAKE_PROGRAM NAMES make DOC
+    "make utility for driving the kernel's Kbuild system")
+  if (NOT MAKE_PROGRAM)
+    message(FATAL_ERROR
+      "BUILD_KERNEL_MODULE requires 'make' to drive the kernel's Kbuild system")
+  endif()
+
+  if (NOT IS_DIRECTORY "${KERNEL_DIR}" OR NOT EXISTS "${KERNEL_DIR}/Makefile")
+    message(FATAL_ERROR
+      "Kernel build headers not found at ${KERNEL_DIR}.\n"
+      "Please install kernel headers or specify -DKERNEL_DIR=/path/to/kernel/sources"
+    )
+  endif()
+
+  message(STATUS "DynamoRIO Linux kernel module enabled using KERNEL_DIR=${KERNEL_DIR}")
+endif()
 
 if (BUILD_CORE)
   add_subdirectory(core)
@@ -1824,6 +1897,7 @@ endif ()
 add_custom_target(api_headers)
 if (AARCH64)
   add_dependencies(api_headers gen_aarch64_codec gen_aarch64_opcodes)
+  add_dependencies(api_headers gen_aarch64_codec gen_aarch64_isa_features)
 elseif(RISCV64)
   add_dependencies(api_headers gen_riscv64_codec gen_riscv64_headers)
 endif()
@@ -1921,6 +1995,30 @@ if (UNIX AND X64)
     message(STATUS "Found liblz4: ${liblz4}")
     if (APPLE)
       mac_add_inc_and_lib(lz4.h liblz4.a)
+    endif ()
+    # lz4 >= 1.9.4 supports custom allocators, but some builds do not export the
+    # required API.  Check that it links before using it for static clients (i#5427).
+    include(CheckCSourceCompiles)
+    set(_lz4_save_required_libraries ${CMAKE_REQUIRED_LIBRARIES})
+    set(CMAKE_REQUIRED_LIBRARIES ${liblz4})
+    check_c_source_compiles("
+#define LZ4F_STATIC_LINKING_ONLY
+#include <lz4frame.h>
+int main(void) {
+  LZ4F_cctx *cctx = LZ4F_createCompressionContext_advanced(LZ4F_defaultCMem,
+                                                           LZ4F_VERSION);
+  LZ4F_freeCompressionContext(cctx);
+  return 0;
+}
+" HAVE_LZ4_CUSTOM_MEM)
+    set(CMAKE_REQUIRED_LIBRARIES ${_lz4_save_required_libraries})
+    unset(_lz4_save_required_libraries)
+    if (HAVE_LZ4_CUSTOM_MEM)
+      message(STATUS "liblz4 supports LZ4F_CustomMem: lz4 is safe for static clients")
+    else ()
+      message(STATUS "liblz4 lacks a usable LZ4F_CustomMem: "
+        "-raw_compress lz4 stays unsafe for static clients (needs lz4 >= 1.9.4 "
+        "built with -DLZ4F_PUBLISH_STATIC_FUNCTIONS, or a static liblz4)")
     endif ()
   endif ()
   find_library(libxxhash xxhash)

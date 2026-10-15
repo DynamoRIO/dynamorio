@@ -67,7 +67,7 @@ cd $DYNAMORIO_HOME
 p4 sync
 #in case of network trouble, make sure we get an updated src module
 #rm -rf src
-#FIXME how to do this
+#XXX how to do this
 
 cd $DYNAMORIO_TOOLS
 make clean
@@ -125,14 +125,14 @@ cat w32-reg-results >> mail_results
 # mail mail_results
 ssh $NIGHTLY_MAIL "rm -f mail_results.$OS_VER.$HOSTNAME"
 scp mail_results $NIGHTLY_MAIL:mail_results.$OS_VER.$HOSTNAME
-#FIXME - where to store this?
+#XXX - where to store this?
 #scp $details $NIGHTLY_MAIL:/mnt/determina/bugs/nightly/
 ssh $NIGHTLY_MAIL "/usr/sbin/sendmail -t -fdynamorio-devnull@vmware.com < mail_results.$OS_VER.$HOSTNAME"
 
 #cleanup
 tar_name="${dir_name%.*}"
 tar_ext=".tgz"
-# FIXME - disabling till case 5168 and 5000 are fixed, till then will only keep
+# XXX - disabling till case 5168 and 5000 are fixed, till then will only keep
 #  the last night's results
 #tar -cf $tar_name$tar_ext regression.log $dir_name w32-reg-results mail_results --gzip
 rm -rf regression-dir-last

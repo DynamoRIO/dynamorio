@@ -41,7 +41,7 @@
 /* WATCH OUT to not use the bash internal bind */
 /* `which bind` -v -u delaybind.exe delaybind.dll.dll */
 
-/* FIXME: I can't get a delay loaded DLL to get bound with bind.exe */
+/* XXX: I can't get a delay loaded DLL to get bound with bind.exe */
 
 /* support unloading with, otherwise we won't be able to unload the DLL */
 
@@ -65,7 +65,8 @@
  */
 #define UNLOAD __FUnloadDelayLoadedDLL2
 
-int __declspec(dllimport) make_a_lib(int arg);
+int __declspec(dllimport)
+make_a_lib(int arg);
 
 int
 myloader(void)

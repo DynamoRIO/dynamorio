@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -48,7 +48,7 @@ static int reg_esi;
 static int reg_ebp;
 static int reg_esp;
 
-/* FIXME : would it be better to set some of these register to known values? */
+/* XXX : would it be better to set some of these register to known values? */
 static void
 fault()
 {

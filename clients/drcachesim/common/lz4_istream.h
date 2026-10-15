@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,7 +36,7 @@
  */
 
 #ifndef _LZ4_ISTREAM_H_
-#define _LZ4_ISTREAM_H_ 1
+#define _LZ4_ISTREAM_H_
 
 #ifndef HAS_LZ4
 #    error HAS_LZ4 is required

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /* Dr. Memory: the memory debugger
@@ -20,7 +20,7 @@
  */
 
 #ifndef _DR_SYSCALL_H_
-#define _DR_SYSCALL_H_ 1
+#define _DR_SYSCALL_H_
 
 /* Dr. Syscall: DynamoRIO System Call Extension */
 
@@ -34,6 +34,25 @@
 
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+// XXX i#7472: Move definitions of START_PACKED_STRUCTURE and
+// END_PACKED_STRUCTURE to core.
+#ifdef WINDOWS
+/* Use special C99 operator _Pragma to generate a pragma from a macro */
+#    if _MSC_VER <= 1200
+#        define ACTUAL_PRAGMA(p) _Pragma(#        p)
+#    else
+#        define ACTUAL_PRAGMA(p) __pragma(p)
+#    endif
+/* Usage: if planning to typedef, that must be done separately, as MSVC will
+ * not take _pragma after typedef.
+ */
+#    define START_PACKED_STRUCTURE ACTUAL_PRAGMA(pack(push, 1))
+#    define END_PACKED_STRUCTURE ACTUAL_PRAGMA(pack(pop))
+#else                              /* UNIX */
+#    define START_PACKED_STRUCTURE /* nothing */
+#    define END_PACKED_STRUCTURE __attribute__((__packed__))
 #endif
 
 /**
@@ -118,7 +137,7 @@ struct _drsys_syscall_t;
 typedef struct _drsys_syscall_t drsys_syscall_t;
 
 /** Representation of a system call number. */
-typedef struct _drsys_sysnum_t {
+typedef START_PACKED_STRUCTURE struct _drsys_sysnum_t {
     /**
      * Either the sole system call number by itself (in which case \p
      * secondary will be zero), or the primary component of a two-part
@@ -134,7 +153,7 @@ typedef struct _drsys_sysnum_t {
      */
     int number;
     int secondary; /**< Secondary component of \p number.secondary, or zero. */
-} drsys_sysnum_t;
+} END_PACKED_STRUCTURE drsys_sysnum_t;
 
 /**
  * Indicates whether a parameter is an input or an output.  Used as a

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,7 +32,7 @@
  */
 
 #ifndef _DR_IR_OPND_H_
-#define _DR_IR_OPND_H_ 1
+#define _DR_IR_OPND_H_
 
 /****************************************************************************
  * OPERAND ROUTINES
@@ -48,7 +48,9 @@
 #endif
 
 #ifndef INSTR_INLINE
-#    ifdef DR_FAST_IR
+#    ifdef LINUX_KERNEL
+#        define INSTR_INLINE static inline
+#    elif defined(DR_FAST_IR)
 #        define INSTR_INLINE inline
 #    else
 #        define INSTR_INLINE
@@ -1017,9 +1019,9 @@ enum {
     DR_REG_SPSR_FIQ,        /**< The "spsr_fiq" register. */
 /* Be sure to update reg_get_size() in opnd_shared.c if you add a register. */
 #    else
-    DR_REG_CPSR,                  /**< The "cpsr" register. */
-    DR_REG_SPSR,                  /**< The "spsr" register. */
-    DR_REG_FPSCR,                 /**< The "fpscr" register. */
+    DR_REG_CPSR,  /**< The "cpsr" register. */
+    DR_REG_SPSR,  /**< The "spsr" register. */
+    DR_REG_FPSCR, /**< The "fpscr" register. */
 #    endif
 
     /* AArch32 Thread Registers */
@@ -1110,13 +1112,13 @@ enum {
     DR_REG_SP = DR_REG_XSP,  /**< The stack pointer register. */
     DR_REG_LR = DR_REG_X30,  /**< The link register. */
 #    else
-    DR_REG_SP = DR_REG_R13,       /**< The stack pointer register. */
-    DR_REG_LR = DR_REG_R14,       /**< The link register. */
-    DR_REG_PC = DR_REG_R15,       /**< The program counter register. */
+    DR_REG_SP = DR_REG_R13, /**< The stack pointer register. */
+    DR_REG_LR = DR_REG_R14, /**< The link register. */
+    DR_REG_PC = DR_REG_R15, /**< The program counter register. */
 #    endif
-    DR_REG_SL = DR_REG_R10,  /**< Alias for the r10 register. */
-    DR_REG_FP = DR_REG_R11,  /**< Alias for the r11 register. */
-    DR_REG_IP = DR_REG_R12,  /**< Alias for the r12 register. */
+    DR_REG_SL = DR_REG_R10, /**< Alias for the r10 register. */
+    DR_REG_FP = DR_REG_R11, /**< Alias for the r11 register. */
+    DR_REG_IP = DR_REG_R12, /**< Alias for the r12 register. */
 #    ifndef AARCH64
     /** Alias for cpsr register (thus this is the full cpsr, not just the apsr bits). */
     DR_REG_APSR = DR_REG_CPSR,
@@ -1342,7 +1344,7 @@ enum {
     DR_REG_FT10 = DR_REG_F30, /**< The 11th temporary floating-point (f30) register. */
     DR_REG_FT11 = DR_REG_F31, /**< The 12th temporary floating-point (f31) register. */
 
-    /* FIXME i#3544: CCSRs */
+    /* XXX i#3544: CCSRs */
 
     DR_REG_START_64 = DR_REG_X1,  /**< Start of 64-bit register enum values. */
     DR_REG_STOP_64 = DR_REG_F31,  /**< End of 64-bit register enum values. */
@@ -2165,7 +2167,7 @@ typedef enum _dr_pred_type_t {
 #    endif
 #endif
 #ifdef RISCV64
-    /* FIXME i#3544: RISC-V does not have compare flag register! */
+    /* XXX i#3544: RISC-V does not have compare flag register! */
     /* Aliases for XINST_CREATE_jump_cond() and other cross-platform routines. */
     DR_PRED_EQ, /**< Condition code: equal. */
     DR_PRED_NE, /**< Condition code: not equal. */
@@ -2526,6 +2528,11 @@ DR_API
  * Returns an immediate float operand with value \p f.
  * The caller's code should use proc_save_fpstate() or be inside a
  * clean call that has requested to preserve the floating-point state.
+ * \note Floating-point state preservation applies only to managed
+ * DynamoRIO modes.  In standalone decoder mode, floating-point state
+ * is not preserved or managed and proc_save_fpstate()/proc_restore_fpstate()
+ * are no-ops, so callers must not rely on x87/FPU state being saved or
+ * restored when disassembling.
  */
 opnd_t
 opnd_create_immed_float(float f);
@@ -2540,6 +2547,11 @@ DR_API
  * Returns an immediate double operand with value \p d.
  * The caller's code should use proc_save_fpstate() or be inside a
  * clean call that has requested to preserve the floating-point state.
+ * \note Floating-point state preservation applies only to managed
+ * DynamoRIO modes.  In standalone decoder mode, floating-point state
+ * is not preserved or managed and proc_save_fpstate()/proc_restore_fpstate()
+ * are no-ops, so callers must not rely on x87/FPU state being saved or
+ * restored when disassembling.
  */
 opnd_t
 opnd_create_immed_double(double d);
@@ -2591,7 +2603,7 @@ opnd_create_instr_ex(instr_t *instr, opnd_size_t size, ushort shift);
 
 DR_API
 /**
- * Returns a far instr_t pointer address with value \p seg_selector:instr.
+ * Returns a far #instr_t pointer address with value \p seg_selector:instr.
  * \p seg_selector is a segment selector, not a DR_SEG_ constant.
  */
 opnd_t
@@ -2998,22 +3010,22 @@ opnd_is_far_pc(opnd_t opnd);
 
 DR_API
 INSTR_INLINE
-/** Returns true iff \p opnd is a (near or far) instr_t pointer address operand. */
+/** Returns true iff \p opnd is a (near or far) #instr_t pointer address operand. */
 bool
 opnd_is_instr(opnd_t opnd);
 
 DR_API
-/** Returns true iff \p opnd is a near instr_t pointer address operand. */
+/** Returns true iff \p opnd is a near #instr_t pointer address operand. */
 bool
 opnd_is_near_instr(opnd_t opnd);
 
 DR_API
-/** Returns true iff \p opnd is a far instr_t pointer address operand. */
+/** Returns true iff \p opnd is a far #instr_t pointer address operand. */
 bool
 opnd_is_far_instr(opnd_t opnd);
 
 DR_API
-/** Returns true iff \p opnd is a memory reference to an instr_t address operand. */
+/** Returns true iff \p opnd is a memory reference to an #instr_t address operand. */
 bool
 opnd_is_mem_instr(opnd_t opnd);
 
@@ -3188,7 +3200,7 @@ DR_API
 /**
  * Sets the data size of \p opnd.
  * Assumes \p opnd is an immediate integer, a memory reference,
- * or an instr_t pointer address operand.
+ * or an #instr_t pointer address operand.
  */
 void
 opnd_set_size(opnd_t *opnd, opnd_size_t newsize);
@@ -3292,12 +3304,15 @@ ushort
 opnd_get_segment_selector(opnd_t opnd);
 
 DR_API
-/** Assumes \p opnd is an instr_t (near, far, or memory) operand and returns its value. */
+/**
+ * Assumes \p opnd is an #instr_t (near, far, or memory) operand and returns its
+ * value.
+ */
 instr_t *
 opnd_get_instr(opnd_t opnd);
 
 DR_API
-/** Assumes \p opnd is a near instr_t operand and returns its shift value. */
+/** Assumes \p opnd is a near #instr_t operand and returns its shift value. */
 ushort
 opnd_get_shift(opnd_t opnd);
 
@@ -3540,6 +3555,15 @@ DR_API
 bool
 reg_is_avx512_extended(reg_id_t reg);
 #endif
+
+DR_API
+/**
+ * Returns true iff \p reg refers to register added by the AVX-512 feature set.
+ * Returns true for any ZMM register, any opmask register, and any
+ * reg_is_avx512_extended() register.
+ */
+bool
+reg_is_avx512(reg_id_t reg);
 
 DR_API
 /**

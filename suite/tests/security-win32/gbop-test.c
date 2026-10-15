@@ -68,7 +68,7 @@ main()
 
     __asm {
         push arg0
-                /* note using the IAT directly */
+               /* note using the IAT directly */
         call dword ptr LoadLibraryA
         mov res, eax
     }

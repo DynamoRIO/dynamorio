@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,7 +34,7 @@
  */
 
 #ifndef _INSTRU_H_
-#define _INSTRU_H_ 1
+#define _INSTRU_H_
 
 #include <stdint.h>
 #include <string.h>
@@ -73,9 +73,13 @@ public:
         memset(present_, 0, sizeof(present_));
     }
 
-    class reg_id_set_iterator_t
-        : public std::iterator<std::input_iterator_tag, reg_id_t> {
+    class reg_id_set_iterator_t {
     public:
+        using iterator_category = std::input_iterator_tag;
+        using value_type = reg_id_t;
+        using difference_type = std::ptrdiff_t;
+        using pointer = value_type *;
+        using reference = value_type &;
         reg_id_set_iterator_t(reg_id_set_t *set)
             : set_(set)
             , index_(-1)
@@ -210,6 +214,17 @@ public:
     virtual void
     set_entry_addr(byte *buf_ptr, addr_t addr) = 0;
 
+    virtual void
+    set_reg_vector(drvector_t *reg_vector)
+    {
+        reg_vector_ = reg_vector;
+    }
+
+    // Fills the first pointer-sized-integer of each record with "sentinel" and the
+    // rest (if any) with 0.
+    virtual void
+    fill_with_sentinel(byte *start, size_t size, ptr_int_t sentinel) = 0;
+
     // All of these return how many bytes to advance the buffer pointer.
 
     virtual int
@@ -264,6 +279,10 @@ public:
     instrument_rseq_entry(void *drcontext, instrlist_t *ilist, instr_t *where,
                           instr_t *rseq_label, reg_id_t reg_ptr, int adjust) = 0;
 
+    virtual int
+    instrument_gather_base(void *drcontext, instrlist_t *ilist, instr_t *where,
+                           reg_id_t reg_ptr, int adjust, opnd_t ref) = 0;
+
     virtual void
     bb_analysis(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
                 bool repstr_expanded, bool memref_needs_full_info) = 0;
@@ -287,8 +306,6 @@ public:
 #endif
     static unsigned short
     instr_to_prefetch_type(instr_t *instr);
-    static unsigned short
-    instr_to_instr_type(instr_t *instr, bool repstr_expanded = false);
     static bool
     instr_is_flush(instr_t *instr);
     static unsigned short
@@ -343,6 +360,9 @@ public:
     void
     set_entry_addr(byte *buf_ptr, addr_t addr) override;
 
+    void
+    fill_with_sentinel(byte *start, size_t size, ptr_int_t sentinel) override;
+
     int
     append_pid(byte *buf_ptr, process_id_t pid) override;
     int
@@ -384,6 +404,10 @@ public:
     int
     instrument_rseq_entry(void *drcontext, instrlist_t *ilist, instr_t *where,
                           instr_t *rseq_label, reg_id_t reg_ptr, int adjust) override;
+
+    int
+    instrument_gather_base(void *drcontext, instrlist_t *ilist, instr_t *where,
+                           reg_id_t reg_ptr, int adjust, opnd_t ref) override;
 
     void
     bb_analysis(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
@@ -430,6 +454,9 @@ public:
     void
     set_entry_addr(byte *buf_ptr, addr_t addr) override;
 
+    void
+    fill_with_sentinel(byte *start, size_t size, ptr_int_t sentinel) override;
+
     int
     append_pid(byte *buf_ptr, process_id_t pid) override;
     int
@@ -459,7 +486,7 @@ public:
     int
     instrument_instr(void *drcontext, void *tag, void *bb_field, instrlist_t *ilist,
                      instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app,
-                     bool memref_needs_full_info, uintptr_t mode) override;
+                     bool pc_record_per_instr, uintptr_t mode) override;
     int
     instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
                        reg_id_t reg_ptr, int adjust, instr_t **delay_instrs,
@@ -472,6 +499,10 @@ public:
     instrument_rseq_entry(void *drcontext, instrlist_t *ilist, instr_t *where,
                           instr_t *rseq_label, reg_id_t reg_ptr, int adjust) override;
 
+    int
+    instrument_gather_base(void *drcontext, instrlist_t *ilist, instr_t *where,
+                           reg_id_t reg_ptr, int adjust, opnd_t ref) override;
+
     void
     bb_analysis(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
                 bool repstr_expanded, bool memref_needs_full_info) override;
@@ -483,20 +514,39 @@ public:
                        int (*print_cb)(void *data, char *dst, size_t max_len),
                        void (*free_cb)(void *data));
 
+    // "version" is an OFFLINE_FILE_VERSION* constant.
     bool
-    opnd_disp_is_elidable(opnd_t memop);
+    opnd_disp_is_elidable(opnd_t memop, int version);
     // "version" is an OFFLINE_FILE_VERSION* constant.
     bool
     opnd_is_elidable(opnd_t memop, DR_PARAM_OUT reg_id_t &base, int version);
+
+    // Checks whether instr writes to reg in a way that we don't support,
+    // preventing elision of reg as an addressing register.
+    // If we do support it, returns false and sets "value_delta" to the
+    // change this instruction makes to "reg".
+    bool
+    does_reg_write_thwart_elision(int version, instr_t *instr, reg_id_t reg,
+                                  int &value_delta);
+
     // Inserts labels marking elidable addresses. label_marks_elidable() identifies them.
     // "version" is an OFFLINE_FILE_VERSION* constant.
-    void
+    // Returns the count of addresses that will be recorded in the trace, or -1 if
+    // the count is unknown (due to predicated/conditional loads/stores or
+    // online filtering).
+    int
     identify_elidable_addresses(void *drcontext, instrlist_t *ilist, int version,
                                 bool memref_needs_full_info);
     bool
     label_marks_elidable(instr_t *instr, DR_PARAM_OUT int *opnd_index,
                          DR_PARAM_OUT int *memopnd_index, DR_PARAM_OUT bool *is_write,
                          DR_PARAM_OUT bool *needs_base);
+
+    void
+    set_disable_optimizations(bool disable_optimizations)
+    {
+        disable_optimizations_ = disable_optimizations;
+    }
 
 private:
     struct custom_module_data_t {
@@ -537,10 +587,12 @@ private:
                               instr_t *app, opnd_t ref, bool write);
     ssize_t (*write_file_func_)(file_t file, const void *data, size_t count);
 
-    void
+    // Returns whether elidable; if so, inserts an info label.
+    bool
     opnd_check_elidable(void *drcontext, instrlist_t *ilist, instr_t *instr, opnd_t memop,
                         int op_index, int memop_index, bool write, int version,
                         reg_id_set_t &saw_base);
+
     void
     record_instr_encodings(void *drcontext, app_pc tag_pc, per_block_t *per_block,
                            instrlist_t *ilist);

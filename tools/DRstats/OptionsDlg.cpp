@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -413,7 +413,7 @@ expand_ws_quotes(CString str, int &start, int &end)
     }
 }
 
-// FIXME: share parsing code with non-static routines?
+// XXX: share parsing code with non-static routines?
 /*static*/ BOOL
 COptionsDlg::CheckOptionsVersusDllType(DLL_TYPE dll_type)
 {
@@ -750,7 +750,7 @@ COptionsDlg::OnLoggingButton()
     UpdateValue(LOGLEVEL);
     UpdateValue(LOGMASK);
 #    else
-    // FIXME: change in place...for now we just remove and re-add
+    // XXX: change in place...for now we just remove and re-add
     CButton *button = (CButton *)GetDlgItem(checkboxes[LOGLEVEL]);
     assert(button != NULL);
     if (button->GetCheck() > 0) {
@@ -988,7 +988,7 @@ COptionsDlg::OnSetPermanent()
     // user logs out and back in)
     DWORD dwReturnValue;
     // Code I copied this from used an ANSI string...I'm leaving
-    // it like that FIXME
+    // it like that XXX
     SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0, (LPARAM) "Environment",
                        SMTO_ABORTIFHUNG, 5000, &dwReturnValue);
 

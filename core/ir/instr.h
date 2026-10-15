@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,7 +42,7 @@
 /* file "instr.h" -- instr_t specific definitions and utilities */
 
 #ifndef _INSTR_H_
-#define _INSTR_H_ 1
+#define _INSTR_H_
 
 #include "opcode_api.h"
 #include "opnd.h"
@@ -68,7 +68,9 @@ struct instr_info_t;
  */
 /* Inlining macro controls. */
 #ifndef INSTR_INLINE
-#    ifdef DR_FAST_IR
+#    ifdef LINUX_KERNEL
+#        define INSTR_INLINE static inline
+#    elif defined(DR_FAST_IR)
 #        define INSTR_INLINE inline
 #    else
 #        define INSTR_INLINE
@@ -428,7 +430,7 @@ instr_get_translation(instr_t *instr);
 DR_UNS_API
 /**
  * Brings all instrs in ilist up to the decode_cti level, and
- * hooks up intra-ilist cti targets to use instr_t targets, by
+ * hooks up intra-ilist cti targets to use #instr_t targets, by
  * matching pc targets to each instruction's raw bits.
  *
  * decode_cti decodes only enough of instr to determine
@@ -565,12 +567,12 @@ bool
 instr_can_set_single_step(instr_t *instr);
 
 /* Returns true if \p instr is part of Intel's AVX-512 instructions that may write to a
- * zmm or opmask register. It approximates this by checking whether PREFIX_EVEX is set. If
- * not set, it checks the destinations of \p instr. The decoded instr should be
- * available for inspection as this is invoked only when some client is present.
+ * ymm16-31, zmm, or opmask register. It approximates this by checking whether
+ * PREFIX_EVEX is set, for fast-decode decode_cti() instructions. If not set, it checks
+ * the destinations of \p instr.
  */
 bool
-instr_may_write_zmm_or_opmask_register(instr_t *instr);
+instr_may_write_avx512_register(instr_t *instr);
 #endif
 
 /* Given a machine state, returns whether or not the cbr instr would be taken
@@ -602,7 +604,7 @@ instr_create_nbyte_nop(dcontext_t *dcontext, uint num_bytes, bool raw);
 
 DR_UNS_API
 /**
- * Convenience routine that returns an initialized instr_t with invalid operands
+ * Convenience routine that returns an initialized #instr_t with invalid operands
  * and allocated raw bits with 1 byte (byte).
  */
 instr_t *
@@ -610,7 +612,7 @@ instr_create_raw_1byte(dcontext_t *dcontext, byte byte);
 
 DR_UNS_API
 /**
- * Convenience routine that returns an initialized instr_t with invalid operands
+ * Convenience routine that returns an initialized #instr_t with invalid operands
  * and allocated raw bits with 2 bytes (byte1, byte2).
  */
 instr_t *
@@ -618,7 +620,7 @@ instr_create_raw_2bytes(dcontext_t *dcontext, byte byte1, byte byte2);
 
 DR_UNS_API
 /**
- * Convenience routine that returns an initialized instr_t with invalid operands
+ * Convenience routine that returns an initialized #instr_t with invalid operands
  * and allocated raw bits with 3 bytes (byte1, byte2, byte3).
  */
 instr_t *
@@ -626,7 +628,7 @@ instr_create_raw_3bytes(dcontext_t *dcontext, byte byte1, byte byte2, byte byte3
 
 DR_UNS_API
 /**
- * Convenience routine that returns an initialized instr_t with invalid operands
+ * Convenience routine that returns an initialized #instr_t with invalid operands
  * and allocated raw bits with 4 bytes (byte1, byte2, byte3, byte4).
  */
 instr_t *
@@ -635,7 +637,7 @@ instr_create_raw_4bytes(dcontext_t *dcontext, byte byte1, byte byte2, byte byte3
 
 DR_UNS_API
 /**
- * Convenience routine that returns an initialized instr_t with invalid operands
+ * Convenience routine that returns an initialized #instr_t with invalid operands
  * and allocated raw bits with 5 bytes (byte1, byte2, byte3, byte4, byte5).
  */
 instr_t *
@@ -644,7 +646,7 @@ instr_create_raw_5bytes(dcontext_t *dcontext, byte byte1, byte byte2, byte byte3
 
 DR_UNS_API
 /**
- * Convenience routine that returns an initialized instr_t with invalid operands
+ * Convenience routine that returns an initialized #instr_t with invalid operands
  * and allocated raw bits with 6 bytes (byte1, byte2, byte3, byte4, byte5, byte6).
  */
 instr_t *
@@ -653,7 +655,7 @@ instr_create_raw_6bytes(dcontext_t *dcontext, byte byte1, byte byte2, byte byte3
 
 DR_UNS_API
 /**
- * Convenience routine that returns an initialized instr_t with invalid operands
+ * Convenience routine that returns an initialized #instr_t with invalid operands
  * and allocated raw bits with 7 bytes (byte1, byte2, byte3, byte4, byte5, byte6,
  * byte7).
  */
@@ -663,7 +665,7 @@ instr_create_raw_7bytes(dcontext_t *dcontext, byte byte1, byte byte2, byte byte3
 
 DR_UNS_API
 /**
- * Convenience routine that returns an initialized instr_t with invalid operands
+ * Convenience routine that returns an initialized #instr_t with invalid operands
  * and allocated raw bits with 7 bytes (byte1, byte2, byte3, byte4, byte5, byte6,
  * byte7, byte8).
  */
@@ -748,7 +750,7 @@ instr_is_tls_restore(instr_t *instr, reg_id_t reg, ushort offs);
 bool
 instr_is_DR_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls DR_PARAM_OUT,
                                  bool *spill DR_PARAM_OUT, reg_id_t *reg DR_PARAM_OUT,
-                                 uint *offs DR_PARAM_OUT);
+                                 int *offs DR_PARAM_OUT);
 
 #ifdef AARCHXX
 bool
@@ -819,7 +821,7 @@ enum {
     RAW_PREFIX_xrelease = 0xf3,
 };
 
-enum { /* FIXME: vs RAW_OPCODE_* enum */
+enum { /* XXX: vs RAW_OPCODE_* enum */
        CS_SEG_OPCODE = RAW_PREFIX_jcc_not_taken,
        DS_SEG_OPCODE = RAW_PREFIX_jcc_taken,
        ES_SEG_OPCODE = 0x26,

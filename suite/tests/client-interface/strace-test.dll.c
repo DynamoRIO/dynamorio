@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /* Dr. Memory: the memory debugger
@@ -29,6 +29,7 @@
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drsyscall.h"
+#include "dr_project_wide_defines.h"
 #include <string.h>
 #ifdef WINDOWS
 #    include <windows.h>
@@ -37,19 +38,12 @@
 #    define IF_WINDOWS_ELSE(x, y) y
 #endif
 
-#define TEST(mask, var) (((mask) & (var)) != 0)
-
 #undef ASSERT /* we don't want msgbox */
 #define ASSERT(cond, msg)                                                               \
     ((void)((!(cond)) ? (dr_fprintf(STDERR, "ASSERT FAILURE: %s:%d: %s (%s)", __FILE__, \
                                     __LINE__, #cond, msg),                              \
                          dr_abort(), 0)                                                 \
                       : 0))
-
-#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof((buf)[0]))
-#define BUFFER_LAST_ELEMENT(buf) (buf)[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
 
 #ifdef WINDOWS
 /* TODO i#2279: Make it easier for clients to auto-generate! */
@@ -104,7 +98,7 @@ drsys_iter_arg_cb(drsys_arg_t *arg, void *user_data)
     ASSERT(arg->mc != NULL, "mc check");
     ASSERT(arg->drcontext == dr_get_current_drcontext(), "dc check");
 
-    if (arg->reg == DR_REG_NULL && !TEST(DRSYS_PARAM_RETVAL, arg->mode)) {
+    if (arg->reg == DR_REG_NULL && !TESTANY(DRSYS_PARAM_RETVAL, arg->mode)) {
         ASSERT((byte *)arg->start_addr >= (byte *)arg->mc->xsp &&
                    (byte *)arg->start_addr < (byte *)arg->mc->xsp + dr_page_size(),
                "mem args should be on stack");
@@ -119,7 +113,7 @@ drsys_iter_arg_cb(drsys_arg_t *arg, void *user_data)
                    arg->value64, arg->size);
     }
 
-    if (TEST(DRSYS_PARAM_RETVAL, arg->mode)) {
+    if (TESTANY(DRSYS_PARAM_RETVAL, arg->mode)) {
         ASSERT(arg->pre ||
                    arg->value == dr_syscall_get_result(dr_get_current_drcontext()),
                "return val wrong");
@@ -254,9 +248,9 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     drmgr_init();
     if (drsys_init(id, &ops) != DRMF_SUCCESS)
         ASSERT(false, "drsys failed to init");
-    dr_register_exit_event(exit_event);
+    drmgr_register_exit_event(exit_event);
 
-    dr_register_filter_syscall_event(event_filter_syscall);
+    drmgr_register_filter_syscall_event(event_filter_syscall);
     drmgr_register_pre_syscall_event(event_pre_syscall);
     drmgr_register_post_syscall_event(event_post_syscall);
     if (drsys_filter_all_syscalls() != DRMF_SUCCESS)

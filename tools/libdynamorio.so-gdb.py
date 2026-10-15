@@ -18,7 +18,7 @@ if sys.version_info > (3,):
 
 print('Loading gdb scripts for debugging DynamoRIO...')
 
-# FIXME i#531: Support loading symbols after attaching.
+# XXX i#531: Support loading symbols after attaching.
 
 # If we were sourced directly instead of auto-loaded, try to guess where DR is
 # so we can make RunDR work.  We don't need this for anything else yet.
@@ -101,7 +101,7 @@ class RunDR(gdb.Command):
         gdb.execute("set exec-wrapper {0} -{1}".format(drrun_path, build_mode))
 
         # Build options string.
-        # FIXME: The escaping is most likely wrong here.  It's tricky because
+        # XXX: The escaping is most likely wrong here.  It's tricky because
         # the command is parsed by gdb and DynamoRIO.
         env_opts = os.environ.get('DYNAMORIO_OPTIONS', '')
         param_opts = ' '.join("-{0} {1}".format(p.dr_option, p.value)

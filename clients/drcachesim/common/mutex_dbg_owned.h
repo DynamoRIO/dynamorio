@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2024-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /* mutex_dbg_owned.h: std::mutex plus an assertable owner and stats in debug builds. */
 
 #ifndef _MUTEX_DBG_OWNED_H_
-#define _MUTEX_DBG_OWNED_H_ 1
+#define _MUTEX_DBG_OWNED_H_
 
 #include <mutex>
 #include <thread>

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -37,7 +37,7 @@
  */
 
 #ifndef _OS_PRIVATE_H_
-#define _OS_PRIVATE_H_ 1
+#define _OS_PRIVATE_H_
 
 #include <signal.h> /* for stack_t */
 #include "include/siginfo.h"
@@ -172,11 +172,6 @@ typedef struct _os_thread_data_t {
     KSYNCH_TYPE wakeup;
     KSYNCH_TYPE resumed;
     sig_full_cxt_t *suspended_sigcxt;
-
-#ifdef LINUX
-    /* For detachment on Linux. */
-    sig_full_cxt_t *nudged_sigcxt;
-#endif
 
     /* PR 297902: for thread termination */
     bool terminate;
@@ -468,7 +463,7 @@ os_request_live_coredump(const char *msg);
 
 /* in loader.c */
 void *
-privload_tls_init(void *app_tp);
+privload_tls_init(void *app_tp, bool use_safe_read);
 void
 privload_tls_exit(void *dr_tp);
 #ifdef ANDROID

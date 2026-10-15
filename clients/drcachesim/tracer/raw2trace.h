@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,7 +34,7 @@
  */
 
 #ifndef _RAW2TRACE_H_
-#define _RAW2TRACE_H_ 1
+#define _RAW2TRACE_H_
 
 /**
  * @file drmemtrace/raw2trace.h
@@ -124,6 +124,10 @@ typedef enum {
     // was recorded.
     RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_EMPTY,
     RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED,
+    // Count of negative times that were corrected.
+    RAW2TRACE_STAT_NEGATIVE_TIMES_CORRECTED,
+    // Count of addresses found with non-canonical top bits.
+    RAW2TRACE_STAT_NON_CANONICAL_TOP_BITS,
     // We add a MAX member so that we can iterate over all stats in unit tests.
     RAW2TRACE_STAT_MAX,
 } raw2trace_statistic_t;
@@ -146,6 +150,7 @@ struct instr_summary_t final {
             : opnd(opnd)
             , remember_base(0)
             , use_remembered_base(0)
+            , base_delta(0)
         {
         }
         /** The addressing mode of this reference. */
@@ -163,6 +168,10 @@ struct instr_summary_t final {
          * a rip-relative reference.
          */
         bool use_remembered_base : 1;
+        /**
+         * Additional offset from base register modifications.
+         */
+        int base_delta;
     };
 
     instr_summary_t()
@@ -195,28 +204,34 @@ struct instr_summary_t final {
 
     /**
      * Sets properties of the "pos"-th source memory operand by OR-ing in the
-     * two boolean values.
+     * two boolean values. "base_delta" is only set if "use_remembered_base" is true.
      */
     void
-    set_mem_src_flags(size_t pos, bool use_remembered_base, bool remember_base)
+    set_mem_src_flags(size_t pos, bool use_remembered_base, bool remember_base,
+                      int base_delta)
     {
         DEBUG_ASSERT(pos < mem_srcs_and_dests_.size());
         auto target = &mem_srcs_and_dests_[pos];
         target->use_remembered_base = target->use_remembered_base || use_remembered_base;
         target->remember_base = target->remember_base || remember_base;
+        if (use_remembered_base)
+            target->base_delta = base_delta;
     }
 
     /**
      * Sets properties of the "pos"-th destination memory operand by OR-ing in the
-     * two boolean values.
+     * two boolean values. "base_delta" is only set if "use_remembered_base" is true.
      */
     void
-    set_mem_dest_flags(size_t pos, bool use_remembered_base, bool remember_base)
+    set_mem_dest_flags(size_t pos, bool use_remembered_base, bool remember_base,
+                       int base_delta)
     {
         DEBUG_ASSERT(num_mem_srcs_ + pos < mem_srcs_and_dests_.size());
         auto target = &mem_srcs_and_dests_[num_mem_srcs_ + pos];
         target->use_remembered_base = target->use_remembered_base || use_remembered_base;
         target->remember_base = target->remember_base || remember_base;
+        if (use_remembered_base)
+            target->base_delta = base_delta;
     }
 
 private:
@@ -285,6 +300,11 @@ private:
     {
         return TESTANY(kIsSyscallMask, packed_);
     }
+    bool
+    is_rep_string() const
+    {
+        return TESTANY(kIsRepStringMask, packed_);
+    }
 
     const memref_summary_t &
     mem_src_at(size_t pos) const
@@ -313,6 +333,21 @@ private:
         return branch_target_pc_;
     }
 
+    // Returns the vector element size in bytes for a scatter/gather instruction.
+    // Returns 0 for non-scatter-gather instructions.
+    byte
+    scatter_gather_element_size() const
+    {
+        return scatter_gather_element_size_;
+    }
+
+    // Some scatter/gather read from or write to 2, 3, or 4 vector registers at once.
+    byte
+    scatter_gather_vector_count() const
+    {
+        return scatter_gather_vector_count_;
+    }
+
     static const int kReadsMemMask = 0x0001;
     static const int kWritesMemMask = 0x0002;
     static const int kIsPrefetchMask = 0x0004;
@@ -328,6 +363,8 @@ private:
 
     static const int kIsSyscallMask = 0x0080;
 
+    static const int kIsRepStringMask = 0x0100;
+
     instr_summary_t(const instr_summary_t &other) = delete;
     instr_summary_t &
     operator=(const instr_summary_t &) = delete;
@@ -340,6 +377,8 @@ private:
     uint16_t prefetch_type_ = 0;
     uint16_t flush_type_ = 0;
     byte length_ = 0;
+    uint8_t num_mem_srcs_ = 0;
+
     app_pc branch_target_pc_ = 0;
 
     // Squash srcs and dests to save memory usage. We may want to
@@ -347,8 +386,11 @@ private:
     // of piece-meal allocating them on the heap one at a time.
     // One vector and a byte is smaller than 2 vectors.
     std::vector<memref_summary_t> mem_srcs_and_dests_;
-    uint8_t num_mem_srcs_ = 0;
-    byte packed_ = 0;
+    uint16_t packed_ = 0;
+
+    byte scatter_gather_element_size_ = 0; // Size in bytes.
+    // Some scatter/gather read from or write to 2, 3, or 4 vector registers at once.
+    byte scatter_gather_vector_count_ = 0;
 };
 
 /**
@@ -359,6 +401,8 @@ private:
 struct trace_metadata_writer_t {
     static int
     write_thread_exit(byte *buffer, thread_id_t tid);
+    static trace_marker_type_t
+    canonicalize_marker_type(trace_marker_type_t marker_type);
     static int
     write_marker(byte *buffer, trace_marker_type_t type, uintptr_t val);
     static int
@@ -624,6 +668,7 @@ protected:
         }
         app_pc start_pc;
         std::vector<instr_summary_t> instrs;
+        int total_mem_count = -1;
     };
 
     struct branch_info_t {
@@ -682,8 +727,13 @@ protected:
         std::string error;
         int version;
         offline_file_type_t file_type;
+        // Remember the type at the start ("file_type" above will be updated mid-run
+        // if we see a TRACE_MARKER_TYPE_FILTER_ENDPOINT marker).
+        offline_file_type_t start_file_type;
         size_t cache_line_size = 0;
         std::deque<offline_entry_t> pre_read;
+        std::vector<offline_entry_t> kernel_event_lookahead;
+        offline_instru_t instru_offline;
 
         // Used to delay a thread-buffer-final branch to keep it next to its target.
         std::vector<trace_entry_t> delayed_branch;
@@ -729,6 +779,8 @@ protected:
         uint64 syscall_traces_non_fatal_decoding_error_count = 0;
         uint64 syscall_traces_conversion_empty = 0;
         uint64 syscall_traces_injected = 0;
+        uint64 negative_times_corrected = 0;
+        uint64 non_canonical_top_bits = 0;
 
         uint64 cur_chunk_instr_count = 0;
         uint64 cur_chunk_ref_count = 0;
@@ -736,7 +788,7 @@ protected:
         uint64 chunk_count_ = 0;
         uint64 last_timestamp_ = 0;
         uint last_cpu_ = 0;
-        app_pc last_pc_if_syscall_ = 0;
+        app_pc last_pc_fallthrough_if_syscall_ = 0;
 
         bitset_hash_table_t<app_pc> encoding_emitted;
         app_pc last_encoding_emitted = nullptr;
@@ -751,6 +803,8 @@ protected:
         addr_t rseq_commit_pc_ = 0;
         addr_t rseq_start_pc_ = 0;
         addr_t rseq_end_pc_ = 0;
+        int to_inject_syscall_ = INJECT_NONE;
+        bool saw_first_func_id_marker_after_syscall_ = false;
         std::vector<trace_entry_t> rseq_buffer_;
         int rseq_commit_idx_ = -1; // Index into rseq_buffer_.
         std::vector<branch_info_t> rseq_branch_targets_;
@@ -762,6 +816,14 @@ protected:
         bool pt_metadata_processed = false;
         pt2ir_t pt2ir;
 #endif
+
+        // Sentinel value for to_inject_syscall.
+        static constexpr int INJECT_NONE = -1;
+    };
+
+    struct trace_template_t {
+        std::vector<trace_entry_t> entries;
+        int instr_count = 0;
     };
 
 #ifdef BUILD_PT_POST_PROCESSOR
@@ -881,6 +943,10 @@ protected:
     process_next_thread_buffer(raw2trace_thread_data_t *tdata,
                                DR_PARAM_OUT bool *end_of_record);
 
+    bool
+    maybe_inject_pending_syscall_sequence(raw2trace_thread_data_t *tdata,
+                                          const offline_entry_t &entry, byte *buf_base);
+
     std::string
     aggregate_and_write_schedule_files();
 
@@ -899,11 +965,18 @@ protected:
     read_syscall_template_file();
 
     /**
-     * Returns the app pc of the first instruction in the system call template
-     * read for syscall_num. Returns nullptr if it could not find it.
+     * Returns the app pc of the first instruction in the given system call template.
+     * Returns nullptr if it could not find it.
      */
     app_pc
-    get_first_app_pc_for_syscall_template(int syscall_num);
+    get_first_app_pc_for_syscall_template(trace_template_t *trace_template);
+
+    /**
+     * Returns the trace template for the given syscall num, or the default
+     * syscall template if one is available.
+     */
+    trace_template_t *
+    get_syscall_template(int syscall_num);
 
     /**
      * Writes the system call template to the output trace, if any was provided in
@@ -969,6 +1042,9 @@ protected:
     virtual bool
     is_maybe_blocking_syscall(uintptr_t number);
 
+    void
+    clear_decode_and_last_block_info(raw2trace_thread_data_t *tdata);
+
     const module_mapper_t *modmap_ptr_ = nullptr;
 
     uint64 count_elided_ = 0;
@@ -985,6 +1061,8 @@ protected:
     uint64 syscall_traces_non_fatal_decoding_error_count_ = 0;
     uint64 syscall_traces_conversion_empty_ = 0;
     uint64 syscall_traces_injected_ = 0;
+    uint64 negative_times_corrected_ = 0;
+    uint64 non_canonical_top_bits_ = 0;
 
     std::unique_ptr<module_mapper_t> module_mapper_;
 
@@ -1072,6 +1150,14 @@ private:
     block_summary_t *
     lookup_block_summary(raw2trace_thread_data_t *tdata, uint64 modidx, uint64 modoffs,
                          app_pc block_start);
+    block_summary_t *
+    create_block_summary(raw2trace_thread_data_t *tdata, uint64 modidx, uint64 modoffs,
+                         app_pc block_start, int instr_count);
+    // Creates a new block summary if one doesn't exist.
+    bool
+    set_block_mem_count(raw2trace_thread_data_t *tdata, uint64 modidx, uint64 modoffs,
+                        app_pc block_start, int instr_count, int total_traced_mem_count);
+
     instr_summary_t *
     lookup_instr_summary(raw2trace_thread_data_t *tdata, uint64 modidx, uint64 modoffs,
                          app_pc block_start, int index, app_pc pc,
@@ -1102,11 +1188,12 @@ private:
     set_instr_summary_flags(raw2trace_thread_data_t *tdata, uint64 modidx, uint64 modoffs,
                             app_pc block_start, int instr_count, int index, app_pc pc,
                             app_pc orig, bool write, int memop_index,
-                            bool use_remembered_base, bool remember_base);
+                            bool use_remembered_base, bool remember_base,
+                            int base_delta = 0);
     void
-    set_last_pc_if_syscall(raw2trace_thread_data_t *tdata, app_pc value);
+    set_last_pc_fallthrough_if_syscall(raw2trace_thread_data_t *tdata, app_pc value);
     app_pc
-    get_last_pc_if_syscall(raw2trace_thread_data_t *tdata);
+    get_last_pc_fallthrough_if_syscall(raw2trace_thread_data_t *tdata);
 
     // Sets a per-traced-thread cached flag that is read by was_prev_instr_rep_string().
     void
@@ -1157,6 +1244,11 @@ private:
     bool
     emit_new_chunk_header(raw2trace_thread_data_t *tdata);
 
+    void
+    update_reg_deltas(raw2trace_thread_data_t *tdata, int version, instr_t *inst,
+                      reg_id_t only_reg, bool reg_remembered[DR_NUM_GPR_REGS],
+                      int reg_delta[DR_NUM_GPR_REGS]);
+
     bool
     analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 modidx,
                                uint64 modoffs, app_pc start_pc, uint instr_count);
@@ -1191,13 +1283,34 @@ private:
                      DR_PARAM_OUT uintptr_t *value);
 
     bool
+    could_entry_be_address(offline_entry_t entry);
+
+    bool
+    append_scatter_gather(raw2trace_thread_data_t *tdata, const instr_summary_t *instr,
+                          DR_PARAM_INOUT trace_entry_t **buf_in,
+                          std::unordered_map<reg_id_t, addr_t> &reg_vals,
+                          bool expect_all_memrefs, DR_PARAM_OUT int &consumed_memrefs,
+                          app_pc orig_pc);
+
+    bool
+    append_repstring(raw2trace_thread_data_t *tdata, const instr_summary_t *instr,
+                     app_pc orig_pc, DR_PARAM_INOUT trace_entry_t **buf_in,
+                     std::unordered_map<reg_id_t, addr_t> &reg_vals,
+                     bool expect_all_memrefs, DR_PARAM_OUT int &consumed_memrefs,
+                     app_pc *saved_decode_pc, bool interrupted, bool added_encoding);
+
+    bool
     append_memref(raw2trace_thread_data_t *tdata, DR_PARAM_INOUT trace_entry_t **buf_in,
                   const instr_summary_t *instr, instr_summary_t::memref_summary_t memref,
                   bool write, std::unordered_map<reg_id_t, addr_t> &reg_vals,
-                  DR_PARAM_OUT bool *reached_end_of_memrefs);
+                  DR_PARAM_OUT bool *reached_end_of_memrefs, bool expect_all_memrefs,
+                  DR_PARAM_OUT int &consumed_memrefs, app_pc orig_pc);
 
     bool
     should_omit_syscall(raw2trace_thread_data_t *tdata);
+
+    bool
+    is_marker_type(const offline_entry_t *entry, trace_marker_type_t marker_type);
 
     int worker_count_;
     std::vector<std::vector<raw2trace_thread_data_t *>> worker_tasks_;
@@ -1322,7 +1435,6 @@ private:
     // Chunking for seeking support in compressed files.
     uint64_t chunk_instr_count_ = 0;
 
-    offline_instru_t instru_offline_;
     const std::vector<module_t> *modvec_ptr_ = nullptr;
 
     // For decoding kernel PT traces.
@@ -1332,7 +1444,8 @@ private:
 
     // For inserting system call traces from provided templates.
     std::unique_ptr<dynamorio::drmemtrace::record_reader_t> syscall_template_file_reader_;
-    std::unordered_map<int, std::vector<trace_entry_t>> syscall_trace_templates_;
+
+    std::unordered_map<int, trace_template_t> syscall_trace_templates_;
     memref_counter_t syscall_trace_template_encodings_;
     offline_file_type_t syscall_template_file_type_ = OFFLINE_FILE_TYPE_DEFAULT;
 

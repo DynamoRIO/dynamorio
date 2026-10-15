@@ -160,7 +160,7 @@ while ($#ARGV >= 0) {
     # make it easy for users w/ non-globbing shell and non-globbing perl to
     # pass *, w/o double-globbing and messing up escaped chars for other users
     if (!$noglob && ($globall || $filearg =~ /\*/)) {
-        # FIXME: must convert from \ to / BEFORE the glob -- yet don't
+        # XXX: must convert from \ to / BEFORE the glob -- yet don't
         # want to ruin escaped chars!  It's a tradeoff: is \* a directory delimiter
         # followed by metachar *, or is it an escaped * trying to be literal?
         # In everyday usage we assume no escaped *'s!
@@ -384,7 +384,7 @@ sub process_file($) {
             if ($build_string =~ /build ([0-9]+)/) {
                 $build_num = $1;
             } else {
-                # FIXME: grab path from reg keys and try that path on local host?
+                # XXX: grab path from reg keys and try that path on local host?
                 $build_num = "custom";
             }
 
@@ -506,7 +506,7 @@ sub address_properties() {
                 # if no export name get file name from module list
                 if ($module =~ /\(none\)/) {
                     # brute force
-                    # FIXME: use nice interval data structure
+                    # XXX: use nice interval data structure
                     $address =~ /0x(\w+)/;
                     my $addrval = hex($1);
                     for ($i=0; $i<$num_dlls; $i++) {

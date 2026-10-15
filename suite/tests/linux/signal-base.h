@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -328,9 +328,9 @@ int
         print("Got some timer hits!\n");
 #endif
 
-        /* We leave the sigstack in place for the timer so any racy alarm arriving
-         * after we disabled the itimer will be on the alt stack.
-         */
+    /* We leave the sigstack in place for the timer so any racy alarm arriving
+     * after we disabled the itimer will be on the alt stack.
+     */
 #if USE_SIGSTACK && !USE_TIMER
     stack_t check_stack;
     rc = sigaltstack(NULL, &check_stack);

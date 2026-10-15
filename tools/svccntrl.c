@@ -210,10 +210,10 @@ main(int argc, char **argv)
                 fprintf(stderr, "Invalid service: %s\n", svcname);
             } else {
                 res = set_service_start_type(svc,
-                                             sauto ? SERVICE_AUTO_START
-                                                   : sman ? SERVICE_DEMAND_START
-                                                          : sdis ? SERVICE_DISABLED
-                                                                 : SERVICE_NO_CHANGE);
+                                             sauto      ? SERVICE_AUTO_START
+                                                 : sman ? SERVICE_DEMAND_START
+                                                 : sdis ? SERVICE_DISABLED
+                                                        : SERVICE_NO_CHANGE);
                 if (res != ERROR_SUCCESS)
                     fprintf(stderr, "There was an error setting the configuration\n");
             }

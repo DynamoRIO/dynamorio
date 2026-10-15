@@ -177,8 +177,8 @@ instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
              * XXX: We could try to pass a flag: but drbbdup won't let
              * us pass from app2app; we'd need TLS or a global.
              */
-            CHECK(!TEST(DR_EMULATE_REST_OF_BLOCK, emul_info->flags) ||
-                      TEST(DR_EMULATE_INSTR_ONLY, emul_info->flags),
+            CHECK(!TESTANY(DR_EMULATE_REST_OF_BLOCK, emul_info->flags) ||
+                      TESTANY(DR_EMULATE_INSTR_ONLY, emul_info->flags),
                   "DR_EMULATE_REST_OF_BLOCK leaked through!");
         }
     }
@@ -305,7 +305,7 @@ dr_init(client_id_t id)
 
     drbbdup_status_t res = drbbdup_init(&opts);
     CHECK(res == DRBBDUP_SUCCESS, "drbbdup init failed");
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
 
     bool app2app_res = drmgr_register_bb_app2app_event(app2app_event, NULL);
     CHECK(app2app_res, "app2app failed");

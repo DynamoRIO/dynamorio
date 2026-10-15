@@ -71,7 +71,7 @@
 #    define TEST_REG_STOLEN_ASM x28
 #    define TEST_REG_SIG regs[4]
 #    define TEST_REG_CLEAN_CALL_MCONTEXT_SIG regs[0]
-#    define TEST_FAUX_SPILL_TLS_OFFS 0x150
+#    define TEST_FAUX_SPILL_TLS_OFFS 0x200
 #endif
 
 #define TEST_FLAGS_SIG SC_XFLAGS

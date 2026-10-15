@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -129,15 +129,16 @@ bool
 basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
+    per_shard->kernel_tracker_.update(memref);
     counters_t *counters = &per_shard->counters[per_shard->counters.size() - 1];
-    if (memref.instr.tid != INVALID_THREAD_ID &&
+    if (memref.instr.tid != INVALID_THREAD_ID && memref.instr.tid != IDLE_THREAD_ID &&
         memref.instr.tid != per_shard->last_tid_) {
         counters->unique_threads.insert(memref.instr.tid);
         per_shard->last_tid_ = memref.instr.tid;
     }
     if (type_is_instr(memref.instr.type)) {
         ++counters->instrs;
-        if (per_shard->is_kernel) {
+        if (per_shard->kernel_tracker_.in_kernel_trace()) {
             ++counters->kernel_instrs;
         } else {
             ++counters->user_instrs;
@@ -150,7 +151,7 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             ++counters->encodings;
     } else if (memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
         ++counters->instrs_nofetch;
-        if (per_shard->is_kernel) {
+        if (per_shard->kernel_tracker_.in_kernel_trace()) {
             ++counters->kernel_nofetch_instrs;
         } else {
             ++counters->user_nofetch_instrs;
@@ -173,6 +174,10 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
                    memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER) {
             ++counters->xfer_markers;
+        } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_HARDWARE_EVENT ||
+                   memref.marker.marker_type ==
+                       TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN) {
+            ++counters->hardware_xfer_markers;
         } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_IDLE) {
             ++counters->idle_markers;
         } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_WAIT) {
@@ -213,13 +218,8 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             case TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL:
                 ++counters->syscall_blocking_markers;
                 break;
-            case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
-            case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START:
-                per_shard->is_kernel = true;
-                break;
-            case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
-            case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END:
-                per_shard->is_kernel = false;
+            case TRACE_MARKER_TYPE_SKIPPED_MEMREF:
+                ++counters->skipped_memref_markers;
                 break;
             case TRACE_MARKER_TYPE_FILETYPE:
                 if (per_shard->filetype_ == -1) {
@@ -274,27 +274,29 @@ basic_counts_t::cmp_threads(const std::pair<memref_tid_t, per_shard_t *> &l,
 
 void
 basic_counts_t::print_counters(const counters_t &counters, const std::string &prefix,
-                               bool for_kernel_trace)
+                               bool for_kernel_trace, bool for_whole_system_trace)
 {
-    std::cerr << std::setw(12) << counters.instrs << prefix
-              << " (fetched) instructions\n";
+    std::cerr << std::setw(12) << counters.instrs << prefix << " instructions\n";
     if (counters.is_tracking_unique_pc_addrs()) {
         std::cerr << std::setw(12) << counters.unique_pc_addrs.size() << prefix
-                  << " unique (fetched) instructions\n";
+                  << " unique instructions\n";
     }
-    if (for_kernel_trace) {
+    if (for_kernel_trace || for_whole_system_trace) {
         std::cerr << std::setw(12) << counters.user_instrs << prefix
                   << " userspace instructions\n";
         std::cerr << std::setw(12) << counters.kernel_instrs << prefix
                   << " kernel instructions\n";
     }
-    std::cerr << std::setw(12) << counters.instrs_nofetch << prefix
-              << " non-fetched instructions\n";
-    if (for_kernel_trace) {
-        std::cerr << std::setw(12) << counters.user_nofetch_instrs << prefix
-                  << " non-fetched userspace instructions\n";
-        std::cerr << std::setw(12) << counters.kernel_nofetch_instrs << prefix
-                  << " non-fetched kernel instructions\n";
+    if (counters.instrs_nofetch > 0) {
+        // Show for legacy traces only. Omit completely for new traces.
+        std::cerr << std::setw(12) << counters.instrs_nofetch << prefix
+                  << " non-fetched instructions\n";
+        if (for_kernel_trace || for_whole_system_trace) {
+            std::cerr << std::setw(12) << counters.user_nofetch_instrs << prefix
+                      << " non-fetched userspace instructions\n";
+            std::cerr << std::setw(12) << counters.kernel_nofetch_instrs << prefix
+                      << " non-fetched kernel instructions\n";
+        }
     }
     std::cerr << std::setw(12) << counters.prefetches << prefix << " prefetches\n";
     std::cerr << std::setw(12) << counters.loads << prefix << " data loads\n";
@@ -314,6 +316,12 @@ basic_counts_t::print_counters(const counters_t &counters, const std::string &pr
     std::cerr << std::setw(12) << counters.wait_markers << prefix << " wait markers\n";
     std::cerr << std::setw(12) << counters.xfer_markers << prefix
               << " kernel transfer markers\n";
+    if (for_whole_system_trace) {
+        // These markers are seen only in OFFLINE_FILE_TYPE_WHOLE_SYSTEM traces, so
+        // we skip them in the output altogether if they're not relevant.
+        std::cerr << std::setw(12) << counters.hardware_xfer_markers << prefix
+                  << " hardware transfer markers\n";
+    }
     std::cerr << std::setw(12) << counters.func_id_markers << prefix
               << " function id markers\n";
     std::cerr << std::setw(12) << counters.func_retaddr_markers << prefix
@@ -330,6 +338,8 @@ basic_counts_t::print_counters(const counters_t &counters, const std::string &pr
               << " system call number markers\n";
     std::cerr << std::setw(12) << counters.syscall_blocking_markers << prefix
               << " blocking system call markers\n";
+    std::cerr << std::setw(12) << counters.skipped_memref_markers << prefix
+              << " skipped memref markers\n";
     std::cerr << std::setw(12) << counters.other_markers << prefix << " other markers\n";
     std::cerr << std::setw(12) << counters.encodings << prefix << " encodings\n";
 }
@@ -344,6 +354,7 @@ basic_counts_t::print_results()
     }
 
     bool for_kernel_trace = false;
+    bool for_whole_system_trace = false;
     for (const auto &shard : shard_map_) {
         for (const auto &ctr : shard.second->counters) {
             total += ctr;
@@ -354,6 +365,10 @@ basic_counts_t::print_results()
                     shard.second->filetype_)) {
             for_kernel_trace = true;
         }
+        if (!for_whole_system_trace &&
+            TESTANY(OFFLINE_FILE_TYPE_WHOLE_SYSTEM, shard.second->filetype_)) {
+            for_whole_system_trace = true;
+        }
     }
     // Print kernel data if context switches were inserted.
     if (total.kernel_instrs > 0)
@@ -361,7 +376,7 @@ basic_counts_t::print_results()
     total.shard_count = shard_map_.size();
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << "Total counts:\n";
-    print_counters(total, TOTAL_COUNT_PREFIX, for_kernel_trace);
+    print_counters(total, TOTAL_COUNT_PREFIX, for_kernel_trace, for_whole_system_trace);
 
     if (num_windows > 1) {
         std::cerr << "Total windows: " << num_windows << "\n";
@@ -369,8 +384,8 @@ basic_counts_t::print_results()
             std::cerr << "Window #" << i << ":\n";
             for (const auto &shard : shard_map_) {
                 if (shard.second->counters.size() > i) {
-                    print_counters(shard.second->counters[i], " window",
-                                   for_kernel_trace);
+                    print_counters(shard.second->counters[i], " window", for_kernel_trace,
+                                   for_whole_system_trace);
                 }
             }
         }
@@ -385,7 +400,8 @@ basic_counts_t::print_results()
             std::cerr << "Thread " << keyvals.second->tid << " counts:\n";
         else
             std::cerr << "Core " << keyvals.second->core << " counts:\n";
-        print_counters(keyvals.second->counters[0], "", for_kernel_trace);
+        print_counters(keyvals.second->counters[0], "", for_kernel_trace,
+                       for_whole_system_trace);
     }
 
     // TODO i#3599: also print thread-per-window stats.

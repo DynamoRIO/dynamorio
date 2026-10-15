@@ -29,7 +29,7 @@ $$ OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 $$ DAMAGE.
 
 $$ diassemble every single shared trace head
-$$ FIXME: would be nice to use struct fields instead of hardcoded
+$$ XXX: would be nice to use struct fields instead of hardcoded
 $$ offsets -- but having trouble doing that in @@ (works in ??)
 
 r $t0 = @@(shared_bb.table)

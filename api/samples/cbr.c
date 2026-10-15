@@ -149,7 +149,7 @@ find_elem(list_t *list, app_pc addr)
 }
 
 static list_t *
-new_list()
+new_list(void)
 {
     list_t *list = (list_t *)dr_global_alloc(sizeof(list_t));
     list->head = NULL;
@@ -171,7 +171,7 @@ delete_list(list_t *list)
 }
 
 hash_table_t
-new_table()
+new_table(void)
 {
     int i;
     hash_table_t table =
@@ -501,5 +501,5 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 
     if (!drmgr_register_bb_instrumentation_event(NULL, event_app_instruction, NULL))
         DR_ASSERT_MSG(false, "fail to register event_app_instruction!");
-    dr_register_exit_event(dr_exit);
+    drmgr_register_exit_event(dr_exit);
 }

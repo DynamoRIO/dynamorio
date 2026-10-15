@@ -276,7 +276,7 @@ mcontexts_equal(dr_mcontext_t *mc_a, dr_mcontext_t *mc_b, int func_index)
     /* If the test was compiled with AVX-512, it implies that the machine supported it. */
     simd_bytes_used = 64;
 #    endif
-    /* FIXME i#1312: this needs to be proc_num_simd_registers() once we fully support
+    /* XXX i#1312: this needs to be proc_num_simd_registers() once we fully support
      * saving AVX-512 state for clean calls. The clean call test is already clobbering
      * AVX-512 extended registers, but we can't compare and test them here until we
      * support saving and restoring them.
@@ -708,7 +708,7 @@ codegen_empty_1arg(void *dc)
 static opnd_t
 codegen_opnd_arg1(void)
 {
-    /* FIXME: Perhaps DR should expose this.  It currently tracks this in
+    /* XXX: Perhaps DR should expose this.  It currently tracks this in
      * core/instr.h. */
 #if defined(AARCH64)
     return opnd_create_reg(DR_REG_X0);

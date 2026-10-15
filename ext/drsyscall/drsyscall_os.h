@@ -21,7 +21,7 @@
  */
 
 #ifndef _DRSYSCALL_OS_H_
-#define _DRSYSCALL_OS_H_ 1
+#define _DRSYSCALL_OS_H_
 
 #include "utils.h"
 

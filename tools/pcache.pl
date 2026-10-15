@@ -140,7 +140,7 @@ unless (-f "$DRload") { # -x seems to require o+x so we don't check
     die "Cannot find \$DYNAMORIO_TOOLS/DRload.exe at $DRload\n";
 }
 
-# FIXME: win2k ntsd does not load symbols by following loaded dll's path!
+# XXX: win2k ntsd does not load symbols by following loaded dll's path!
 # setting _NT_SYMBOL_PATH ENV here or exporting in shell doesn't work,
 # and -y not available on win2k ntsd, and .sympath takes all chars following
 # (even \r, \n, ", ;!), no aS available to break cmd -- giving up

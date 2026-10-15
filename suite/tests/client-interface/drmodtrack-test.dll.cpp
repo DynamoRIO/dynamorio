@@ -294,5 +294,5 @@ dr_init(client_id_t id)
     CHECK(res == DRCOVLIB_SUCCESS, "init failed");
     res = drmodtrack_add_custom_data(load_cb, print_cb, parse_cb, free_cb);
     CHECK(res == DRCOVLIB_SUCCESS, "customization failed");
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
 }

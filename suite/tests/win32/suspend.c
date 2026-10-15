@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -165,7 +165,7 @@ main(void)
      * a synch_with_all_threads, will use the process exit one */
     ht = CreateThread(NULL, 0, &ThreadProc2, NULL, 0, &tid);
     SwitchToThread();
-    /* FIXME - this is racy, we can't be sure thread has suspended itself without
+    /* XXX - this is racy, we can't be sure thread has suspended itself without
      * suspending it ourselves, we'll just sleep a little to try and be sure. (We could
      * use the same loop as DO_SYNCH_WITH_SUSPEND_SELF_TEST but is nice to keep the
      * synch_with_thread and synch_with_all_threads tests separate (though I guess that's

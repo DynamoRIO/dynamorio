@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,6 +36,7 @@
 // This is set globally in CMake for other tests so easier to undef here.
 #undef DR_REG_ENUM_COMPATIBILITY
 
+#include "test_helpers.h"
 #include "configure.h"
 #include "dr_api.h"
 #include "drmemtrace/drmemtrace.h"
@@ -321,21 +322,18 @@ gather_trace(const std::string &add_env)
     if (!my_setenv("DYNAMORIO_OPTIONS", env.c_str()))
         std::cerr << "failed to set env var!\n";
     code_generator_t gen(false);
-    std::cerr << "pre-DR init\n" << std::flush;
+    std::cerr << "pre-DR init\n";
     dr_app_setup();
     assert(!dr_app_running_under_dynamorio());
     drmemtrace_status_t res = drmemtrace_buffer_handoff(nullptr, exit_cb, nullptr);
     assert(res == DRMEMTRACE_SUCCESS);
-    std::cerr << "pre-DR start\n" << std::flush;
+    std::cerr << "pre-DR start\n";
     dr_app_start();
     if (do_some_work(gen) < 0)
         std::cerr << "error in computation\n";
-    // TODO i#6490: This app produces incorrect output when run under DR if we do
-    // not flush. std::endl makes the issue worse even though it should do an
-    // internal flush.
-    std::cerr << "pre-DR detach\n" << std::flush;
+    std::cerr << "pre-DR detach\n";
     dr_app_stop_and_cleanup();
-    std::cerr << "all done\n" << std::flush;
+    std::cerr << "all done\n";
     return post_process();
 }
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -201,13 +201,13 @@ drsym_init(int shmid_in)
     drsym_unix_init();
 
     if (IS_SIDELINE) {
-        /* FIXME NYI i#446: establish connection with sideline server via shared
+        /* TODO NYI i#446: establish connection with sideline server via shared
          * memory specified by shmid
          */
     } else {
         hashtable_init_ex(&modtable, MODTABLE_HASH_BITS, HASH_STRING, true /*strdup*/,
-                          false /*!synch: using symbol_lock*/,
-                          (generic_func_t)drsym_unix_unload, NULL, NULL);
+                          false /*!synch: using symbol_lock*/, drsym_unix_unload, NULL,
+                          NULL);
     }
     return DRSYM_SUCCESS;
 }
@@ -226,7 +226,7 @@ drsym_exit(void)
 
     drsym_unix_exit();
     if (IS_SIDELINE) {
-        /* FIXME NYI i#446 */
+        /* TODO NYI i#446 */
     }
     hashtable_delete(&modtable);
     dr_recurlock_destroy(symbol_lock);
@@ -342,7 +342,7 @@ drsym_module_has_symbols(const char *modpath)
 {
     drsym_debug_kind_t kind;
     drsym_error_t r = drsym_get_module_debug_kind(modpath, &kind);
-    if (r == DRSYM_SUCCESS && !TEST(DRSYM_SYMBOLS, kind))
+    if (r == DRSYM_SUCCESS && !TESTANY(DRSYM_SYMBOLS, kind))
         r = DRSYM_ERROR;
     return r;
 }

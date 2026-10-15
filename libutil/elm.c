@@ -259,7 +259,7 @@ eventLogMonitorThreadProc(LPVOID elm_info_param)
         goto exit_elm_thread_error;
     }
 
-    /* FIXME: we don't handle the situation when the eventlog was cleared,
+    /* XXX: we don't handle the situation when the eventlog was cleared,
      *  but our pointer is less than the number of new records. for this
      *  we'll probably have to store a timestamp, and compare against the
      *  event record at next_record. */
@@ -280,7 +280,7 @@ eventLogMonitorThreadProc(LPVOID elm_info_param)
     /* first seek to the last record
      * EVENTLOG_FORWARDS_READ indicates we will get messages in
      *  chronological order.
-     * FIXME: test to make sure that this works properly on
+     * XXX: test to make sure that this works properly on
      *  overwrite-wrapped logs */
     if (!ReadEventLog(log, EVENTLOG_FORWARDS_READ | EVENTLOG_SEEK_READ,
                       elm_info->next_record, pevlr, BUFFER_SIZE, &dwRead, &dwNeeded)) {
@@ -326,7 +326,7 @@ eventLogMonitorThreadProc(LPVOID elm_info_param)
                               pevlr, BUFFER_SIZE, &dwRead, &dwNeeded));
 
         if ((res = GetLastError()) != ERROR_HANDLE_EOF) {
-            // FIXME: assert GetLastError() is appropriate
+            // XXX: assert GetLastError() is appropriate
             _snwprintf(msgbuf, BUFFER_SIZE_ELEMENTS(msgbuf),
                        L"Unexpected error %d reading event log\n", res);
             (*elm_info->cb_err)(ELM_ERR_WARN, msgbuf);
@@ -353,7 +353,7 @@ exit_elm_thread_error:
 
     free(elm_info);
 
-    /* FIXME: need ExitThread()? */
+    /* XXX: need ExitThread()? */
     return 0;
 }
 

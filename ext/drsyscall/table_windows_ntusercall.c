@@ -34,14 +34,14 @@
 #include "../drmf/wininc/ntuser_win8.h"
 
 /* Secondary system calls for NtUserCall{No, One, Two}Param */
-/* FIXME i#1094: the official return type is DWORD_PTR but it would be more useful
+/* XXX i#1094: the official return type is DWORD_PTR but it would be more useful
  * to give the actual types
  */
-/* FIXME i#1153: Windows 8 added some syscalls we do not have details for */
-/* FIXME i#1360: Windows 8.1 added some syscalls we do not have details for */
-/* FIXME i#1750: Windows 10+ added some syscalls we do not have details for */
+/* XXX i#1153: Windows 8 added some syscalls we do not have details for */
+/* XXX i#1360: Windows 8.1 added some syscalls we do not have details for */
+/* XXX i#1750: Windows 10+ added some syscalls we do not have details for */
 
-/* FIXME i#1089: fill in info on all the inlined args for all of
+/* XXX i#1089: fill in info on all the inlined args for all of
  * syscalls in this file.
  */
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2017 ARM Limited. All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
@@ -42,25 +42,31 @@
 
 #include "globals.h"
 #include "configure_defines.h"
+#include "dr_tools.h"
 #include "utils.h"
 #include "module_shared.h"
-#include <math.h>
+
+#ifndef LINUX_KERNEL
+#    include <math.h>
+#endif
 
 #ifdef PROCESS_CONTROL
 #    include "moduledb.h" /* for process control macros */
 #endif
 
 #ifdef UNIX
-#    include <sys/types.h>
-#    include <sys/stat.h>
-#    include <fcntl.h>
-#    include <stdio.h>
-#    include <stdlib.h>
-#    include <unistd.h>
-#    include <errno.h>
+#    include "types_wrapper.h"
+#    ifndef LINUX_KERNEL
+#        include <sys/stat.h>
+#        include <fcntl.h>
+#        include <stdio.h>
+#        include <stdlib.h>
+#        include <unistd.h>
+#        include <errno.h>
+#    endif
 #else
 #    include <errno.h>
-/* FIXME : remove when syslog macros fixed */
+/* XXX : remove when syslog macros fixed */
 #    include "events.h"
 #endif
 
@@ -72,8 +78,8 @@
 #    include "synch.h" /* all_threads_synch_lock */
 #endif
 
-#include <stdarg.h> /* for varargs */
-#include <stddef.h> /* for offsetof */
+#include "stdarg_wrapper.h" /* for varargs */
+#include "stddef_wrapper.h" /* for offsetof */
 
 try_except_t global_try_except;
 #ifdef UNIX
@@ -91,7 +97,7 @@ sideline_exit(void);
  * performs some cleanup and then calls os_terminate
  */
 static void
-soft_terminate()
+soft_terminate(void)
 {
 #ifdef SIDELINE
     /* kill child threads */
@@ -128,7 +134,7 @@ ignore_assert(const char *assert_stmt, const char *expr)
         ignore = true;
     }
     if (ignore) {
-        /* FIXME: could have passed message around */
+        /* XXX: could have passed message around */
         SYSLOG_INTERNAL_WARNING("Ignoring assert %s %s", assert_stmt, expr);
     }
     return ignore;
@@ -346,9 +352,9 @@ thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1, mutex
 }
 
 /* dump process locks that have been acquired at least once */
-/* FIXME: since most mutexes are global we don't have thread private lock lists */
+/* XXX: since most mutexes are global we don't have thread private lock lists */
 void
-dump_process_locks()
+dump_process_locks(void)
 {
     mutex_t *cur_lock;
     uint depth = 0;
@@ -385,7 +391,7 @@ dump_process_locks()
 }
 
 uint
-locks_not_closed()
+locks_not_closed(void)
 {
     mutex_t *cur_lock;
     uint forgotten = 0;
@@ -521,14 +527,14 @@ remove_process_lock(mutex_t *lock)
 }
 
 #    ifdef MUTEX_CALLSTACK
-/* FIXME: generalize and merge w/ CALL_PROFILE? */
+/* XXX: generalize and merge w/ CALL_PROFILE? */
 static void
 mutex_collect_callstack(mutex_t *lock)
 {
     uint max_depth = INTERNAL_OPTION(mutex_callstack);
     uint depth = 0;
     uint skip = 2; /* ignore calls from deadlock_avoidance() and d_r_mutex_lock() */
-    /* FIXME: write_lock could ignore one level further */
+    /* XXX: write_lock could ignore one level further */
     byte *fp;
     dcontext_t *dcontext = get_thread_private_dcontext();
 
@@ -600,7 +606,7 @@ deadlock_avoidance_lock(mutex_t *lock, bool acquired, bool ownable)
                                      dr_client_mutex_rank);
                 bool both_client = (first_client && lock->rank == dr_client_mutex_rank);
                 if (dcontext->thread_owned_locks->last_lock->rank >= lock->rank &&
-                    !first_client /*FIXME PR 198871: remove */ && !both_client) {
+                    !first_client /*XXX PR 198871: remove */ && !both_client) {
                     /* report rank order violation */
                     SYSLOG_INTERNAL_NO_OPTION_SYNCH(
                         SYSLOG_CRITICAL,
@@ -609,11 +615,11 @@ deadlock_avoidance_lock(mutex_t *lock, bool acquired, bool ownable)
                         d_r_get_thread_id());
                     dump_owned_locks(dcontext);
                     /* like syslog don't synchronize options for dumpcore_mask */
-                    if (TEST(DUMPCORE_DEADLOCK, DYNAMO_OPTION(dumpcore_mask)))
+                    if (TESTANY(DUMPCORE_DEADLOCK, DYNAMO_OPTION(dumpcore_mask)))
                         os_dump_core("rank order violation");
                 }
                 ASSERT((dcontext->thread_owned_locks->last_lock->rank < lock->rank ||
-                        first_client /*FIXME PR 198871: remove */
+                        first_client /*XXX PR 198871: remove */
                         || both_client) &&
                        "rank order violation");
                 if (ownable) {
@@ -641,7 +647,7 @@ deadlock_avoidance_lock(mutex_t *lock, bool acquired, bool ownable)
     }
 }
 
-/* FIXME: exported only for the linux hack -- make static once that's fixed */
+/* XXX: exported only for the linux hack -- make static once that's fixed */
 void
 deadlock_avoidance_unlock(mutex_t *lock, bool ownable)
 {
@@ -726,9 +732,9 @@ DECLARE_FREQPROT_VAR(static uint random_seed, 1234); /* initialized in utils_ini
 DEBUG_DECLARE(static uint initial_random_seed;)
 
 void
-utils_init()
+utils_init(void)
 {
-    /* FIXME: We need to find a formula (or a better constant) based on real experiments
+    /* XXX: We need to find a formula (or a better constant) based on real experiments
        also see comment on spinlock_count_on_SMP in optionsx.h */
     /* we want to make sure it is 0 on UP, the rest is speculation */
     spinlock_count = (get_num_processors() - 1) * DYNAMO_OPTION(spinlock_count_on_SMP);
@@ -1013,7 +1019,7 @@ acquire_recursive_app_lock(recursive_lock_t *lock, priv_mcontext_t *mc)
     }
 }
 
-/* FIXME: rename recursive routines to parallel mutex_ routines */
+/* XXX: rename recursive routines to parallel mutex_ routines */
 void
 acquire_recursive_lock(recursive_lock_t *lock)
 {
@@ -1064,7 +1070,7 @@ self_owns_recursive_lock(recursive_lock_t *lock)
 */
 
 /*
-   FIXME: Since we are using multiple words to contain the state,
+   XXX: Since we are using multiple words to contain the state,
    we still have to keep looping on contention events.
 
    We need to switch to using a single variable for this but for now
@@ -1077,7 +1083,7 @@ self_owns_recursive_lock(recursive_lock_t *lock)
    Only when 1) & 2) are true (e.g. 0x80000000) we need to notify the writer.
    Think about using XADD: atomic_add_exchange(state, -1)
 */
-/* FIXME: See /usr/src/linux-2.4/include/asm-i386/rwlock.h,
+/* XXX: See /usr/src/linux-2.4/include/asm-i386/rwlock.h,
    spinlock.h and /usr/src/linux-2.4/arch/i386/kernel/semaphore.c
    for the Linux kernel implementation on x86.
  */
@@ -1092,7 +1098,7 @@ self_owns_recursive_lock(recursive_lock_t *lock)
    blocked vs any new readers that will grab the lock immediately, and
    for that matter vs any new writers.
 
-   FIXME: Keep in mind that a successful wait on the kernel events in read
+   XXX: Keep in mind that a successful wait on the kernel events in read
    locks should not be used as a guarantee that the current thread can
    proceed with a granted request.  We should rather keep looping to
    verify that we are back on the fast path.
@@ -1105,7 +1111,7 @@ void
 d_r_read_lock(read_write_lock_t *rw)
 {
     /* wait for writer here if lock is held
-     * FIXME: generalize DEADLOCK_AVOIDANCE to both detect
+     * XXX: generalize DEADLOCK_AVOIDANCE to both detect
      * order violations and gather contention stats for
      * this mutex-less synch
      */
@@ -1121,7 +1127,7 @@ d_r_read_lock(read_write_lock_t *rw)
                  * routine to pass in dcontext and use that.
                  * Update: linux d_r_get_thread_id() now calls get_tls_thread_id()
                  * and avoids the syscall (xref PR 473640).
-                 * FIXME: we could also reorganize this check so that it is done only once
+                 * XXX: we could also reorganize this check so that it is done only once
                  * instead of in the loop body but it doesn't seem wortwhile
                  */
                 /* We have the lock so we do not need a load-acquire. */
@@ -1133,7 +1139,7 @@ d_r_read_lock(read_write_lock_t *rw)
                     return;
                 }
                 DEADLOCK_AVOIDANCE_LOCK(&rw->lock, false, LOCK_NOT_OWNABLE);
-                /* FIXME: last places where we yield instead of wait */
+                /* XXX: last places where we yield instead of wait */
                 os_thread_yield();
             }
             ATOMIC_INC(int, rw->num_readers);
@@ -1200,7 +1206,7 @@ d_r_read_lock(read_write_lock_t *rw)
         if (!mutex_testlock(&rw->lock))
             break;
         /* else, race with writer, must try again */
-        /* FIXME: need to get num_readers and the mutex in one place,
+        /* XXX: need to get num_readers and the mutex in one place,
            or otherwise add a mutex grabbed by readers for the above
            test.
         */
@@ -1210,7 +1216,7 @@ d_r_read_lock(read_write_lock_t *rw)
          grabbed the read lock first?  For now we'll have to wake up
          the writer to retry even if it spuriously wakes up the next writer.
         */
-        // FIXME: we need to do only when num_readers has become zero,
+        // XXX: we need to do only when num_readers has become zero,
         // but it is OK for now as this won't usually happen
         rwlock_notify_writer(rw); /* --ok since writers still have to loop */
         /* hint we are spinning */
@@ -1233,7 +1239,7 @@ d_r_write_lock(read_write_lock_t *rw)
         while (rw->num_readers > 0) {
             /* contended write */
             DEADLOCK_AVOIDANCE_LOCK(&rw->lock, false, LOCK_NOT_OWNABLE);
-            /* FIXME: last places where we yield instead of wait */
+            /* XXX: last places where we yield instead of wait */
             os_thread_yield();
         }
         rw->writer = d_r_get_thread_id();
@@ -1619,7 +1625,7 @@ bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free)
 /* LOGGING */
 
 file_t
-get_thread_private_logfile()
+get_thread_private_logfile(void)
 {
 #ifdef DEBUG
     dcontext_t *dcontext = get_thread_private_dcontext();
@@ -1635,7 +1641,7 @@ get_thread_private_logfile()
 DECLARE_FREQPROT_VAR(static bool do_once_do_file_write, false);
 #endif
 
-/*  FIXME: add buffering? */
+/*  XXX: add buffering? */
 ssize_t
 do_file_write(file_t f, const char *fmt, va_list ap)
 {
@@ -1666,7 +1672,7 @@ do_file_write(file_t f, const char *fmt, va_list ap)
 
 /* a little utiliy for printing a float that is formed by dividing 2 uints,
  * gives back high and low parts for printing, also supports percentages
- * FIXME : we might need to handle signed numbers at some point (but not yet),
+ * XXX : we might need to handle signed numbers at some point (but not yet),
  * also could be smarter about overflow conditions (i.e. for calculating
  * bottom or top) but we never call with numbers that big, also truncates
  * instead of rounding
@@ -1707,6 +1713,7 @@ divide_uint64_print(uint64 numerator, uint64 denominator, bool percentage, uint 
                      (precision_multiple * *top));
 }
 
+#ifndef LINUX_KERNEL
 /* When building with /QIfist casting rounds instead of truncating (i#763)
  * so we use these routines from io.c.
  */
@@ -1741,6 +1748,7 @@ double_print(double val, uint precision, uint *top, uint *bottom, const char **s
     *top = double2int_trunc(val);
     *bottom = double2int_trunc((val - *top) * precision_multiple);
 }
+#endif
 
 #ifdef WINDOWS
 /* for pre_inject, injector, and core shared files, is just wrapper for syslog
@@ -1834,7 +1842,7 @@ d_r_print_log(file_t logfile, uint mask, uint level, const char *fmt, ...)
     va_list ap;
 
 #ifdef DEBUG
-    /* FIXME: now the LOG macro checks these, remove here? */
+    /* XXX: now the LOG macro checks these, remove here? */
     if (logfile == INVALID_FILE ||
         (d_r_stats != NULL &&
          ((d_r_stats->logmask & mask) == 0 || d_r_stats->loglevel < level)))
@@ -1889,16 +1897,16 @@ d_r_notify(syslog_event_type_t priority, bool internal, bool synch,
     LOG(GLOBAL, LOG_ALL, 1, "%s: %s\n", prefix, msgbuf);
     /* so can skip synchronizing when failure is in option parsing to avoid
      * infinite recursion, still could be issue with exception, but separate
-     * recursive bailout will at least kill us then, FIXME, note will use
+     * recursive bailout will at least kill us then, XXX, note will use
      * default masks below if original parse */
     if (synch)
         synchronize_dynamic_options(); /* TODO: dynamic THREAD mask */
     LOG(THREAD_GET, LOG_ALL, 1, "%s: %s\n", prefix, msgbuf);
 
 #ifdef WINDOWS
-    if (TEST(priority, dynamo_options.syslog_mask)) {
+    if (TESTANY(priority, dynamo_options.syslog_mask)) {
         if (internal) {
-            if (TEST(priority, INTERNAL_OPTION(syslog_internal_mask))) {
+            if (TESTANY(priority, INTERNAL_OPTION(syslog_internal_mask))) {
                 do_syslog(priority, message_id, 3, get_application_name(),
                           get_application_pid(), msgbuf);
             }
@@ -1909,13 +1917,13 @@ d_r_notify(syslog_event_type_t priority, bool internal, bool synch,
         }
     }
 #else
-    /* syslog not yet implemented on linux, FIXME */
+    /* syslog not yet implemented on linux, XXX */
 #endif
 
-    if (TEST(priority, dynamo_options.stderr_mask))
+    if (TESTANY(priority, dynamo_options.stderr_mask))
         print_file(STDERR, "<%s>\n", msgbuf);
 
-    if (TEST(priority, dynamo_options.msgbox_mask)) {
+    if (TESTANY(priority, dynamo_options.msgbox_mask)) {
 #ifdef WINDOWS
         /* XXX: could use os_countdown_msgbox (if ever implemented) here to
          * do a timed out messagebox, could then also replace the os_timeout in
@@ -2025,7 +2033,7 @@ DECLARE_CXTSWPROT_VAR(static mutex_t prng_lock, INIT_LOCK_FREE(prng_lock));
 #ifdef DEBUG
 /* callers should play it safe - no memory allocations, no grabbing locks */
 bool
-under_internal_exception()
+under_internal_exception(void)
 {
 #    ifdef DEADLOCK_AVOIDANCE
     /* ASSUMPTION: reading owner field is atomic */
@@ -2101,7 +2109,7 @@ set_display_version(const char *ver)
 }
 
 /* Fine to pass NULL for dcontext, will obtain it for you.
- * If TEST(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag), does a full SYSLOG;
+ * If TESTANY(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag), does a full SYSLOG;
  * else, does a SYSLOG_INTERNAL_ERROR.
  * Fine to pass NULL for report_ebp: will use current ebp for you.
  */
@@ -2178,7 +2186,7 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag, app_pc except
         curbuf += (len == -1 ? REPORT_LEN_STACK_EACH : (len < 0 ? 0 : len));
     }
     /* Only walk the module list if we think the data structs are safe */
-    if (!TEST(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag)) {
+    if (!TESTANY(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag)) {
         size_t sofar = 0;
         /* We decided it's better to include the paths even if it means we may
          * not fit all the modules (i#968).  We plan to add the modules to the
@@ -2196,24 +2204,25 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag, app_pc except
     *curbuf = '\0';
     /* now done with reportbuf */
 
-    if (TEST(dumpcore_flag, DYNAMO_OPTION(dumpcore_mask)) && DYNAMO_OPTION(live_dump)) {
+    if (TESTANY(dumpcore_flag, DYNAMO_OPTION(dumpcore_mask)) &&
+        DYNAMO_OPTION(live_dump)) {
         /* non-fatal coredumps attempted before printing further diagnostics */
         os_dump_core(reportbuf);
     }
 
     /* we already synchronized the options at the top of this function and we
      * might be stack critical so use _NO_OPTION_SYNCH */
-    if (TEST(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag) ||
-        TEST(DUMPCORE_CLIENT_EXCEPTION, dumpcore_flag)) {
+    if (TESTANY(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag) ||
+        TESTANY(DUMPCORE_CLIENT_EXCEPTION, dumpcore_flag)) {
         char saddr[IF_X64_ELSE(19, 11)];
         snprintf(saddr, BUFFER_SIZE_ELEMENTS(saddr), PFX, exception_addr);
         NULL_TERMINATE_BUFFER(saddr);
-        if (TEST(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag)) {
+        if (TESTANY(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag)) {
             SYSLOG_NO_OPTION_SYNCH(
                 SYSLOG_CRITICAL, EXCEPTION, 7 /*#args*/, get_application_name(),
                 get_application_pid(), exception_label_core,
-                TEST(DUMPCORE_STACK_OVERFLOW, dumpcore_flag) ? STACK_OVERFLOW_NAME
-                                                             : CRASH_NAME,
+                TESTANY(DUMPCORE_STACK_OVERFLOW, dumpcore_flag) ? STACK_OVERFLOW_NAME
+                                                                : CRASH_NAME,
                 saddr, exception_report_url,
                 /* skip the prefix since the event log string
                  * already has it */
@@ -2222,18 +2231,18 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag, app_pc except
             SYSLOG_NO_OPTION_SYNCH(
                 SYSLOG_CRITICAL, CLIENT_EXCEPTION, 7 /*#args*/, get_application_name(),
                 get_application_pid(), exception_label_client,
-                TEST(DUMPCORE_STACK_OVERFLOW, dumpcore_flag) ? STACK_OVERFLOW_NAME
-                                                             : CRASH_NAME,
+                TESTANY(DUMPCORE_STACK_OVERFLOW, dumpcore_flag) ? STACK_OVERFLOW_NAME
+                                                                : CRASH_NAME,
                 saddr, exception_report_url,
                 reportbuf + report_client_exception_skip_prefix());
         }
-    } else if (TEST(DUMPCORE_ASSERTION, dumpcore_flag)) {
+    } else if (TESTANY(DUMPCORE_ASSERTION, dumpcore_flag)) {
         /* We need to report ASSERTS in DEBUG=1 INTERNAL=0 builds since we're still
          * going to kill the process. Xref PR 232783. d_r_internal_error() already
          * obfuscated the which file info. */
         SYSLOG_NO_OPTION_SYNCH(SYSLOG_ERROR, INTERNAL_SYSLOG_ERROR, 3,
                                get_application_name(), get_application_pid(), reportbuf);
-    } else if (TEST(DUMPCORE_CURIOSITY, dumpcore_flag)) {
+    } else if (TESTANY(DUMPCORE_CURIOSITY, dumpcore_flag)) {
         SYSLOG_INTERNAL_NO_OPTION_SYNCH(SYSLOG_WARNING, "%s", reportbuf);
     } else {
         SYSLOG_INTERNAL_NO_OPTION_SYNCH(SYSLOG_ERROR, "%s", reportbuf);
@@ -2255,7 +2264,7 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag, app_pc except
      * for client and app crashes but not DR crashes.
      */
     DOLOG(1, LOG_ALL, {
-        if (TEST(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag))
+        if (TESTANY(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag))
             dump_callstack(exception_addr, report_ebp, THREAD, DUMP_NOT_XML);
         else
             dump_dr_callstack(THREAD);
@@ -2275,7 +2284,8 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag, app_pc except
         });
     }
 
-    if (TEST(dumpcore_flag, DYNAMO_OPTION(dumpcore_mask)) && !DYNAMO_OPTION(live_dump)) {
+    if (TESTANY(dumpcore_flag, DYNAMO_OPTION(dumpcore_mask)) &&
+        !DYNAMO_OPTION(live_dump)) {
         /* fatal coredump goes last */
         os_dump_core(reportbuf);
     }
@@ -2290,7 +2300,7 @@ report_app_problem(dcontext_t *dcontext, uint appfault_flag, app_pc pc, app_pc r
     va_list ap;
     char excpt_addr[IF_X64_ELSE(20, 12)];
 
-    if (!TEST(appfault_flag, DYNAMO_OPTION(appfault_mask)))
+    if (!TESTANY(appfault_flag, DYNAMO_OPTION(appfault_mask)))
         return;
 
     snprintf(excpt_addr, BUFFER_SIZE_ELEMENTS(excpt_addr), PFX, pc);
@@ -2315,7 +2325,7 @@ report_app_problem(dcontext_t *dcontext, uint appfault_flag, app_pc pc, app_pc r
 
     report_diagnostics(buf, NULL, NO_VIOLATION_OK_INTERNAL_STATE);
 
-    if (TEST(DUMPCORE_APP_EXCEPTION, DYNAMO_OPTION(dumpcore_mask)))
+    if (TESTANY(DUMPCORE_APP_EXCEPTION, DYNAMO_OPTION(dumpcore_mask)))
         os_dump_core("application fault");
 }
 
@@ -2326,7 +2336,7 @@ is_readable_without_exception_try(byte *pc, size_t size)
 
     /* note we need a dcontext for a TRY block */
     if (dcontext == NULL) {
-        /* FIXME: should rename the current
+        /* XXX: should rename the current
          * is_readable_without_exception() to
          * is_readable_without_exception_os_read(). On each platform
          * we should pick the fastest implementation for the
@@ -2442,19 +2452,19 @@ safe_write_try_except(void *base, size_t size, const void *in_buf, size_t *bytes
         if (is_readable_without_exception(base, size) &&
             IF_UNIX_ELSE(get_memory_info_from_os, get_memory_info)(base, &region_base,
                                                                    &region_size, &prot) &&
-            TEST(MEMPROT_WRITE, prot)) {
+            TESTANY(MEMPROT_WRITE, prot)) {
             size_t bytes_checked = region_size - ((byte *)base - region_base);
             while (bytes_checked < size) {
                 if (!IF_UNIX_ELSE(get_memory_info_from_os, get_memory_info)(
                         region_base + region_size, &region_base, &region_size, &prot) ||
-                    !TEST(MEMPROT_WRITE, prot))
+                    !TESTANY(MEMPROT_WRITE, prot))
                     return false;
                 bytes_checked += region_size;
             }
         } else {
             return false;
         }
-        /* ok, checks passed do the copy, FIXME - because of races this isn't safe! */
+        /* ok, checks passed do the copy, XXX - because of races this isn't safe! */
         memcpy(base, in_buf, size);
         res = true;
     }
@@ -2486,7 +2496,7 @@ memprot_string(uint prot)
 bool
 is_region_memset_to_char(byte *addr, size_t size, byte val)
 {
-    /* FIXME : we could make this much faster with arch specific implementation
+    /* XXX : we could make this much faster with arch specific implementation
      * (for x86 repe scasd w/proper alignment handling) */
     size_t i;
     for (i = 0; i < size; i++) {
@@ -2526,7 +2536,7 @@ double_strrchr(const char *string, char c1, char c2)
     return ret;
 }
 #else
-/* in inject_shared.c, FIXME : move both copies to a common location */
+/* in inject_shared.c, XXX : move both copies to a common location */
 #endif
 
 #ifdef WINDOWS
@@ -2534,7 +2544,7 @@ double_strrchr(const char *string, char c1, char c2)
  * whithout interrogating past str+MAX.  NOTE - this matches most library
  * implementations, but does NOT work the same way as the strnlen etc.
  * functions in the hotpatch2 module (they return MAX+1 for strings > MAX).
- * The hotpatch2 module implementation is scheduled to be changed. FIXME -
+ * The hotpatch2 module implementation is scheduled to be changed. XXX -
  * eventually would be nice to share the various string routines used both by
  * the core and the hotpatch2 module. */
 size_t
@@ -2563,7 +2573,6 @@ strcasecmp_with_wildcards(const char *regexp, const char *consider)
             return -1;
         } else if (*consider == '\0')
             return 1;
-        ASSERT((sbyte)*regexp != EOF && (sbyte)*consider != EOF);
         cr = (char)tolower(*regexp);
         cc = (char)tolower(*consider);
         if (cr != '?' && cr != cc) {
@@ -2597,12 +2606,12 @@ static bool
 check_filter_common(const char *filter, const char *short_name, bool wildcards)
 {
     const char *next, *prev;
-    /* FIXME: can we shrink this?  not using full paths here */
+    /* XXX: can we shrink this?  not using full paths here */
     char consider[MAXIMUM_PATH];
     bool done = false;
 
     ASSERT(short_name != NULL && filter != NULL);
-    /* FIXME: consider replacing most of this with
+    /* XXX: consider replacing most of this with
        strtok_r(copy_filter, ";", &pos) */
     prev = filter;
     do {
@@ -2650,13 +2659,13 @@ static char old_basedir[MAXIMUM_PATH];
  * basedir when called to create the logdir before the basedir is created, is
  * also useful in case we receive an exception in the create_log_dir function
  * since it is called in the diagnostics path, we should relook this though
- * as is probably not the best way to avoid the diagnostics problem FIXME */
+ * as is probably not the best way to avoid the diagnostics problem XXX */
 DECLARE_CXTSWPROT_VAR(static recursive_lock_t logdir_mutex,
                       INIT_RECURSIVE_LOCK(logdir_mutex));
 
 /* enable creating a new base logdir (for a fork, e.g.) */
 void
-enable_new_log_dir()
+enable_new_log_dir(void)
 {
     logdir_initialized = false;
 }
@@ -2759,7 +2768,9 @@ create_log_dir(int dir_type)
         logdir_initialized = true;
         /* skip creating if basedir is empty */
         if (*base != '\0') {
-            if (!get_unique_logfile("", logdir, sizeof(logdir), true, NULL)) {
+            if (!get_unique_logfile("", logdir, sizeof(logdir), /*open_directory=*/true,
+                                    /*output_directory=*/NULL, /*embed_timestamp=*/false,
+                                    NULL)) {
                 SYSLOG_INTERNAL_WARNING("Unable to create log directory %s", logdir);
             }
         }
@@ -2901,6 +2912,9 @@ close_log_file(file_t f)
 /* Generalize further as needed
  * Creates a unique file or directory of the form
  * BASEDIR/[app_name].[pid].<unique num of up to 8 digits>[file_type]
+ * when embed_timestamp is false,
+ * BASEDIR/[app_name].[pid].[timestamp in hex].<unique num of up to 8 digits>[file_type]
+ * when embed_timestamp is true.
  * If the filename_buffer is not NULL, the filename of the obtained file
  * is copied there. For creating a directory the file argument is expected
  * to be null.  Return true if the requested file or directory was created
@@ -2908,7 +2922,8 @@ close_log_file(file_t f)
  */
 bool
 get_unique_logfile(const char *file_type, char *filename_buffer, uint maxlen,
-                   bool open_directory, file_t *file)
+                   bool open_directory, const char *output_directory,
+                   bool embed_timestamp, file_t *file)
 {
     char buf[MAXIMUM_PATH];
     uint size = BUFFER_SIZE_ELEMENTS(buf), counter = 0, base_offset;
@@ -2916,16 +2931,33 @@ get_unique_logfile(const char *file_type, char *filename_buffer, uint maxlen,
     ASSERT((open_directory && file == NULL) || (!open_directory && file != NULL));
     if (!open_directory)
         *file = INVALID_FILE;
-    create_log_dir(BASE_DIR);
-    if (get_log_dir(BASE_DIR, buf, &size)) {
+
+    bool target_initialized = false;
+    if (output_directory == NULL) {
+        create_log_dir(BASE_DIR);
+        target_initialized = get_log_dir(BASE_DIR, buf, &size);
+    } else {
+        target_initialized = dr_directory_exists(output_directory);
+        if (target_initialized) {
+            strncpy(buf, output_directory, size);
+        }
+    }
+    if (target_initialized) {
         NULL_TERMINATE_BUFFER(buf);
         ASSERT_TRUNCATE(base_offset, uint, strlen(buf));
         base_offset = (uint)strlen(buf);
         buf[base_offset++] = DIRSEP;
         size = BUFFER_SIZE_ELEMENTS(buf) - base_offset;
         do {
-            snprintf(&(buf[base_offset]), size, "%s.%s.%.8d%s", get_app_name_for_path(),
-                     get_application_pid(), counter, file_type);
+            if (embed_timestamp) {
+                snprintf(&(buf[base_offset]), size, "%s.%s.%012lx.%08d%s",
+                         get_app_name_for_path(), get_application_pid(),
+                         query_time_millis(), counter, file_type);
+            } else {
+                snprintf(&(buf[base_offset]), size, "%s.%s.%.8d%s",
+                         get_app_name_for_path(), get_application_pid(), counter,
+                         file_type);
+            }
             NULL_TERMINATE_BUFFER(buf);
             if (open_directory) {
                 success = os_create_dir(buf, CREATE_DIR_REQUIRE_NEW);
@@ -2952,7 +2984,7 @@ get_unique_logfile(const char *file_type, char *filename_buffer, uint maxlen,
 }
 
 const char *
-get_app_name_for_path()
+get_app_name_for_path(void)
 {
     return get_short_name(get_application_name());
 }
@@ -3006,7 +3038,7 @@ print_statistics(int *data, int size)
         stddev += diff * diff;
     }
     stddev /= (double)size;
-    /* FIXME i#46: We need a private sqrt impl.  libc's sqrt can actually
+    /* XXX i#46: We need a private sqrt impl.  libc's sqrt can actually
      * clobber errno, too!
      */
     ASSERT(!DYNAMO_OPTION(early_inject) &&
@@ -3025,7 +3057,7 @@ print_statistics(int *data, int size)
 }
 #    endif
 
-/* FIXME: these should be under ifdef STATS, not necessarily ifdef DEBUG */
+/* XXX: these should be under ifdef STATS, not necessarily ifdef DEBUG */
 void
 stats_thread_init(dcontext_t *dcontext)
 {
@@ -3078,7 +3110,7 @@ dump_thread_stats(dcontext_t *dcontext, bool raw)
     if (!THREAD_STATS_ON(dcontext))
         return;
 
-    /* FIXME: for now we'll have code duplication with dump_global_stats()
+    /* XXX: for now we'll have code duplication with dump_global_stats()
      * with the only difference being THREAD vs GLOBAL, e.g. LOG(GLOBAL and GLOBAL_STAT
      * Keep in sync or make a template statistics dump macro for both cases.
      */
@@ -3235,13 +3267,13 @@ dump_buffer_as_ascii(file_t logfile, char *buffer, size_t len)
 void
 dump_buffer_as_bytes(file_t logfile, void *buffer, size_t len, int flags)
 {
-    bool octal = TEST(DUMP_OCTAL, flags);
-    bool raw = TEST(DUMP_RAW, flags);
-    bool usechars = !raw && !TEST(DUMP_NO_CHARS, flags);
-    bool replayable = usechars && !TEST(DUMP_NO_QUOTING, flags);
-    bool dword = TEST(DUMP_DWORD, flags);
-    bool prepend_address = TEST(DUMP_ADDRESS, flags);
-    bool append_ascii = TEST(DUMP_APPEND_ASCII, flags);
+    bool octal = TESTANY(DUMP_OCTAL, flags);
+    bool raw = TESTANY(DUMP_RAW, flags);
+    bool usechars = !raw && !TESTANY(DUMP_NO_CHARS, flags);
+    bool replayable = usechars && !TESTANY(DUMP_NO_QUOTING, flags);
+    bool dword = TESTANY(DUMP_DWORD, flags);
+    bool prepend_address = TESTANY(DUMP_ADDRESS, flags);
+    bool append_ascii = TESTANY(DUMP_APPEND_ASCII, flags);
 
     unsigned char *buf = (unsigned char *)buffer;
 
@@ -3331,7 +3363,7 @@ dump_buffer_as_bytes(file_t logfile, void *buffer, size_t len, int flags)
 bool
 is_valid_xml_char(char c)
 {
-    /* FIXME - wld.exe xml parsing complains about any C0 control character other
+    /* XXX - wld.exe xml parsing complains about any C0 control character other
      * then \t \r and \n.   However, in this encoding (to my understanding) all values
      * should be valid and IE doesn't complain opening an xml file in this encoding
      * with these characters.  Not sure where the wld.exe problem lies, but since it is
@@ -3360,7 +3392,7 @@ static bool
 is_valid_xml_cdata_string(const char *str)
 {
     /* check for end CDATA tag */
-    /* FIXME - optimization,combine the two walks of the string into a
+    /* XXX - optimization,combine the two walks of the string into a
      * single walk.*/
     return (strstr(str, "]]>") == NULL && is_valid_xml_string(str));
 }
@@ -3370,7 +3402,7 @@ static bool
 is_valid_xml_body_string(const char *str)
 {
     /* check for & < > */
-    /* FIXME - optimization, combine into a single walk of the string. */
+    /* XXX - optimization, combine into a single walk of the string. */
     return (strchr(str, '>') == NULL && strchr(str, '<') == NULL &&
             strchr(str, '&') == NULL && is_valid_xml_string(str));
 }
@@ -3379,7 +3411,7 @@ static bool
 is_valid_xml_attribute_string(const char *str)
 {
     /* check for & < > ' " */
-    /* FIXME - optimization, combine into a single walk of the string. */
+    /* XXX - optimization, combine into a single walk of the string. */
     return (strchr(str, '\'') == NULL && strchr(str, '\"') == NULL &&
             is_valid_xml_body_string(str));
 }
@@ -3388,7 +3420,7 @@ is_valid_xml_attribute_string(const char *str)
 /* NOTE - string should not include the <![CDATA[   ]]> markup as one thing
  * this routine checks for is an inadvertant ending sequence ]]> (in which
  * case the first ] will be escaped). We escape using \%03d, note that since
- * we don't escape \ , '\003' and "\003" will be indistinguishable (FIXME),
+ * we don't escape \ , '\003' and "\003" will be indistinguishable (XXX),
  * but given that these should really be normal ascii strings we'll live with
  * that. */
 void
@@ -3402,7 +3434,7 @@ print_xml_cdata(file_t f, const char *str)
                 (*str == ']' && *(str + 1) == ']' && *(str + 2) == '>')) {
                 print_file(f, "\\%03d", (int)*(uchar *)str);
             } else {
-                /* FIXME : could batch up printing normal chars for perf.
+                /* XXX : could batch up printing normal chars for perf.
                  * but we usually expect to have valid strings anyways. */
                 print_file(f, "%c", *str);
             }
@@ -3420,7 +3452,7 @@ print_version_and_app_info(file_t file)
     /* print qualified name (not d_r_stats->process_name) to get cmdline */
     print_file(file, "Running: %s\n", get_application_name());
 #ifdef WINDOWS
-    /* FIXME: also get linux cmdline -- separate since wide on win32 */
+    /* XXX: also get linux cmdline -- separate since wide on win32 */
     print_file(file, "App cmdline: %S\n", get_application_cmdline());
 #endif
     print_file(file, PRODUCT_NAME " built with: %s\n", DYNAMORIO_DEFINES);
@@ -3431,7 +3463,7 @@ print_version_and_app_info(file_t file)
 }
 
 void
-utils_exit()
+utils_exit(void)
 {
     LOG(GLOBAL, LOG_STATS, 1, "-prng_seed " PFX " for reproducing random sequence\n",
         initial_random_seed);
@@ -3450,7 +3482,7 @@ utils_exit()
 
 /* returns a pseudo random number in [0, max_offset) */
 
-/* FIXME: [minor security] while the first user may get more
+/* XXX: [minor security] while the first user may get more
  *   randomness from the lower bits of the seed, I am not sure the
  *   following users should strongly prefer higher or lower bits.
  */
@@ -3459,7 +3491,7 @@ get_random_offset(size_t max_offset)
 {
     /* These linear congruential constants taken from
      * http://remus.rutgers.edu/~rhoads/Code/random.c
-     * FIXME: Look up Knuth's recommendations in vol. 2
+     * XXX: Look up Knuth's recommendations in vol. 2
      */
     enum { LCM_A = 279470273, LCM_Q = 15, LCM_R = 102913196 };
     /* I prefer not risking any of the randomness in our seed to go
@@ -3477,7 +3509,7 @@ get_random_offset(size_t max_offset)
 
     /* process-shared random sequence */
     d_r_mutex_lock(&prng_lock);
-    /* FIXME: this is not getting the best randomness
+    /* XXX: this is not getting the best randomness
      * see srand() comments why taking higher order bits is usually better
      * j=1+(int) (10.0*rand()/(RAND_MAX+1.0));
      * but I want to do it without floating point
@@ -3812,7 +3844,7 @@ MD5Transform(uint32 state[4], const unsigned char block[MD5_BLOCK_LENGTH])
 {
     uint32 a, b, c, d, in[MD5_BLOCK_LENGTH / 4];
 
-#if BYTE_ORDER == LITTLE_ENDIAN
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
     memcpy(in, block, sizeof(in));
 #else
     for (a = 0; a < MD5_BLOCK_LENGTH / 4; a++) {
@@ -3955,7 +3987,7 @@ read_entire_file(const char *file, size_t *buf_len /* OUT */ HEAPACCT(which_heap
     ASSERT_TRUNCATE(*buf_len, uint, buf_len64);
 
     /* Though only 1 byte is needed for the \0 at the end of the buffer,
-     * 4 may be allocated to work around case 8048.  FIXME: remove
+     * 4 may be allocated to work around case 8048.  XXX: remove
      * alignment after case is resolved.
      */
     *buf_len = (uint)ALIGN_FORWARD((buf_len64 + 1), 4);
@@ -3979,14 +4011,14 @@ read_entire_file(const char *file, size_t *buf_len /* OUT */ HEAPACCT(which_heap
 bool
 check_low_disk_threshold(file_t f, uint64 new_file_size)
 {
-    /* FIXME: we only use UserAvailable to find the minimum expressed
+    /* XXX: we only use UserAvailable to find the minimum expressed
      * as absolute bytes to leave available.  In addition we could
      * also have percentage limits, where minimum available should be
      * based on TotalQuotaBytes, and maximum cache size on
      * TotalVolumeBytes.
      */
     uint64 user_available_bytes;
-    /* FIXME: does this work for compressed volumes? */
+    /* XXX: does this work for compressed volumes? */
     bool ok = os_get_disk_free_space(f, &user_available_bytes, NULL, NULL);
     if (ok) {
         LOG(THREAD_GET, LOG_SYSCALLS | LOG_THREADS, 2,
@@ -3997,7 +4029,7 @@ check_low_disk_threshold(file_t f, uint64 new_file_size)
         ok = (user_available_bytes > new_file_size) &&
             (user_available_bytes - new_file_size) > DYNAMO_OPTION(min_free_disk);
         if (!ok) {
-            /* FIXME: notify the customer that they are low on disk space? */
+            /* XXX: notify the customer that they are low on disk space? */
             SYSLOG_INTERNAL_WARNING_ONCE(
                 "reached minimal free disk space limit,"
                 " available " UINT64_FORMAT_STRING "MB, limit %dMB, "
@@ -4038,7 +4070,7 @@ check_low_disk_threshold(file_t f, uint64 new_file_size)
  * So a buffer of 16 kb seems reasonable, even though the data is not based
  * on frequency of usage.
  *
- * FIXME: use nt_map_view_of_section with SEC_MAPPED && !SEC_IMAGE.
+ * XXX: use nt_map_view_of_section with SEC_MAPPED && !SEC_IMAGE.
  */
 #    define MD5_FILE_READ_BUF_SIZE (4 * PAGE_SIZE)
 
@@ -4113,7 +4145,7 @@ get_application_md5(void)
         if (IS_PROCESS_CONTROL_ON()) {
             DEBUG_DECLARE(bool res;)
 #    ifdef WINDOWS
-            /* FIXME - inefficient, we use stack buffer here to convert wchar to char,
+            /* XXX - inefficient, we use stack buffer here to convert wchar to char,
              * and later we'll use another stack buffer to convert char to wchar to
              * open the file.  That said this is only done once (either at startup or
              * for process_control nudge [app_stack]) so as long as the stack doesn't
@@ -4123,7 +4155,7 @@ get_application_md5(void)
                      get_own_unqualified_name());
             NULL_TERMINATE_BUFFER(exe_name);
 #    else
-            /* FIXME - will need to strip out qualifications if we add those to Linux */
+            /* XXX - will need to strip out qualifications if we add those to Linux */
             const char *exe_name = get_application_name();
 #    endif
 
@@ -4223,10 +4255,10 @@ DECLARE_CXTSWPROT_VAR(static mutex_t profile_callers_lock,
  * Simply place a profile_callers() call in the routine you wish to profile.
  * You MUST build without optimizations to enable call stack walking.
  * Results go to a separate log file and are dumped only at exit.
- * FIXME: combine w/ a generalized mutex_collect_callstack()?
+ * XXX: combine w/ a generalized mutex_collect_callstack()?
  */
 void
-profile_callers()
+profile_callers(void)
 {
     profile_callers_t *entry;
     uint *pc;
@@ -4240,7 +4272,7 @@ profile_callers()
     GET_FRAME_PTR(our_ebp);
     memset(caller, 0, sizeof(caller));
     pc = (uint *)our_ebp;
-    /* FIXME: mutex_collect_callstack() assumes caller addresses are in
+    /* XXX: mutex_collect_callstack() assumes caller addresses are in
      * DR and thus are safe to read, but checks for dstack, etc.
      * Should combine the two into a general routine.
      */
@@ -4254,7 +4286,7 @@ profile_callers()
     }
     /* Assumption: there aren't many unique callstacks being profiled, so a
      * linear search is sufficient!
-     * FIXME: make this more performant if necessary
+     * XXX: make this more performant if necessary
      */
     for (entry = profcalls; entry != NULL; entry = entry->next) {
         bool match = true;
@@ -4281,7 +4313,7 @@ profile_callers()
 }
 
 void
-profile_callers_exit()
+profile_callers_exit(void)
 {
     profile_callers_t *entry, *next;
     file_t file;
@@ -4459,7 +4491,7 @@ dr_wstrdup(const wchar_t *str HEAPACCT(which_heap_t which))
     int res;
     if (str == NULL)
         return NULL;
-    /* FIXME: should have a max length and truncate?
+    /* XXX: should have a max length and truncate?
      * I'm assuming we're using not directly on external inputs.
      * If we do put in a max length, should do the same for dr_strdup.
      */
@@ -4522,7 +4554,7 @@ array_merge(dcontext_t *dcontext, bool intersect /* else union */, void **src1,
 {
     /* Two passes: one to find number of unique entries, and second to
      * fill them in.
-     * FIXME: if this routine is ever on a performance-critical path then
+     * XXX: if this routine is ever on a performance-critical path then
      * we should switch to a temp hashtable and avoid this quadratic cost.
      */
     uint num;
@@ -4533,7 +4565,7 @@ array_merge(dcontext_t *dcontext, bool intersect /* else union */, void **src1,
     ASSERT(src1 != NULL || src1_num == 0);
     ASSERT(src2 != NULL || src2_num == 0);
     if (src1 == NULL || src2 == NULL || dst == NULL) /* paranoid */
-        return;                                      /* FIXME: return a bool? */
+        return;                                      /* XXX: return a bool? */
     if (src1_num == 0 && src2_num == 0) {
         *dst = NULL;
         *dst_num = 0;

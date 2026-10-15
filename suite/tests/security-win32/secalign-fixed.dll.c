@@ -60,7 +60,8 @@ new link.exe has /section, accomplishes same thing, still need /driver:
 #pragma comment(linker, "/fixed /align:0x2000 /driver")
 
 /* our Makefile expects a .lib */
-int __declspec(dllexport) make_a_lib(int arg)
+int __declspec(dllexport)
+make_a_lib(int arg)
 {
     return 1;
 }

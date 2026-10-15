@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * **********************************************************/
 
@@ -32,7 +32,7 @@
  */
 
 #ifndef _TRACER_
-#define _TRACER_ 1
+#define _TRACER_
 
 #include <stddef.h>
 
@@ -76,9 +76,16 @@ extern named_pipe_t ipc_pipe;
     } while (0)
 
 /* Thread private data.  This is all set to 0 at thread init. */
-typedef struct {
+struct per_thread_t {
     byte *seg_base;
+    // Buffer for recording trace content. For 32-bit offline with its
+    // 8-byte offline_type_t records, we require that the top 4-byte word
+    // is pre-set to 0 so we don't have to zero it; this is done by
+    // memset-ing the main area to 0 and having instru_offline_t::fill_with_sentinel()
+    // set the top word for the redzone to 0.
     byte *buf_base;
+    size_t trace_buf_size; // Size without the redzone.
+    size_t max_buf_size;   // Allocated size, which includes the redzone.
     uint64 num_refs;
     uint64 num_writeouts; /* Buffer writeout instances. */
     uint64 bytes_written;
@@ -119,7 +126,14 @@ typedef struct {
     /* For syscall kernel trace. */
     syscall_pt_trace_t syscall_pt_trace;
 #endif
-} per_thread_t;
+#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
+    /* For syscall records. */
+#    define SYSCALL_RECORD_BUFFER_SIZE 1024
+    file_t syscall_record_file = INVALID_FILE;
+    ssize_t syscall_record_buffer_offset = 0;
+    char syscall_record_buffer[SYSCALL_RECORD_BUFFER_SIZE];
+#endif
+};
 
 /* Allocated TLS slot offsets */
 enum {
@@ -181,6 +195,17 @@ enum {
     BBDUP_MODE_L0_FILTER = 4, /* Address tracing with L0_filter. */
 };
 
+/* dr_nudge_client takes a 64 bit argument. We use the most significant 8 bits as the
+ * type and the least significant 56 bits to pass a value to the client.
+ */
+#define TRACER_NUDGE_TYPE_SHIFT 56
+#define TRACER_NUDGE_VALUE_MASK 0x00ffffffffffffffLL
+
+/* Tracer nudge types. */
+enum {
+    TRACER_NUDGE_MEM_DUMP = 0, /* Capture a memory dump. */
+};
+
 #if defined(X86_64) || defined(AARCH64)
 #    define DELAYED_CHECK_INLINED 1
 #else
@@ -238,10 +263,22 @@ extern uint64
     num_filter_refs_racy; /* racy global memory reference count in warmup mode */
 extern char logsubdir[MAXIMUM_PATH];
 extern char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
-extern size_t trace_buf_size;
-extern size_t redzone_size;
-extern size_t max_buf_size;
 extern size_t buf_hdr_slots_size;
+
+// We avoid having to memset the actual buffer by picking a sentinel that is very unlikely
+// to be a real raw record. (If it is, we have only an early buffer output, not a
+// correctness issue.) We also need a small enough value that we can use it as
+// an immediate to subtract to reach 0 in insert_conditional_skip(), so this should
+// be < 4095 (largest AArch64 SUB immediate).
+// For x64 offline, this would be a load/store to address 1, which is
+// not likely to happen (we do see prefetches of 0 so we avoid 0).
+// For 32-bit this would be a load/store to an address with the 33rd bit set to 1
+// which is impossible.
+// For online, we fill in the first pointer-sized bits of each trace_entry_t with
+// this value, with the rest zeroed, so that's TRACE_TYPE_WRITE with size 0.
+#define REDZONE_SENTINEL 1
+// Racy count of false sentinels we hit.
+extern uint64 num_false_sentinels;
 
 #define MAX_NUM_DELAY_INSTRS 32
 // Really sizeof(trace_entry_t.length)

@@ -44,21 +44,21 @@
 #include "tools.h" /* for print() */
 
 int
-foo()
+foo(void)
 {
     print("in foo\n");
     exit(1);
 }
 
 int
-bar()
+bar(void)
 {
     print("in bar\n");
     return 0;
 }
 
 void
-vbpop()
+vbpop(void)
 {
     print("in vbpop\n");
 #ifdef UNIX
@@ -88,7 +88,7 @@ vbpop()
 }
 
 void
-vbjmp()
+vbjmp(void)
 {
 #ifdef UNIX
     __asm__ volatile("mov     $0x38,%eax\n"

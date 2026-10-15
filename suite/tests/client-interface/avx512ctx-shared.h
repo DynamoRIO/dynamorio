@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _AVX512CTX_SHARED_H_
-#define _AVX512CTX_SHARED_H_ 1
+#define _AVX512CTX_SHARED_H_
 
 #ifndef __AVX512F__
 #    error "Build error, should only be added with AVX-512 support."

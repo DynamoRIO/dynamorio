@@ -38,7 +38,7 @@
  */
 
 #ifndef _SIDELINE_H_
-#define _SIDELINE_H_ 1
+#define _SIDELINE_H_
 
 /* sampled by sideline thread to find hot traces */
 extern volatile fragment_t *sideline_trace;

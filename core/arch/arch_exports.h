@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * Copyright (c) 2025 Foundation of Research and Technology, Hellas.
  * **********************************************************/
@@ -44,7 +44,7 @@
  */
 
 #ifndef _ARCH_EXPORTS_H_
-#define _ARCH_EXPORTS_H_ 1
+#define _ARCH_EXPORTS_H_
 
 /* We export all of opnd.h for reg_id_t, DR_NUM_GPR_REGS, etc. */
 #include "opnd.h"
@@ -90,7 +90,7 @@ typedef enum {
     IBL_INDJMP,
     IBL_GENERIC = IBL_INDJMP, /* currently least restrictive */
     /* can double if a generic lookup is needed
-       FIXME: remove this and add names for specific needs */
+       XXX: remove this and add names for specific needs */
     IBL_SHARED_SYSCALL = IBL_GENERIC,
     IBL_BRANCH_TYPE_END
 } ibl_branch_type_t;
@@ -107,7 +107,7 @@ struct _ibl_table_t;      /* in fragment.h */
  * hashtable stats spilling onto the 2nd line.
  * Even all on one line, shared ibl has a load vs private ibl's hardcoded immed...
  *
- * FIXME: to avoid splitting the mcontext for now these scratch
+ * XXX: to avoid splitting the mcontext for now these scratch
  * fs:slots are used in fcache, but copied to the
  * mcontext on transitions.  see case 3701
  */
@@ -120,7 +120,7 @@ typedef struct _table_stat_state_t {
     /* Organized in mask-table pairs to get both fields for a particular table
      * on the same cache line.
      */
-    /* FIXME We can play w/ordering these fields differently or if TLS space is
+    /* XXX We can play w/ordering these fields differently or if TLS space is
      * crunched keeping a subset of them in TLS.
      * For example, the ret_trace & indcall_trace tables could be heavily used
      * but if the indjmp table isn't, it might make sense to put the ret_bb
@@ -128,7 +128,7 @@ typedef struct _table_stat_state_t {
      * used for BB2BB IBL.
      */
     lookup_table_access_t table[IBL_BRANCH_TYPE_END];
-    /* FIXME: should allocate this separately so that release and
+    /* XXX: should allocate this separately so that release and
      * DEBUG builds have the same layout especially when backward
      * aligned entry */
 #ifdef HASHTABLE_STATISTICS
@@ -175,7 +175,7 @@ typedef struct _spill_state_t {
     /* We store addresses here so we can load pointer-sized addresses into
      * registers with a single instruction in our exit stubs and gencode.
      */
-    /* FIXME i#1551: add Thumb vs ARM: may need two entry points here */
+    /* XXX i#1551: add Thumb vs ARM: may need two entry points here */
     byte *fcache_return;
     ibl_entry_pc_t trace_ibl[IBL_BRANCH_TYPE_END];
     ibl_entry_pc_t bb_ibl[IBL_BRANCH_TYPE_END];
@@ -189,6 +189,9 @@ typedef struct _spill_state_t {
 #    ifdef ARM
     /* In A32 mode we have no OP_cbnz so we have to save the flags. */
     reg_t ldstex_flags;
+#    endif
+#    ifdef AARCH64
+    ptr_uint_t selfmod_write_addr;
 #    endif
     /* TODO i#1575: coarse-grain NYI on ARM */
 #elif defined(RISCV64)
@@ -267,6 +270,10 @@ typedef struct _local_state_extended_t {
 #    define TLS_LDSTEX_SIZE_SLOT ((ushort)offsetof(spill_state_t, ldstex_size))
 #    ifdef ARM
 #        define TLS_LDSTEX_FLAGS_SLOT ((ushort)offsetof(spill_state_t, ldstex_flags))
+#    endif
+#    ifdef AARCH64
+#        define TLS_SELFMOD_WRITE_ADDR_SLOT \
+            ((ushort)offsetof(spill_state_t, selfmod_write_addr))
 #    endif
 #elif defined(RISCV64)
 #    define TLS_FCACHE_RETURN_SLOT ((ushort)offsetof(spill_state_t, fcache_return))
@@ -372,7 +379,7 @@ get_stack_ptr(void);
             __asm__ __volatile__("bl 1f\n1: str x30, %0" : "=m"(var) : : "x30")
 #    elif defined(DR_HOST_ARM)
 #        define RDTSC_LL(llval) (llval) = proc_get_timestamp()
-/* FIXME i#1551: frame pointer is r7 in thumb mode */
+/* XXX i#1551: frame pointer is r7 in thumb mode */
 #        define GET_FRAME_PTR(var) \
             __asm__ __volatile__("str " IF_X64_ELSE("x29", "r11") ", %0" : "=m"(var))
 #        define GET_STACK_PTR(var) __asm__ __volatile__("str sp, %0" : "=m"(var))
@@ -411,7 +418,7 @@ insert_relative_jump(byte *pc, cache_pc target, bool hot_patch);
 #    ifdef UNIX
 /* This only works on Pentium I or later */
 __inline__ uint64
-get_time();
+get_time(void);
 #    else /* WINDOWS */
 /* This only works on Pentium I or later */
 uint64
@@ -768,7 +775,7 @@ dr_fxrstor32(byte *buf_aligned);
 #    define DYNAMO_START_XSP_ADJUST 0
 #endif
 
-/* x86_code.c */
+/* asm_aux.c */
 void
 dynamo_start(priv_mcontext_t *mc);
 
@@ -846,10 +853,10 @@ use_addr_prefix_on_short_disp(void)
          /* PPro, P2, P3, but not PM */
          (proc_get_family() == FAMILY_PENTIUM_3 &&
           (proc_get_model() <= 8 || proc_get_model() == 10 || proc_get_model() == 11))));
-    /* FIXME: should similarly remove addr prefixes from hardcoded
+    /* XXX: should similarly remove addr prefixes from hardcoded
      * emits in emit_utils.c, except in cases where space is more
      * important than speed.
-     * FIXME: case 5231 long term solution should properly choose
+     * XXX: case 5231 long term solution should properly choose
      * - ibl - speed
      * - prefixes - speed/space?
      * - app code - preserverd since we normally don't need to reencode,
@@ -905,7 +912,12 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 
 /* Merge w/ _LENGTH enum below? */
 /* not ifdef X64 to simplify code */
-#    define SIZE64_MOV_XAX_TO_TLS 8
+/* Kernel TLS displacements can be negative and require sign extension. */
+#    ifdef LINUX_KERNEL
+#        define SIZE64_MOV_XAX_TO_TLS 9
+#    else
+#        define SIZE64_MOV_XAX_TO_TLS 8
+#    endif
 #    define SIZE64_MOV_XBX_TO_TLS 9
 #    define SIZE64_MOV_PTR_IMM_TO_XAX 10
 #    define SIZE64_MOV_PTR_IMM_TO_TLS (12 * 2) /* high and low 32 bits separately */
@@ -921,8 +933,8 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 #    define SIZE32_MOV_PTR_IMM_TO_TLS 10
 
 #    ifdef X64
-#        define FRAG_IS_32(flags) (TEST(FRAG_32_BIT, (flags)))
-#        define FRAG_IS_X86_TO_X64(flags) (TEST(FRAG_X86_TO_X64, (flags)))
+#        define FRAG_IS_32(flags) (TESTANY(FRAG_32_BIT, (flags)))
+#        define FRAG_IS_X86_TO_X64(flags) (TESTANY(FRAG_X86_TO_X64, (flags)))
 #    else
 #        define FRAG_IS_32(flags) true
 #        define FRAG_IS_X86_TO_X64(flags) false
@@ -947,7 +959,7 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 
 /* size of restore ecx prefix */
 #    define XCX_IN_TLS(flags) \
-        (DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, (flags)))
+        (DYNAMO_OPTION(private_ib_in_tls) || TESTANY(FRAG_SHARED, (flags)))
 #    define FRAGMENT_BASE_PREFIX_SIZE(flags)                          \
         ((FRAG_IS_X86_TO_X64(flags) &&                                \
           IF_X64_ELSE(DYNAMO_OPTION(x86_to_x64_ibl_opt), false))      \
@@ -956,7 +968,7 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
                                   : SIZE32_MOV_XBX_TO_ABS))
 
 /* exported for DYNAMO_OPTION(separate_private_stubs)
- * FIXME: find better way to export -- would use global var accessed
+ * XXX: find better way to export -- would use global var accessed
  * by macro, but easiest to have as static initializer for heap bucket
  */
 /* for -thread_private, we're relying on the fact that
@@ -1015,7 +1027,7 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 #        define FRAG_IS_THUMB(flags) false
 #        define FRAG_IS_32(flags) false
 #    else
-#        define FRAG_IS_THUMB(flags) (TEST(FRAG_THUMB, (flags)))
+#        define FRAG_IS_THUMB(flags) (TESTANY(FRAG_THUMB, (flags)))
 #        define FRAG_IS_32(flags) true
 #    endif
 
@@ -1075,10 +1087,10 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
              DIRECT_EXIT_STUB_DATA_SZ)
 #    endif
 
-/* FIXME i#1575: implement coarse-grain support */
+/* XXX i#1575: implement coarse-grain support */
 #    define STUB_COARSE_DIRECT_SIZE(flags) (ASSERT_NOT_IMPLEMENTED(false), 0)
 
-/* FIXME i#1551: we need these to all take in the dr_isa_mode_t */
+/* XXX i#1551: we need these to all take in the dr_isa_mode_t */
 #    define ARM_NOP 0xe320f000
 #    define THUMB_NOP 0xbf00
 #    define ARM_BKPT 0xe1200070
@@ -1133,16 +1145,16 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 #    define IS_SET_TO_DEBUG(addr, size) (ASSERT_NOT_IMPLEMENTED(false), false)
 
 /* offset of the patchable region from the end of a cti */
-/* FIXME i#3544: Not implemented */
+/* XXX i#3544: Not implemented */
 #    define CTI_PATCH_OFFSET 4
 /* offset of the patchable region from the end of a stub */
-/* FIXME i#3544: Not implemented */
+/* XXX i#3544: Not implemented */
 #    define EXIT_STUB_PATCH_OFFSET 4
 /* size of the patch to a stub */
-/* FIXME i#3544: Not implemented */
+/* XXX i#3544: Not implemented */
 #    define EXIT_STUB_PATCH_SIZE 4
 /* the most bytes we'll need to shift a patchable location for -pad_jmps */
-/* FIXME i#3544: Not implemented */
+/* XXX i#3544: Not implemented */
 #    define MAX_PAD_SIZE 0
 #endif /* RISCV64 */
 /****************************************************************************/
@@ -1152,14 +1164,14 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 
 #define STATS_PAD_JMPS_ADD(flags, stat, val)                  \
     DOSTATS({                                                 \
-        if (TEST(FRAG_SHARED, (flags))) {                     \
-            if (TEST(FRAG_IS_TRACE, (flags)))                 \
+        if (TESTANY(FRAG_SHARED, (flags))) {                  \
+            if (TESTANY(FRAG_IS_TRACE, (flags)))              \
                 STATS_ADD(pad_jmps_shared_trace_##stat, val); \
             else                                              \
                 STATS_ADD(pad_jmps_shared_bb_##stat, val);    \
-        } else if (TEST(FRAG_IS_TRACE, (flags)))              \
+        } else if (TESTANY(FRAG_IS_TRACE, (flags)))           \
             STATS_ADD(pad_jmps_trace_##stat, val);            \
-        else if (TEST(FRAG_TEMP_PRIVATE, (flags)))            \
+        else if (TESTANY(FRAG_TEMP_PRIVATE, (flags)))         \
             STATS_ADD(pad_jmps_temp_##stat, val);             \
         else                                                  \
             STATS_ADD(pad_jmps_bb_##stat, val);               \
@@ -1328,7 +1340,7 @@ enum {
     CBR_LONG_LENGTH = 6,
     JMP_LONG_LENGTH = 5,
     JMP_SHORT_LENGTH = 2,
-    CBR_SHORT_REWRITE_LENGTH = 9, /* FIXME: use this in mangle.c */
+    CBR_SHORT_REWRITE_LENGTH = 9, /* XXX: use this in mangle.c */
     RET_0_LENGTH = 1,
     PUSH_IMM32_LENGTH = 5,
     POPF_LENGTH = 1,
@@ -1362,7 +1374,7 @@ enum {
 #endif
 
 /* Not under defines so we can have code that is less cluttered */
-/* FIXME i#3544: With Compressed ext ecall can be 2 */
+/* XXX i#3544: With Compressed ext ecall can be 2 */
 #if defined(AARCH64) || defined(RISCV64)
     INT_LENGTH = 4,
     SYSCALL_LENGTH = 4,
@@ -1480,6 +1492,8 @@ shift_ctis_in_fragment(dcontext_t *dcontext, fragment_t *f, ssize_t shift, cache
 void
 add_profile_call(dcontext_t *dcontext);
 #endif
+bool
+d_r_emulate_instr(dcontext_t *dcontext, instr_t *inst, priv_mcontext_t *mc);
 app_pc
 d_r_emulate(dcontext_t *dcontext, app_pc pc, priv_mcontext_t *mc);
 
@@ -1548,7 +1562,7 @@ bool
 mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip);
 #endif
 void
-finalize_selfmod_sandbox(dcontext_t *dcontext, fragment_t *f);
+finalize_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, fragment_t *f);
 
 bool
 instr_check_xsp_mangling(dcontext_t *dcontext, instr_t *inst, int *xsp_adjust);
@@ -1594,11 +1608,11 @@ print_optimization_stats(void);
 static inline ibl_branch_type_t
 extract_branchtype(ushort linkstub_flags)
 {
-    if (TEST(LINK_RETURN, linkstub_flags))
+    if (TESTANY(LINK_RETURN, linkstub_flags))
         return IBL_RETURN;
     if (EXIT_IS_CALL(linkstub_flags))
         return IBL_INDCALL;
-    if (TEST(LINK_JMP, linkstub_flags)) /* plain JMP or IND_JMP_PLT */
+    if (TESTANY(LINK_JMP, linkstub_flags)) /* plain JMP or IND_JMP_PLT */
         return IBL_INDJMP;
     ASSERT_NOT_REACHED();
     return IBL_GENERIC;
@@ -1676,7 +1690,7 @@ typedef struct dr_jmp_buf_t {
 #    define REGS_IN_JMP_BUF 26 /* See dr_setjmp and dr_longjmp. */
     reg_t regs[REGS_IN_JMP_BUF];
 #endif                         /* X86/AARCH64/ARM/RISCV64 */
-#if defined(UNIX) && defined(DEBUG)
+#if defined(UNIX) && !defined(LINUX_KERNEL) && defined(DEBUG)
     /* i#226/PR 492568: we avoid the cost of storing this by using the
      * mask in the fault's signal frame, but we do record it in debug
      * build to verify our assumptions
@@ -1823,7 +1837,7 @@ get_mcontext_frame_ptr(dcontext_t *dcontext, priv_mcontext_t *mc)
     return reg;
 }
 
-/* FIXME: check on all platforms: these are for Fedora 8 and XP SP2
+/* XXX: check on all platforms: these are for Fedora 8 and XP SP2
  * Keep in synch w/ defines in x86.asm
  */
 #define CS32_SELECTOR 0x23
@@ -1870,6 +1884,11 @@ typedef struct _rseq_entry_state_t {
 #    define DCONTEXT_TLS_TO_ACTUAL_PTR(x) x
 #    define DCONTEXT_ACTUAL_TO_TLS_OFFSET(x) x
 #    define DCONTEXT_TLS_TO_ACTUAL_OFFSET(x) x
+#endif
+
+/* See INTERNAL_OPTION(hw_cache_consistency). */
+#if defined(AARCH64) || defined(X86)
+#    define ARCH_SUPPORTS_HW_CACHE_CONSISTENCY
 #endif
 
 #endif /* _ARCH_EXPORTS_H_ */

@@ -14,7 +14,7 @@
 /* ntdll types shared with ntdll_imports.c */
 
 #ifndef _NTDLL_TYPES_H_
-#define _NTDLL_TYPES_H_ 1
+#define _NTDLL_TYPES_H_
 
 /***************************************************************************
  * structs and defines

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -60,7 +60,7 @@
 
 /*
 direct branch exit_stub:
-   5x8  mov   %xax, xax_offs(&dcontext) or tls
+   5x8  mov   %xax, xax_offs(&dcontext) or tls (9 bytes for x64 kernel)
    <we used to support PROFILE_LINKCOUNT with a counter inc here but no more>
    5x10 mov   &linkstub, %xax
     5   jmp   target addr
@@ -82,7 +82,7 @@ also see emit_inline_ibl_stub() below
  * a different memory space with self-protection
  */
 #define UNPROT_OFFS(dcontext, offs)                                            \
-    (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)                      \
+    (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask)                   \
          ? (((ptr_uint_t)((dcontext)->upcontext.separate_upcontext)) + (offs)) \
          : (((ptr_uint_t)(dcontext)) + (offs)))
 
@@ -173,7 +173,7 @@ uint
 patchable_exit_cti_align_offs(dcontext_t *dcontext, instr_t *inst, cache_pc pc)
 {
     /* all our exit cti's currently use 4 byte offsets */
-    /* FIXME : would be better to use a instr_is_cti_long or some such
+    /* XXX : would be better to use a instr_is_cti_long or some such
      * also should check for addr16 flag (we shouldn't have any prefixes) */
     ASSERT((instr_is_cti(inst) && !instr_is_cti_short(inst) &&
             !TESTANY(~(PREFIX_JCC_TAKEN | PREFIX_JCC_NOT_TAKEN | PREFIX_PRED_MASK),
@@ -186,7 +186,90 @@ patchable_exit_cti_align_offs(dcontext_t *dcontext, instr_t *inst, cache_pc pc)
                                   CTI_PATCH_SIZE, PAD_JMPS_ALIGNMENT);
 }
 
-/* make sure to keep in sync w/ instr_raw_is_tls_spill() */
+static inline byte
+spill_restore_opcode(bool spill, bool moffs)
+{
+    if (moffs)
+        return spill ? MOV_XAX2MEM_OPCODE : MOV_MEM2XAX_OPCODE;
+    return spill ? MOV_REG2MEM_OPCODE : MOV_MEM2REG_OPCODE;
+}
+
+#ifdef X64
+/* Emits a 9-byte TLS spill or restore using ModRM/SIB with sign-extended disp32
+ * for any supported register, including RAX.
+ */
+static byte *
+insert_tls_spill_or_restore64_modrm(byte *pc, bool spill, reg_id_t reg, int tls_disp)
+{
+    *pc++ = TLS_SEG_OPCODE;
+    *pc++ = REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG;
+    *pc++ = spill_restore_opcode(spill, false /*moffs*/);
+    *pc++ = MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), 4 /*rm*/);
+    *pc++ = SIB_DISP32;
+    *((int *)pc) = tls_disp;
+    return pc + 4;
+}
+
+/* Emits a 64-bit TLS spill or restore, selecting the encoding by register and
+ * build to match the fixed stub and prefix size definitions.
+ */
+static byte *
+insert_tls_spill_or_restore64(byte *pc, bool spill, reg_id_t reg, int tls_disp)
+{
+#    ifndef LINUX_KERNEL
+    if (reg == REG_XAX) {
+        /* A1/A3 moffs with addr32 takes 8 bytes, saving one byte over ModRM/SIB.
+         * addr32 zero-extends so this form cannot address negative TLS displacements.
+         */
+        ASSERT(tls_disp >= 0);
+        *pc++ = ADDR_PREFIX_OPCODE;
+        *pc++ = TLS_SEG_OPCODE;
+        *pc++ = REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG;
+        *pc++ = spill_restore_opcode(spill, true /*moffs*/);
+        *((int *)pc) = tls_disp;
+        return pc + 4;
+    }
+#    endif
+    /* Kernel TLS displacements can be negative. Use sign-extended disp32 even
+     * for positive displacements to keep stub and prefix sizes fixed.
+     */
+    return insert_tls_spill_or_restore64_modrm(pc, spill, reg, tls_disp);
+}
+#endif
+
+/* Emits to a writable address.  tls_disp is a full segment displacement, not a
+ * local_state_t slot.  Keep in sync with instr_raw_is_tls_spill().
+ */
+static byte *
+insert_tls_spill_or_restore(byte *pc, uint flags, bool spill, reg_id_t reg, int tls_disp,
+                            bool require_addr16)
+{
+#ifdef X64
+    if (!FRAG_IS_32(flags))
+        return insert_tls_spill_or_restore64(pc, spill, reg, tls_disp);
+#endif
+    /* addr16 keeps 32-bit stubs compact and requires a displacement in [0, 0xffff].
+     * Without addr16, use the native 32-bit address size.
+     */
+    bool addr16 = (require_addr16 || use_addr_prefix_on_short_disp());
+    if (addr16) {
+        *pc++ = ADDR_PREFIX_OPCODE;
+    }
+    *pc++ = TLS_SEG_OPCODE;
+    *pc++ = spill_restore_opcode(spill, reg == REG_XAX);
+    if (reg != REG_XAX)
+        *pc++ = MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), addr16 ? 6 : 5 /*rm*/);
+    if (addr16) {
+        ASSERT(CHECK_TRUNCATE_TYPE_ushort(tls_disp));
+        *((ushort *)pc) = (ushort)tls_disp;
+        pc += 2;
+    } else {
+        *((int *)pc) = tls_disp;
+        pc += 4;
+    }
+    return pc;
+}
+
 static cache_pc
 insert_spill_or_restore(dcontext_t *dcontext, cache_pc pc, uint flags, bool spill,
                         bool shared, reg_id_t reg, ushort tls_offs, uint dc_offs,
@@ -195,84 +278,27 @@ insert_spill_or_restore(dcontext_t *dcontext, cache_pc pc, uint flags, bool spil
     DEBUG_DECLARE(cache_pc start_pc;)
     pc = vmcode_get_writable_addr(pc);
     IF_DEBUG(start_pc = pc);
-    byte opcode = ((reg == REG_XAX) ? (spill ? MOV_XAX2MEM_OPCODE : MOV_MEM2XAX_OPCODE)
-                                    : (spill ? MOV_REG2MEM_OPCODE : MOV_MEM2REG_OPCODE));
 #ifdef X64
-    /* for x64, shared and private fragments all use tls, even for 32-bit code */
+    /* Shared and private x64 fragments use TLS, even for 32-bit code. */
     shared = true;
-    if (!FRAG_IS_32(flags)) {
-        /* mov %rbx, gs:os_tls_offset(tls_offs) */
-        if (reg == REG_XAX) {
-            /* shorter to use 0xa3 w/ addr32 prefix than 0x89/0x8b w/ sib byte */
-            /* FIXME: PR 209709: test perf and remove if outweighs space */
-            *pc = ADDR_PREFIX_OPCODE;
-            pc++;
-        }
-        *pc = TLS_SEG_OPCODE;
-        pc++;
-        *pc = REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG;
-        pc++;
-        *pc = opcode;
-        pc++;
-        if (reg != REG_XAX) {
-            /* 0x1c for rbx, 0x0c for rcx, 0x04 for rax */
-            *pc = MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), 4 /*rm*/);
-            pc++;
-            *pc = SIB_DISP32;
-            pc++; /* sib byte: abs addr */
-        }
-        *((uint *)pc) = (uint)os_tls_offset(tls_offs);
+#endif
+    if (shared) {
+        pc = insert_tls_spill_or_restore(pc, flags, spill, reg, os_tls_offset(tls_offs),
+                                         require_addr16);
+    } else {
+        /* mov %ebx,((int)&dcontext)+dc_offs */
+        *pc++ = spill_restore_opcode(spill, reg == REG_XAX);
+        if (reg != REG_XAX)
+            *pc++ = MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), 5 /*rm*/);
+        IF_X64(ASSERT_NOT_IMPLEMENTED(false));
+        *((uint *)pc) = (uint)(ptr_uint_t)UNPROT_OFFS(dcontext, dc_offs);
         pc += 4;
-    } else
-#endif /* X64 */
-        if (shared) {
-            /* mov %ebx, fs:os_tls_offset(tls_offs) */
-            /* trying hard to keep the size of the stub 5 for eax, 6 else */
-            /* FIXME: case 5231 when staying on trace space is better,
-             * when going through this to the IBL routine speed asks for
-             * not adding the prefix.
-             */
-            bool addr16 = (require_addr16 || use_addr_prefix_on_short_disp());
-            if (addr16) {
-                *pc = ADDR_PREFIX_OPCODE;
-                pc++;
-            }
-            *pc = TLS_SEG_OPCODE;
-            pc++;
-            *pc = opcode;
-            pc++;
-            if (reg != REG_XAX) {
-                /* 0x1e for ebx, 0x0e for ecx, 0x06 for eax
-                 * w/o addr16 those are 0x1d, 0x0d, 0x05
-                 */
-                *pc = MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), addr16 ? 6 : 5 /*rm*/);
-                pc++;
-            }
-            if (addr16) {
-                *((ushort *)pc) = os_tls_offset(tls_offs);
-                pc += 2;
-            } else {
-                *((uint *)pc) = os_tls_offset(tls_offs);
-                pc += 4;
-            }
-        } else {
-            /* mov %ebx,((int)&dcontext)+dc_offs */
-            *pc = opcode;
-            pc++;
-            if (reg != REG_XAX) {
-                /* 0x1d for ebx, 0x0d for ecx, 0x05 for eax */
-                *pc = MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), 5 /*rm*/);
-                pc++;
-            }
-            IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-            *((uint *)pc) = (uint)(ptr_uint_t)UNPROT_OFFS(dcontext, dc_offs);
-            pc += 4;
-        }
+    }
     ASSERT(IF_X64_ELSE(false, !shared) ||
            (pc - start_pc) ==
                (reg == REG_XAX ? SIZE_MOV_XAX_TO_TLS(flags, require_addr16)
                                : SIZE_MOV_XBX_TO_TLS(flags, require_addr16)));
-    ASSERT(IF_X64_ELSE(false, !shared) || !spill || reg == REG_XAX ||
+    ASSERT(IF_X64_ELSE(false, !shared) || !spill ||
            instr_raw_is_tls_spill(start_pc, reg, tls_offs));
     return vmcode_get_executable_addr(pc);
 }
@@ -318,25 +344,25 @@ insert_jmp_to_ibl(byte *pc, fragment_t *f, linkstub_t *l, cache_pc exit_target,
 #ifdef WINDOWS
     if (DYNAMO_OPTION(shared_syscalls) &&
         is_shared_syscall_routine(dcontext, exit_target)) {
-        /* FIXME We could reduce mem usage by not allocating a linkstub for
+        /* XXX We could reduce mem usage by not allocating a linkstub for
          * this exit since it's never referenced.
          */
         LOG(THREAD, LOG_LINKS, 4, "\tF%d using %s shared syscalls link stub\n", f->id,
-            TEST(FRAG_IS_TRACE, f->flags) ? "trace" : "bb");
-        l = (linkstub_t *)(TEST(FRAG_IS_TRACE, f->flags)
+            TESTANY(FRAG_IS_TRACE, f->flags) ? "trace" : "bb");
+        l = (linkstub_t *)(TESTANY(FRAG_IS_TRACE, f->flags)
                                ? get_shared_syscalls_trace_linkstub()
                                : get_shared_syscalls_bb_linkstub());
     }
 #endif
-    if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
-        /* FIXME: once we separate these we should switch to 15-byte w/
+    if (TESTANY(FRAG_COARSE_GRAIN, f->flags)) {
+        /* XXX: once we separate these we should switch to 15-byte w/
          * store-to-mem instead of in a spilled xbx, to use same
          * slots as coarse direct stubs
          */
         /* There is no linkstub_t so we store source tag instead */
         *((ptr_uint_t *)pc) = (ptr_uint_t)f->tag;
         pc += sizeof(f->tag);
-        /* FIXME: once we separate the indirect stubs out we will need
+        /* XXX: once we separate the indirect stubs out we will need
          * a 15-byte stub .  For that we should simply store the
          * source cti directly into a tls slot.  For now though we inline
          * the stubs and spill xbx.
@@ -374,7 +400,7 @@ nop_pad_ilist(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist, bool emit
 
     for (inst = instrlist_first(ilist); inst != NULL; inst = instr_get_next(inst)) {
         /* don't support non exit cti patchable instructions yet */
-        ASSERT_NOT_IMPLEMENTED(!TEST(INSTR_HOT_PATCHABLE, inst->flags));
+        ASSERT_NOT_IMPLEMENTED(!TESTANY(INSTR_HOT_PATCHABLE, inst->flags));
         if (instr_is_exit_cti(inst)) {
             /* see if we need to be able to patch this instruction */
             if (is_exit_cti_patchable(dcontext, inst, f->flags)) {
@@ -517,13 +543,47 @@ insert_inlined_ibl(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, byte *pc,
     } else {
         insert_relative_target(start_pc + ibl_code->inline_linkedjmp_offs,
                                linked_exit_target, NOT_HOT_PATCHABLE);
-        insert_relative_target(
-            start_pc + ibl_code->inline_unlink_offs +
-                1 /* skip jmp opcode: see emit_inline_ibl_stub FIXME */,
-            unlinked_exit_target, NOT_HOT_PATCHABLE);
+        insert_relative_target(start_pc + ibl_code->inline_unlink_offs +
+                                   1 /* skip jmp opcode: see emit_inline_ibl_stub XXX */,
+                               unlinked_exit_target, NOT_HOT_PATCHABLE);
     }
 
     return start_pc + ibl_code->inline_stub_length;
+}
+
+/* Emit the target stores of a coarse entrance stub to a writable address.
+ * Keep the layout in sync with entrance_stub_target_tag()/entrance_stub_jmp().
+ */
+static byte *
+insert_entrance_stub_tag(byte *pc, uint flags, app_pc target, int tls_disp)
+{
+#ifdef X64
+    if (!FRAG_IS_32(flags)) {
+        /* There is no imm64-to-memory instruction: split into two dwords. */
+        ASSERT(CHECK_TRUNCATE_TYPE_int((int64)tls_disp + 4));
+        for (int i = 0; i < 2; ++i) {
+            *pc++ = TLS_SEG_OPCODE;
+            *pc++ = MOV_IMM2MEM_OPCODE;
+            *pc++ = MODRM_BYTE(0 /*mod*/, 0 /*reg*/, 4 /*rm*/);
+            *pc++ = SIB_DISP32;
+            *((int *)pc) = tls_disp + 4 * i;
+            pc += 4;
+            *((uint *)pc) = (uint)((ptr_uint_t)target >> (32 * i));
+            pc += 4;
+        }
+        return pc;
+    }
+#endif
+    /* addr16 keeps the 32-bit stub at or below 15 bytes. */
+    ASSERT(CHECK_TRUNCATE_TYPE_ushort(tls_disp));
+    *pc++ = ADDR_PREFIX_OPCODE;
+    *pc++ = TLS_SEG_OPCODE;
+    *pc++ = MOV_IMM2MEM_OPCODE;
+    *pc++ = MODRM16_DISP16;
+    *((ushort *)pc) = (ushort)tls_disp;
+    pc += 2;
+    *((uint *)pc) = (uint)(ptr_uint_t)target;
+    return pc + 4;
 }
 
 /* Emit code for the exit stub at stub_pc.  Return the size of the
@@ -545,7 +605,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
 
     /* select the correct exit target */
     if (LINKSTUB_DIRECT(l_flags)) {
-        if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
+        if (TESTANY(FRAG_COARSE_GRAIN, f->flags)) {
             /* need to target the fcache return prefix */
             exit_target = fcache_return_coarse_prefix(stub_pc, NULL);
             ASSERT(exit_target != NULL);
@@ -555,7 +615,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
         ASSERT(LINKSTUB_INDIRECT(l_flags));
         /* caller shouldn't call us if no stub */
         ASSERT(EXIT_HAS_STUB(l_flags, f->flags));
-        if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
+        if (TESTANY(FRAG_COARSE_GRAIN, f->flags)) {
             /* need to target the ibl prefix */
             exit_target =
                 get_coarse_ibl_prefix(dcontext, stub_pc, extract_branchtype(l_flags));
@@ -584,72 +644,15 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
 
     if (indirect) {
         pc = insert_jmp_to_ibl(pc, f, l, exit_target, dcontext);
-    } else if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
+    } else if (TESTANY(FRAG_COARSE_GRAIN, f->flags)) {
         /* This is an entrance stub.  It may be executed even when linked,
          * so we store target info to memory instead of a register.
          * The exact bytes used here are assumed by entrance_stub_target_tag().
          */
-#ifdef X64
-        if (!FRAG_IS_32(f->flags)) {
-            app_pc tgt = EXIT_TARGET_TAG(dcontext, f, l);
-            /* Both entrance_stub_target_tag() and coarse_indirect_stub_jmp_target()
-             * assume that the addr prefix is present for 32-bit but not 64-bit.
-             */
-            pc = vmcode_get_writable_addr(pc);
-            /* since we have no 8-byte-immed-to-memory, we split into two pieces */
-            *pc = TLS_SEG_OPCODE;
-            pc++;
-            *pc = MOV_IMM2MEM_OPCODE;
-            pc++;
-            *pc = MODRM_BYTE(0 /*mod*/, 0 /*reg*/, 4 /*rm*/);
-            pc++; /* => no base, w/ sib */
-            *pc = SIB_DISP32;
-            pc++; /* just disp32 */
-            /* low 32 bits */
-            *((uint *)pc) = (uint)os_tls_offset(DIRECT_STUB_SPILL_SLOT);
-            pc += 4;
-            *((uint *)pc) = (uint)(ptr_uint_t)tgt;
-            pc += 4;
-
-            *pc = TLS_SEG_OPCODE;
-            pc++;
-            *pc = MOV_IMM2MEM_OPCODE;
-            pc++;
-            *pc = MODRM_BYTE(0 /*mod*/, 0 /*reg*/, 4 /*rm*/);
-            pc++; /* => no base, w/ sib */
-            *pc = SIB_DISP32;
-            pc++; /* just disp32 */
-            /* high 32 bits */
-            *((uint *)pc) = 4 + (uint)os_tls_offset(DIRECT_STUB_SPILL_SLOT);
-            pc += 4;
-            *((uint *)pc) = (uint)(((ptr_uint_t)tgt) >> 32);
-            pc += 4;
-            pc = vmcode_get_executable_addr(pc);
-        } else {
-#endif /* X64 */
-            /* We must be at or below 15 bytes so we require addr16.
-             * Both entrance_stub_target_tag() and coarse_indirect_stub_jmp_target()
-             * assume that the addr prefix is present for 32-bit but not 64-bit.
-             */
-            pc = vmcode_get_writable_addr(pc);
-            /* addr16 mov <target>, fs:<dir-stub-spill> */
-            /* FIXME: PR 209709: test perf and remove if outweighs space */
-            *pc = ADDR_PREFIX_OPCODE;
-            pc++;
-            *pc = TLS_SEG_OPCODE;
-            pc++;
-            *pc = MOV_IMM2MEM_OPCODE;
-            pc++;
-            *pc = MODRM16_DISP16;
-            pc++;
-            *((ushort *)pc) = os_tls_offset(DIRECT_STUB_SPILL_SLOT);
-            pc += 2;
-            *((uint *)pc) = (uint)(ptr_uint_t)EXIT_TARGET_TAG(dcontext, f, l);
-            pc += 4;
-            pc = vmcode_get_executable_addr(pc);
-#ifdef X64
-        }
-#endif /* X64 */
+        pc = insert_entrance_stub_tag(vmcode_get_writable_addr(pc), f->flags,
+                                      EXIT_TARGET_TAG(dcontext, f, l),
+                                      os_tls_offset(DIRECT_STUB_SPILL_SLOT));
+        pc = vmcode_get_executable_addr(pc);
         /* jmp to exit target */
         pc = insert_relative_jump(pc, exit_target, NOT_HOT_PATCHABLE);
     } else {
@@ -767,11 +770,11 @@ link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
         pc = EXIT_CTI_PC(f, l);
         /* for x64, or -unsafe_ignore_eflags_trace, a trace may have a jne to the stub */
         if (*pc == JNE_OPCODE_1) {
-            ASSERT(TEST(FRAG_IS_TRACE, f->flags));
+            ASSERT(TESTANY(FRAG_IS_TRACE, f->flags));
 #ifndef X64
             ASSERT(INTERNAL_OPTION(unsafe_ignore_eflags_trace));
 #endif
-            /* FIXME: share this code w/ common path below: 1 opcode byte vs 2 */
+            /* XXX: share this code w/ common path below: 1 opcode byte vs 2 */
             /* get absolute address of target */
             cur_target = (app_pc)PC_RELATIVE_TARGET(pc + 2);
             exit_target = get_linked_entry(dcontext, cur_target);
@@ -799,7 +802,7 @@ indirect_linkstub_stub_pc(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
         return NULL;
     /* for x64, or -unsafe_ignore_eflags_trace, a trace may have a jne to the stub */
     if (*cti == JNE_OPCODE_1) {
-        ASSERT(TEST(FRAG_IS_TRACE, f->flags));
+        ASSERT(TESTANY(FRAG_IS_TRACE, f->flags));
 #ifndef X64
         ASSERT(INTERNAL_OPTION(unsafe_ignore_eflags_trace));
 #endif
@@ -809,16 +812,16 @@ indirect_linkstub_stub_pc(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
             stub = (cache_pc)PC_RELATIVE_TARGET(cti + 1 /*opcode byte*/);
         } else {
             /* case 6532/10987: frozen coarse has no jmp to stub */
-            ASSERT(TEST(FRAG_COARSE_GRAIN, f->flags));
+            ASSERT(TESTANY(FRAG_COARSE_GRAIN, f->flags));
             ASSERT(coarse_is_indirect_stub(cti));
             stub = cti;
         }
     }
     ASSERT(stub >= cti && (stub - cti) <= MAX_FRAGMENT_SIZE);
-    if (!TEST(LINK_LINKED, l->flags)) {
+    if (!TESTANY(LINK_LINKED, l->flags)) {
         /* the unlink target is not always the start of the stub */
         stub -= linkstub_unlink_entry_offset(dcontext, f, l);
-        /* FIXME: for -no_indirect_stubs we could point exit cti directly
+        /* XXX: for -no_indirect_stubs we could point exit cti directly
          * at unlink ibl routine if we could find the stub target for
          * linking here...should consider storing stub pc for ind exits
          * for that case to save 5 bytes in the inlined stub
@@ -858,11 +861,11 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
      * state (we do have multi-stage modifications for inlined stubs)
      */
     byte *stub_pc = (byte *)EXIT_STUB_PC(dcontext, f, l);
-    ASSERT(!TEST(FRAG_COARSE_GRAIN, f->flags));
+    ASSERT(!TESTANY(FRAG_COARSE_GRAIN, f->flags));
     ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
     ASSERT(LINKSTUB_INDIRECT(l->flags));
     /* target is always the same, so if it's already unlinked, this is a nop */
-    if (!TEST(LINK_LINKED, l->flags))
+    if (!TESTANY(LINK_LINKED, l->flags))
         return;
 
 #ifdef WINDOWS
@@ -879,8 +882,8 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
             shared_syscall_routine_ex(
                 dcontext _IF_X64(FRAGMENT_GENCODE_MODE(f->flags))) ||
 #endif
-        /* FIXME: for -no_indirect_stubs and inlined ibl, we'd like to directly
-         * target the unlinked ibl entry but we don't yet -- see FIXME in
+        /* XXX: for -no_indirect_stubs and inlined ibl, we'd like to directly
+         * target the unlinked ibl entry but we don't yet -- see XXX in
          * emit_inline_ibl_stub()
          */
         !ibl_code->ibl_head_is_inlined) {
@@ -894,7 +897,7 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
             pc = EXIT_CTI_PC(f, l);
             /* for x64, or -unsafe_ignore_eflags_trace, a trace may have a jne */
             if (*pc == JNE_OPCODE_1) {
-                ASSERT(TEST(FRAG_IS_TRACE, f->flags));
+                ASSERT(TESTANY(FRAG_IS_TRACE, f->flags));
 #ifndef X64
                 ASSERT(INTERNAL_OPTION(unsafe_ignore_eflags_trace));
 #endif
@@ -939,15 +942,15 @@ cache_pc
 entrance_stub_jmp(cache_pc stub)
 {
 #ifdef X64
-    if (*stub == 0x65)
+    if (*stub == TLS_SEG_OPCODE)
         return (stub + STUB_COARSE_DIRECT_SIZE64 - JMP_LONG_LENGTH);
-        /* else, 32-bit stub */
+    /* else, 32-bit stub */
 #endif
     return (stub + STUB_COARSE_DIRECT_SIZE32 - JMP_LONG_LENGTH);
 }
 
 /* Returns whether stub is an entrance stub as opposed to a fragment
- * or a coarse indirect stub.  FIXME: if we separate coarse indirect
+ * or a coarse indirect stub.  XXX: if we separate coarse indirect
  * stubs from bodies we'll need to put them somewhere else, or fix up
  * decode_fragment() to be able to distinguish them in some other way
  * like first instruction tls slot.
@@ -956,7 +959,7 @@ bool
 coarse_is_entrance_stub(cache_pc stub)
 {
     bool res = false;
-    /* FIXME: case 10334: pass in info and if non-NULL avoid lookup here? */
+    /* XXX: case 10334: pass in info and if non-NULL avoid lookup here? */
     coarse_info_t *info = get_stub_coarse_info(stub);
     if (info != NULL) {
         res = ALIGNED(stub, coarse_stub_alignment(info)) &&
@@ -989,7 +992,7 @@ coarse_is_entrance_stub(cache_pc stub)
  * if we need to restore just using sahf, and one if we also need to restore
  * the overflow flag OF.
  *
- * FIXME: currently we cache-align the prefix, not the normal
+ * XXX: currently we cache-align the prefix, not the normal
  * entry point...if prefix gets much longer, might want to add
  * nops to get normal entry cache-aligned?
  */
@@ -1006,7 +1009,7 @@ coarse_is_entrance_stub(cache_pc stub)
 #    define PREFIX_BASE(flags) \
         (RESTORE_XAX_PREFIX(flags) + FRAGMENT_BASE_PREFIX_SIZE(flags))
 #else
-/* FIXME i#1551: implement ibl and prefix support */
+/* XXX i#1551: implement ibl and prefix support */
 #    define RESTORE_XAX_PREFIX(flags) (ASSERT_NOT_IMPLEMENTED(false), 0)
 #    define PREFIX_BASE(flags) (ASSERT_NOT_IMPLEMENTED(false), 0)
 #endif
@@ -1014,7 +1017,7 @@ coarse_is_entrance_stub(cache_pc stub)
 int
 fragment_ibt_prefix_size(uint flags)
 {
-    bool use_eflags_restore = TEST(FRAG_IS_TRACE, flags)
+    bool use_eflags_restore = TESTANY(FRAG_IS_TRACE, flags)
         ? !DYNAMO_OPTION(trace_single_restore_prefix)
         : !DYNAMO_OPTION(bb_single_restore_prefix);
     /* The common case is !INTERNAL_OPTION(unsafe_ignore_eflags*) so
@@ -1032,9 +1035,9 @@ fragment_ibt_prefix_size(uint flags)
     }
     if (!use_eflags_restore)
         return PREFIX_BASE(flags) - RESTORE_XAX_PREFIX(flags);
-    if (TEST(FRAG_WRITES_EFLAGS_6, flags)) /* no flag restoration needed */
+    if (TESTANY(FRAG_WRITES_EFLAGS_6, flags)) /* no flag restoration needed */
         return PREFIX_BASE(flags);
-    else if (TEST(FRAG_WRITES_EFLAGS_OF, flags)) /* no OF restoration needed */
+    else if (TESTANY(FRAG_WRITES_EFLAGS_OF, flags)) /* no OF restoration needed */
         return (PREFIX_BASE(flags) + PREFIX_SIZE_FIVE_EFLAGS);
     else { /* must restore all 6 flags */
         if (INTERNAL_OPTION(unsafe_ignore_overflow)) {
@@ -1095,7 +1098,7 @@ void
 insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
 {
     byte *pc = (byte *)f->start_pc;
-    bool insert_eflags_xax_restore = TEST(FRAG_IS_TRACE, f->flags)
+    bool insert_eflags_xax_restore = TESTANY(FRAG_IS_TRACE, f->flags)
         ? !DYNAMO_OPTION(trace_single_restore_prefix)
         : !DYNAMO_OPTION(bb_single_restore_prefix);
     ASSERT(f->prefix_size == 0); /* shouldn't be any prefixes yet */
@@ -1105,8 +1108,8 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
              !INTERNAL_OPTION(unsafe_ignore_eflags_ibl)) &&
             insert_eflags_xax_restore) {
             if (!INTERNAL_OPTION(unsafe_ignore_eflags_prefix) &&
-                !TEST(FRAG_WRITES_EFLAGS_6, f->flags)) {
-                if (!TEST(FRAG_WRITES_EFLAGS_OF, f->flags) &&
+                !TESTANY(FRAG_WRITES_EFLAGS_6, f->flags)) {
+                if (!TESTANY(FRAG_WRITES_EFLAGS_OF, f->flags) &&
                     !INTERNAL_OPTION(unsafe_ignore_overflow)) {
                     DEBUG_DECLARE(byte *restore_of_prefix_pc = pc;)
                     /* must restore OF
@@ -1184,7 +1187,7 @@ append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool abso
                               opnd_create_reg(REG_DCXT)));
 #endif
         APP(ilist, XINST_CREATE_load(dcontext, opnd_create_reg(REG_DCXT), OPND_ARG1));
-        if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+        if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
             APP(ilist, RESTORE_FROM_DC(dcontext, REG_DCXT_PROT, PROT_OFFS));
     }
 #ifdef UNIX
@@ -1314,7 +1317,7 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
      * to use movdqa when sse2 is available.
      * Note that mov[au]p[sd] and movdq[au] are functionally equivalent.
      */
-    /* FIXME i#438: once have SandyBridge processor need to measure
+    /* XXX i#438: once have SandyBridge processor need to measure
      * cost of vmovdqu and whether worth arranging 32-byte alignment
      */
     int i;
@@ -1381,18 +1384,18 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
  *    RESTORE_FROM_UPCONTEXT xbx_OFFSET,%xbx
  *    RESTORE_FROM_UPCONTEXT xcx_OFFSET,%xcx
  *    RESTORE_FROM_UPCONTEXT xdx_OFFSET,%xdx
- *  if (absolute || !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+ *  if (absolute || !TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
  *    RESTORE_FROM_UPCONTEXT xdx_OFFSET,%xdx
- *  if (absolute || !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+ *  if (absolute || !TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
  *    RESTORE_FROM_UPCONTEXT xsi_OFFSET,%xsi
  *  endif
- *  if (absolute || TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+ *  if (absolute || TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
  *    RESTORE_FROM_UPCONTEXT xdi_OFFSET,%xdi
  *  endif
  *    RESTORE_FROM_UPCONTEXT xbp_OFFSET,%xbp
  *    RESTORE_FROM_UPCONTEXT xsp_OFFSET,%xsp
  *  if (!absolute)
- *    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+ *    if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
  *      RESTORE_FROM_UPCONTEXT xsi_OFFSET,%xsi
  *    else
  *      RESTORE_FROM_UPCONTEXT xdi_OFFSET,%xdi
@@ -1417,16 +1420,16 @@ append_restore_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
     APP(ilist, RESTORE_FROM_DC(dcontext, REG_XCX, XCX_OFFSET));
     APP(ilist, RESTORE_FROM_DC(dcontext, REG_XDX, XDX_OFFSET));
     /* must restore esi last */
-    if (absolute || !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+    if (absolute || !TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
         APP(ilist, RESTORE_FROM_DC(dcontext, REG_XSI, XSI_OFFSET));
     /* must restore edi last */
-    if (absolute || TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+    if (absolute || TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
         APP(ilist, RESTORE_FROM_DC(dcontext, REG_XDI, XDI_OFFSET));
     APP(ilist, RESTORE_FROM_DC(dcontext, REG_XBP, XBP_OFFSET));
     APP(ilist, RESTORE_FROM_DC(dcontext, REG_XSP, XSP_OFFSET));
     /* must restore esi last */
     if (!absolute) {
-        if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+        if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
             APP(ilist, RESTORE_FROM_DC(dcontext, REG_XSI, XSI_OFFSET));
         else
             APP(ilist, RESTORE_FROM_DC(dcontext, REG_XDI, XDI_OFFSET));
@@ -1454,7 +1457,7 @@ append_restore_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
  *  endif
  *    SAVE_TO_UPCONTEXT %xcx,xcx_OFFSET
  *    SAVE_TO_UPCONTEXT %xdx,xdx_OFFSET
- *  if (absolute || !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+ *  if (absolute || !TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
  *    SAVE_TO_UPCONTEXT %xsi,xsi_OFFSET
  *  endif
  *
@@ -1527,7 +1530,7 @@ append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool abs
         APP(ilist, SAVE_TO_DC(dcontext, REG_XCX, XCX_OFFSET));
     }
     APP(ilist, SAVE_TO_DC(dcontext, REG_XDX, XDX_OFFSET));
-    if (absolute || !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+    if (absolute || !TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
         APP(ilist, SAVE_TO_DC(dcontext, REG_XSI, XSI_OFFSET));
     if (absolute) /* else xdi saved above */
         APP(ilist, SAVE_TO_DC(dcontext, REG_XDI, XDI_OFFSET));
@@ -1576,7 +1579,7 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
      * to use movdqa when sse2 is available.
      * Note that mov[au]p[sd] and movdq[au] are functionally equivalent.
      */
-    /* FIXME i#438: once have SandyBridge processor need to measure
+    /* XXX i#438: once have SandyBridge processor need to measure
      * cost of vmovdqu and whether worth arranging 32-byte alignment
      */
     int i;
@@ -1635,7 +1638,7 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
  *  SAVE_TO_UPCONTEXT %xbx,xflags_OFFSET # save eflags value
  *
  *  # clear eflags now to avoid app's eflags messing up our ENTER_DR_HOOK
- *  # FIXME: this won't work at CPL0 if we ever run there!
+ *  # XXX: this won't work at CPL0 if we ever run there!
  *  push  0
  *  popf
  */
@@ -1647,7 +1650,7 @@ append_save_clear_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute
     APP(ilist, INSTR_CREATE_RAW_pushf(dcontext));
     APP(ilist, INSTR_CREATE_pop(dcontext, opnd_create_reg(reg)));
 #elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
+    /* TODO i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
 #endif /* X86/ARM */
     APP(ilist, SAVE_TO_DC(dcontext, reg, XFLAGS_OFFSET));
@@ -1765,7 +1768,7 @@ insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where, uin
     /* no support for absolute addresses on x64: we always use tls/reg */
     IF_X64(ASSERT_NOT_IMPLEMENTED(!absolute));
 
-    if (TEST(FRAG_WRITES_EFLAGS_6, flags)) /* no flag save needed */
+    if (TESTANY(FRAG_WRITES_EFLAGS_6, flags)) /* no flag save needed */
         return;
     /* save the flags */
     /*>>>    SAVE_TO_TLS/UPCONTEXT %xax,xax_tls_slot/xax_OFFSET  */
@@ -1779,10 +1782,10 @@ insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where, uin
         PRE(ilist, where, SAVE_TO_REG(dcontext, REG_XAX, REG_R8));
     } else if (tls) {
         /* We need to save this in an easy location for the prefixes
-         * to restore from.  FIXME: This can be much more streamlined
+         * to restore from.  XXX: This can be much more streamlined
          * if TLS_SLOT_SCRATCH1 was the XAX spill slot for everyone
          */
-        /* FIXME: since the prefixes are trying to be smart now
+        /* XXX: since the prefixes are trying to be smart now
          * based on shared/privateness of the fragment, we also need
          * to know what would the target do if shared.
          */
@@ -1793,7 +1796,7 @@ insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where, uin
         PRE(ilist, where, SAVE_TO_DC(dcontext, REG_XAX, XAX_OFFSET));
     }
     PRE(ilist, where, INSTR_CREATE_lahf(dcontext));
-    if (!TEST(FRAG_WRITES_EFLAGS_OF, flags) &&
+    if (!TESTANY(FRAG_WRITES_EFLAGS_OF, flags) &&
         !INTERNAL_OPTION(unsafe_ignore_overflow)) { /* OF needs saving */
         /* Move OF flags into the OF flag spill slot. */
         PRE(ilist, where, INSTR_CREATE_setcc(dcontext, OP_seto, opnd_create_reg(REG_AL)));
@@ -1813,9 +1816,9 @@ insert_restore_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
     /* no support for absolute addresses on x64: we always use tls/reg */
     IF_X64(ASSERT_NOT_IMPLEMENTED(!absolute));
 
-    if (TEST(FRAG_WRITES_EFLAGS_6, flags)) /* no flag save was done */
+    if (TESTANY(FRAG_WRITES_EFLAGS_6, flags)) /* no flag save was done */
         return;
-    if (!TEST(FRAG_WRITES_EFLAGS_OF, flags) && /* OF was saved */
+    if (!TESTANY(FRAG_WRITES_EFLAGS_OF, flags) && /* OF was saved */
         !INTERNAL_OPTION(unsafe_ignore_overflow)) {
         /* restore OF using add that overflows and sets OF
          * if OF was on when we did seto
@@ -2029,19 +2032,19 @@ append_ibl_head(dcontext_t *dcontext, instrlist_t *ilist, ibl_code_t *ibl_code,
             hash_to_address_factor = (uint)sizeof(fragment_entry_t) /
                 (1 << HASHTABLE_IBL_OFFSET(ibl_code->branch_type));
         } else {
-            /* FIXME: we'll need to shift right a few more bits */
+            /* XXX: we'll need to shift right a few more bits */
             /* >>>   shrl  factor-3, %xcx */
             ASSERT_NOT_IMPLEMENTED(false);
             hash_to_address_factor = 1;
         }
-        /* FIXME: there is no good way to ASSERT that the table we're looking up
+        /* XXX: there is no good way to ASSERT that the table we're looking up
          * is using the correct hash_mask_offset
          */
 
-        /* FIXME: case 4893: three ADD's are faster than one LEA - if IBL
+        /* XXX: case 4893: three ADD's are faster than one LEA - if IBL
          * head is not inlined we may want to try that advice
          */
-        /* FIXME: case 4893 when hash_mask_offset==3 we can use a better encoding
+        /* XXX: case 4893 when hash_mask_offset==3 we can use a better encoding
          * since we don't need an index register we can switch to a non-SIB encoding
          * so that instead of 7 bytes we have 6 byte encoding going through the fast
          * decoder
@@ -2187,7 +2190,7 @@ emit_inline_ibl_stub(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code,
 
     /* initialize the ilist and the patch list */
     instrlist_init(&ilist);
-    /* FIXME: for !absolute need to optimize to PATCH_TYPE_INDIRECT_FS */
+    /* XXX: for !absolute need to optimize to PATCH_TYPE_INDIRECT_FS */
     init_patch_list(patch, absolute ? PATCH_TYPE_ABSOLUTE : PATCH_TYPE_INDIRECT_XDI);
 
     /*
@@ -2278,7 +2281,7 @@ miss:
         append_ibl_head(dcontext, &ilist, ibl_code, patch, NULL, &cmp, NULL,
                         opnd_create_pc(linked_ibl_pc), false /*miss needs 32-bit offs*/,
                         target_trace_table, true /* inline of course */);
-        /* FIXME: we'd like to not have this jmp at all and instead have the cti
+        /* XXX: we'd like to not have this jmp at all and instead have the cti
          * go to the inlined stub when linked and straight to the unlinked ibl
          * entry when unlinked but we haven't put in the support in the link
          * routines (they all assume they can find the unlinked from the current
@@ -2286,7 +2289,7 @@ miss:
          */
         unlink = INSTR_CREATE_jmp(dcontext, opnd_create_pc(unlinked_ibl_pc));
         APP(&ilist, unlink);
-        /* FIXME: w/ private traces and htable stats we have a patch entry
+        /* XXX: w/ private traces and htable stats we have a patch entry
          * inserted inside app_ibl_head (in append_ibl_found) at a later instr
          * than the miss instr.  To fix, we must either put the miss patch point
          * in the middle of the array and shift it over to keep it sorted, or
@@ -2296,11 +2299,11 @@ miss:
 #ifdef HASHTABLE_STATISTICS
         ASSERT_NOT_IMPLEMENTED(!absolute || !INTERNAL_OPTION(hashtable_ibl_stats));
 #endif
-        /* FIXME: cleaner to have append_ibl_head pass back miss instr */
+        /* XXX: cleaner to have append_ibl_head pass back miss instr */
         add_patch_marker(patch, instr_get_next(cmp), PATCH_UINT_SIZED /* pc relative */,
                          2 /* skip jne opcode */,
                          (ptr_uint_t *)&ibl_code->inline_linkedjmp_offs);
-        /* FIXME: we would add a patch for inline_unlinkedjmp_offs at unlink+1,
+        /* XXX: we would add a patch for inline_unlinkedjmp_offs at unlink+1,
          * but encode_with_patch_list asserts, wanting 1 patch per instr, in order
          */
         add_patch_marker(patch, unlink, PATCH_UINT_SIZED /* pc relative */,
@@ -2315,7 +2318,7 @@ miss:
     return pc + ibl_code->inline_stub_length;
 }
 
-/* FIXME: case 5232 where this should really be smart -
+/* XXX: case 5232 where this should really be smart -
  * for now always using jmp rel32 with statistics
  *
  * Use with caution where jmp_short would really work in release - no
@@ -2487,7 +2490,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
     }
 
     /*>>>    je      sentinel_check                                  */
-    /* FIXME: je_short ends up not reaching target for shared inline! */
+    /* XXX: je_short ends up not reaching target for shared inline! */
     APP(&ilist,
         INSTR_CREATE_jcc(dcontext, OP_je_short, opnd_create_instr(sentinel_check)));
 
@@ -2616,7 +2619,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
         }
 
         /*>>>    jmp    compare_tag                                 */
-        /* FIXME: should fit in a jmp_short for release builds */
+        /* XXX: should fit in a jmp_short for release builds */
         /* case 5232: use INSTR_CREATE_jmp_smart here */
         APP(&ilist, INSTR_CREATE_jmp(dcontext, opnd_create_instr(compare_tag)));
     }
@@ -2709,7 +2712,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
             insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
         }
     } /* else later will fill in fake linkstub anyway.
-       * FIXME: for -no_indirect_stubs, is this source of add_ibl curiosities on IIS?
+       * XXX: for -no_indirect_stubs, is this source of add_ibl curiosities on IIS?
        * but one at least was a post-syscall!
        */
 
@@ -2837,7 +2840,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
         insert_shared_get_dcontext(dcontext, &ilist, NULL, true /* save register */);
     }
     /* note we are now saving XAX to the dcontext - no matter where it
-     * was saved before for saving and restoring eflags.  FIXME: in
+     * was saved before for saving and restoring eflags.  XXX: in
      * some incarnations of this routine it is redundant, yet this is
      * the slow path anyways
      */
@@ -2848,7 +2851,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
     /*   app XBX is properly restored  */
     /*   XAX gets the linkstub_ptr */
     /*   app XAX is saved in slot1 */
-    /* FIXME: this all can be cleaned up at the cost of an extra byte in
+    /* XXX: this all can be cleaned up at the cost of an extra byte in
        direct exit stubs to use XBX */
 
     if (ibl_code->source_fragment_type == IBL_COARSE_SHARED) {
@@ -2860,7 +2863,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
         ASSERT(linkstub != NULL);
     }
 
-    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
+    if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
         /* in order to write next_tag we must unprotect -- and we don't
          * have safe stack yet!  so we duplicate fcache_return code here,
          * but we keep xcx w/ next tag around until we can store it as next_tag.
@@ -3026,7 +3029,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
             add_patch_marker(patch, unlinked, PATCH_ASSEMBLE_ABSOLUTE,
                              0 /* beginning of instruction */,
                              (ptr_uint_t *)&ibl_code->unlinked_ibl_entry);
-            /* FIXME: for x64 -thread_private we enter here from trace,
+            /* XXX: for x64 -thread_private we enter here from trace,
              * and not from top of ibl, so we must save xdi.  Is this true
              * for all cases of only_spill_state_in_tls with !save_xdi?
              * Maybe should be saved in append_increment_counter's call to
@@ -3170,3 +3173,188 @@ is_jmp_rel8(byte *code_buf, app_pc app_loc, app_pc *jmp_target /* OUT */)
     }
     return false;
 }
+
+#ifdef STANDALONE_UNIT_TEST
+#    include "../../perscache.h"
+
+/* Exercise the raw emitters with full segment displacements that cannot currently be
+ * obtained from user-space local_state_t slots.
+ */
+void
+unit_test_tls_emit(dcontext_t *dcontext)
+{
+    const int disps[] = { 0,  1,        0xffff,      0x10000, 0x12345678,
+                          -1, -0x10000, -0x12345678, INT_MIN, INT_MAX };
+    const reg_id_t regs[] = { REG_XAX, REG_XBX, REG_XCX };
+    dr_isa_mode_t old_mode;
+    instr_t instr;
+    byte buf[32];
+    coarse_info_t info;
+    memset(&info, 0, sizeof(info));
+    instr_init(dcontext, &instr);
+#    if defined(X64) && !defined(LINUX_KERNEL)
+    /* Expect the compact user-space RAX instruction bytes and direct-stub size. */
+    EXPECT(SIZE64_MOV_XAX_TO_TLS, 8);
+    EXPECT(DIRECT_EXIT_STUB_SIZE64, 23);
+    byte expected[] = { ADDR_PREFIX_OPCODE,
+                        TLS_SEG_OPCODE,
+                        REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG,
+                        MOV_XAX2MEM_OPCODE,
+                        0x34,
+                        0x12,
+                        0,
+                        0 };
+    for (int spill = 0; spill < 2; ++spill) {
+        expected[3] = spill ? MOV_XAX2MEM_OPCODE : MOV_MEM2XAX_OPCODE;
+        byte *end =
+            insert_tls_spill_or_restore(buf, 0, spill != 0, REG_XAX, 0x1234, false);
+        EXPECT(end - buf, sizeof(expected));
+        EXPECT(memcmp(buf, expected, sizeof(expected)), 0);
+    }
+#    endif
+    dr_set_isa_mode(dcontext, DR_ISA_IA32, &old_mode);
+    /* Both native 32-bit and mixed-mode builds use the same compact layout. */
+    for (int is_64bit = 0; is_64bit < IF_X64_ELSE(2, 1); ++is_64bit) {
+        uint flags = IF_X64_ELSE(is_64bit ? 0 : FRAG_32_BIT, 0);
+        dr_set_isa_mode(dcontext, is_64bit ? DR_ISA_AMD64 : DR_ISA_IA32, NULL);
+        for (uint d = 0; d < BUFFER_SIZE_ELEMENTS(disps); ++d) {
+            for (int addr16 = 0; addr16 < 2; ++addr16) {
+                if (!is_64bit && (addr16 || use_addr_prefix_on_short_disp()) &&
+                    !CHECK_TRUNCATE_TYPE_ushort(disps[d]))
+                    continue;
+                for (uint r = 0; r < BUFFER_SIZE_ELEMENTS(regs); ++r) {
+#    if defined(X64) && !defined(LINUX_KERNEL)
+                    /* User-space RAX moffs uses an unsigned address.  Exercise
+                     * signed kernel RAX displacements separately below.
+                     */
+                    if (is_64bit && regs[r] == REG_XAX && disps[d] < 0)
+                        continue;
+#    endif
+                    for (int spill = 0; spill < 2; ++spill) {
+                        byte *end = insert_tls_spill_or_restore(
+                            buf, flags, spill != 0, regs[r], disps[d], addr16 != 0);
+                        opnd_t mem, reg;
+                        instr_reset(dcontext, &instr);
+                        EXPECT(decode(dcontext, buf, &instr), end);
+                        EXPECT(end - buf,
+                               (regs[r] == REG_XAX ? SIZE_MOV_XAX_TO_TLS(flags, addr16)
+                                                   : SIZE_MOV_XBX_TO_TLS(flags, addr16)));
+                        mem = spill ? instr_get_dst(&instr, 0) : instr_get_src(&instr, 0);
+                        reg = spill ? instr_get_src(&instr, 0) : instr_get_dst(&instr, 0);
+                        EXPECT(opnd_get_disp(mem), disps[d]);
+                        EXPECT(opnd_get_segment(mem), SEG_TLS);
+                        EXPECT(opnd_is_abs_base_disp(mem), true);
+                        /* Decoding small moffs addresses normalizes them to
+                         * base-disp operands without the short-address flag.
+                         */
+                        if (is_64bit)
+                            EXPECT(opnd_is_disp_short_addr(mem), false);
+                        EXPECT(opnd_get_size(mem), (is_64bit ? OPSZ_8 : OPSZ_4));
+                        EXPECT(opnd_get_reg(reg),
+                               reg_resize_to_opsz(regs[r], is_64bit ? OPSZ_8 : OPSZ_4));
+                        /* Public spill queries retain their uint offset API, even
+                         * when the decoded segment displacement is negative.
+                         */
+                        if (disps[d] != os_tls_offset(TLS_DCONTEXT_SLOT)) {
+                            uint offs;
+                            bool tls, is_spill;
+                            reg_id_t spilled_reg;
+                            EXPECT(instr_is_reg_spill_or_restore(dcontext, &instr, &tls,
+                                                                 &is_spill, &spilled_reg,
+                                                                 &offs),
+                                   true);
+                            EXPECT(tls, true);
+                            EXPECT(is_spill, (spill != 0));
+                            EXPECT(offs, (uint)disps[d]);
+                            EXPECT(spilled_reg, opnd_get_reg(reg));
+                            EXPECT(
+                                opnd_get_disp(dr_raw_tls_opnd(dcontext, SEG_TLS, offs)),
+                                disps[d]);
+                        }
+                    }
+                }
+            }
+            /* Test only displacements supported by this stub layout. */
+            if (is_64bit) {
+                /* The second dword store uses disp + 4, which must fit disp32. */
+                if (!CHECK_TRUNCATE_TYPE_int((int64)disps[d] + 4))
+                    continue;
+            } else {
+                /* The 32-bit stub uses an unsigned 16-bit displacement. */
+                if (!CHECK_TRUNCATE_TYPE_ushort(disps[d]))
+                    continue;
+            }
+            app_pc tag = (app_pc)(ptr_uint_t)(IF_X64_ELSE(
+                is_64bit ? 0x1234567889abcdefULL : 0x89abcdefULL, 0x89abcdefU));
+            byte *end = insert_entrance_stub_tag(buf, flags, tag, disps[d]);
+            EXPECT(entrance_stub_jmp(buf), end);
+            /* A 32-bit stub stores a four-byte tag immediately before its jump, even in
+             * an x64 build.  Emit the jump so the tag comparison below detects a read
+             * that includes bytes from the next instruction.
+             */
+            insert_relative_jump(end, buf, NOT_HOT_PATCHABLE);
+            EXPECT(entrance_stub_target_tag(buf, &info), tag);
+            for (int i = 0; i < (is_64bit ? 2 : 1); ++i) {
+                byte *start = buf + i * (SIZE64_MOV_PTR_IMM_TO_TLS / 2);
+                instr_reset(dcontext, &instr);
+                EXPECT(decode(dcontext, start, &instr),
+                       (is_64bit ? start + SIZE64_MOV_PTR_IMM_TO_TLS / 2 : end));
+                EXPECT(opnd_get_disp(instr_get_dst(&instr, 0)), disps[d] + 4 * i);
+                EXPECT(opnd_get_segment(instr_get_dst(&instr, 0)), SEG_TLS);
+            }
+        }
+        /* Check raw spill recognition for each layout and register, including
+         * 32-bit disp32's ModRM and displacement positions.
+         */
+        for (uint r = 0; r < BUFFER_SIZE_ELEMENTS(regs); ++r) {
+            for (int addr16 = 0; addr16 < 2; ++addr16) {
+                int disp = os_tls_offset(DIRECT_STUB_SPILL_SLOT);
+                if (!is_64bit && (addr16 || use_addr_prefix_on_short_disp()) &&
+                    !CHECK_TRUNCATE_TYPE_ushort(disp))
+                    continue;
+                insert_tls_spill_or_restore(buf, flags, true, regs[r], disp, addr16 != 0);
+                EXPECT(instr_raw_is_tls_spill(buf, regs[r], DIRECT_STUB_SPILL_SLOT),
+                       true);
+                EXPECT(instr_raw_is_tls_spill(buf, regs[r], DIRECT_STUB_SPILL_SLOT + 1),
+                       false);
+                insert_tls_spill_or_restore(buf, flags, false, regs[r], disp,
+                                            addr16 != 0);
+                EXPECT(instr_raw_is_tls_spill(buf, regs[r], DIRECT_STUB_SPILL_SLOT),
+                       false);
+            }
+        }
+    }
+#    ifdef X64
+    /* Exercise the sign-extended disp32 RAX form used by kernel builds, even
+     * when this test is built for user space, where RAX normally uses moffs.
+     */
+    dr_set_isa_mode(dcontext, DR_ISA_AMD64, NULL);
+    for (uint d = 0; d < BUFFER_SIZE_ELEMENTS(disps); ++d) {
+        for (int spill = 0; spill < 2; ++spill) {
+            byte *end =
+                insert_tls_spill_or_restore64_modrm(buf, spill != 0, REG_XAX, disps[d]);
+            EXPECT(end - buf, 9);
+            EXPECT(buf[0], TLS_SEG_OPCODE);
+            EXPECT(buf[2], (spill ? MOV_REG2MEM_OPCODE : MOV_MEM2REG_OPCODE));
+            instr_reset(dcontext, &instr);
+            EXPECT(decode(dcontext, buf, &instr), end);
+            opnd_t mem = spill ? instr_get_dst(&instr, 0) : instr_get_src(&instr, 0);
+            EXPECT(opnd_get_disp(mem), disps[d]);
+            EXPECT(opnd_get_segment(mem), SEG_TLS);
+            EXPECT(opnd_is_disp_short_addr(mem), false);
+            EXPECT(opnd_get_size(mem), OPSZ_8);
+        }
+    }
+    insert_tls_spill_or_restore64_modrm(buf, true, REG_XAX,
+                                        os_tls_offset(DIRECT_STUB_SPILL_SLOT));
+    EXPECT(instr_raw_is_tls_spill(buf, REG_XAX, DIRECT_STUB_SPILL_SLOT), true);
+    EXPECT(instr_raw_is_tls_spill(buf, REG_XAX, DIRECT_STUB_SPILL_SLOT + 1), false);
+    insert_tls_spill_or_restore64_modrm(buf, false, REG_XAX,
+                                        os_tls_offset(DIRECT_STUB_SPILL_SLOT));
+    EXPECT(instr_raw_is_tls_spill(buf, REG_XAX, DIRECT_STUB_SPILL_SLOT), false);
+#    endif
+    dr_set_isa_mode(dcontext, old_mode, NULL);
+    instr_free(dcontext, &instr);
+    print_file(STDERR, "done testing TLS emission\n");
+}
+#endif /* STANDALONE_UNIT_TEST */

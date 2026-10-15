@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /* Private implementation of drmemtrace scheduler. */
 
 #ifndef _DRMEMTRACE_SCHEDULER_IMPL_H_
-#define _DRMEMTRACE_SCHEDULER_IMPL_H_ 1
+#define _DRMEMTRACE_SCHEDULER_IMPL_H_
 
 #define NOMINMAX // Avoid windows.h messing up std::max.
 #include <assert.h>
@@ -47,7 +47,9 @@
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <random>
 #include <set>
+#include <shared_mutex>
 #include <stack>
 #include <string>
 #include <unordered_map>
@@ -104,7 +106,6 @@ protected:
     using input_thread_info_t = typename sched_type_t::input_thread_info_t;
     using scheduler_flags_t = typename sched_type_t::scheduler_flags_t;
     using range_t = typename sched_type_t::range_t;
-    using switch_type_t = typename sched_type_t::switch_type_t;
 
 public:
     scheduler_impl_tmpl_t() = default;
@@ -156,6 +157,11 @@ public:
     scheduler_status_t
     write_recorded_schedule();
 
+    // If the given record has a pc, sets the provided pc parameter to it and
+    // returns true, otherwise returns false and leaves it unchanged.
+    static bool
+    record_type_has_pc(RecordType record, uint64_t &pc);
+
 protected:
     typedef speculator_tmpl_t<RecordType> spec_type_t;
 
@@ -192,11 +198,42 @@ protected:
         memref_pid_t pid = INVALID_PID;
         // Used for combined streams.
         memref_tid_t last_record_tid = INVALID_THREAD_ID;
+
+        struct queued_record_t {
+            queued_record_t()
+            {
+            }
+            queued_record_t(const RecordType &record)
+                : record(record)
+            {
+            }
+            queued_record_t(const RecordType &record, uint64_t next_trace_pc)
+                : record(record)
+                , next_trace_pc(next_trace_pc)
+                , next_trace_pc_valid(true)
+            {
+            }
+
+            RecordType record;
+            uint64_t next_trace_pc = 0;
+            // If this is false, it means the next trace pc should be obtained
+            // from the input stream get_next_trace_pc() API instead.
+            bool next_trace_pc_valid = false;
+        };
+
         // If non-empty these records should be returned before incrementing the reader.
         // This is used for read-ahead and inserting synthetic records.
         // We use a deque so we can iterate over it.
-        std::deque<RecordType> queue;
-        bool cur_from_queue;
+        // Records should be removed from the front of the queue using the
+        // get_queued_record() helper which sets the related state automatically.
+        std::deque<queued_record_t> queue;
+        bool cur_from_queue = false;
+        // Valid only if cur_from_queue is set.
+        queued_record_t cur_queue_record;
+
+        addr_t last_pc_fallthrough = 0;
+        // Whether we're in the middle of returning injected syscall records.
+        bool in_syscall_injection = false;
 
         std::set<output_ordinal_t> binding;
         int priority = 0;
@@ -261,6 +298,13 @@ protected:
         // Causes the next unscheduled entry to abort.
         bool skip_next_unscheduled = false;
         uint64_t last_run_time = 0;
+        int to_inject_syscall = INJECT_NONE;
+        // Valid only if to_inject_syscall is not INJECT_NONE.
+        uint64_t to_inject_syscall_first_pc = 0;
+        bool saw_first_func_id_marker_after_syscall = false;
+
+        // Sentinel value for to_inject_syscall.
+        static constexpr int INJECT_NONE = -1;
     };
 
     // XXX i#6831: Should this live entirely inside the dynamic subclass?
@@ -347,6 +391,11 @@ protected:
         // that a new entry does not always mean a context switch.
         uint64_t timestamp = 0;
     } END_PACKED_STRUCTURE;
+
+    // Gets a queued record if one is available and sets related state in input_info_t.
+    // Returns whether a queued record was indeed available and returned.
+    bool
+    get_queued_record(input_info_t *input, RecordType &record);
 
     ///////////////////////////////////////////////////////////////////////////
     // Support for ready queues for who to schedule next:
@@ -479,8 +528,8 @@ protected:
         // during execution, so it requires atomic accesses.
         std::unique_ptr<std::atomic<int>> record_index;
         bool waiting = false; // Waiting or idling.
-        // Used to limit stealing to one attempt per transition to idle.
-        bool tried_to_steal_on_idle = false;
+        // Used to limit stealing to one attempt per options_.steal_attempt_period idles.
+        int64_t consecutive_idles = 0;
         // This is accessed by other outputs for stealing and rebalancing.
         // Indirected so we can store it in our vector.
         std::unique_ptr<std::atomic<bool>> active;
@@ -570,6 +619,8 @@ protected:
         std::set<memref_tid_t> unfiltered_tids;
         // The count of original pre-filtered inputs (might not match
         // unfiltered_tids.size() for core-sharded inputs with IDLE_THREAD_ID).
+        uint64_t unfiltered_input_count = 0;
+        // The count of filtered inputs.
         uint64_t input_count = 0;
         // The index into inputs_ at which this workload's inputs begin.
         input_ordinal_t first_input_ordinal = 0;
@@ -652,6 +703,13 @@ protected:
     // polling as more work may show up in the future) or STATUS_EOF.
     virtual stream_status_t
     eof_or_idle_for_mode(output_ordinal_t output, input_ordinal_t prev_input) = 0;
+
+    // Called for bookkeeping when an input hits eof.
+    virtual stream_status_t
+    mark_input_eof_for_mode(input_info_t &input)
+    {
+        return sched_type_t::STATUS_OK;
+    }
 
     ///
     ///////////////////////////////////////////////////////////////////////////
@@ -760,17 +818,27 @@ protected:
     SequenceKey
     invalid_kernel_sequence_key();
 
+    struct trace_sequence_t {
+        std::vector<RecordType> records;
+        uint64_t first_pc = 0;
+        bool first_pc_valid = false;
+    };
+
     template <typename SequenceKey>
     scheduler_status_t
-    read_kernel_sequences(std::unordered_map<SequenceKey, std::vector<RecordType>,
-                                             custom_hash_t<SequenceKey>> &sequence,
-                          std::string trace_path, std::unique_ptr<ReaderType> reader,
-                          std::unique_ptr<ReaderType> reader_end,
-                          trace_marker_type_t start_marker,
-                          trace_marker_type_t end_marker, std::string sequence_type);
+    read_kernel_sequences(
+        std::unordered_map<int,
+                           std::unordered_map<SequenceKey, trace_sequence_t,
+                                              custom_hash_t<SequenceKey>>> &sequence,
+        std::string trace_path, std::unique_ptr<ReaderType> reader,
+        std::unique_ptr<ReaderType> reader_end, trace_marker_type_t start_marker,
+        trace_marker_type_t end_marker, std::string sequence_type);
 
     scheduler_status_t
     read_switch_sequences();
+
+    trace_sequence_t *
+    get_syscall_sequence(int version, int syscall_num);
 
     scheduler_status_t
     read_syscall_sequences();
@@ -818,7 +886,13 @@ protected:
     stream_status_t
     pick_next_input(output_ordinal_t output, uint64_t blocked_time);
 
+    // Returns whether the current scheduler mode is valid for the given
+    // filetype.
+    scheduler_status_t
+    check_scheduler_mode_valid(offline_file_type_t filetype);
+
     // If the given record has a thread id field, returns true and the value.
+    // This considers IDLE_THREAD_ID as a valid tid.
     bool
     record_type_has_tid(RecordType record, memref_tid_t &tid);
 
@@ -836,7 +910,17 @@ protected:
 
     // Returns whether the given record is an instruction.
     bool
-    record_type_is_instr(RecordType record);
+    record_type_is_instr(RecordType record, addr_t *pc = nullptr, size_t *size = nullptr);
+
+    // Returns whether the given record is an indirect branch. Returns in
+    // has_indirect_branch_target whether the instr record type supports the indirect
+    // branch target field or not, which will be true only when RecordType is memref_t.
+    // When RecordType is memref_t, it also sets the indirect branch target field to the
+    // given value if it's non-zero.
+    bool
+    record_type_is_indirect_branch_instr(RecordType &record,
+                                         bool &has_indirect_branch_target,
+                                         addr_t set_indirect_branch_target = 0);
 
     // If the given record is a marker, returns true and its fields.
     bool
@@ -863,6 +947,9 @@ protected:
     bool
     record_type_is_instr_boundary(RecordType record, RecordType prev_record);
 
+    bool
+    record_type_is_thread_exit(RecordType record);
+
     // Creates the marker we insert between regions of interest.
     RecordType
     create_region_separator_marker(memref_tid_t tid, uintptr_t value);
@@ -879,11 +966,52 @@ protected:
     void
     insert_switch_tid_pid(input_info_t &input);
 
+    static inline addr_t
+    canonicalize_address(addr_t address)
+    {
+#ifdef ARM_64
+        // For AArch64 the top address bit does *not* have to match the ignored
+        // bits, so we go with the 2nd-most-significant byte (since top-byte-ignore
+        // is only the very top byte; the 2nd must be all 1's or all 0's and is
+        // what we want the top byte to match to make canonical).
+        if (TESTANY(1ULL << 55, address))
+            return address | 0xffff000000000000;
+        return address & 0x0000ffffffffffff;
+#elif defined(X64)
+        // The Intel manual defines canonical as the top bits matching the highest
+        // actual address bit. RISC-V seems to match, based on how the Linux kernel
+        // "untags" addresses.
+        if (TESTANY(1ULL << 47, address))
+            return address | 0xffff000000000000;
+        return address & 0x0000ffffffffffff;
+#else
+        return address;
+#endif
+    }
+
+    // Returns the number of fields that were modified.
+    int
+    record_type_canonicalize_addresses(RecordType &record);
+
     void
     update_next_record(output_ordinal_t output, RecordType &record);
 
+    // Performs the actual injection of the kernel sequence.
     stream_status_t
-    inject_kernel_sequence(std::vector<RecordType> &sequence, input_info_t *input);
+    inject_kernel_sequence(trace_sequence_t &sequence, input_info_t *input);
+
+    // Performs the actual injection of a kernel syscall sequence, using
+    // inject_kernel_sequence as helper.
+    stream_status_t
+    inject_pending_syscall_sequence(output_ordinal_t output, input_info_t *input,
+                                    RecordType &record);
+
+    // Checks whether we're at a suitable injection point for a yet to be injected
+    // syscall sequence, and performs the injection using
+    // inject_pending_syscall_sequence as helper.
+    stream_status_t
+    maybe_inject_pending_syscall_sequence(output_ordinal_t output, input_info_t *input,
+                                          RecordType &record);
 
     // Actions that must be taken only when we know for sure that the given record
     // is going to be the next record for some output stream.
@@ -951,6 +1079,10 @@ protected:
     // 'output_ordinal'-th output stream.
     uint64_t
     get_input_last_timestamp(output_ordinal_t output);
+
+    // Returns the next continuous pc that will be seen in the trace.
+    uint64_t
+    get_next_trace_pc(output_ordinal_t output);
 
     stream_status_t
     start_speculation(output_ordinal_t output, addr_t start_address,
@@ -1024,13 +1156,16 @@ protected:
     };
     std::unordered_map<workload_tid_t, input_ordinal_t, workload_tid_hash_t> tid2input_;
 
-    std::unordered_map<switch_type_t, std::vector<RecordType>,
-                       custom_hash_t<switch_type_t>>
+    // We store separate sequences per trace version, to match to input versions.
+    std::unordered_map<
+        int,
+        std::unordered_map<switch_type_t, trace_sequence_t, custom_hash_t<switch_type_t>>>
         switch_sequence_;
     // We specify a custom hash function only to make it easier to generalize with
     // switch_sequence_ defined above.
-    std::unordered_map<int, std::vector<RecordType>, custom_hash_t<int>>
+    std::unordered_map<int, std::unordered_map<int, trace_sequence_t, custom_hash_t<int>>>
         syscall_sequence_;
+    std::unordered_map<int, trace_sequence_t> default_syscall_sequence_;
     // For single_lockstep_output.
     std::unique_ptr<stream_t> global_stream_;
     // For online where we currently have to map dynamically observed thread ids
@@ -1107,6 +1242,9 @@ protected:
     eof_or_idle_for_mode(output_ordinal_t output, input_ordinal_t prev_input) override;
 
     stream_status_t
+    mark_input_eof_for_mode(input_info_t &input) override;
+
+    stream_status_t
     set_output_active(output_ordinal_t output, bool active) override;
 
     // The input's lock must be held by the caller.
@@ -1171,6 +1309,19 @@ protected:
     mutex_dbg_owned unsched_lock_;
     // Inputs that are unscheduled indefinitely until directly targeted.
     input_queue_t unscheduled_priority_;
+    std::minstd_rand rand_gen_;
+    // This read-write lock protects direct_targets_.
+    // It should be acquired *after* both output or input locks.
+    std::shared_mutex direct_target_rwlock_;
+    // The set of inputs observed to have been targeted by direct switches.
+    // We use these as fallbacks to find alternate direct targets.
+    // We do not want to pick among the general input set as there are some
+    // inputs with different roles within the application (e.g., poller threads)
+    // which should not be activated by direct switches from main threads.
+    // Ideally, we would partition into separate scheduling trees as the inputs
+    // that are targeted can fall into different groups themselves, but we
+    // do not have that information and it may be difficult to capture.
+    flexible_queue_t<input_ordinal_t> direct_targets_;
 };
 
 // Specialized code for replaying schedules: either a recorded dynamic schedule

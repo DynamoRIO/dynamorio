@@ -100,7 +100,7 @@ dr_init(client_id_t id)
     CHECK(ok, "drx_init failed");
     res = drreg_init(&ops);
     CHECK(res == DRREG_SUCCESS, "drreg_init failed");
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
     if (!drmgr_register_bb_instrumentation_event(NULL, event_app_instruction, NULL))
         DR_ASSERT(false);
 }

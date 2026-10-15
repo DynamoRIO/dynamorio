@@ -43,7 +43,7 @@ volatile int loop_inc = 1;
 
 /* asm routines */
 void
-test_asm();
+test_asm(void);
 
 static SIGJMP_BUF mark;
 

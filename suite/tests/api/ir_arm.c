@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -182,12 +182,12 @@ test_flags(void *dc)
     instr_t *inst;
     inst = INSTR_CREATE_lsls(dc, opnd_create_reg(DR_REG_R0), opnd_create_reg(DR_REG_R1),
                              OPND_CREATE_INT(4));
-    ASSERT(!TEST(EFLAGS_WRITE_V, instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)));
+    ASSERT(!TESTANY(EFLAGS_WRITE_V, instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)));
     instr_destroy(dc, inst);
 
     inst = INSTR_CREATE_movs(dc, opnd_create_reg(DR_REG_R0), OPND_CREATE_INT(4));
-    ASSERT(TEST(EFLAGS_READ_C, instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)));
-    ASSERT(!TEST(EFLAGS_WRITE_V, instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)));
+    ASSERT(TESTANY(EFLAGS_READ_C, instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)));
+    ASSERT(!TESTANY(EFLAGS_WRITE_V, instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)));
     ASSERT(TESTALL(EFLAGS_WRITE_N | EFLAGS_WRITE_Z | EFLAGS_WRITE_C,
                    instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)));
     instr_destroy(dc, inst);

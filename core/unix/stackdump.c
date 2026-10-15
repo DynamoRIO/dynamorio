@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -74,7 +74,7 @@
 #if BATCH_MODE
 #    define DEBUGGER_COMMAND "where\nquit\n"
 #else
-/* FIXME: want to have some <enter>s to handle multi-page,
+/* XXX: want to have some <enter>s to handle multi-page,
  * but don't want to repeat where cmd, so I use pwd, which is
  * useful.  Hopefully two pages is enough.
  */
@@ -102,7 +102,7 @@ int
 fork_syscall(void)
 {
 #if FORK_BROKEN_CASE_4967
-    /* FIXME: SYS_fork on dereksha is creating a child whose pid is
+    /* XXX: SYS_fork on dereksha is creating a child whose pid is
      * same as parent but has a different tid, and the abort() to dump
      * core kills the parent process -- looks just like a separate
      * thread, not a separate process!
@@ -257,7 +257,7 @@ d_r_stackdump(void)
         close_syscall(fd);
 
         /* avoid running the debugger under us!
-         * FIXME: just remove our libraries, instead of entire env var?
+         * XXX: just remove our libraries, instead of entire env var?
          */
         unsetenv("LD_PRELOAD");
 

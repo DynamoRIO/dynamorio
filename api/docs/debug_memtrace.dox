@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -66,18 +66,19 @@ Of course, if the raw file is compressed, it must first be uncompressed.  Use `u
 
 Cheat sheet:
 
-- c040000000000004 is a header (offline version 4; type 0x40==OFFLINE_FILE_TYPE_ARCH_X86_64)
+- c408000000000c40 is a header (offline version 8; type 0xc40==OFFLINE_FILE_TYPE_SYSCALL_NUMBERS|OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS|OFFLINE_FILE_TYPE_ARCH_X86_64)
 - c100000000000000 is a footer
 - 8* is a timestamp
 - 6* is a pid
 - 4* is a tid
-- 2* are PC entries
-- a* is an arm iflush
+- 2* is a 32-bit PC entry
+- a* is a 64-bit PC entry (or 32-bit arm iflush)
 - c2* is a marker
 - c203* is a cpu id
 - c20a* is the cache line size
 - c212* is the page size
 - c200* is kernel event; c201* is kernel xfer
+- c3* is a meminfo
 
 ## Viewing post-processed files
 
@@ -124,7 +125,7 @@ $ unzip -p drmemtrace.app.194439.1516.dir/trace/drmemtrace.app.194439.7393.trace
 
 ## Viewing instruction disassembly
 
-You can use the `view` analysis tool with `skip_refs` and `sim_refs` parameters to select a window, or for small traces you can re-post-process with `drraw2trace` with high verbosity (`-verbose 4` is good).
+You can use the `view` analysis tool with `-skip_records`, `-skip_instrs`, `-exit_after_records`, and `-exit_after_instrs` parameters to select a window, or for small traces you can re-post-process with `drraw2trace` with high verbosity (`-verbose 4` is good).
 
  ****************************************************************************
  */

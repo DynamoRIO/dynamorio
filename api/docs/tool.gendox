@@ -43,7 +43,7 @@ bin64/drrun -t drcov -- application arg1 arg2
 \endcode
 
 Those interested in how the -t option works should see
-the section \ref tool_frontend.
+the section \ref sec_tool_frontend.
 
 REPLACE_WITH_GENDOX_SUBPAGES
 - \subpage page_drmemory

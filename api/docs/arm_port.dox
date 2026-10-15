@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -213,7 +213,7 @@ At this point, we are not planning to translate to a common, simple IR, as we’
   post-indexed negative:
   \verbatim
   str  Rt, [Rn], Rm
-  {OP_str    , 0x06000000, "str"   , Mw, Rn, Rt, Rn, RmN/*FIXME: how store this in opnd_t?*/, xop_shift|pred|dstX2, x, END_LIST},/*PUW=000*/
+  {OP_str    , 0x06000000, "str"   , Mw, Rn, Rt, Rn, RmN/*XXX: how store this in opnd_t?*/, xop_shift|pred|dstX2, x, END_LIST},/*PUW=000*/
   \endverbatim
 
   Choices:
@@ -599,7 +599,7 @@ In ARMv7, it uses TPIDRURO.
       reg_t r0, r1, r2, r3;
       reg_t reg_steal;              /* slot for steal register */
   #endif
-      /* FIXME: move this below the tables to fit more on cache line */
+      /* XXX: move this below the tables to fit more on cache line */
 
   XXXX check table cache line alignment
       dcontext_t *dcontext;

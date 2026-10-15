@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,7 +32,7 @@
  */
 
 #if defined(X64) && defined(WINDOWS)
-/* FIXME i#29: doesn't work on x64 natively: we're messing up the SEH w/ our
+/* XXX i#29: doesn't work on x64 natively: we're messing up the SEH w/ our
  * retaddr trick in ring()
  */
 #endif
@@ -58,21 +58,21 @@ ring(void **retaddr_p, ptr_int_t x)
 }
 
 ptr_int_t
-foo()
+foo(void)
 {
     print("in foo\n");
     return 1;
 }
 
 ptr_int_t
-bar()
+bar(void)
 {
     print("in bar\n");
     return 3;
 }
 
 ptr_int_t
-twofoo()
+twofoo(void)
 {
     ptr_int_t a = foo();
     print("first foo a=" SZFMT "\n", a);
@@ -128,7 +128,7 @@ invalid_ret(int x)
 }
 
 int
-main()
+main(int argc, const char *argv[])
 {
     INIT();
 

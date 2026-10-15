@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /* Scheduler of traced software threads onto simulated cpus. */
 
 #ifndef _DRMEMTRACE_SCHEDULER_H_
-#define _DRMEMTRACE_SCHEDULER_H_ 1
+#define _DRMEMTRACE_SCHEDULER_H_
 
 /**
  * @file drmemtrace/scheduler.h
@@ -142,6 +142,8 @@ public:
          */
         STATUS_IMPOSSIBLE_BINDING,
         STATUS_STOLE, /**< Used for internal scheduler purposes. */
+        /** Failed to find an appropriate template. */
+        STATUS_MISSING_TEMPLATE,
     };
 
     /** Identifies an input stream by its index (0-based). */
@@ -263,11 +265,18 @@ public:
          * #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t.
          * If multiple entries list the same shard ordinal, only the last one is
          * honored.
+         *
+         * If #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t.only_shards
+         * is also set, the indices here apply to the input list *after* only those
+         * matching only_shards are removed.
          */
+        // The only_shards wart is due to use cases that apply only_shards before
+        // sending a set of reader_t inputs; it is not ideal, but we do not have
+        // a simple solution for now.
         std::vector<int> shards;
         /**
          * Limits these threads to this set of output streams, which are specified by
-         * ordinal 0 through the output count minus oner.  They will not be scheduled
+         * ordinal 0 through the output count minus one.  They will not be scheduled
          * on any other output streams.
          */
         std::set<output_ordinal_t> output_binding;
@@ -614,23 +623,6 @@ public:
     };
 
     /**
-     * Types of context switches for
-     * #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t::
-     * kernel_switch_trace_path and kernel_switch_reader.
-     * The enum value is the subfile component name in the archive_istream_t.
-     */
-    enum switch_type_t {
-        /** Invalid value. */
-        SWITCH_INVALID = 0,
-        /** Generic thread context switch. */
-        SWITCH_THREAD,
-        /**
-         * Generic process context switch.  A workload is considered a process.
-         */
-        SWITCH_PROCESS,
-    };
-
-    /**
      * Collects the parameters specifying how the scheduler should behave, outside
      * of the workload inputs and the output count.
      */
@@ -704,13 +696,17 @@ public:
          * blocking and trigger a context switch.
          */
         uint64_t syscall_switch_threshold = 30000000;
+        /* If we change this, we should change drx time scaling's zero sleep
+         * conversion ZERO_PRE_INFLATE_NSEC so that it hits this threshold
+         * with a 50x (commonly applied) scale.
+         */
         /**
          * Determines the minimum latency in the unit of the trace's timestamps
          * (microseconds) for which a maybe-blocking system call (one with
          * a #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL marker) will be treated as
          * blocking and trigger a context switch.
          */
-        uint64_t blocking_switch_threshold = 500;
+        uint64_t blocking_switch_threshold = 600;
         /**
          * Deprecated: use #block_time_multiplier instead.  It is an error to set
          * this to a non-zero value when #struct_size includes #block_time_multiplier.
@@ -734,13 +730,14 @@ public:
          * Input file containing template sequences of kernel context switch code.
          * Each sequence must start with a #TRACE_MARKER_TYPE_CONTEXT_SWITCH_START
          * marker and end with #TRACE_MARKER_TYPE_CONTEXT_SWITCH_END.
-         * The values of each marker must hold a #switch_type_t enum value
-         * indicating which type of switch it corresponds to.
+         * The values of each marker must hold a #dynamorio::drmemtrace::switch_type_t
+         * enum value indicating which type of switch it corresponds to.
          * Each sequence can be stored as a separate subfile of an archive file,
          * or concatenated into a single file.
          * Each sequence should be in the regular offline drmemtrace format.
          * The sequence is inserted into the output stream on each context switch
-         * of the indicated type.
+         * of the indicated type. Each record in the inserted sequence holds the
+         * next input stream's tid and pid.
          * The same file (or reader) must be passed when replaying as this kernel
          * code is not stored when recording.
          * An alternative to passing the file path is to pass #kernel_switch_reader
@@ -820,8 +817,8 @@ public:
          * Instructions executed in a quantum may end up higher than the specified
          * value to avoid interruption of the kernel system call sequence.
          */
-        // We pick 10 million to match 2 instructions per nanosecond with a 5ms quantum.
-        uint64_t quantum_duration_instrs = 10 * 1000 * 1000;
+        // We pick 20 million to match 4 instructions per nanosecond with a 5ms quantum.
+        uint64_t quantum_duration_instrs = 20 * 1000 * 1000;
         /**
          * Controls the amount of time inputs are considered blocked at a syscall
          * whose as-traced latency (recorded in timestamp records in the trace)
@@ -908,6 +905,53 @@ public:
         std::unique_ptr<ReaderType> kernel_syscall_reader;
         /** The end reader for #kernel_syscall_reader. */
         std::unique_ptr<ReaderType> kernel_syscall_reader_end;
+        /**
+         * If <0, the initial assignment of inputs to outputs is done in a round-robin
+         * fashion.  If >=0, each input is assigned to a random output, using a seed
+         * equal to this field's value (unless it is 0 in which case the current time is
+         * used).  A rebalance is always run after the initial layout.
+         */
+        int random_initial_layout = 1;
+        /**
+         * If #honor_direct_switches is true, unschedule requests coming from
+         * #TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE markers ignore syscall latency and
+         * always block and switch.  If this #ignore_low_latency_unsched option is
+         * true, unschedule requests only block and switch if their latency is above
+         * the #blocking_switch_threshold, just like other maybe-blocking syscalls.
+         * This can help deflate these requests if tracing overhead has inflated their
+         * frequency.
+         */
+        bool ignore_low_latency_unsched = false;
+        /**
+         * If true and if #honor_direct_switches is true, when the recorded target of
+         * a #TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH system call marker is not available,
+         * an alternate target (from a pool of prior direct targets) will be attempted.
+         * This is meant for applications where these direct switches are not used for
+         * actual data dependencies but instead for general user mode scheduling, where
+         * the as-traced target may have already run due to slight variations in timing
+         * and scheduling. Exercise caution when enabling and first ensure the
+         * application is not using direct switches for dependencies.
+         */
+        bool direct_switch_fallbacks = false;
+        /**
+         * The cadence of steal attempts when an output is idle.  Each output keeps track
+         * of consecutive idles and attempts to steal when its idles hit a multiple of
+         * this value (including at 0).  Setting this field to 0 disables stealing.
+         */
+        uint64_t steal_attempt_period = 10000;
+        /**
+         * Sets whether to canonicalize (set to all 0's or all 1's) the top bytes
+         * of each address in each record.  This is relevant for platforms
+         * with a Top Byte Ignore feature where the top byte(s) of a 64-bit address
+         * can contain any value which is ignored by the hardware.
+         * Marker values whose type is unknown are not canonicalized (these include
+         * TRACE_MARKER_TYPE_FUNC_ARG and TRACE_MARKER_TYPE_FUNC_RETVAL).
+         * Auto-canonicalization is only supported for #memref_t instantiation (not
+         * for #trace_entry_t).
+         */
+        bool canonicalize_addresses =
+            scheduler_tmpl_t<RecordType,
+                             ReaderType>::record_type_canonicalization_supported();
         // When adding new options, also add to print_configuration().
     };
 
@@ -1039,6 +1083,17 @@ public:
         virtual stream_status_t
         set_active(bool active);
 
+        /**
+         * Returns a string further describing an error code on this stream.
+         * For scheduler-wide errors such as during initialization, use the scheduler
+         * object function of the same name instead.
+         */
+        std::string
+        get_error_string() const
+        {
+            return error_string_;
+        }
+
         // memtrace_stream_t interface:
 
         /**
@@ -1059,6 +1114,15 @@ public:
          */
         uint64_t
         get_record_ordinal() const override;
+        /**
+         * Identical to get_record_ordinal() but ignores the
+         * #SCHEDULER_USE_INPUT_ORDINALS flag.
+         */
+        uint64_t
+        get_output_record_ordinal() const
+        {
+            return cur_ref_count_;
+        }
         /**
          * Returns the count of instructions from the start of the trace to this point.
          * For record_scheduler_t, if any encoding records or the internal record
@@ -1231,7 +1295,9 @@ public:
 
         /**
          * Returns the #dynamorio::drmemtrace::memtrace_stream_t interface for the
-         * current input stream feeding this output stream.
+         * current input stream feeding this output stream. When we're at a
+         * #TRACE_MARKER_TYPE_CORE_IDLE record, it returns a nullptr as there is no
+         * input feeding the output stream at that time.
          */
         memtrace_stream_t *
         get_input_interface() const override;
@@ -1269,6 +1335,9 @@ public:
         bool
         is_record_kernel() const override;
 
+        uint64_t
+        get_next_trace_pc() const override;
+
         /**
          * Returns the value of the specified statistic for this output stream.
          * The values for all output streams must be summed to obtain global counts.
@@ -1289,7 +1358,7 @@ public:
         uint64_t cur_instr_count_ = 0;
         uint64_t last_timestamp_ = 0;
         uint64_t first_timestamp_ = 0;
-        bool in_kernel_trace_ = false;
+        kernel_tracker_tmpl_t<RecordType> kernel_tracker_;
         // Remember top-level headers for the memtrace_stream_t interface.
         uint64_t version_ = 0;
         uint64_t filetype_ = 0;
@@ -1297,6 +1366,7 @@ public:
         uint64_t chunk_instr_count_ = 0;
         uint64_t page_size_ = 0;
         RecordType prev_record_ = {};
+        std::string error_string_;
 
         // Let the impl class update our state.
         friend class scheduler_impl_tmpl_t<RecordType, ReaderType>;
@@ -1347,7 +1417,11 @@ public:
     int64_t
     get_output_cpuid(output_ordinal_t output) const;
 
-    /** Returns a string further describing an error code. */
+    /**
+     * Returns a string further describing an error code for scheduler-wide errors
+     * such as during initialization. Use the per-output-stream function of the same
+     * name for per-output-stream errors.
+     */
     std::string
     get_error_string() const;
 
@@ -1359,6 +1433,15 @@ public:
      */
     scheduler_status_t
     write_recorded_schedule();
+
+    /**
+     * Returns whether auto-canonicalization of addresses is supported by this
+     * scheduler_tmpl_t template instantiation's RecordType.
+     * If supported, it can be enabled via #dynamorio::drmemtrace::scheduler_tmpl_t::
+     * scheduler_options_t.canonicalize_addresses.
+     */
+    static bool
+    record_type_canonicalization_supported();
 
 protected:
     typedef scheduler_tmpl_t<RecordType, ReaderType> sched_type_t;

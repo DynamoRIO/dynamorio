@@ -11,7 +11,7 @@
  ****************************************************************************/
 
 #ifndef _ANDROID_LINKER_H_
-#define _ANDROID_LINKER_H_ 1
+#define _ANDROID_LINKER_H_
 
 #include <unistd.h>
 #include "module_private.h"

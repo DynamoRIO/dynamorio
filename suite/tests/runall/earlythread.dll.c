@@ -33,13 +33,14 @@
 #include "tools.h"
 
 int sleep_under_ldrlock = 100;
-/* FIXME: it would be nice to get some work done outside the loader
+/* XXX: it would be nice to get some work done outside the loader
  * lock, but for that we may need to create a new thread (fishy!) that
  * targets import_me (but we can't synchronize with such a new thread
  * of course it will run only once we let go of the LdrLock)
  */
 
-int __declspec(dllexport) import_me(int x)
+int __declspec(dllexport)
+import_me(int x)
 {
     print("in import\n");
     return 2 * x;

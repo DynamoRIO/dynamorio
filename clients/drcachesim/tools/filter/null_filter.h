@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _NULL_FILTER_H_
-#define _NULL_FILTER_H_ 1
+#define _NULL_FILTER_H_
 
 #include "record_filter.h"
 

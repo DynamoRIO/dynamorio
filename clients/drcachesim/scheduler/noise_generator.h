@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2025-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _NOISE_GENERATOR_H_
-#define _NOISE_GENERATOR_H_ 1
+#define _NOISE_GENERATOR_H_
 
 #include "reader.h"
 #include "scheduler.h"

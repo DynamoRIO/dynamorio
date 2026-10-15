@@ -1,0 +1,63 @@
+.*
+#ifdef X86
+#    ifdef X64
+#        define SYSCALL_OPENAT 257
+#        define SYSCALL_WRITE 1
+#        define SYSCALL_READ 0
+#        define SYSCALL_CLOSE 3
+#        define SYSCALL_ARG_SIZE 0x8
+#    else
+#        define SYSCALL_OPENAT 295
+#        define SYSCALL_WRITE 4
+#        define SYSCALL_READ 3
+#        define SYSCALL_CLOSE 6
+#        define SYSCALL_ARG_SIZE 0x4
+#    endif
+#elif defined(AARCH64)
+#    define SYSCALL_OPENAT 56
+#    define SYSCALL_WRITE 64
+#    define SYSCALL_READ 63
+#    define SYSCALL_CLOSE 57
+#    define SYSCALL_ARG_SIZE 0x8
+#endif
+syscall SYSCALL_OPENAT\(openat\) start
+pre-syscall, ordinal=0, mode=0x1, value=0x[0-9a-f]+, size=SYSCALL_ARG_SIZE
+pre-syscall, ordinal=1, mode=0x1, value=0x[0-9a-f]+, size=SYSCALL_ARG_SIZE
+pre-syscall, ordinal=2, mode=0x1, value=0x[0-9a-f]+, size=SYSCALL_ARG_SIZE
+pre-syscall, ordinal=3, mode=0x1, value=0x[0-9a-f]+, size=SYSCALL_ARG_SIZE
+pre-syscall, ordinal=1, mode=0x1, start_addr=0x[0-9a-f]+, size=0x[0-9a-f]+
+memory hex dump: [0-9a-f]+
+post-syscall, ordinal=0, mode=0x1, value=0x[0-9a-f]+, size=SYSCALL_ARG_SIZE
+post-syscall, ordinal=1, mode=0x1, value=0x[0-9a-f]+, size=SYSCALL_ARG_SIZE
+post-syscall, ordinal=2, mode=0x1, value=0x[0-9a-f]+, size=SYSCALL_ARG_SIZE
+post-syscall, ordinal=3, mode=0x1, value=0x[0-9a-f]+, size=SYSCALL_ARG_SIZE
+post-syscall, return value=0x[0-9a-f]+, size=SYSCALL_ARG_SIZE
+syscall SYSCALL_OPENAT end
+syscall SYSCALL_WRITE\(write\) start
+pre-syscall, ordinal=0, mode=0x1, value=0x[0-9a-f]+, size=SYSCALL_ARG_SIZE
+pre-syscall, ordinal=1, mode=0x1, value=0x[0-9a-f]+, size=SYSCALL_ARG_SIZE
+pre-syscall, ordinal=2, mode=0x1, value=0xd, size=SYSCALL_ARG_SIZE
+pre-syscall, ordinal=1, mode=0x1, start_addr=0x[0-9a-f]+, size=0xd
+memory hex dump: 48656c6c6f20576f726c642100
+post-syscall, ordinal=0, mode=0x1, value=0x[0-9a-f]+, size=SYSCALL_ARG_SIZE
+post-syscall, ordinal=1, mode=0x1, value=0x[0-9a-f]+, size=SYSCALL_ARG_SIZE
+post-syscall, ordinal=2, mode=0x1, value=0x[0-9a-f]+, size=SYSCALL_ARG_SIZE
+post-syscall, return value=0xd, size=SYSCALL_ARG_SIZE
+syscall SYSCALL_WRITE end
+syscall SYSCALL_READ\(read\) start
+pre-syscall, ordinal=0, mode=0x1, value=0x[0-9a-f]+, size=SYSCALL_ARG_SIZE
+pre-syscall, ordinal=1, mode=0x2, value=0x[0-9a-f]+, size=SYSCALL_ARG_SIZE
+pre-syscall, ordinal=2, mode=0x1, value=0xd, size=SYSCALL_ARG_SIZE
+pre-syscall, ordinal=1, mode=0x2, start_addr=0x[0-9a-f]+, size=0xd
+post-syscall, ordinal=0, mode=0x1, value=0x[0-9a-f]+, size=SYSCALL_ARG_SIZE
+post-syscall, ordinal=1, mode=0x2, value=0x[0-9a-f]+, size=SYSCALL_ARG_SIZE
+post-syscall, ordinal=2, mode=0x1, value=0xd, size=SYSCALL_ARG_SIZE
+post-syscall, return value=0xd, size=SYSCALL_ARG_SIZE
+post-syscall, ordinal=1, mode=0x2, start_addr=0x[0-9a-f]+, size=0xd
+memory hex dump: 48656c6c6f20576f726c642100
+syscall SYSCALL_READ end
+syscall SYSCALL_CLOSE\(close\) start
+pre-syscall, ordinal=0, mode=0x1, value=0x[0-9a-f]+, size=SYSCALL_ARG_SIZE
+post-syscall, ordinal=0, mode=0x1, value=0x[0-9a-f]+, size=SYSCALL_ARG_SIZE
+post-syscall, return value=0x0, size=SYSCALL_ARG_SIZE
+syscall SYSCALL_CLOSE end

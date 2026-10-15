@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020-2025 Google, Inc.  All rights reserved.
+# Copyright (c) 2020-2026 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -85,15 +85,13 @@ jobs:
     # Install multilib for non-cross-compiling Linux build.
     - name: Create Build Environment
       run: |
+        wget https://apt.llvm.org/llvm.sh
+        chmod +x llvm.sh
+        sudo ./llvm.sh 21
         sudo apt update
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
-          liblz4-dev g++-multilib libunwind-dev
+          liblz4-dev g++-multilib libunwind-dev clang-format-21
         echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
-
-    - name: Setup newer cmake
-      uses: jwlawson/actions-setup-cmake@v2
-      with:
-        cmake-version: '3.19.7'
 
     - name: Check if format checks are disabled
       id: are_format_checks_disabled
@@ -130,9 +128,12 @@ jobs:
     # so we manually install the i386 packages we need.
     - name: Create Build Environment
       run: |
+        wget https://apt.llvm.org/llvm.sh
+        chmod +x llvm.sh
+        sudo ./llvm.sh 21
         sudo apt update
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
-          liblz4-dev g++-multilib libunwind-dev
+          liblz4-dev g++-multilib libunwind-dev clang-format-21
         sudo add-apt-repository 'deb [arch=i386] http://us.archive.ubuntu.com/ubuntu jammy main'
         apt download libunwind8:i386 libunwind-dev:i386 liblzma5:i386 \
           zlib1g:i386 zlib1g-dev:i386
@@ -142,12 +143,6 @@ jobs:
         sudo rsync -av ../extract/lib/i386-linux-gnu/ /usr/lib/i386-linux-gnu/
         sudo rsync -av ../extract/usr/include/i386-linux-gnu/ /usr/include/
         echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
-
-    # Use a newer cmake to avoid 32-bit toolchain problems (i#4830).
-    - name: Setup newer cmake
-      uses: jwlawson/actions-setup-cmake@v2
-      with:
-        cmake-version: '3.19.7'
 
     - name: Check if format checks are disabled
       id: are_format_checks_disabled

@@ -49,7 +49,7 @@ static LONG
 our_top_handler(struct _EXCEPTION_POINTERS *pExceptionInfo)
 {
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_BREAKPOINT) {
-        // FIXME : setting debug registers this way works only on 32 bit
+        // XXX : setting debug registers this way works only on 32 bit
         // We should find another way compatible with 64-bit to be able to test it
 
         // Should get here thanks to the int 3 instruction in set_debug_register

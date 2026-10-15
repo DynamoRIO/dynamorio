@@ -768,10 +768,10 @@ TEST_INSTR(axflag)
     /* Testing AXFLAG */
     TEST_LOOP_EXPECT(axflag, 1, INSTR_CREATE_axflag(dc), {
         EXPECT_DISASSEMBLY("axflag");
-        EXPECT_TRUE(
-            TEST(EFLAGS_READ_NZCV, instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
-        EXPECT_TRUE(
-            TEST(EFLAGS_WRITE_NZCV, instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
+        EXPECT_TRUE(TESTANY(EFLAGS_READ_NZCV,
+                            instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
+        EXPECT_TRUE(TESTANY(EFLAGS_WRITE_NZCV,
+                            instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
     });
 }
 
@@ -780,10 +780,10 @@ TEST_INSTR(xaflag)
     /* Testing XAFLAG */
     TEST_LOOP_EXPECT(xaflag, 1, INSTR_CREATE_xaflag(dc), {
         EXPECT_DISASSEMBLY("xaflag");
-        EXPECT_TRUE(
-            TEST(EFLAGS_READ_NZCV, instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
-        EXPECT_TRUE(
-            TEST(EFLAGS_WRITE_NZCV, instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
+        EXPECT_TRUE(TESTANY(EFLAGS_READ_NZCV,
+                            instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
+        EXPECT_TRUE(TESTANY(EFLAGS_WRITE_NZCV,
+                            instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
     });
 }
 

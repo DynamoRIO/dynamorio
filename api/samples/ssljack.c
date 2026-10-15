@@ -123,7 +123,7 @@ dr_init(client_id_t id)
 
     drmgr_init();
     drwrap_init();
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
     drmgr_register_module_load_event(module_load_event);
 }
 

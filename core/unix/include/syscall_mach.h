@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -35,7 +35,7 @@
  */
 
 #ifndef _SYSCALL_MACH_H_
-#define _SYSCALL_MACH_H_ 1
+#define _SYSCALL_MACH_H_
 
 #define SYSCALL_NUM_MARKER_MACH 0x1000000
 #define SYSCALL_NUM_MARKER_BSD 0x2000000
@@ -91,5 +91,10 @@
 #define MACH_mk_timer_arm_trap 93
 #define MACH_mk_timer_cancel_trap 94
 #define MACH_iokit_user_client_trap 100
+
+#ifdef AARCH64
+#    define MACHDEP_thread_set_tsd 2
+#    define MACHDEP_thread_get_tsd 3
+#endif
 
 #endif /* _SYSCALL_MACH_H_ */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -150,11 +150,11 @@ find_dl_fixup(dcontext_t *dcontext, app_pc resolver)
     instr_free(dcontext, &instr);
     return fixup;
 #elif defined(AARCHXX)
-    /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
+    /* TODO i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 #elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 #endif /* X86/ARM/RISCV64 */
@@ -191,7 +191,7 @@ initialize_plt_stub_template(void)
             instrlist_append(ilist, INSTR_CREATE_jmp(dc, opnd_create_pc(0)));
         });
 #elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
+    /* TODO i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
 #endif
     next_pc =
@@ -424,7 +424,7 @@ module_change_hooks(module_area_t *ma, bool add_hooks, bool at_map)
     bool got_unprotected = false;
     app_pc *pltgot;
 
-    /* FIXME: We can't handle un-relocated modules yet. */
+    /* XXX: We can't handle un-relocated modules yet. */
     ASSERT_CURIOSITY(!at_map && "hooking at map NYI");
     if (add_hooks && at_map)
         return;
@@ -780,7 +780,7 @@ native_module_at_runtime_resolve_ret(app_pc xsp, int ret_imm)
     app_pc call_tgt, ret_tgt;
 
     if (!d_r_safe_read(xsp, sizeof(app_pc), &call_tgt) ||
-        !d_r_safe_read(xsp + ret_imm + sizeof(XSP_SZ), sizeof(app_pc), &ret_tgt)) {
+        !d_r_safe_read(xsp + ret_imm + XSP_SZ, sizeof(app_pc), &ret_tgt)) {
         ASSERT(false && "fail to read app stack!\n");
         return;
     }
@@ -789,11 +789,11 @@ native_module_at_runtime_resolve_ret(app_pc xsp, int ret_imm)
         dcontext_t *dcontext = get_thread_private_dcontext();
         app_pc stub_pc = native_module_get_ret_stub(dcontext, ret_tgt);
         DEBUG_DECLARE(bool ok =)
-        safe_write_ex(xsp + ret_imm + sizeof(XSP_SZ), sizeof(app_pc), &stub_pc,
+        safe_write_ex(xsp + ret_imm + XSP_SZ, sizeof(app_pc), &stub_pc,
                       NULL /* bytes written */);
         ASSERT(stub_pc != NULL && ok);
         LOG(THREAD, LOG_ALL, 3, "replace return target " PFX " with " PFX " at " PFX "\n",
-            ret_tgt, stub_pc, (xsp + ret_imm + sizeof(XSP_SZ)));
+            ret_tgt, stub_pc, (xsp + ret_imm + XSP_SZ));
     }
 }
 
@@ -850,7 +850,7 @@ native_exec_replace_next_tag(dcontext_t *dcontext)
         instr_free(dcontext, &instr);
         return true;
 #elif defined(ARM)
-        /* FIXME i#1551: NYI on ARM */
+        /* TODO i#1551: NYI on ARM */
         ASSERT_NOT_REACHED();
 #endif
     }

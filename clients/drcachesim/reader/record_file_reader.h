@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,33 +35,16 @@
  */
 
 #ifndef _RECORD_FILE_READER_H_
-#define _RECORD_FILE_READER_H_ 1
+#define _RECORD_FILE_READER_H_
 
 #include <assert.h>
 #include <iterator>
 #include <memory>
 
 #include "memtrace_stream.h"
-#include "reader.h"
+#include "reader_base.h"
 #include "trace_entry.h"
-
-#define OUT /* just a marker */
-
-#ifdef DEBUG
-#    define VPRINT(reader, level, ...)                            \
-        do {                                                      \
-            if ((reader)->verbosity_ >= (level)) {                \
-                fprintf(stderr, "%s ", (reader)->output_prefix_); \
-                fprintf(stderr, __VA_ARGS__);                     \
-            }                                                     \
-        } while (0)
-// clang-format off
-#    define UNUSED(x) /* nothing */
-// clang-format on
-#else
-#    define VPRINT(reader, level, ...) /* nothing */
-#    define UNUSED(x) ((void)(x))
-#endif
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -111,24 +94,30 @@ namespace drmemtrace {
  * record_reader_t is expected to provide the exact stream of
  * #dynamorio::drmemtrace::trace_entry_t as stored on disk.
  */
-class record_reader_t : public std::iterator<std::input_iterator_tag, trace_entry_t>,
-                        public memtrace_stream_t {
+class record_reader_t : public reader_base_t {
 public:
-    record_reader_t(int verbosity, const char *prefix)
-        : verbosity_(verbosity)
-        , output_prefix_(prefix)
-        , eof_(false)
+    // Ensure derived classes operate as a proper C++ iterator in all circumstances.
+    using iterator_category = std::input_iterator_tag;
+    using difference_type = std::ptrdiff_t;
+    using value_type = trace_entry_t;
+    using pointer = value_type *;
+    using reference = value_type &;
+
+    record_reader_t(int online, int verbosity, const char *prefix)
+        : reader_base_t(online, verbosity, prefix)
     {
     }
     record_reader_t()
+        : reader_base_t()
     {
     }
     virtual ~record_reader_t()
     {
     }
     virtual bool
-    init()
+    init() override
     {
+        at_eof_ = false;
         if (!open_input_file())
             return false;
         ++*this;
@@ -138,7 +127,7 @@ public:
     const trace_entry_t &
     operator*()
     {
-        return cur_entry_;
+        return entry_copy_;
     }
 
     static bool
@@ -153,46 +142,39 @@ public:
     record_reader_t &
     operator++()
     {
-        bool res = read_next_entry();
-        assert(res || eof_);
-        UNUSED(res);
-        if (!eof_) {
+        trace_entry_t *next_entry = get_next_entry();
+        assert(next_entry != nullptr || at_eof_);
+        if (!at_eof_) {
+            entry_copy_ = *next_entry;
+            kernel_tracker_.update(entry_copy_);
             ++cur_ref_count_;
             // We increment the instr count at the encoding as that avoids multiple
             // problems with separating encodings from instrs when skipping (including
             // for scheduler regions of interest) and when replaying schedules: anything
             // using instr ordinals as boundaries.
             if (!prev_record_was_pre_instr_ &&
-                (record_is_pre_instr(&cur_entry_) ||
-                 type_is_instr(static_cast<trace_type_t>(cur_entry_.type))))
+                (record_is_pre_instr(&entry_copy_) ||
+                 type_is_instr(static_cast<trace_type_t>(entry_copy_.type))))
                 ++cur_instr_count_;
-            else if (cur_entry_.type == TRACE_TYPE_MARKER) {
-                switch (cur_entry_.size) {
-                case TRACE_MARKER_TYPE_VERSION: version_ = cur_entry_.addr; break;
-                case TRACE_MARKER_TYPE_FILETYPE: filetype_ = cur_entry_.addr; break;
+            else if (entry_copy_.type == TRACE_TYPE_MARKER) {
+                switch (entry_copy_.size) {
+                case TRACE_MARKER_TYPE_VERSION: version_ = entry_copy_.addr; break;
+                case TRACE_MARKER_TYPE_FILETYPE: filetype_ = entry_copy_.addr; break;
                 case TRACE_MARKER_TYPE_CACHE_LINE_SIZE:
-                    cache_line_size_ = cur_entry_.addr;
+                    cache_line_size_ = entry_copy_.addr;
                     break;
-                case TRACE_MARKER_TYPE_PAGE_SIZE: page_size_ = cur_entry_.addr; break;
+                case TRACE_MARKER_TYPE_PAGE_SIZE: page_size_ = entry_copy_.addr; break;
                 case TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT:
-                    chunk_instr_count_ = cur_entry_.addr;
+                    chunk_instr_count_ = entry_copy_.addr;
                     break;
                 case TRACE_MARKER_TYPE_TIMESTAMP:
-                    last_timestamp_ = cur_entry_.addr;
+                    last_timestamp_ = entry_copy_.addr;
                     if (first_timestamp_ == 0)
                         first_timestamp_ = last_timestamp_;
                     break;
-                case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
-                case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START:
-                    in_kernel_trace_ = true;
-                    break;
-                case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
-                case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END:
-                    in_kernel_trace_ = false;
-                    break;
                 }
             }
-            prev_record_was_pre_instr_ = record_is_pre_instr(&cur_entry_);
+            prev_record_was_pre_instr_ = record_is_pre_instr(&entry_copy_);
         }
         return *this;
     }
@@ -245,18 +227,7 @@ public:
     bool
     is_record_kernel() const override
     {
-        return in_kernel_trace_;
-    }
-
-    virtual bool
-    operator==(const record_reader_t &rhs) const
-    {
-        return BOOLS_MATCH(eof_, rhs.eof_);
-    }
-    virtual bool
-    operator!=(const record_reader_t &rhs) const
-    {
-        return !BOOLS_MATCH(eof_, rhs.eof_);
+        return kernel_tracker_.in_kernel_trace();
     }
 
     virtual record_reader_t &
@@ -271,18 +242,9 @@ public:
 
 protected:
     virtual bool
-    read_next_entry() = 0;
-    virtual bool
     open_single_file(const std::string &input_path) = 0;
     virtual bool
     open_input_file() = 0;
-
-    trace_entry_t cur_entry_ = {};
-    int verbosity_;
-    const char *output_prefix_;
-    // Following typical stream iterator convention, the default constructor
-    // produces an EOF object.
-    bool eof_ = true;
 
 protected:
     uint64_t cur_ref_count_ = 0;
@@ -300,7 +262,7 @@ protected:
     uint64_t cache_line_size_ = 0;
     uint64_t chunk_instr_count_ = 0;
     uint64_t page_size_ = 0;
-    bool in_kernel_trace_ = false;
+    kernel_record_tracker_t kernel_tracker_;
 };
 
 /**
@@ -311,7 +273,7 @@ template <typename T> class record_file_reader_t : public record_reader_t {
 public:
     record_file_reader_t(const std::string &path, int verbosity = 0,
                          const char *prefix = "[record_file_reader_t]")
-        : record_reader_t(verbosity, prefix)
+        : record_reader_t(/*online=*/false, verbosity, prefix)
         , input_path_(path)
     {
     }
@@ -322,7 +284,8 @@ public:
     get_stream_name() const override
     {
         size_t ind = input_path_.find_last_of(DIRSEP);
-        assert(ind != std::string::npos);
+        if (ind == std::string::npos)
+            return input_path_;
         return input_path_.substr(ind + 1);
     }
     virtual ~record_file_reader_t();
@@ -345,7 +308,7 @@ private:
 
     bool
     open_single_file(const std::string &path) override;
-    bool
+    virtual trace_entry_t *
     read_next_entry() override;
 };
 

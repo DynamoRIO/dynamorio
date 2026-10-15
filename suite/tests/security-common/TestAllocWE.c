@@ -35,7 +35,7 @@
 #define BUF_LEN 160
 
 int
-main()
+main(int argc, const char *argv[])
 {
     /* allocate buffer */
     char *buf = allocate_mem(BUF_LEN, ALLOW_WRITE | ALLOW_EXEC);

@@ -51,7 +51,8 @@ char good_xdata_buf[1024] = { 0 };
 #pragma data_seg()
 
 /* our Makefile expects a .lib */
-int __declspec(dllexport) make_a_lib(int arg)
+int __declspec(dllexport)
+make_a_lib(int arg)
 {
     return 1;
 }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -115,11 +115,23 @@ static droption_t<uint64_t> op_trim_before_timestamp(
     "marker in the trace with timestamp greater than or equal to the specified value.");
 
 static droption_t<uint64_t> op_trim_after_timestamp(
-    DROPTION_SCOPE_ALL, "trim_after_timestamp", (std::numeric_limits<uint64_t>::max)(), 0,
+    DROPTION_SCOPE_ALL, "trim_after_timestamp", 0, 0,
     (std::numeric_limits<uint64_t>::max)(),
     "Trim records after this timestamp (in us) in the trace.",
     "Removes all records from the first TRACE_MARKER_TYPE_TIMESTAMP marker with "
     "timestamp larger than the specified value.");
+
+static droption_t<uint64_t> op_trim_before_instr(
+    DROPTION_SCOPE_ALL, "trim_before_instr", 0, 0, (std::numeric_limits<uint64_t>::max)(),
+    "Trim records approximately until this instruction ordinal in the trace.",
+    "Removes all records (after headers) before the first TRACE_MARKER_TYPE_TIMESTAMP "
+    "marker in the trace that comes after the specified instruction ordinal.");
+
+static droption_t<uint64_t> op_trim_after_instr(
+    DROPTION_SCOPE_ALL, "trim_after_instr", 0, 0, (std::numeric_limits<uint64_t>::max)(),
+    "Trim records approximately after this instruction ordinal in the trace.",
+    "Removes all records from the first TRACE_MARKER_TYPE_TIMESTAMP marker in the trace "
+    "that comes after the specified instruction ordinal.");
 
 /* XXX i#6369: we should partition our options by tool. This one should belong to the
  * record_filter partition. For now we add the filter_ prefix to options that should be
@@ -147,6 +159,32 @@ droption_t<std::string> op_modify_marker_value(
     "The list must have an even size. Example: -filter_modify_marker_value 3,24,18,2048 "
     "sets all TRACE_MARKER_TYPE_CPU_ID == 3 in the trace to core 24 and "
     "TRACE_MARKER_TYPE_PAGE_SIZE == 18 to 2k.");
+
+droption_t<bool> op_filter_kernel(
+    DROPTION_SCOPE_FRONTEND, "filter_kernel", false,
+    "Removes the kernel system call, context switch, and hardware event content from the "
+    "trace.",
+    "This option is for -tool record_filter. When present, it removes the kernel "
+    "system call trace content between TRACE_MARKER_TYPE_SYSCALL_TRACE_START and "
+    "TRACE_MARKER_TYPE_SYSCALL_TRACE_END, the kernel context switch trace content "
+    "between TRACE_MARKER_TYPE_CONTEXT_SWITCH_START and "
+    "TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, and the kernel content between "
+    "TRACE_MARKER_TYPE_HARDWARE_EVENT and TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN "
+    "markers. It also updates the trace file type to remove the "
+    "OFFLINE_FILE_TYPE_KERNEL_SYSCALLS bit.");
+
+droption_t<bool> op_filter_kernel_except_syscalls(
+    DROPTION_SCOPE_FRONTEND, "filter_kernel_except_syscalls", false,
+    "Removes the kernel context switch and hardware event content from the trace while "
+    "keeping system call content.",
+    "This option is for -tool record_filter. When present, it removes kernel trace "
+    "content except system call trace content between "
+    "TRACE_MARKER_TYPE_SYSCALL_TRACE_START and TRACE_MARKER_TYPE_SYSCALL_TRACE_END. It "
+    "removes the kernel context switch trace content between "
+    "TRACE_MARKER_TYPE_CONTEXT_SWITCH_START and TRACE_MARKER_TYPE_CONTEXT_SWITCH_END "
+    "and the kernel content between TRACE_MARKER_TYPE_HARDWARE_EVENT and "
+    "TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN markers unless nested within a system "
+    "call trace.");
 
 } // namespace
 
@@ -177,8 +215,10 @@ _tmain(int argc, const TCHAR *targv[])
             op_output_dir.get_value(), op_stop_timestamp.get_value(),
             op_cache_filter_size.get_value(), op_remove_trace_types.get_value(),
             op_remove_marker_types.get_value(), op_trim_before_timestamp.get_value(),
-            op_trim_after_timestamp.get_value(), op_encodings2regdeps.get_value(),
+            op_trim_after_timestamp.get_value(), op_trim_before_instr.get_value(),
+            op_trim_after_instr.get_value(), op_encodings2regdeps.get_value(),
             op_filter_func_ids.get_value(), op_modify_marker_value.get_value(),
+            op_filter_kernel.get_value(), op_filter_kernel_except_syscalls.get_value(),
             op_verbose.get_value()));
     std::vector<record_analysis_tool_t *> tools;
     tools.push_back(record_filter.get());

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -46,7 +46,7 @@
  * build like so: cl /nologo winstats.c user32.lib imagehlp.lib
  */
 
-/* FIXME: Unicode support?!?! */
+/* XXX: Unicode support?!?! */
 
 /* xref PR 231843, we target 2003 to get a version of PROCESS_ALL_ACCESS that
  * works for all platforms. */
@@ -107,7 +107,7 @@ print_mem_stats(HANDLE h)
 
 #define DEBUGPRINT 0
 
-/* FIXME: would like ^C to kill child process, it doesn't.
+/* XXX: would like ^C to kill child process, it doesn't.
  * also, child process seems able to read stdin but not to write
  * to stdout or stderr (in fact it dies if it tries)
  */
@@ -145,7 +145,8 @@ usage(char *us)
 /* we must be a console application in order to have the process
  * we launch NOT get a brand new console window!
  */
-int __cdecl main(int argc, char *argv[], char *envp[])
+int __cdecl
+main(int argc, char *argv[], char *envp[])
 {
     LPTSTR app_name = NULL;
     TCHAR app_cmdline[MAX_CMDLINE];
@@ -238,7 +239,7 @@ int __cdecl main(int argc, char *argv[], char *envp[])
     }
     {
         int flags;
-        /* FIXME: hStdInput apparently is not the right handle...how do I get
+        /* XXX: hStdInput apparently is not the right handle...how do I get
          * the right handle?!?
          */
         if (!GetConsoleMode(mysi.hStdInput, &flags)) {
@@ -305,7 +306,7 @@ int __cdecl main(int argc, char *argv[], char *envp[])
         else
             printf("Timeout after %d seconds\n", limit);
     } __finally {
-        /* FIXME: this is my attempt to get ^C, but it doesn't work... */
+        /* XXX: this is my attempt to get ^C, but it doesn't work... */
 #if HANDLE_CONTROL_C
         if (!success) {
             printf("Terminating child process!\n");

@@ -164,7 +164,7 @@ sub process_file($) {
             $time{$bmark,$iter} += $elapsed;
         } elsif ($_ =~ /real\t([0-9]+)m([0-9\.]+)s/) {
             # /usr/bin/time simple format
-            # FIXME: what do hours look like?
+            # XXX: what do hours look like?
             $elapsed = $1 + $2/60.; # minutes
             $time{$bmark,$iter} += $elapsed;
             printf "\t$bmark, $iter: elapsed %5.2f @$cpu%%cpu\n", $elapsed

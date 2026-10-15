@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,7 +45,7 @@
 
 #define UNIPROC
 
-/* FIXME: we may even want to have a sleep */
+/* XXX: we may even want to have a sleep */
 
 /* for .B race we'd want to reach the unloaded module, note we provide
  * a .C opportunity by having the unloaded module call thread_yield()

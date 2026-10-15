@@ -48,7 +48,8 @@ fact(int n)
     return n * fact(n - 1);
 }
 
-int __declspec(dllexport) import_me1(int x)
+int __declspec(dllexport)
+import_me1(int x)
 {
     /* any printing here can not be matched */
 #ifdef VERBOSE
@@ -63,7 +64,8 @@ int __declspec(dllexport) import_me1(int x)
         return fact(x);
 }
 
-int __declspec(dllexport) import_me2(int x)
+int __declspec(dllexport)
+import_me2(int x)
 {
     /* any printing here can not be matched */
 #ifdef VERBOSE

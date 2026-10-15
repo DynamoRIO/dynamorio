@@ -6,7 +6,7 @@ starting up
 #    if !defined(executable_heap) && !defined(executable_if_dot_data) && !defined(executable_if_image)
 #      if !defined(detect_mode)
          SEC_VIO_AUTO_STOP
-// FIXME: can get multiple termination messages here if multiple threads
+// XXX: can get multiple termination messages here if multiple threads
 // generate them before an os_terminate goes through!
          STOP
 #      else

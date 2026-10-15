@@ -54,7 +54,7 @@ policy_bit_plru_t::policy_bit_plru_t(int num_sets, int associativity, int seed)
 }
 
 void
-policy_bit_plru_t::access_update(int set_idx, int way)
+policy_bit_plru_t::access_update(int set_idx, int way, cache_access_outcome_t access_type)
 {
     // Set the bit for the accessed way.
     if (!plru_bits_[set_idx][way]) {

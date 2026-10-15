@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,7 +40,7 @@
 /* clang-format off */ /* (work around clang-format bugs) */
 
 #ifndef _C_DEFINES_H_
-#define _C_DEFINES_H_ 1
+#define _C_DEFINES_H_
 
 #if !defined(__cplusplus) && !defined(NOT_DYNAMORIO_CORE_PROPER) && \
     !defined(NOT_DYNAMORIO_CORE)

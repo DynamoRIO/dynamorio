@@ -1,5 +1,6 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,7 +41,7 @@
  */
 
 #ifndef _HEAP_H_
-#define _HEAP_H_ 1
+#define _HEAP_H_
 
 #ifdef HEAP_ACCOUNTING
 typedef enum {
@@ -146,21 +147,21 @@ vmm_heap_fork_init(dcontext_t *dcontext);
 void
 print_vmm_heap_data(file_t outf);
 byte *
-vmcode_get_start();
+vmcode_get_start(void);
 byte *
-vmcode_get_end();
+vmcode_get_end(void);
 void
 iterate_vmm_regions(void (*cb)(byte *region_start, byte *region_end, void *user_data),
                     void *user_data);
 byte *
-vmcode_unreachable_pc();
+vmcode_unreachable_pc(void);
 byte *
 vmcode_get_writable_addr(byte *exec_addr);
 byte *
 vmcode_get_executable_addr(byte *write_addr);
 
 void
-vmm_heap_handle_pending_low_on_memory_event_trigger();
+vmm_heap_handle_pending_low_on_memory_event_trigger(void);
 
 bool
 heap_check_option_compatibility(void);
@@ -168,6 +169,8 @@ heap_check_option_compatibility(void);
 bool
 is_vmm_reserved_address(byte *pc, size_t size, DR_PARAM_OUT byte **region_start,
                         DR_PARAM_OUT byte **region_end);
+bool
+vmcode_is_reachable(void);
 /* Returns whether "target" is reachable from all future vmcode allocations. */
 bool
 rel32_reachable_from_vmcode(byte *target);
@@ -284,7 +287,7 @@ void
 print_heap_statistics(void);
 #endif
 
-/* FIXME: persistence is yet another dimension here
+/* XXX: persistence is yet another dimension here
  * let's clean all these up and have a single alloc routine?
  */
 /* i#1791: nonpersistent heap cannot be used for IR or other client allocations */
@@ -295,6 +298,7 @@ nonpersistent_heap_free(dcontext_t *dcontext, void *p,
                         size_t size HEAPACCT(which_heap_t which));
 
 /* Passing dcontext == GLOBAL_DCONTEXT allocates from a global pool.
+ * The memory comes from vmcode and is reachable only if vmcode_is_reachable().
  * Important note: within the W^X scheme (-satisfy_w_xor_x), this will return an address
  * of the writeable view. vmcode_get_executable_addr() needs to be called in order to get
  * the reachable address.
@@ -322,9 +326,10 @@ global_unprotected_heap_free(void *p, size_t size HEAPACCT(which_heap_t which));
 #define UNPROTECTED_GLOBAL_FREE global_unprotected_heap_free
 
 /* use global heap for shared fragments and their related data structures */
-#define FRAGMENT_ALLOC_DC(dc, flags) (TEST(FRAG_SHARED, (flags)) ? GLOBAL_DCONTEXT : (dc))
+#define FRAGMENT_ALLOC_DC(dc, flags) \
+    (TESTANY(FRAG_SHARED, (flags)) ? GLOBAL_DCONTEXT : (dc))
 #define FRAGMENT_TABLE_ALLOC_DC(dc, flags) \
-    (TEST(HASHTABLE_SHARED, (flags)) ? GLOBAL_DCONTEXT : (dc))
+    (TESTANY(HASHTABLE_SHARED, (flags)) ? GLOBAL_DCONTEXT : (dc))
 
 /* convenience for allocating a single type: does cast, sizeof, and HEAPACCT
  * for you, and takes param for whether protected or not

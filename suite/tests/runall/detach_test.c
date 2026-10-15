@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -104,7 +104,7 @@ ThreadProcBusyBuild(LPVOID param)
 /* see win32/tls.c test for alt. method of starting a detach, this way is preferable
  * since we may at some point disallow the process from detaching itself */
 void
-detach()
+detach(void)
 {
     char buf[2 * MAX_PATH] = "\"";
     char *tools = getenv("DYNAMORIO_WINTOOLS");
@@ -201,7 +201,7 @@ do_test(int count)
     while (!did_send_callback[count] && total_slept < MAX_SLEEP) {
         Sleep(100);
         total_slept += 100;
-        /* FIXME - all callbacks will have the same after address, need to mix in a
+        /* XXX - all callbacks will have the same after address, need to mix in a
          * GetMessage or some such so can verify order of callback stack.  */
         PeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE);
     }
@@ -267,7 +267,7 @@ window_func(void *arg)
 }
 
 int
-main()
+main(int argc, const char *argv[])
 {
     HANDLE ht_selfsuspend, ht_exit, ht_window;
     DWORD tid, res;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _CRC32_H_
-#define _CRC32_H_ 1
+#define _CRC32_H_
 
 #include <cstdint>
 

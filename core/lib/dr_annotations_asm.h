@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2026 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _DYNAMORIO_ANNOTATIONS_ASM_H_
-#define _DYNAMORIO_ANNOTATIONS_ASM_H_ 1
+#define _DYNAMORIO_ANNOTATIONS_ASM_H_
 
 /* This header defines the annotation functions and code sequences. For a high-level
  * overview, see https://dynamorio.org/page_annotations.html.
@@ -81,7 +81,8 @@
 #    endif
 #endif
 
-#if !defined(DYNAMORIO_ANNOTATIONS_X86) || defined(__clang__)
+#if !defined(DYNAMORIO_ANNOTATIONS_X86) || defined(__clang__) || \
+    defined(ANNOTATIONS_DISABLED)
 /* TODO i#1672: Add annotation support to AArchXX.
  * For now, we provide a fallback so we can build the annotation-concurrency
  * app for use with drcachesim tests.
@@ -168,7 +169,7 @@
             __asm _emit 0x06 \
             __asm mov eax, annotation##_label \
             __asm pop eax \
-            __asm jmp PASTE(native_run, unique_id) }   \
+            __asm jmp PASTE(native_run, unique_id) }          \
                 annotation(__VA_ARGS__);                                                \
                 goto PASTE(native_end_marker, unique_id);                               \
                 PASTE(native_run, unique_id)                                            \
@@ -179,17 +180,17 @@
 #        define DR_ANNOTATION_OR_NATIVE(annotation, native_version, ...)              \
             DR_ANNOTATION_OR_NATIVE_INSTANCE(__COUNTER__, annotation, native_version, \
                                              __VA_ARGS__)
-#        define DR_ANNOTATION_FUNCTION_INSTANCE(unique_id, annotation, body)  \
+#        define DR_ANNOTATION_FUNCTION_INSTANCE(unique_id, annotation, body)       \
             __asm { \
         __asm _emit 0xeb \
         __asm _emit 0x06 \
         __asm mov eax, annotation##_label \
         __asm nop \
         __asm jmp PASTE(native_run, unique_id) } \
-            goto PASTE(native_end_marker, unique_id);                         \
-            PASTE(native_run, unique_id)                                      \
-                : body;                                                       \
-            PASTE(native_end_marker, unique_id)                               \
+            goto PASTE(native_end_marker, unique_id);                              \
+            PASTE(native_run, unique_id)                                           \
+                : body;                                                            \
+            PASTE(native_end_marker, unique_id)                                    \
                 :;
 #        define DR_ANNOTATION_FUNCTION(annotation, body) \
             DR_ANNOTATION_FUNCTION_INSTANCE(__COUNTER__, annotation, body)
@@ -223,7 +224,7 @@
 #        define ANNOTATION_FUNCTION_CLOBBER_LIST \
             "%rax", "%rcx", "%rdx", "%rsi", "%rdi", "%r8", "%r9"
 #        define _CALL_TYPE
-#        define ANNOT_LBL(annot, base) #        annot "_label@GOT"
+#        define ANNOT_LBL(annot, base) #annot "_label@GOT"
 #    else
 /* (mov=5 + bsf/bsr=7) => 0xc */
 #        define LABEL_REFERENCE_LENGTH "0xc"
@@ -238,10 +239,10 @@
 /* i#2050: i386 ABI forces us to use the base register as an offset into GOT, which is
  * not the case for 64-bit.
  */
-#        define ANNOT_LBL(annot, base) #        annot "_label@GOT(%" base ")"
+#        define ANNOT_LBL(annot, base) #annot "_label@GOT(%" base ")"
 #    endif
 #    define DR_ANNOTATION_ATTRIBUTES \
-        __attribute__((noinline, visibility("hidden") _CALL_TYPE))
+        __attribute__((__noinline__, visibility("hidden") _CALL_TYPE))
 #    define DR_WEAK_DECLARATION __attribute__((weak))
 /* GCC extension "__label__" confines the named label to the block scope. */
 #    define DR_ANNOTATION_OR_NATIVE(annotation, native_version, ...) \

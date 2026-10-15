@@ -37,7 +37,7 @@
 void
 optimize_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
 }
 
 #endif

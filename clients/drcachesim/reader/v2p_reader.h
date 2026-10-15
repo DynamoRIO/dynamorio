@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2024 Google, LLC  All rights reserved.
+ * Copyright (c) 2024-2025 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -48,7 +48,7 @@
  */
 
 #ifndef _V2P_READER_H_
-#define _V2P_READER_H_ 1
+#define _V2P_READER_H_
 
 #include "trace_entry.h"
 

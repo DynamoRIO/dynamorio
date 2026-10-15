@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * Copyright (c) 2022      Arm Limited   All rights reserved.
  * **********************************************************/
@@ -26,7 +26,7 @@
 
 #include "dr_api.h"
 #include "drmgr.h"
-#include "../ext_utils.h"
+#include "dr_project_wide_defines.h"
 
 /* currently using asserts on internal logic sanity checks (never on
  * input from user)
@@ -417,7 +417,7 @@ drutil_insert_get_mem_addr_risc(void *drcontext, instrlist_t *bb, instr_t *where
         int disp = opnd_get_disp(memref);
         reg_id_t stolen = dr_get_stolen_reg();
 #    ifdef AARCHXX
-        bool negated = TEST(DR_OPND_NEGATED, opnd_get_flags(memref));
+        bool negated = TESTANY(DR_OPND_NEGATED, opnd_get_flags(memref));
         /* On ARM, disp is never negative; on AArch64, we do not use DR_OPND_NEGATED. */
         ASSERT(IF_ARM_ELSE(disp >= 0, !negated), "DR_OPND_NEGATED internal error");
         if (disp < 0) {
@@ -518,7 +518,7 @@ drutil_insert_get_mem_addr_risc(void *drcontext, instrlist_t *bb, instr_t *where
     }
     return true;
 }
-#endif /* X86/AARCHXX/RISCV64 */
+#endif     /* X86/AARCHXX/RISCV64 */
 
 DR_EXPORT
 uint

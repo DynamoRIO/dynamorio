@@ -31536,6 +31536,38 @@ test_x86_64_s:
  66 48 99             cdq
  00 00                add    %al, (%rax)
  00 00                add    %al, (%rax)
+ f3 41 0f ae ec       incsspd %r12d
+ f3 48 0f ae e8       incsspq %rax
+ f3 41 0f 1e cc       rdsspd %r12d
+ f3 48 0f 1e c8       rdsspq %rax
+ f3 0f 01 ea          saveprevssp
+ f3 41 0f 01 2c 24    rstorssp (%r12)
+ 41 0f 38 f6 04 24    wrssd  %eax, (%r12)
+ 4a 0f 38 f6 14 39    wrssq  %rdx, (%rcx,%r15)
+ 66 41 0f 38 f5 04 24 wrussd %eax, (%r12)
+ 66 48 0f 38 f5 0c 03 wrussq %rcx, (%rbx,%rax)
+ f3 0f 01 e8          setssbsy
+ f3 42 0f ae 34 26    clrssbsy (%rsi,%r12)
+ f3 0f 1e fa          endbr64
+ f3 0f 1e fb          endbr32
+ f3 41 0f ae ec       incsspd %r12d
+ f3 48 0f ae e8       incsspq %rax
+ f3 41 0f 1e cc       rdsspd %r12d
+ f3 48 0f 1e c8       rdsspq %rax
+ f3 0f 01 ea          saveprevssp
+ f3 41 0f 01 2c 24    rstorssp (%r12)
+ 41 0f 38 f6 04 24    wrssd  %eax, (%r12)
+ 44 0f 38 f6 20       wrssd  %r12d, (%rax)
+ 4a 0f 38 f6 14 39    wrssq  %rdx, (%rcx,%r15)
+ 4a 0f 38 f6 0c 3a    wrssq  %rcx, (%rdx,%r15)
+ 66 41 0f 38 f5 04 24 wrussd %eax, (%r12)
+ 66 44 0f 38 f5 20    wrussd %r12d, (%rax)
+ 66 48 0f 38 f5 0c 03 wrussq %rcx, (%rbx,%rax)
+ 66 48 0f 38 f5 1c 01 wrussq %rbx, (%rcx,%rax)
+ f3 0f 01 e8          setssbsy
+ f3 42 0f ae 34 26    clrssbsy (%rsi,%r12)
+ f3 0f 1e fa          endbr64
+ f3 0f 1e fb          endbr32
  0f 1c 01             cldemote (%rcx)
  42 0f 1c 84 f0 23 01 cldemote 0x00000123(%rax,%r14,8)
  00 00
@@ -31646,9 +31678,9 @@ test_x86_64_s:
  8b 98 ff 0f 00 00    mov    0x00000fff(%rax), %ebx
  8b 98 00 00 00 00    mov    0x00000000(%rax), %ebx
  8b 98 03 00 00 00    mov    0x00000003(%rax), %ebx
- eb 07                jmp    $0x0000000010010f32
- eb 05                jmp    $0x0000000010010f32
- e9 00 00 00 00       jmp    $0x0000000010010f32
+ eb 07                jmp    $0x0000000010010fde
+ eb 05                jmp    $0x0000000010010fde
+ e9 00 00 00 00       jmp    $0x0000000010010fde
  89 18                mov    %ebx, (%rax)
  89 58 03             mov    %ebx, 0x03(%rax)
  89 98 ff 0f 00 00    mov    %ebx, 0x00000fff(%rax)
@@ -32363,6 +32395,10 @@ test_x86_64_s:
  00 00 00 90
  c4 c3 e1 6d 64 0d 00 vfmsubpd %xmm11, %xmm3, 0x00(%r13,%rcx), %xmm4
  b0
+ f2 0f 01 ca          erets
+ f3 0f 01 ca          eretu
+ f2 0f 01 ca          erets
+ f3 0f 01 ca          eretu
  f3 0f ae c3          rdfsbase %ebx
  f3 48 0f ae c3       rdfsbase %rbx
  f3 41 0f ae c0       rdfsbase %r8d
@@ -32441,24 +32477,24 @@ test_x86_64_s:
  0f 01 18             lidt   (%rax)
  0f 01 00             sgdt   (%rax)
  0f 01 10             lgdt   (%rax)
- 48 8b 05 00 00 00 00 mov    <rel> 0x0000000010011eb6, %rax
+ 48 8b 05 00 00 00 00 mov    <rel> 0x0000000010011f72, %rax
  48 c7 c0 00 00 00 00 mov    $0x00000000, %rax
  48 8b 04 25 00 00 00 mov    0x00, %rax
  00
- 48 8b 05 00 00 00 00 mov    <rel> 0x0000000010011ecc, %rax
+ 48 8b 05 00 00 00 00 mov    <rel> 0x0000000010011f88, %rax
  48 8b 81 00 00 00 00 mov    0x00000000(%rcx), %rax
- ff 15 00 00 00 00    call   <rel> 0x0000000010011ed9
+ ff 15 00 00 00 00    call   <rel> 0x0000000010011f95
  ff 90 00 00 00 00    call   0x00000000(%rax)
- ff 25 00 00 00 00    jmp    <rel> 0x0000000010011ee5
+ ff 25 00 00 00 00    jmp    <rel> 0x0000000010011fa1
  ff a1 00 00 00 00    jmp    0x00000000(%rcx)
  48 c7 c0 00 00 00 00 mov    $0x00000000, %rax
  48 8b 04 25 00 00 00 mov    0x00, %rax
  00
- 48 8b 05 00 00 00 00 mov    <rel> 0x0000000010011f01, %rax
+ 48 8b 05 00 00 00 00 mov    <rel> 0x0000000010011fbd, %rax
  48 8b 81 00 00 00 00 mov    0x00000000(%rcx), %rax
- ff 15 00 00 00 00    call   <rel> 0x0000000010011f0e
+ ff 15 00 00 00 00    call   <rel> 0x0000000010011fca
  ff 90 00 00 00 00    call   0x00000000(%rax)
- ff 25 00 00 00 00    jmp    <rel> 0x0000000010011f1a
+ ff 25 00 00 00 00    jmp    <rel> 0x0000000010011fd6
  ff a1 00 00 00 00    jmp    0x00000000(%rcx)
  f2 f0 80 11 64       xacquire lock adcb   $0x64, (%rcx)
  f2 f0 80 11 64       xacquire lock adcb   $0x64, (%rcx)
@@ -34257,8 +34293,8 @@ test_x86_64_s:
  66 48 6d             insd
  48 6f                outsd
  66 48 6f             outsd
- eb fe                jmp    $0x000000001001425b
- e9 00 00 00 00       jmp    $0x0000000010014262
+ eb fe                jmp    $0x0000000010014317
+ e9 00 00 00 00       jmp    $0x000000001001431e
  ff 24 25 00 00 00 00 jmp    0x00
  ff e7                jmp    %rdi
  ff 27                jmp    (%rdi)
@@ -34268,8 +34304,8 @@ test_x86_64_s:
  ff 2c 25 00 00 00 00 ljmp   0x00
  66 ff 2c 25 00 00 00 data16 ljmp   0x00
  00
- e8 cb ff ff ff       call   $0x000000001001425b
- e8 00 00 00 00       call   $0x0000000010014295
+ e8 cb ff ff ff       call   $0x0000000010014317
+ e8 00 00 00 00       call   $0x0000000010014351
  ff 14 25 00 00 00 00 call   0x00
  ff d7                call   %rdi
  ff 17                call   (%rdi)
@@ -34279,22 +34315,41 @@ test_x86_64_s:
  ff 1c 25 00 00 00 00 lcall  0x00
  66 ff 1c 25 00 00 00 data16 lcall  0x00
  00
- 67 e3 00             addr32 jecxz  $0x00000000100142c1
+ 67 e3 00             addr32 jecxz  $0x000000001001437d
  90                   nop
- e3 00                jrcxz  $0x00000000100142c4
+ e3 00                jrcxz  $0x0000000010014380
  90                   nop
  66 ff 13             data16 call   (%rbx)
  ff 1b                lcall  (%rbx)
  66 ff 23             data16 jmp    (%rbx)
  ff 2b                ljmp   (%rbx)
- eb 00                jmp    $0x00000000100142d1
+ eb 00                jmp    $0x000000001001438d
  90                   nop
- 67 e3 00             addr32 jecxz  $0x00000000100142d5
+ 67 e3 00             addr32 jecxz  $0x0000000010014391
  90                   nop
- e3 00                jrcxz  $0x00000000100142d8
+ e3 00                jrcxz  $0x0000000010014394
  90                   nop
- eb 00                jmp    $0x00000000100142db
- 48 8b 05 00 00 00 00 mov    <rel> 0x00000000100142e2, %rax
+ eb 00                jmp    $0x0000000010014397
+ 48 8b 05 00 00 00 00 mov    <rel> 0x000000001001439e, %rax
+ f2 41 0f 00 f4       lkgs   %r12w
+ f2 41 0f 00 f4       lkgs   %r12w
+ f2 41 0f 00 f4       lkgs   %r12w
+ f2 42 0f 00 b4 f5 00 lkgs   0x10000000(%rbp,%r14,8)
+ 00 00 10
+ f2 41 0f 00 31       lkgs   (%r9)
+ f2 0f 00 b1 fe 00 00 lkgs   0xfe(%rcx)
+ 00
+ f2 0f 00 b2 00 ff ff lkgs   -0x00000100(%rdx)
+ ff
+ f2 41 0f 00 f4       lkgs   %r12w
+ f2 41 0f 00 f4       lkgs   %r12w
+ f2 42 0f 00 b4 f5 00 lkgs   0x10000000(%rbp,%r14,8)
+ 00 00 10
+ f2 41 0f 00 31       lkgs   (%r9)
+ f2 0f 00 b1 fe 00 00 lkgs   0xfe(%rcx)
+ 00
+ f2 0f 00 b2 00 ff ff lkgs   -0x00000100(%rdx)
+ ff
  f0 01 03             lock add    %eax, (%rbx)
  f0 83 03 64          lock addl   $0x64, (%rbx)
  f0 11 03             lock adc    %eax, (%rbx)
@@ -35060,11 +35115,11 @@ test_x86_64_s:
  48 0f c3 00          movnti %rax, (%rax)
  4d 0f c3 00          movnti %r8, (%r8)
  4c 0f c3 00          movnti %r8, (%rax)
- e2 fe                loop   $0x0000000010015172
- e2 fe                loop   $0x0000000010015174
- 67 e2 fd             addr32 loop   $0x0000000010015176
- e3 fe                jrcxz  $0x0000000010015179
- 67 e3 fd             addr32 jecxz  $0x000000001001517b
+ e2 fe                loop   $0x0000000010015285
+ e2 fe                loop   $0x0000000010015287
+ 67 e2 fd             addr32 loop   $0x0000000010015289
+ e3 fe                jrcxz  $0x000000001001528c
+ 67 e3 fd             addr32 jecxz  $0x000000001001528e
  41 f6 38             idiv   (%r8), %ax
  f6 38                idiv   (%rax), %ax
  66 41 f7 38          data16 idiv   (%r8), %dx, %ax
@@ -35738,14 +35793,14 @@ test_x86_64_s:
  0f 73 f6 02          psllq  $0x02, %mm6
  66 0f 73 f2 02       psllq  $0x02, %xmm2
  66 0f 73 fa 02       pslldq $0x02, %xmm2
- 0f 84 6b 02 00 00    jz     $0x0000000010015d78
+ 0f 84 6b 02 00 00    jz     $0x0000000010015e8b
  90                   nop
  90                   nop
  90                   nop
  90                   nop
  90                   nop
  90                   nop
- 0f 84 5f 02 00 00    jz     $0x0000000010015d78
+ 0f 84 5f 02 00 00    jz     $0x0000000010015e8b
  90                   nop
  90                   nop
  90                   nop
@@ -35880,12 +35935,12 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 74 ff ff ff    jz     $0x0000000010015b19
+ 0f 84 74 ff ff ff    jz     $0x0000000010015c2c
  90                   nop
  90                   nop
  90                   nop
  90                   nop
- 0f 84 6a ff ff ff    jz     $0x0000000010015b19
+ 0f 84 6a ff ff ff    jz     $0x0000000010015c2c
  90                   nop
  90                   nop
  90                   nop
@@ -35894,7 +35949,7 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 bb 01 00 00    jz     $0x0000000010015d78
+ 0f 84 bb 01 00 00    jz     $0x0000000010015e8b
  90                   nop
  90                   nop
  90                   nop
@@ -35905,24 +35960,24 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 4c ff ff ff    jz     $0x0000000010015b19
+ 0f 84 4c ff ff ff    jz     $0x0000000010015c2c
  90                   nop
  90                   nop
  90                   nop
  90                   nop
- 0f 84 42 ff ff ff    jz     $0x0000000010015b19
+ 0f 84 42 ff ff ff    jz     $0x0000000010015c2c
  4c 8b b4 24 30 01 00 mov    0x00000130(%rsp), %r14
  00
  90                   nop
  90                   nop
- 0f 84 32 ff ff ff    jz     $0x0000000010015b19
- 0f 84 2c ff ff ff    jz     $0x0000000010015b19
+ 0f 84 32 ff ff ff    jz     $0x0000000010015c2c
+ 0f 84 2c ff ff ff    jz     $0x0000000010015c2c
  4c 8b b4 24 00 01 00 mov    0x00000100(%rsp), %r14
  00
  90                   nop
  90                   nop
  90                   nop
- 0f 84 7a 01 00 00    jz     $0x0000000010015d78
+ 0f 84 7a 01 00 00    jz     $0x0000000010015e8b
  90                   nop
  90                   nop
  90                   nop
@@ -35933,7 +35988,7 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 0b ff ff ff    jz     $0x0000000010015b19
+ 0f 84 0b ff ff ff    jz     $0x0000000010015c2c
  90                   nop
  90                   nop
  90                   nop
@@ -35947,18 +36002,18 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 f8 fe ff ff    jz     $0x0000000010015b19
+ 0f 84 f8 fe ff ff    jz     $0x0000000010015c2c
  48 8d b4 24 b0 01 00 lea    0x000001b0(%rsp), %rsi
  00
- 0f 84 ea fe ff ff    jz     $0x0000000010015b19
+ 0f 84 ea fe ff ff    jz     $0x0000000010015c2c
  4c 8b b4 24 b0 00 00 mov    0xb0(%rsp), %r14
  00
- 0f 84 3b 01 00 00    jz     $0x0000000010015d78
- 0f 84 d6 fe ff ff    jz     $0x0000000010015b19
- 0f 84 d0 fe ff ff    jz     $0x0000000010015b19
+ 0f 84 3b 01 00 00    jz     $0x0000000010015e8b
+ 0f 84 d6 fe ff ff    jz     $0x0000000010015c2c
+ 0f 84 d0 fe ff ff    jz     $0x0000000010015c2c
  48 8d b4 24 a8 01 00 lea    0x000001a8(%rsp), %rsi
  00
- 0f 84 c2 fe ff ff    jz     $0x0000000010015b19
+ 0f 84 c2 fe ff ff    jz     $0x0000000010015c2c
  90                   nop
  90                   nop
  90                   nop
@@ -35981,7 +36036,7 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 a6 fe ff ff    jz     $0x0000000010015b19
+ 0f 84 a6 fe ff ff    jz     $0x0000000010015c2c
  90                   nop
  90                   nop
  90                   nop
@@ -35993,10 +36048,10 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 95 fe ff ff    jz     $0x0000000010015b19
+ 0f 84 95 fe ff ff    jz     $0x0000000010015c2c
  48 8d b4 24 a0 01 00 lea    0x000001a0(%rsp), %rsi
  00
- 0f 84 87 fe ff ff    jz     $0x0000000010015b19
+ 0f 84 87 fe ff ff    jz     $0x0000000010015c2c
  90                   nop
  90                   nop
  90                   nop
@@ -36018,7 +36073,7 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 cb 00 00 00    jz     $0x0000000010015d78
+ 0f 84 cb 00 00 00    jz     $0x0000000010015e8b
  90                   nop
  90                   nop
  90                   nop
@@ -36027,7 +36082,7 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 5e fe ff ff    jz     $0x0000000010015b19
+ 0f 84 5e fe ff ff    jz     $0x0000000010015c2c
  90                   nop
  90                   nop
  90                   nop
@@ -36039,7 +36094,7 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 4d fe ff ff    jz     $0x0000000010015b19
+ 0f 84 4d fe ff ff    jz     $0x0000000010015c2c
  90                   nop
  90                   nop
  90                   nop
@@ -36047,7 +36102,7 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 40 fe ff ff    jz     $0x0000000010015b19
+ 0f 84 40 fe ff ff    jz     $0x0000000010015c2c
  90                   nop
  90                   nop
  90                   nop
@@ -36070,7 +36125,7 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 83 00 00 00    jz     $0x0000000010015d78
+ 0f 84 83 00 00 00    jz     $0x0000000010015e8b
  90                   nop
  90                   nop
  90                   nop
@@ -36210,13 +36265,13 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 24 01 00 00    jz     $0x0000000010015ebc
+ 0f 84 24 01 00 00    jz     $0x0000000010015fcf
  66 66 2e 0f 1f 84 00 data16 nop    0x00000000(%rax,%rax)
  00 00 00 00
  0f 1f 40 00          nop    0x00(%rax)
  90                   nop
  90                   nop
- 0f 84 0d 01 00 00    jz     $0x0000000010015ebc
+ 0f 84 0d 01 00 00    jz     $0x0000000010015fcf
  90                   nop
  90                   nop
  90                   nop
@@ -36254,7 +36309,7 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 e2 00 00 00    jz     $0x0000000010015ebc
+ 0f 84 e2 00 00 00    jz     $0x0000000010015fcf
  90                   nop
  90                   nop
  90                   nop
@@ -36314,7 +36369,7 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 0f 84 a1 00 00 00    jz     $0x0000000010015ebc
+ 0f 84 a1 00 00 00    jz     $0x0000000010015fcf
  90                   nop
  90                   nop
  90                   nop
@@ -36383,7 +36438,7 @@ test_x86_64_s:
  90                   nop
  90                   nop
  90                   nop
- 74 06                jz     $0x0000000010015e67
+ 74 06                jz     $0x0000000010015f7a
  66 0f 1f 44 00 00    data16 nop    0x00(%rax,%rax)
  90                   nop
  90                   nop
@@ -36535,17 +36590,17 @@ test_x86_64_s:
  67 f3 48 ab          addr32 rep stosq
  67 f3 48 a7          addr32 rep cmpsq
  67 f3 48 af          addr32 rep scasq
- 8d 05 00 00 00 00    lea    <rel> 0x0000000010015f7d, %eax
- 8d 05 11 11 11 11    lea    <rel> 0x0000000021127094, %eax
- 8d 05 01 00 00 00    lea    <rel> 0x0000000010015f8a, %eax
- 8d 05 00 00 00 00    lea    <rel> 0x0000000010015f8f, %eax
+ 8d 05 00 00 00 00    lea    <rel> 0x0000000010016090, %eax
+ 8d 05 11 11 11 11    lea    <rel> 0x00000000211271a7, %eax
+ 8d 05 01 00 00 00    lea    <rel> 0x000000001001609d, %eax
+ 8d 05 00 00 00 00    lea    <rel> 0x00000000100160a2, %eax
  c6 f8 08             xabort $0x08
- c7 f8 fa ff ff ff    xbegin $0x0000000010015f92
- c7 f8 00 00 00 00    xbegin $0x0000000010015f9e
+ c7 f8 fa ff ff ff    xbegin $0x00000000100160a5
+ c7 f8 00 00 00 00    xbegin $0x00000000100160b1
  0f 01 d5             xend
  c6 f8 08             xabort $0x08
- c7 f8 fa ff ff ff    xbegin $0x0000000010015fa4
- c7 f8 00 00 00 00    xbegin $0x0000000010015fb0
+ c7 f8 fa ff ff ff    xbegin $0x00000000100160b7
+ c7 f8 00 00 00 00    xbegin $0x00000000100160c3
  0f 01 d5             xend
  0f 01 d6             xtest
  8c 18                mov    %ds, (%rax)
@@ -36641,17 +36696,17 @@ test_x86_64_s:
  41 8b 04 64          mov    (%r12), %eax
  41 8b 04 a4          mov    (%r12), %eax
  41 8b 04 e4          mov    (%r12), %eax
- f2 0f d0 0d 78 56 34 addsubps <rel> 0x000000002235b7ac, %xmm1
+ f2 0f d0 0d 78 56 34 addsubps <rel> 0x000000002235b8bf, %xmm1
  12
- 66 0f 2f 0d 78 56 34 comisd %xmm1, <rel> 0x000000002235b7b4
+ 66 0f 2f 0d 78 56 34 comisd %xmm1, <rel> 0x000000002235b8c7
  12
- 0f 2f 0d 78 56 34 12 comiss %xmm1, <rel> 0x000000002235b7bb
- f3 0f e6 0d 78 56 34 cvtdq2pd <rel> 0x000000002235b7c3, %xmm1
+ 0f 2f 0d 78 56 34 12 comiss %xmm1, <rel> 0x000000002235b8ce
+ f3 0f e6 0d 78 56 34 cvtdq2pd <rel> 0x000000002235b8d6, %xmm1
  12
- f2 0f e6 0d 78 56 34 cvtpd2dq <rel> 0x000000002235b7cb, %xmm1
+ f2 0f e6 0d 78 56 34 cvtpd2dq <rel> 0x000000002235b8de, %xmm1
  12
- 0f 5a 0d 78 56 34 12 cvtps2pd <rel> 0x000000002235b7d2, %xmm1
- f3 0f 5b 0d 78 56 34 cvttps2dq <rel> 0x000000002235b7da, %xmm1
+ 0f 5a 0d 78 56 34 12 cvtps2pd <rel> 0x000000002235b8e5, %xmm1
+ f3 0f 5b 0d 78 56 34 cvttps2dq <rel> 0x000000002235b8ed, %xmm1
  12
  f3 0f 2a c8          cvtsi2ss %eax, %xmm1
  f2 0f 2a c8          cvtsi2sd %eax, %xmm1
@@ -36667,50 +36722,50 @@ test_x86_64_s:
  f2 0f 2a 08          cvtsi2sd (%rax), %xmm1
  f3 48 0f 2a 08       cvtsi2ss (%rax), %xmm1
  f2 48 0f 2a 08       cvtsi2sd (%rax), %xmm1
- f2 0f 7c 0d 78 56 34 haddps <rel> 0x000000002235b820, %xmm1
+ f2 0f 7c 0d 78 56 34 haddps <rel> 0x000000002235b933, %xmm1
  12
- f3 0f 7f 0d 78 56 34 movdqu %xmm1, <rel> 0x000000002235b828
+ f3 0f 7f 0d 78 56 34 movdqu %xmm1, <rel> 0x000000002235b93b
  12
- f3 0f 6f 0d 78 56 34 movdqu <rel> 0x000000002235b830, %xmm1
+ f3 0f 6f 0d 78 56 34 movdqu <rel> 0x000000002235b943, %xmm1
  12
- 66 0f 17 0d 78 56 34 movhpd %xmm1, <rel> 0x000000002235b838
+ 66 0f 17 0d 78 56 34 movhpd %xmm1, <rel> 0x000000002235b94b
  12
- 66 0f 16 0d 78 56 34 movhpd <rel> 0x000000002235b840, %xmm1
+ 66 0f 16 0d 78 56 34 movhpd <rel> 0x000000002235b953, %xmm1
  12
- 0f 17 0d 78 56 34 12 movhps %xmm1, <rel> 0x000000002235b847
- 0f 16 0d 78 56 34 12 movhps <rel> 0x000000002235b84e, %xmm1
- 66 0f 13 0d 78 56 34 movlpd %xmm1, <rel> 0x000000002235b856
+ 0f 17 0d 78 56 34 12 movhps %xmm1, <rel> 0x000000002235b95a
+ 0f 16 0d 78 56 34 12 movhps <rel> 0x000000002235b961, %xmm1
+ 66 0f 13 0d 78 56 34 movlpd %xmm1, <rel> 0x000000002235b969
  12
- 66 0f 12 0d 78 56 34 movlpd <rel> 0x000000002235b85e, %xmm1
+ 66 0f 12 0d 78 56 34 movlpd <rel> 0x000000002235b971, %xmm1
  12
- 0f 13 0d 78 56 34 12 movlps %xmm1, <rel> 0x000000002235b865
- 0f 12 0d 78 56 34 12 movlps <rel> 0x000000002235b86c, %xmm1
- 66 0f d6 0d 78 56 34 movq   %xmm1, <rel> 0x000000002235b874
+ 0f 13 0d 78 56 34 12 movlps %xmm1, <rel> 0x000000002235b978
+ 0f 12 0d 78 56 34 12 movlps <rel> 0x000000002235b97f, %xmm1
+ 66 0f d6 0d 78 56 34 movq   %xmm1, <rel> 0x000000002235b987
  12
- f3 0f 7e 0d 78 56 34 movq   <rel> 0x000000002235b87c, %xmm1
+ f3 0f 7e 0d 78 56 34 movq   <rel> 0x000000002235b98f, %xmm1
  12
- f3 0f 16 0d 78 56 34 movshdup <rel> 0x000000002235b884, %xmm1
+ f3 0f 16 0d 78 56 34 movshdup <rel> 0x000000002235b997, %xmm1
  12
- f3 0f 12 0d 78 56 34 movsldup <rel> 0x000000002235b88c, %xmm1
+ f3 0f 12 0d 78 56 34 movsldup <rel> 0x000000002235b99f, %xmm1
  12
- f3 0f 70 0d 78 56 34 pshufhw <rel> 0x000000002235b895, $0x90, %xmm1
+ f3 0f 70 0d 78 56 34 pshufhw <rel> 0x000000002235b9a8, $0x90, %xmm1
  12 90
- f2 0f 70 0d 78 56 34 pshuflw <rel> 0x000000002235b89e, $0x90, %xmm1
+ f2 0f 70 0d 78 56 34 pshuflw <rel> 0x000000002235b9b1, $0x90, %xmm1
  12 90
- 0f 60 0d 78 56 34 12 punpcklbw <rel> 0x000000002235b8a5, %mm1
- 0f 62 0d 78 56 34 12 punpckldq <rel> 0x000000002235b8ac, %mm1
- 0f 61 0d 78 56 34 12 punpcklwd <rel> 0x000000002235b8b3, %mm1
- 66 0f 60 0d 78 56 34 punpcklbw <rel> 0x000000002235b8bb, %xmm1
+ 0f 60 0d 78 56 34 12 punpcklbw <rel> 0x000000002235b9b8, %mm1
+ 0f 62 0d 78 56 34 12 punpckldq <rel> 0x000000002235b9bf, %mm1
+ 0f 61 0d 78 56 34 12 punpcklwd <rel> 0x000000002235b9c6, %mm1
+ 66 0f 60 0d 78 56 34 punpcklbw <rel> 0x000000002235b9ce, %xmm1
  12
- 66 0f 62 0d 78 56 34 punpckldq <rel> 0x000000002235b8c3, %xmm1
+ 66 0f 62 0d 78 56 34 punpckldq <rel> 0x000000002235b9d6, %xmm1
  12
- 66 0f 61 0d 78 56 34 punpcklwd <rel> 0x000000002235b8cb, %xmm1
+ 66 0f 61 0d 78 56 34 punpcklwd <rel> 0x000000002235b9de, %xmm1
  12
- 66 0f 6c 0d 78 56 34 punpcklqdq <rel> 0x000000002235b8d3, %xmm1
+ 66 0f 6c 0d 78 56 34 punpcklqdq <rel> 0x000000002235b9e6, %xmm1
  12
- 66 0f 2e 0d 78 56 34 ucomisd %xmm1, <rel> 0x000000002235b8db
+ 66 0f 2e 0d 78 56 34 ucomisd %xmm1, <rel> 0x000000002235b9ee
  12
- 0f 2e 0d 78 56 34 12 ucomiss %xmm1, <rel> 0x000000002235b8e2
+ 0f 2e 0d 78 56 34 12 ucomiss %xmm1, <rel> 0x000000002235b9f5
  f2 0f c2 00 00       cmpsd  (%rax), $0x00, %xmm0
  f3 0f c2 00 00       cmpss  (%rax), $0x00, %xmm0
  66 0f 2a 00          cvtpi2pd (%rax), %xmm0
@@ -36781,17 +36836,17 @@ test_x86_64_s:
  0f f4 00             pmuludq (%rax), %mm0
  66 0f f4 c1          pmuludq %xmm1, %xmm0
  66 0f f4 00          pmuludq (%rax), %xmm0
- f2 0f d0 0d 78 56 34 addsubps <rel> 0x000000002235ba14, %xmm1
+ f2 0f d0 0d 78 56 34 addsubps <rel> 0x000000002235bb27, %xmm1
  12
- 66 0f 2f 0d 78 56 34 comisd %xmm1, <rel> 0x000000002235ba1c
+ 66 0f 2f 0d 78 56 34 comisd %xmm1, <rel> 0x000000002235bb2f
  12
- 0f 2f 0d 78 56 34 12 comiss %xmm1, <rel> 0x000000002235ba23
- f3 0f e6 0d 78 56 34 cvtdq2pd <rel> 0x000000002235ba2b, %xmm1
+ 0f 2f 0d 78 56 34 12 comiss %xmm1, <rel> 0x000000002235bb36
+ f3 0f e6 0d 78 56 34 cvtdq2pd <rel> 0x000000002235bb3e, %xmm1
  12
- f2 0f e6 0d 78 56 34 cvtpd2dq <rel> 0x000000002235ba33, %xmm1
+ f2 0f e6 0d 78 56 34 cvtpd2dq <rel> 0x000000002235bb46, %xmm1
  12
- 0f 5a 0d 78 56 34 12 cvtps2pd <rel> 0x000000002235ba3a, %xmm1
- f3 0f 5b 0d 78 56 34 cvttps2dq <rel> 0x000000002235ba42, %xmm1
+ 0f 5a 0d 78 56 34 12 cvtps2pd <rel> 0x000000002235bb4d, %xmm1
+ f3 0f 5b 0d 78 56 34 cvttps2dq <rel> 0x000000002235bb55, %xmm1
  12
  f3 0f 2a c8          cvtsi2ss %eax, %xmm1
  f2 0f 2a c8          cvtsi2sd %eax, %xmm1
@@ -36809,50 +36864,50 @@ test_x86_64_s:
  f2 48 0f 2a 08       cvtsi2sd (%rax), %xmm1
  f3 48 0f 2a 08       cvtsi2ss (%rax), %xmm1
  f2 48 0f 2a 08       cvtsi2sd (%rax), %xmm1
- f2 0f 7c 0d 78 56 34 haddps <rel> 0x000000002235ba92, %xmm1
+ f2 0f 7c 0d 78 56 34 haddps <rel> 0x000000002235bba5, %xmm1
  12
- f3 0f 7f 0d 78 56 34 movdqu %xmm1, <rel> 0x000000002235ba9a
+ f3 0f 7f 0d 78 56 34 movdqu %xmm1, <rel> 0x000000002235bbad
  12
- f3 0f 6f 0d 78 56 34 movdqu <rel> 0x000000002235baa2, %xmm1
+ f3 0f 6f 0d 78 56 34 movdqu <rel> 0x000000002235bbb5, %xmm1
  12
- 66 0f 17 0d 78 56 34 movhpd %xmm1, <rel> 0x000000002235baaa
+ 66 0f 17 0d 78 56 34 movhpd %xmm1, <rel> 0x000000002235bbbd
  12
- 66 0f 16 0d 78 56 34 movhpd <rel> 0x000000002235bab2, %xmm1
+ 66 0f 16 0d 78 56 34 movhpd <rel> 0x000000002235bbc5, %xmm1
  12
- 0f 17 0d 78 56 34 12 movhps %xmm1, <rel> 0x000000002235bab9
- 0f 16 0d 78 56 34 12 movhps <rel> 0x000000002235bac0, %xmm1
- 66 0f 13 0d 78 56 34 movlpd %xmm1, <rel> 0x000000002235bac8
+ 0f 17 0d 78 56 34 12 movhps %xmm1, <rel> 0x000000002235bbcc
+ 0f 16 0d 78 56 34 12 movhps <rel> 0x000000002235bbd3, %xmm1
+ 66 0f 13 0d 78 56 34 movlpd %xmm1, <rel> 0x000000002235bbdb
  12
- 66 0f 12 0d 78 56 34 movlpd <rel> 0x000000002235bad0, %xmm1
+ 66 0f 12 0d 78 56 34 movlpd <rel> 0x000000002235bbe3, %xmm1
  12
- 0f 13 0d 78 56 34 12 movlps %xmm1, <rel> 0x000000002235bad7
- 0f 12 0d 78 56 34 12 movlps <rel> 0x000000002235bade, %xmm1
- 66 0f d6 0d 78 56 34 movq   %xmm1, <rel> 0x000000002235bae6
+ 0f 13 0d 78 56 34 12 movlps %xmm1, <rel> 0x000000002235bbea
+ 0f 12 0d 78 56 34 12 movlps <rel> 0x000000002235bbf1, %xmm1
+ 66 0f d6 0d 78 56 34 movq   %xmm1, <rel> 0x000000002235bbf9
  12
- f3 0f 7e 0d 78 56 34 movq   <rel> 0x000000002235baee, %xmm1
+ f3 0f 7e 0d 78 56 34 movq   <rel> 0x000000002235bc01, %xmm1
  12
- f3 0f 16 0d 78 56 34 movshdup <rel> 0x000000002235baf6, %xmm1
+ f3 0f 16 0d 78 56 34 movshdup <rel> 0x000000002235bc09, %xmm1
  12
- f3 0f 12 0d 78 56 34 movsldup <rel> 0x000000002235bafe, %xmm1
+ f3 0f 12 0d 78 56 34 movsldup <rel> 0x000000002235bc11, %xmm1
  12
- f3 0f 70 0d 78 56 34 pshufhw <rel> 0x000000002235bb07, $0x90, %xmm1
+ f3 0f 70 0d 78 56 34 pshufhw <rel> 0x000000002235bc1a, $0x90, %xmm1
  12 90
- f2 0f 70 0d 78 56 34 pshuflw <rel> 0x000000002235bb10, $0x90, %xmm1
+ f2 0f 70 0d 78 56 34 pshuflw <rel> 0x000000002235bc23, $0x90, %xmm1
  12 90
- 0f 60 0d 78 56 34 12 punpcklbw <rel> 0x000000002235bb17, %mm1
- 0f 62 0d 78 56 34 12 punpckldq <rel> 0x000000002235bb1e, %mm1
- 0f 61 0d 78 56 34 12 punpcklwd <rel> 0x000000002235bb25, %mm1
- 66 0f 60 0d 78 56 34 punpcklbw <rel> 0x000000002235bb2d, %xmm1
+ 0f 60 0d 78 56 34 12 punpcklbw <rel> 0x000000002235bc2a, %mm1
+ 0f 62 0d 78 56 34 12 punpckldq <rel> 0x000000002235bc31, %mm1
+ 0f 61 0d 78 56 34 12 punpcklwd <rel> 0x000000002235bc38, %mm1
+ 66 0f 60 0d 78 56 34 punpcklbw <rel> 0x000000002235bc40, %xmm1
  12
- 66 0f 62 0d 78 56 34 punpckldq <rel> 0x000000002235bb35, %xmm1
+ 66 0f 62 0d 78 56 34 punpckldq <rel> 0x000000002235bc48, %xmm1
  12
- 66 0f 61 0d 78 56 34 punpcklwd <rel> 0x000000002235bb3d, %xmm1
+ 66 0f 61 0d 78 56 34 punpcklwd <rel> 0x000000002235bc50, %xmm1
  12
- 66 0f 6c 0d 78 56 34 punpcklqdq <rel> 0x000000002235bb45, %xmm1
+ 66 0f 6c 0d 78 56 34 punpcklqdq <rel> 0x000000002235bc58, %xmm1
  12
- 66 0f 2e 0d 78 56 34 ucomisd %xmm1, <rel> 0x000000002235bb4d
+ 66 0f 2e 0d 78 56 34 ucomisd %xmm1, <rel> 0x000000002235bc60
  12
- 0f 2e 0d 78 56 34 12 ucomiss %xmm1, <rel> 0x000000002235bb54
+ 0f 2e 0d 78 56 34 12 ucomiss %xmm1, <rel> 0x000000002235bc67
  f2 0f c2 00 00       cmpsd  (%rax), $0x00, %xmm0
  f3 0f c2 00 00       cmpss  (%rax), $0x00, %xmm0
  66 0f 2a 00          cvtpi2pd (%rax), %xmm0
@@ -39173,17 +39228,17 @@ test_x86_64_s:
  12 00 00 7b
  c4 63 35 44 92 e0 0f vpclmulqdq %ymm9, 0x00000fe0(%rdx), $0x7b, %ymm10
  00 00 7b
- f3 0f ae f0          mfence
- f3 41 0f ae f2       mfence
- 67 f3 41 0f ae f2    addr32 mfence
- f2 0f ae f1          mfence
- f2 0f ae f1          mfence
- f2 41 0f ae f2       mfence
- f2 41 0f ae f2       mfence
- 66 0f ae f1          data16 mfence
- 66 0f ae f1          data16 mfence
- 66 41 0f ae f2       data16 mfence
- 66 41 0f ae f2       data16 mfence
+ f3 0f ae f0          umonitor %rax
+ f3 41 0f ae f2       umonitor %r10
+ 67 f3 41 0f ae f2    umonitor %r10d
+ f2 0f ae f1          umwait %ecx
+ f2 0f ae f1          umwait %ecx
+ f2 41 0f ae f2       umwait %r10d
+ f2 41 0f ae f2       umwait %r10d
+ 66 0f ae f1          tpause %ecx
+ 66 0f ae f1          tpause %ecx
+ 66 41 0f ae f2       tpause %r10d
+ 66 41 0f ae f2       tpause %r10d
  f3 0f 09             wbinvd
  8f 69 78 81 fa       vfrczpd %xmm2, %xmm15
  8f 69 78 81 e0       vfrczpd %xmm0, %xmm12
@@ -41157,7 +41212,7 @@ test_x86_64_s:
  41 03 00             add    (%r8), %eax
  45 03 00             add    (%r8), %r8d
  49 03 00             add    (%r8), %rax
- 03 05 22 22 22 22    add    <rel> 0x000000003223dcc7, %eax
+ 03 05 22 22 22 22    add    <rel> 0x000000003223ddda, %eax
  03 45 00             add    0x00(%rbp), %eax
  03 04 25 22 22 22 22 add    0x22222222, %eax
  41 03 45 00          add    0x00(%r13), %eax
@@ -41189,12 +41244,12 @@ test_x86_64_s:
  83 04 81 11          addl   $0x11, (%rcx,%rax,4)
  41 83 04 81 11       addl   $0x11, (%r9,%rax,4)
  42 83 04 81 11       addl   $0x11, (%rcx,%r8,4)
- 83 05 22 22 22 22 33 addl   $0x33, <rel> 0x000000003223dd42
- 48 83 05 22 22 22 22 addq   $0x33, <rel> 0x000000003223dd4a
+ 83 05 22 22 22 22 33 addl   $0x33, <rel> 0x000000003223de55
+ 48 83 05 22 22 22 22 addq   $0x33, <rel> 0x000000003223de5d
  33
- 81 05 22 22 22 22 33 addl   $0x33333333, <rel> 0x000000003223dd54
+ 81 05 22 22 22 22 33 addl   $0x33333333, <rel> 0x000000003223de67
  33 33 33
- 48 81 05 22 22 22 22 addq   $0x33333333, <rel> 0x000000003223dd5f
+ 48 81 05 22 22 22 22 addq   $0x33333333, <rel> 0x000000003223de72
  33 33 33 33
  83 04 c5 22 22 22 22 addl   $0x33, 0x22222222(,%rax,8)
  33
@@ -41228,7 +41283,7 @@ test_x86_64_s:
  00 00
  8b 04 25 00 00 00 00 mov    0x00, %eax
  8b 80 00 00 00 00    mov    0x00000000(%rax), %eax
- 8b 05 00 00 00 00    mov    <rel> 0x000000001001bbd5, %eax
+ 8b 05 00 00 00 00    mov    <rel> 0x000000001001bce8, %eax
  b0 00                mov    $0x00, %al
  66 b8 00 00          data16 mov    $0x0000, %ax
  b8 00 00 00 00       mov    $0x00000000, %eax
@@ -41237,7 +41292,7 @@ test_x86_64_s:
  00 00
  8b 04 25 00 00 00 00 mov    0x00, %eax
  8b 80 00 00 00 00    mov    0x00000000(%rax), %eax
- 8b 05 00 00 00 00    mov    <rel> 0x000000001001bc03, %eax
+ 8b 05 00 00 00 00    mov    <rel> 0x000000001001bd16, %eax
  a0 11 22 33 44 55 66 mov    0x8877665544332211, %al
  77 88
  66 a1 11 22 33 44 55 data16 mov    0x8877665544332211, %ax
@@ -41410,10 +41465,10 @@ test_x86_64_s:
  48 05 00 00 00 00    add    $0x00000000, %rax
  66 b8 00 00          data16 mov    $0x0000, %ax
  b0 00                mov    $0x00, %al
- 8b 05 00 00 00 00    mov    <rel> 0x000000001001beb5, %eax
- 67 8b 05 00 00 00 00 addr32 mov    <rel> 0x000000001001bebc, %eax
- e8 00 00 00 00       call   $0x000000001001bec1
- e3 00                jrcxz  $0x000000001001bec3
+ 8b 05 00 00 00 00    mov    <rel> 0x000000001001bfc8, %eax
+ 67 8b 05 00 00 00 00 addr32 mov    <rel> 0x000000001001bfcf, %eax
+ e8 00 00 00 00       call   $0x000000001001bfd4
+ e3 00                jrcxz  $0x000000001001bfd6
  48 b8 00 00 00 00 00 mov    $0x0000000000000000, %rax
  00 00 00
  48 05 00 00 00 00    add    $0x00000000, %rax
@@ -41422,22 +41477,22 @@ test_x86_64_s:
  00 00 00
  48 05 00 00 00 00    add    $0x00000000, %rax
  8b 83 00 00 00 00    mov    0x00000000(%rbx), %eax
- e8 00 00 00 00       call   $0x000000001001bef4
+ e8 00 00 00 00       call   $0x000000001001c007
  48 05 00 00 00 00    add    $0x00000000, %rax
- 48 8d 05 00 00 00 00 lea    <rel> 0x000000001001bf01, %rax
+ 48 8d 05 00 00 00 00 lea    <rel> 0x000000001001c014, %rax
  48 05 00 00 00 00    add    $0x00000000, %rax
- 48 05 00 00 00 00    add    $0x00000000, %rax
- 8b 83 00 00 00 00    mov    0x00000000(%rbx), %eax
- e8 00 00 00 00       call   $0x000000001001bf18
  48 05 00 00 00 00    add    $0x00000000, %rax
  8b 83 00 00 00 00    mov    0x00000000(%rbx), %eax
- e8 00 00 00 00       call   $0x000000001001bf29
+ e8 00 00 00 00       call   $0x000000001001c02b
  48 05 00 00 00 00    add    $0x00000000, %rax
  8b 83 00 00 00 00    mov    0x00000000(%rbx), %eax
- e8 00 00 00 00       call   $0x000000001001bf3a
+ e8 00 00 00 00       call   $0x000000001001c03c
  48 05 00 00 00 00    add    $0x00000000, %rax
  8b 83 00 00 00 00    mov    0x00000000(%rbx), %eax
- e8 00 00 00 00       call   $0x000000001001bf4b
+ e8 00 00 00 00       call   $0x000000001001c04d
+ 48 05 00 00 00 00    add    $0x00000000, %rax
+ 8b 83 00 00 00 00    mov    0x00000000(%rbx), %eax
+ e8 00 00 00 00       call   $0x000000001001c05e
  48 b8 00 00 00 00 00 mov    $0x0000000000000000, %rax
  00 00 00
  48 05 00 00 00 00    add    $0x00000000, %rax
@@ -63850,37 +63905,37 @@ test_x86_64_s:
  62 62 15 07 bf 72 80 vfnmsub231ss %xmm29, -0x00000200(%rdx), %xmm30, %xmm30 {%k7}
  62 62 15 07 bf b2 fc vfnmsub231ss %xmm29, -0x00000204(%rdx), %xmm30, %xmm30 {%k7}
  fd ff ff
- 62 02 fd 41 92 b4 fe vgatherdpd 0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 fd 41 92 b4 fe vgatherdpd 0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 41 92 b4 fe vgatherdpd 0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 fd 41 92 b4 fe vgatherdpd 0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 41 92 74 39 vgatherdpd 0x20(%r9,%zmm31), %zmm30 {%k1} {%k1}
+ 62 02 fd 41 92 74 39 vgatherdpd 0x00000100(%r9,%zmm31), %zmm30 {%k1} {%k1}
  20
  62 22 fd 41 92 b4 b9 vgatherdpd 0x00000400(%rcx,%zmm31,4), %zmm30 {%k1} {%k1}
  00 04 00 00
- 62 02 7d 41 92 b4 fe vgatherdps 0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 7d 41 92 b4 fe vgatherdps 0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 41 92 b4 fe vgatherdps 0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 7d 41 92 b4 fe vgatherdps 0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 41 92 74 39 vgatherdps 0x40(%r9,%zmm31), %zmm30 {%k1} {%k1}
+ 62 02 7d 41 92 74 39 vgatherdps 0x00000100(%r9,%zmm31), %zmm30 {%k1} {%k1}
  40
  62 22 7d 41 92 b4 b9 vgatherdps 0x00000400(%rcx,%zmm31,4), %zmm30 {%k1} {%k1}
  00 04 00 00
- 62 02 fd 41 93 b4 fe vgatherqpd 0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 fd 41 93 b4 fe vgatherqpd 0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 41 93 b4 fe vgatherqpd 0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 fd 41 93 b4 fe vgatherqpd 0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 41 93 74 39 vgatherqpd 0x20(%r9,%zmm31), %zmm30 {%k1} {%k1}
+ 62 02 fd 41 93 74 39 vgatherqpd 0x00000100(%r9,%zmm31), %zmm30 {%k1} {%k1}
  20
  62 22 fd 41 93 b4 b9 vgatherqpd 0x00000400(%rcx,%zmm31,4), %zmm30 {%k1} {%k1}
  00 04 00 00
- 62 d2 fd 41 93 9c de vgatherqpd 0x0000007b(%r14,%zmm19,8), %zmm3 {%k1} {%k1}
+ 62 d2 fd 41 93 9c de vgatherqpd 0x7b(%r14,%zmm19,8), %zmm3 {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 41 93 b4 fe vgatherqps 0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 7d 41 93 b4 fe vgatherqps 0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 41 93 b4 fe vgatherqps 0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 7d 41 93 b4 fe vgatherqps 0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 41 93 74 39 vgatherqps 0x40(%r9,%zmm31), %zmm30 {%k1} {%k1}
+ 62 02 7d 41 93 74 39 vgatherqps 0x00000100(%r9,%zmm31), %zmm30 {%k1} {%k1}
  40
  62 22 7d 41 93 b4 b9 vgatherqps 0x00000400(%rcx,%zmm31,4), %zmm30 {%k1} {%k1}
  00 04 00 00
@@ -65735,35 +65790,35 @@ test_x86_64_s:
  62 02 fd 48 89 f5    vpexpandq %zmm29, %zmm30 {%k0}
  62 02 fd 4f 89 f5    vpexpandq %zmm29, %zmm30 {%k7}
  62 02 fd cf 89 f5    vpexpandq %zmm29, %zmm30 {%k7}
- 62 02 7d 41 90 b4 fe vpgatherdd 0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 7d 41 90 b4 fe vpgatherdd 0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 41 90 b4 fe vpgatherdd 0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 7d 41 90 b4 fe vpgatherdd 0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 41 90 74 39 vpgatherdd 0x40(%r9,%zmm31), %zmm30 {%k1} {%k1}
+ 62 02 7d 41 90 74 39 vpgatherdd 0x00000100(%r9,%zmm31), %zmm30 {%k1} {%k1}
  40
  62 22 7d 41 90 b4 b9 vpgatherdd 0x00000400(%rcx,%zmm31,4), %zmm30 {%k1} {%k1}
  00 04 00 00
- 62 02 fd 41 90 b4 fe vpgatherdq 0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 fd 41 90 b4 fe vpgatherdq 0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 41 90 b4 fe vpgatherdq 0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 fd 41 90 b4 fe vpgatherdq 0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 41 90 74 39 vpgatherdq 0x20(%r9,%zmm31), %zmm30 {%k1} {%k1}
+ 62 02 fd 41 90 74 39 vpgatherdq 0x00000100(%r9,%zmm31), %zmm30 {%k1} {%k1}
  20
  62 22 fd 41 90 b4 b9 vpgatherdq 0x00000400(%rcx,%zmm31,4), %zmm30 {%k1} {%k1}
  00 04 00 00
- 62 02 7d 41 91 b4 fe vpgatherqd 0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 7d 41 91 b4 fe vpgatherqd 0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 41 91 b4 fe vpgatherqd 0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 7d 41 91 b4 fe vpgatherqd 0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 41 91 74 39 vpgatherqd 0x40(%r9,%zmm31), %zmm30 {%k1} {%k1}
+ 62 02 7d 41 91 74 39 vpgatherqd 0x00000100(%r9,%zmm31), %zmm30 {%k1} {%k1}
  40
  62 22 7d 41 91 b4 b9 vpgatherqd 0x00000400(%rcx,%zmm31,4), %zmm30 {%k1} {%k1}
  00 04 00 00
- 62 02 fd 41 91 b4 fe vpgatherqq 0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 fd 41 91 b4 fe vpgatherqq 0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 41 91 b4 fe vpgatherqq 0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 fd 41 91 b4 fe vpgatherqq 0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 41 91 74 39 vpgatherqq 0x20(%r9,%zmm31), %zmm30 {%k1} {%k1}
+ 62 02 fd 41 91 74 39 vpgatherqq 0x00000100(%r9,%zmm31), %zmm30 {%k1} {%k1}
  20
  62 22 fd 41 91 b4 b9 vpgatherqq 0x00000400(%rcx,%zmm31,4), %zmm30 {%k1} {%k1}
  00 04 00 00
@@ -66124,35 +66179,35 @@ test_x86_64_s:
  62 61 95 50 eb 72 80 vporq  %zmm29, -0x00000400(%rdx), %zmm30 {%k0}
  62 61 95 50 eb b2 f8 vporq  %zmm29, -0x00000408(%rdx), %zmm30 {%k0}
  fb ff ff
- 62 02 7d 41 a0 b4 fe vpscatterdd %zmm30, 0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 7d 41 a0 b4 fe vpscatterdd %zmm30, 0x7b(%r14,%zmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 41 a0 b4 fe vpscatterdd %zmm30, 0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 7d 41 a0 b4 fe vpscatterdd %zmm30, 0x7b(%r14,%zmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 41 a0 74 39 vpscatterdd %zmm30, 0x40(%r9,%zmm31) {%k1} {%k1}
+ 62 02 7d 41 a0 74 39 vpscatterdd %zmm30, 0x00000100(%r9,%zmm31) {%k1} {%k1}
  40
  62 22 7d 41 a0 b4 b9 vpscatterdd %zmm30, 0x00000400(%rcx,%zmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 fd 41 a0 b4 fe vpscatterdq %zmm30, 0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 fd 41 a0 b4 fe vpscatterdq %zmm30, 0x7b(%r14,%zmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 41 a0 b4 fe vpscatterdq %zmm30, 0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 fd 41 a0 b4 fe vpscatterdq %zmm30, 0x7b(%r14,%zmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 41 a0 74 39 vpscatterdq %zmm30, 0x20(%r9,%zmm31) {%k1} {%k1}
+ 62 02 fd 41 a0 74 39 vpscatterdq %zmm30, 0x00000100(%r9,%zmm31) {%k1} {%k1}
  20
  62 22 fd 41 a0 b4 b9 vpscatterdq %zmm30, 0x00000400(%rcx,%zmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 7d 41 a1 b4 fe vpscatterqd %zmm30, 0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 7d 41 a1 b4 fe vpscatterqd %zmm30, 0x7b(%r14,%zmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 41 a1 b4 fe vpscatterqd %zmm30, 0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 7d 41 a1 b4 fe vpscatterqd %zmm30, 0x7b(%r14,%zmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 41 a1 74 39 vpscatterqd %zmm30, 0x40(%r9,%zmm31) {%k1} {%k1}
+ 62 02 7d 41 a1 74 39 vpscatterqd %zmm30, 0x00000100(%r9,%zmm31) {%k1} {%k1}
  40
  62 22 7d 41 a1 b4 b9 vpscatterqd %zmm30, 0x00000400(%rcx,%zmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 fd 41 a1 b4 fe vpscatterqq %zmm30, 0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 fd 41 a1 b4 fe vpscatterqq %zmm30, 0x7b(%r14,%zmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 41 a1 b4 fe vpscatterqq %zmm30, 0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 fd 41 a1 b4 fe vpscatterqq %zmm30, 0x7b(%r14,%zmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 41 a1 74 39 vpscatterqq %zmm30, 0x20(%r9,%zmm31) {%k1} {%k1}
+ 62 02 fd 41 a1 74 39 vpscatterqq %zmm30, 0x00000100(%r9,%zmm31) {%k1} {%k1}
  20
  62 22 fd 41 a1 b4 b9 vpscatterqq %zmm30, 0x00000400(%rcx,%zmm31,4) {%k1} {%k1}
  00 04 00 00
@@ -66716,35 +66771,35 @@ test_x86_64_s:
  62 62 15 07 4f 72 80 vrsqrt14ss %xmm29, -0x00000200(%rdx), %xmm30 {%k7}
  62 62 15 07 4f b2 fc vrsqrt14ss %xmm29, -0x00000204(%rdx), %xmm30 {%k7}
  fd ff ff
- 62 02 fd 41 a2 b4 fe vscatterdpd %zmm30, 0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 fd 41 a2 b4 fe vscatterdpd %zmm30, 0x7b(%r14,%zmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 41 a2 b4 fe vscatterdpd %zmm30, 0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 fd 41 a2 b4 fe vscatterdpd %zmm30, 0x7b(%r14,%zmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 41 a2 74 39 vscatterdpd %zmm30, 0x20(%r9,%zmm31) {%k1} {%k1}
+ 62 02 fd 41 a2 74 39 vscatterdpd %zmm30, 0x00000100(%r9,%zmm31) {%k1} {%k1}
  20
  62 22 fd 41 a2 b4 b9 vscatterdpd %zmm30, 0x00000400(%rcx,%zmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 7d 41 a2 b4 fe vscatterdps %zmm30, 0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 7d 41 a2 b4 fe vscatterdps %zmm30, 0x7b(%r14,%zmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 41 a2 b4 fe vscatterdps %zmm30, 0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 7d 41 a2 b4 fe vscatterdps %zmm30, 0x7b(%r14,%zmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 41 a2 74 39 vscatterdps %zmm30, 0x40(%r9,%zmm31) {%k1} {%k1}
+ 62 02 7d 41 a2 74 39 vscatterdps %zmm30, 0x00000100(%r9,%zmm31) {%k1} {%k1}
  40
  62 22 7d 41 a2 b4 b9 vscatterdps %zmm30, 0x00000400(%rcx,%zmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 fd 41 a3 b4 fe vscatterqpd %zmm30, 0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 fd 41 a3 b4 fe vscatterqpd %zmm30, 0x7b(%r14,%zmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 41 a3 b4 fe vscatterqpd %zmm30, 0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 fd 41 a3 b4 fe vscatterqpd %zmm30, 0x7b(%r14,%zmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 41 a3 74 39 vscatterqpd %zmm30, 0x20(%r9,%zmm31) {%k1} {%k1}
+ 62 02 fd 41 a3 74 39 vscatterqpd %zmm30, 0x00000100(%r9,%zmm31) {%k1} {%k1}
  20
  62 22 fd 41 a3 b4 b9 vscatterqpd %zmm30, 0x00000400(%rcx,%zmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 7d 41 a3 b4 fe vscatterqps %zmm30, 0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 7d 41 a3 b4 fe vscatterqps %zmm30, 0x7b(%r14,%zmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 41 a3 b4 fe vscatterqps %zmm30, 0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 7d 41 a3 b4 fe vscatterqps %zmm30, 0x7b(%r14,%zmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 41 a3 74 39 vscatterqps %zmm30, 0x40(%r9,%zmm31) {%k1} {%k1}
+ 62 02 7d 41 a3 74 39 vscatterqps %zmm30, 0x00000100(%r9,%zmm31) {%k1} {%k1}
  40
  62 22 7d 41 a3 b4 b9 vscatterqps %zmm30, 0x00000400(%rcx,%zmm31,4) {%k1} {%k1}
  00 04 00 00
@@ -74064,37 +74119,37 @@ test_x86_64_s:
  62 62 15 07 bf 72 80 vfnmsub231ss %xmm29, -0x00000200(%rdx), %xmm30, %xmm30 {%k7}
  62 62 15 07 bf b2 fc vfnmsub231ss %xmm29, -0x00000204(%rdx), %xmm30, %xmm30 {%k7}
  fd ff ff
- 62 02 fd 41 92 b4 fe vgatherdpd -0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 fd 41 92 b4 fe vgatherdpd -0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 41 92 b4 fe vgatherdpd -0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 fd 41 92 b4 fe vgatherdpd -0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 41 92 74 39 vgatherdpd 0x20(%r9,%zmm31), %zmm30 {%k1} {%k1}
+ 62 02 fd 41 92 74 39 vgatherdpd 0x00000100(%r9,%zmm31), %zmm30 {%k1} {%k1}
  20
  62 22 fd 41 92 b4 b9 vgatherdpd 0x00000400(%rcx,%zmm31,4), %zmm30 {%k1} {%k1}
  00 04 00 00
- 62 02 7d 41 92 b4 fe vgatherdps -0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 7d 41 92 b4 fe vgatherdps -0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 41 92 b4 fe vgatherdps -0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 7d 41 92 b4 fe vgatherdps -0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 41 92 74 39 vgatherdps 0x40(%r9,%zmm31), %zmm30 {%k1} {%k1}
+ 62 02 7d 41 92 74 39 vgatherdps 0x00000100(%r9,%zmm31), %zmm30 {%k1} {%k1}
  40
  62 22 7d 41 92 b4 b9 vgatherdps 0x00000400(%rcx,%zmm31,4), %zmm30 {%k1} {%k1}
  00 04 00 00
- 62 02 fd 41 93 b4 fe vgatherqpd -0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 fd 41 93 b4 fe vgatherqpd -0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 41 93 b4 fe vgatherqpd -0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 fd 41 93 b4 fe vgatherqpd -0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 41 93 74 39 vgatherqpd 0x20(%r9,%zmm31), %zmm30 {%k1} {%k1}
+ 62 02 fd 41 93 74 39 vgatherqpd 0x00000100(%r9,%zmm31), %zmm30 {%k1} {%k1}
  20
  62 22 fd 41 93 b4 b9 vgatherqpd 0x00000400(%rcx,%zmm31,4), %zmm30 {%k1} {%k1}
  00 04 00 00
- 62 d2 fd 41 93 9c de vgatherqpd 0x0000007b(%r14,%zmm19,8), %zmm3 {%k1} {%k1}
+ 62 d2 fd 41 93 9c de vgatherqpd 0x7b(%r14,%zmm19,8), %zmm3 {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 41 93 b4 fe vgatherqps -0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 7d 41 93 b4 fe vgatherqps -0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 41 93 b4 fe vgatherqps -0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 7d 41 93 b4 fe vgatherqps -0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 41 93 74 39 vgatherqps 0x40(%r9,%zmm31), %zmm30 {%k1} {%k1}
+ 62 02 7d 41 93 74 39 vgatherqps 0x00000100(%r9,%zmm31), %zmm30 {%k1} {%k1}
  40
  62 22 7d 41 93 b4 b9 vgatherqps 0x00000400(%rcx,%zmm31,4), %zmm30 {%k1} {%k1}
  00 04 00 00
@@ -75949,35 +76004,35 @@ test_x86_64_s:
  62 02 fd 48 89 f5    vpexpandq %zmm29, %zmm30 {%k0}
  62 02 fd 4f 89 f5    vpexpandq %zmm29, %zmm30 {%k7}
  62 02 fd cf 89 f5    vpexpandq %zmm29, %zmm30 {%k7}
- 62 02 7d 41 90 b4 fe vpgatherdd -0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 7d 41 90 b4 fe vpgatherdd -0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 41 90 b4 fe vpgatherdd -0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 7d 41 90 b4 fe vpgatherdd -0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 41 90 74 39 vpgatherdd 0x40(%r9,%zmm31), %zmm30 {%k1} {%k1}
+ 62 02 7d 41 90 74 39 vpgatherdd 0x00000100(%r9,%zmm31), %zmm30 {%k1} {%k1}
  40
  62 22 7d 41 90 b4 b9 vpgatherdd 0x00000400(%rcx,%zmm31,4), %zmm30 {%k1} {%k1}
  00 04 00 00
- 62 02 fd 41 90 b4 fe vpgatherdq -0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 fd 41 90 b4 fe vpgatherdq -0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 41 90 b4 fe vpgatherdq -0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 fd 41 90 b4 fe vpgatherdq -0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 41 90 74 39 vpgatherdq 0x20(%r9,%zmm31), %zmm30 {%k1} {%k1}
+ 62 02 fd 41 90 74 39 vpgatherdq 0x00000100(%r9,%zmm31), %zmm30 {%k1} {%k1}
  20
  62 22 fd 41 90 b4 b9 vpgatherdq 0x00000400(%rcx,%zmm31,4), %zmm30 {%k1} {%k1}
  00 04 00 00
- 62 02 7d 41 91 b4 fe vpgatherqd -0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 7d 41 91 b4 fe vpgatherqd -0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 41 91 b4 fe vpgatherqd -0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 7d 41 91 b4 fe vpgatherqd -0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 41 91 74 39 vpgatherqd 0x40(%r9,%zmm31), %zmm30 {%k1} {%k1}
+ 62 02 7d 41 91 74 39 vpgatherqd 0x00000100(%r9,%zmm31), %zmm30 {%k1} {%k1}
  40
  62 22 7d 41 91 b4 b9 vpgatherqd 0x00000400(%rcx,%zmm31,4), %zmm30 {%k1} {%k1}
  00 04 00 00
- 62 02 fd 41 91 b4 fe vpgatherqq -0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 fd 41 91 b4 fe vpgatherqq -0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 41 91 b4 fe vpgatherqq -0x0000007b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
+ 62 02 fd 41 91 b4 fe vpgatherqq -0x7b(%r14,%zmm31,8), %zmm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 41 91 74 39 vpgatherqq 0x20(%r9,%zmm31), %zmm30 {%k1} {%k1}
+ 62 02 fd 41 91 74 39 vpgatherqq 0x00000100(%r9,%zmm31), %zmm30 {%k1} {%k1}
  20
  62 22 fd 41 91 b4 b9 vpgatherqq 0x00000400(%rcx,%zmm31,4), %zmm30 {%k1} {%k1}
  00 04 00 00
@@ -76338,35 +76393,35 @@ test_x86_64_s:
  62 61 95 50 eb 72 80 vporq  %zmm29, -0x00000400(%rdx), %zmm30 {%k0}
  62 61 95 50 eb b2 f8 vporq  %zmm29, -0x00000408(%rdx), %zmm30 {%k0}
  fb ff ff
- 62 02 7d 41 a0 b4 fe vpscatterdd %zmm30, -0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 7d 41 a0 b4 fe vpscatterdd %zmm30, -0x7b(%r14,%zmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 41 a0 b4 fe vpscatterdd %zmm30, -0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 7d 41 a0 b4 fe vpscatterdd %zmm30, -0x7b(%r14,%zmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 41 a0 74 39 vpscatterdd %zmm30, 0x40(%r9,%zmm31) {%k1} {%k1}
+ 62 02 7d 41 a0 74 39 vpscatterdd %zmm30, 0x00000100(%r9,%zmm31) {%k1} {%k1}
  40
  62 22 7d 41 a0 b4 b9 vpscatterdd %zmm30, 0x00000400(%rcx,%zmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 fd 41 a0 b4 fe vpscatterdq %zmm30, -0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 fd 41 a0 b4 fe vpscatterdq %zmm30, -0x7b(%r14,%zmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 41 a0 b4 fe vpscatterdq %zmm30, -0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 fd 41 a0 b4 fe vpscatterdq %zmm30, -0x7b(%r14,%zmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 41 a0 74 39 vpscatterdq %zmm30, 0x20(%r9,%zmm31) {%k1} {%k1}
+ 62 02 fd 41 a0 74 39 vpscatterdq %zmm30, 0x00000100(%r9,%zmm31) {%k1} {%k1}
  20
  62 22 fd 41 a0 b4 b9 vpscatterdq %zmm30, 0x00000400(%rcx,%zmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 7d 41 a1 b4 fe vpscatterqd %zmm30, -0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 7d 41 a1 b4 fe vpscatterqd %zmm30, -0x7b(%r14,%zmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 41 a1 b4 fe vpscatterqd %zmm30, -0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 7d 41 a1 b4 fe vpscatterqd %zmm30, -0x7b(%r14,%zmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 41 a1 74 39 vpscatterqd %zmm30, 0x40(%r9,%zmm31) {%k1} {%k1}
+ 62 02 7d 41 a1 74 39 vpscatterqd %zmm30, 0x00000100(%r9,%zmm31) {%k1} {%k1}
  40
  62 22 7d 41 a1 b4 b9 vpscatterqd %zmm30, 0x00000400(%rcx,%zmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 fd 41 a1 b4 fe vpscatterqq %zmm30, -0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 fd 41 a1 b4 fe vpscatterqq %zmm30, -0x7b(%r14,%zmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 41 a1 b4 fe vpscatterqq %zmm30, -0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 fd 41 a1 b4 fe vpscatterqq %zmm30, -0x7b(%r14,%zmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 41 a1 74 39 vpscatterqq %zmm30, 0x20(%r9,%zmm31) {%k1} {%k1}
+ 62 02 fd 41 a1 74 39 vpscatterqq %zmm30, 0x00000100(%r9,%zmm31) {%k1} {%k1}
  20
  62 22 fd 41 a1 b4 b9 vpscatterqq %zmm30, 0x00000400(%rcx,%zmm31,4) {%k1} {%k1}
  00 04 00 00
@@ -76930,35 +76985,35 @@ test_x86_64_s:
  62 62 15 07 4f 72 80 vrsqrt14ss %xmm29, -0x00000200(%rdx), %xmm30 {%k7}
  62 62 15 07 4f b2 fc vrsqrt14ss %xmm29, -0x00000204(%rdx), %xmm30 {%k7}
  fd ff ff
- 62 02 fd 41 a2 b4 fe vscatterdpd %zmm30, -0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 fd 41 a2 b4 fe vscatterdpd %zmm30, -0x7b(%r14,%zmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 41 a2 b4 fe vscatterdpd %zmm30, -0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 fd 41 a2 b4 fe vscatterdpd %zmm30, -0x7b(%r14,%zmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 41 a2 74 39 vscatterdpd %zmm30, 0x20(%r9,%zmm31) {%k1} {%k1}
+ 62 02 fd 41 a2 74 39 vscatterdpd %zmm30, 0x00000100(%r9,%zmm31) {%k1} {%k1}
  20
  62 22 fd 41 a2 b4 b9 vscatterdpd %zmm30, 0x00000400(%rcx,%zmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 7d 41 a2 b4 fe vscatterdps %zmm30, -0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 7d 41 a2 b4 fe vscatterdps %zmm30, -0x7b(%r14,%zmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 41 a2 b4 fe vscatterdps %zmm30, -0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 7d 41 a2 b4 fe vscatterdps %zmm30, -0x7b(%r14,%zmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 41 a2 74 39 vscatterdps %zmm30, 0x40(%r9,%zmm31) {%k1} {%k1}
+ 62 02 7d 41 a2 74 39 vscatterdps %zmm30, 0x00000100(%r9,%zmm31) {%k1} {%k1}
  40
  62 22 7d 41 a2 b4 b9 vscatterdps %zmm30, 0x00000400(%rcx,%zmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 fd 41 a3 b4 fe vscatterqpd %zmm30, -0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 fd 41 a3 b4 fe vscatterqpd %zmm30, -0x7b(%r14,%zmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 41 a3 b4 fe vscatterqpd %zmm30, -0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 fd 41 a3 b4 fe vscatterqpd %zmm30, -0x7b(%r14,%zmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 41 a3 74 39 vscatterqpd %zmm30, 0x20(%r9,%zmm31) {%k1} {%k1}
+ 62 02 fd 41 a3 74 39 vscatterqpd %zmm30, 0x00000100(%r9,%zmm31) {%k1} {%k1}
  20
  62 22 fd 41 a3 b4 b9 vscatterqpd %zmm30, 0x00000400(%rcx,%zmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 7d 41 a3 b4 fe vscatterqps %zmm30, -0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 7d 41 a3 b4 fe vscatterqps %zmm30, -0x7b(%r14,%zmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 41 a3 b4 fe vscatterqps %zmm30, -0x0000007b(%r14,%zmm31,8) {%k1} {%k1}
+ 62 02 7d 41 a3 b4 fe vscatterqps %zmm30, -0x7b(%r14,%zmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 41 a3 74 39 vscatterqps %zmm30, 0x40(%r9,%zmm31) {%k1} {%k1}
+ 62 02 7d 41 a3 74 39 vscatterqps %zmm30, 0x00000100(%r9,%zmm31) {%k1} {%k1}
  40
  62 22 7d 41 a3 b4 b9 vscatterqps %zmm30, 0x00000400(%rcx,%zmm31,4) {%k1} {%k1}
  00 04 00 00
@@ -82176,51 +82231,51 @@ test_x86_64_s:
  62 62 15 30 be 72 80 vfnmsub231ps %ymm29, -0x00000200(%rdx), %ymm30, %ymm30 {%k0}
  62 62 15 30 be b2 fc vfnmsub231ps %ymm29, -0x00000204(%rdx), %ymm30, %ymm30 {%k0}
  fd ff ff
- 62 02 fd 01 92 b4 fe vgatherdpd 0x0000007b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
+ 62 02 fd 01 92 b4 fe vgatherdpd 0x7b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 01 92 74 39 vgatherdpd 0x20(%r9,%xmm31), %xmm30 {%k1} {%k1}
+ 62 02 fd 01 92 74 39 vgatherdpd 0x00000100(%r9,%xmm31), %xmm30 {%k1} {%k1}
  20
  62 22 fd 01 92 b4 b9 vgatherdpd 0x00000400(%rcx,%xmm31,4), %xmm30 {%k1} {%k1}
  00 04 00 00
- 62 02 fd 21 92 b4 fe vgatherdpd 0x0000007b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
+ 62 02 fd 21 92 b4 fe vgatherdpd 0x7b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 21 92 74 39 vgatherdpd 0x20(%r9,%ymm31), %ymm30 {%k1} {%k1}
+ 62 02 fd 21 92 74 39 vgatherdpd 0x00000100(%r9,%ymm31), %ymm30 {%k1} {%k1}
  20
  62 22 fd 21 92 b4 b9 vgatherdpd 0x00000400(%rcx,%ymm31,4), %ymm30 {%k1} {%k1}
  00 04 00 00
- 62 02 7d 01 92 b4 fe vgatherdps 0x0000007b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
+ 62 02 7d 01 92 b4 fe vgatherdps 0x7b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 01 92 74 39 vgatherdps 0x40(%r9,%xmm31), %xmm30 {%k1} {%k1}
+ 62 02 7d 01 92 74 39 vgatherdps 0x00000100(%r9,%xmm31), %xmm30 {%k1} {%k1}
  40
  62 22 7d 01 92 b4 b9 vgatherdps 0x00000400(%rcx,%xmm31,4), %xmm30 {%k1} {%k1}
  00 04 00 00
- 62 02 7d 21 92 b4 fe vgatherdps 0x0000007b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
+ 62 02 7d 21 92 b4 fe vgatherdps 0x7b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 21 92 74 39 vgatherdps 0x40(%r9,%ymm31), %ymm30 {%k1} {%k1}
+ 62 02 7d 21 92 74 39 vgatherdps 0x00000100(%r9,%ymm31), %ymm30 {%k1} {%k1}
  40
  62 22 7d 21 92 b4 b9 vgatherdps 0x00000400(%rcx,%ymm31,4), %ymm30 {%k1} {%k1}
  00 04 00 00
- 62 02 fd 01 93 b4 fe vgatherqpd 0x0000007b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
+ 62 02 fd 01 93 b4 fe vgatherqpd 0x7b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 01 93 74 39 vgatherqpd 0x20(%r9,%xmm31), %xmm30 {%k1} {%k1}
+ 62 02 fd 01 93 74 39 vgatherqpd 0x00000100(%r9,%xmm31), %xmm30 {%k1} {%k1}
  20
  62 22 fd 01 93 b4 b9 vgatherqpd 0x00000400(%rcx,%xmm31,4), %xmm30 {%k1} {%k1}
  00 04 00 00
- 62 02 fd 21 93 b4 fe vgatherqpd 0x0000007b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
+ 62 02 fd 21 93 b4 fe vgatherqpd 0x7b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 21 93 74 39 vgatherqpd 0x20(%r9,%ymm31), %ymm30 {%k1} {%k1}
+ 62 02 fd 21 93 74 39 vgatherqpd 0x00000100(%r9,%ymm31), %ymm30 {%k1} {%k1}
  20
  62 22 fd 21 93 b4 b9 vgatherqpd 0x00000400(%rcx,%ymm31,4), %ymm30 {%k1} {%k1}
  00 04 00 00
- 62 02 7d 01 93 b4 fe vgatherqps 0x0000007b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
+ 62 02 7d 01 93 b4 fe vgatherqps 0x7b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 01 93 74 39 vgatherqps 0x40(%r9,%xmm31), %xmm30 {%k1} {%k1}
+ 62 02 7d 01 93 74 39 vgatherqps 0x00000100(%r9,%xmm31), %xmm30 {%k1} {%k1}
  40
  62 22 7d 01 93 b4 b9 vgatherqps 0x00000400(%rcx,%xmm31,4), %xmm30 {%k1} {%k1}
  00 04 00 00
- 62 02 7d 21 93 b4 fe vgatherqps 0x0000007b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
+ 62 02 7d 21 93 b4 fe vgatherqps 0x7b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 21 93 74 39 vgatherqps 0x40(%r9,%ymm31), %ymm30 {%k1} {%k1}
+ 62 02 7d 21 93 74 39 vgatherqps 0x00000100(%r9,%ymm31), %ymm30 {%k1} {%k1}
  40
  62 22 7d 21 93 b4 b9 vgatherqps 0x00000400(%rcx,%ymm31,4), %ymm30 {%k1} {%k1}
  00 04 00 00
@@ -84112,51 +84167,51 @@ test_x86_64_s:
  62 02 fd 28 89 f5    vpexpandq %ymm29, %ymm30 {%k0}
  62 02 fd 2f 89 f5    vpexpandq %ymm29, %ymm30 {%k7}
  62 02 fd af 89 f5    vpexpandq %ymm29, %ymm30 {%k7}
- 62 02 7d 01 90 b4 fe vpgatherdd 0x0000007b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
+ 62 02 7d 01 90 b4 fe vpgatherdd 0x7b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 01 90 74 39 vpgatherdd 0x40(%r9,%xmm31), %xmm30 {%k1} {%k1}
+ 62 02 7d 01 90 74 39 vpgatherdd 0x00000100(%r9,%xmm31), %xmm30 {%k1} {%k1}
  40
  62 22 7d 01 90 b4 b9 vpgatherdd 0x00000400(%rcx,%xmm31,4), %xmm30 {%k1} {%k1}
  00 04 00 00
- 62 02 7d 21 90 b4 fe vpgatherdd 0x0000007b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
+ 62 02 7d 21 90 b4 fe vpgatherdd 0x7b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 21 90 74 39 vpgatherdd 0x40(%r9,%ymm31), %ymm30 {%k1} {%k1}
+ 62 02 7d 21 90 74 39 vpgatherdd 0x00000100(%r9,%ymm31), %ymm30 {%k1} {%k1}
  40
  62 22 7d 21 90 b4 b9 vpgatherdd 0x00000400(%rcx,%ymm31,4), %ymm30 {%k1} {%k1}
  00 04 00 00
- 62 02 fd 01 90 b4 fe vpgatherdq 0x0000007b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
+ 62 02 fd 01 90 b4 fe vpgatherdq 0x7b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 01 90 74 39 vpgatherdq 0x20(%r9,%xmm31), %xmm30 {%k1} {%k1}
+ 62 02 fd 01 90 74 39 vpgatherdq 0x00000100(%r9,%xmm31), %xmm30 {%k1} {%k1}
  20
  62 22 fd 01 90 b4 b9 vpgatherdq 0x00000400(%rcx,%xmm31,4), %xmm30 {%k1} {%k1}
  00 04 00 00
- 62 02 fd 21 90 b4 fe vpgatherdq 0x0000007b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
+ 62 02 fd 21 90 b4 fe vpgatherdq 0x7b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 21 90 74 39 vpgatherdq 0x20(%r9,%ymm31), %ymm30 {%k1} {%k1}
+ 62 02 fd 21 90 74 39 vpgatherdq 0x00000100(%r9,%ymm31), %ymm30 {%k1} {%k1}
  20
  62 22 fd 21 90 b4 b9 vpgatherdq 0x00000400(%rcx,%ymm31,4), %ymm30 {%k1} {%k1}
  00 04 00 00
- 62 02 7d 01 91 b4 fe vpgatherqd 0x0000007b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
+ 62 02 7d 01 91 b4 fe vpgatherqd 0x7b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 01 91 74 39 vpgatherqd 0x40(%r9,%xmm31), %xmm30 {%k1} {%k1}
+ 62 02 7d 01 91 74 39 vpgatherqd 0x00000100(%r9,%xmm31), %xmm30 {%k1} {%k1}
  40
  62 22 7d 01 91 b4 b9 vpgatherqd 0x00000400(%rcx,%xmm31,4), %xmm30 {%k1} {%k1}
  00 04 00 00
- 62 02 7d 21 91 b4 fe vpgatherqd 0x0000007b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
+ 62 02 7d 21 91 b4 fe vpgatherqd 0x7b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 21 91 74 39 vpgatherqd 0x40(%r9,%ymm31), %ymm30 {%k1} {%k1}
+ 62 02 7d 21 91 74 39 vpgatherqd 0x00000100(%r9,%ymm31), %ymm30 {%k1} {%k1}
  40
  62 22 7d 21 91 b4 b9 vpgatherqd 0x00000400(%rcx,%ymm31,4), %ymm30 {%k1} {%k1}
  00 04 00 00
- 62 02 fd 01 91 b4 fe vpgatherqq 0x0000007b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
+ 62 02 fd 01 91 b4 fe vpgatherqq 0x7b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 01 91 74 39 vpgatherqq 0x20(%r9,%xmm31), %xmm30 {%k1} {%k1}
+ 62 02 fd 01 91 74 39 vpgatherqq 0x00000100(%r9,%xmm31), %xmm30 {%k1} {%k1}
  20
  62 22 fd 01 91 b4 b9 vpgatherqq 0x00000400(%rcx,%xmm31,4), %xmm30 {%k1} {%k1}
  00 04 00 00
- 62 02 fd 21 91 b4 fe vpgatherqq 0x0000007b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
+ 62 02 fd 21 91 b4 fe vpgatherqq 0x7b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 21 91 74 39 vpgatherqq 0x20(%r9,%ymm31), %ymm30 {%k1} {%k1}
+ 62 02 fd 21 91 74 39 vpgatherqq 0x00000100(%r9,%ymm31), %ymm30 {%k1} {%k1}
  20
  62 22 fd 21 91 b4 b9 vpgatherqq 0x00000400(%rcx,%ymm31,4), %ymm30 {%k1} {%k1}
  00 04 00 00
@@ -84894,67 +84949,67 @@ test_x86_64_s:
  62 61 95 30 eb 72 80 vporq  %ymm29, -0x00000400(%rdx), %ymm30 {%k0}
  62 61 95 30 eb b2 f8 vporq  %ymm29, -0x00000408(%rdx), %ymm30 {%k0}
  fb ff ff
- 62 02 7d 01 a0 b4 fe vpscatterdd %xmm30, 0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 7d 01 a0 b4 fe vpscatterdd %xmm30, 0x7b(%r14,%xmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 01 a0 b4 fe vpscatterdd %xmm30, 0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 7d 01 a0 b4 fe vpscatterdd %xmm30, 0x7b(%r14,%xmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 01 a0 74 39 vpscatterdd %xmm30, 0x40(%r9,%xmm31) {%k1} {%k1}
+ 62 02 7d 01 a0 74 39 vpscatterdd %xmm30, 0x00000100(%r9,%xmm31) {%k1} {%k1}
  40
  62 22 7d 01 a0 b4 b9 vpscatterdd %xmm30, 0x00000400(%rcx,%xmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 7d 21 a0 b4 fe vpscatterdd %ymm30, 0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 7d 21 a0 b4 fe vpscatterdd %ymm30, 0x7b(%r14,%ymm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 21 a0 b4 fe vpscatterdd %ymm30, 0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 7d 21 a0 b4 fe vpscatterdd %ymm30, 0x7b(%r14,%ymm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 21 a0 74 39 vpscatterdd %ymm30, 0x40(%r9,%ymm31) {%k1} {%k1}
+ 62 02 7d 21 a0 74 39 vpscatterdd %ymm30, 0x00000100(%r9,%ymm31) {%k1} {%k1}
  40
  62 22 7d 21 a0 b4 b9 vpscatterdd %ymm30, 0x00000400(%rcx,%ymm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 fd 01 a0 b4 fe vpscatterdq %xmm30, 0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 fd 01 a0 b4 fe vpscatterdq %xmm30, 0x7b(%r14,%xmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 01 a0 b4 fe vpscatterdq %xmm30, 0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 fd 01 a0 b4 fe vpscatterdq %xmm30, 0x7b(%r14,%xmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 01 a0 74 39 vpscatterdq %xmm30, 0x20(%r9,%xmm31) {%k1} {%k1}
+ 62 02 fd 01 a0 74 39 vpscatterdq %xmm30, 0x00000100(%r9,%xmm31) {%k1} {%k1}
  20
  62 22 fd 01 a0 b4 b9 vpscatterdq %xmm30, 0x00000400(%rcx,%xmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 fd 21 a0 b4 fe vpscatterdq %ymm30, 0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 fd 21 a0 b4 fe vpscatterdq %ymm30, 0x7b(%r14,%ymm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 21 a0 b4 fe vpscatterdq %ymm30, 0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 fd 21 a0 b4 fe vpscatterdq %ymm30, 0x7b(%r14,%ymm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 21 a0 74 39 vpscatterdq %ymm30, 0x20(%r9,%ymm31) {%k1} {%k1}
+ 62 02 fd 21 a0 74 39 vpscatterdq %ymm30, 0x00000100(%r9,%ymm31) {%k1} {%k1}
  20
  62 22 fd 21 a0 b4 b9 vpscatterdq %ymm30, 0x00000400(%rcx,%ymm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 7d 01 a1 b4 fe vpscatterqd %xmm30, 0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 7d 01 a1 b4 fe vpscatterqd %xmm30, 0x7b(%r14,%xmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 01 a1 b4 fe vpscatterqd %xmm30, 0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 7d 01 a1 b4 fe vpscatterqd %xmm30, 0x7b(%r14,%xmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 01 a1 74 39 vpscatterqd %xmm30, 0x40(%r9,%xmm31) {%k1} {%k1}
+ 62 02 7d 01 a1 74 39 vpscatterqd %xmm30, 0x00000100(%r9,%xmm31) {%k1} {%k1}
  40
  62 22 7d 01 a1 b4 b9 vpscatterqd %xmm30, 0x00000400(%rcx,%xmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 7d 21 a1 b4 fe vpscatterqd %ymm30, 0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 7d 21 a1 b4 fe vpscatterqd %ymm30, 0x7b(%r14,%ymm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 21 a1 b4 fe vpscatterqd %ymm30, 0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 7d 21 a1 b4 fe vpscatterqd %ymm30, 0x7b(%r14,%ymm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 21 a1 74 39 vpscatterqd %ymm30, 0x40(%r9,%ymm31) {%k1} {%k1}
+ 62 02 7d 21 a1 74 39 vpscatterqd %ymm30, 0x00000100(%r9,%ymm31) {%k1} {%k1}
  40
  62 22 7d 21 a1 b4 b9 vpscatterqd %ymm30, 0x00000400(%rcx,%ymm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 fd 01 a1 b4 fe vpscatterqq %xmm30, 0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 fd 01 a1 b4 fe vpscatterqq %xmm30, 0x7b(%r14,%xmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 01 a1 b4 fe vpscatterqq %xmm30, 0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 fd 01 a1 b4 fe vpscatterqq %xmm30, 0x7b(%r14,%xmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 01 a1 74 39 vpscatterqq %xmm30, 0x20(%r9,%xmm31) {%k1} {%k1}
+ 62 02 fd 01 a1 74 39 vpscatterqq %xmm30, 0x00000100(%r9,%xmm31) {%k1} {%k1}
  20
  62 22 fd 01 a1 b4 b9 vpscatterqq %xmm30, 0x00000400(%rcx,%xmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 fd 21 a1 b4 fe vpscatterqq %ymm30, 0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 fd 21 a1 b4 fe vpscatterqq %ymm30, 0x7b(%r14,%ymm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 21 a1 b4 fe vpscatterqq %ymm30, 0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 fd 21 a1 b4 fe vpscatterqq %ymm30, 0x7b(%r14,%ymm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 21 a1 74 39 vpscatterqq %ymm30, 0x20(%r9,%ymm31) {%k1} {%k1}
+ 62 02 fd 21 a1 74 39 vpscatterqq %ymm30, 0x00000100(%r9,%ymm31) {%k1} {%k1}
  20
  62 22 fd 21 a1 b4 b9 vpscatterqq %ymm30, 0x00000400(%rcx,%ymm31,4) {%k1} {%k1}
  00 04 00 00
@@ -86002,67 +86057,67 @@ test_x86_64_s:
  62 62 7d 38 4e 72 80 vrsqrt14ps -0x00000200(%rdx), %ymm30 {%k0}
  62 62 7d 38 4e b2 fc vrsqrt14ps -0x00000204(%rdx), %ymm30 {%k0}
  fd ff ff
- 62 02 fd 01 a2 b4 fe vscatterdpd %xmm30, 0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 fd 01 a2 b4 fe vscatterdpd %xmm30, 0x7b(%r14,%xmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 01 a2 b4 fe vscatterdpd %xmm30, 0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 fd 01 a2 b4 fe vscatterdpd %xmm30, 0x7b(%r14,%xmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 01 a2 74 39 vscatterdpd %xmm30, 0x20(%r9,%xmm31) {%k1} {%k1}
+ 62 02 fd 01 a2 74 39 vscatterdpd %xmm30, 0x00000100(%r9,%xmm31) {%k1} {%k1}
  20
  62 22 fd 01 a2 b4 b9 vscatterdpd %xmm30, 0x00000400(%rcx,%xmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 fd 21 a2 b4 fe vscatterdpd %ymm30, 0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 fd 21 a2 b4 fe vscatterdpd %ymm30, 0x7b(%r14,%ymm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 21 a2 b4 fe vscatterdpd %ymm30, 0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 fd 21 a2 b4 fe vscatterdpd %ymm30, 0x7b(%r14,%ymm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 21 a2 74 39 vscatterdpd %ymm30, 0x20(%r9,%ymm31) {%k1} {%k1}
+ 62 02 fd 21 a2 74 39 vscatterdpd %ymm30, 0x00000100(%r9,%ymm31) {%k1} {%k1}
  20
  62 22 fd 21 a2 b4 b9 vscatterdpd %ymm30, 0x00000400(%rcx,%ymm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 7d 01 a2 b4 fe vscatterdps %xmm30, 0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 7d 01 a2 b4 fe vscatterdps %xmm30, 0x7b(%r14,%xmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 01 a2 b4 fe vscatterdps %xmm30, 0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 7d 01 a2 b4 fe vscatterdps %xmm30, 0x7b(%r14,%xmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 01 a2 74 39 vscatterdps %xmm30, 0x40(%r9,%xmm31) {%k1} {%k1}
+ 62 02 7d 01 a2 74 39 vscatterdps %xmm30, 0x00000100(%r9,%xmm31) {%k1} {%k1}
  40
  62 22 7d 01 a2 b4 b9 vscatterdps %xmm30, 0x00000400(%rcx,%xmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 7d 21 a2 b4 fe vscatterdps %ymm30, 0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 7d 21 a2 b4 fe vscatterdps %ymm30, 0x7b(%r14,%ymm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 21 a2 b4 fe vscatterdps %ymm30, 0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 7d 21 a2 b4 fe vscatterdps %ymm30, 0x7b(%r14,%ymm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 21 a2 74 39 vscatterdps %ymm30, 0x40(%r9,%ymm31) {%k1} {%k1}
+ 62 02 7d 21 a2 74 39 vscatterdps %ymm30, 0x00000100(%r9,%ymm31) {%k1} {%k1}
  40
  62 22 7d 21 a2 b4 b9 vscatterdps %ymm30, 0x00000400(%rcx,%ymm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 fd 01 a3 b4 fe vscatterqpd %xmm30, 0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 fd 01 a3 b4 fe vscatterqpd %xmm30, 0x7b(%r14,%xmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 01 a3 b4 fe vscatterqpd %xmm30, 0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 fd 01 a3 b4 fe vscatterqpd %xmm30, 0x7b(%r14,%xmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 01 a3 74 39 vscatterqpd %xmm30, 0x20(%r9,%xmm31) {%k1} {%k1}
+ 62 02 fd 01 a3 74 39 vscatterqpd %xmm30, 0x00000100(%r9,%xmm31) {%k1} {%k1}
  20
  62 22 fd 01 a3 b4 b9 vscatterqpd %xmm30, 0x00000400(%rcx,%xmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 fd 21 a3 b4 fe vscatterqpd %ymm30, 0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 fd 21 a3 b4 fe vscatterqpd %ymm30, 0x7b(%r14,%ymm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 21 a3 b4 fe vscatterqpd %ymm30, 0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 fd 21 a3 b4 fe vscatterqpd %ymm30, 0x7b(%r14,%ymm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 fd 21 a3 74 39 vscatterqpd %ymm30, 0x20(%r9,%ymm31) {%k1} {%k1}
+ 62 02 fd 21 a3 74 39 vscatterqpd %ymm30, 0x00000100(%r9,%ymm31) {%k1} {%k1}
  20
  62 22 fd 21 a3 b4 b9 vscatterqpd %ymm30, 0x00000400(%rcx,%ymm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 7d 01 a3 b4 fe vscatterqps %xmm30, 0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 7d 01 a3 b4 fe vscatterqps %xmm30, 0x7b(%r14,%xmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 01 a3 b4 fe vscatterqps %xmm30, 0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 7d 01 a3 b4 fe vscatterqps %xmm30, 0x7b(%r14,%xmm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 01 a3 74 39 vscatterqps %xmm30, 0x40(%r9,%xmm31) {%k1} {%k1}
+ 62 02 7d 01 a3 74 39 vscatterqps %xmm30, 0x00000100(%r9,%xmm31) {%k1} {%k1}
  40
  62 22 7d 01 a3 b4 b9 vscatterqps %xmm30, 0x00000400(%rcx,%xmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 7d 21 a3 b4 fe vscatterqps %ymm30, 0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 7d 21 a3 b4 fe vscatterqps %ymm30, 0x7b(%r14,%ymm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 21 a3 b4 fe vscatterqps %ymm30, 0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 7d 21 a3 b4 fe vscatterqps %ymm30, 0x7b(%r14,%ymm31,8) {%k1} {%k1}
  7b 00 00 00
- 62 02 7d 21 a3 74 39 vscatterqps %ymm30, 0x40(%r9,%ymm31) {%k1} {%k1}
+ 62 02 7d 21 a3 74 39 vscatterqps %ymm30, 0x00000100(%r9,%ymm31) {%k1} {%k1}
  40
  62 22 7d 21 a3 b4 b9 vscatterqps %ymm30, 0x00000400(%rcx,%ymm31,4) {%k1} {%k1}
  00 04 00 00
@@ -91032,51 +91087,51 @@ test_x86_64_s:
  62 62 15 30 be 72 80 vfnmsub231ps %ymm29, -0x00000200(%rdx), %ymm30, %ymm30 {%k0}
  62 62 15 30 be b2 fc vfnmsub231ps %ymm29, -0x00000204(%rdx), %ymm30, %ymm30 {%k0}
  fd ff ff
- 62 02 fd 01 92 b4 fe vgatherdpd -0x0000007b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
+ 62 02 fd 01 92 b4 fe vgatherdpd -0x7b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 01 92 74 39 vgatherdpd 0x20(%r9,%xmm31), %xmm30 {%k1} {%k1}
+ 62 02 fd 01 92 74 39 vgatherdpd 0x00000100(%r9,%xmm31), %xmm30 {%k1} {%k1}
  20
  62 22 fd 01 92 b4 b9 vgatherdpd 0x00000400(%rcx,%xmm31,4), %xmm30 {%k1} {%k1}
  00 04 00 00
- 62 02 fd 21 92 b4 fe vgatherdpd -0x0000007b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
+ 62 02 fd 21 92 b4 fe vgatherdpd -0x7b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 21 92 74 39 vgatherdpd 0x20(%r9,%ymm31), %ymm30 {%k1} {%k1}
+ 62 02 fd 21 92 74 39 vgatherdpd 0x00000100(%r9,%ymm31), %ymm30 {%k1} {%k1}
  20
  62 22 fd 21 92 b4 b9 vgatherdpd 0x00000400(%rcx,%ymm31,4), %ymm30 {%k1} {%k1}
  00 04 00 00
- 62 02 7d 01 92 b4 fe vgatherdps -0x0000007b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
+ 62 02 7d 01 92 b4 fe vgatherdps -0x7b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 01 92 74 39 vgatherdps 0x40(%r9,%xmm31), %xmm30 {%k1} {%k1}
+ 62 02 7d 01 92 74 39 vgatherdps 0x00000100(%r9,%xmm31), %xmm30 {%k1} {%k1}
  40
  62 22 7d 01 92 b4 b9 vgatherdps 0x00000400(%rcx,%xmm31,4), %xmm30 {%k1} {%k1}
  00 04 00 00
- 62 02 7d 21 92 b4 fe vgatherdps -0x0000007b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
+ 62 02 7d 21 92 b4 fe vgatherdps -0x7b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 21 92 74 39 vgatherdps 0x40(%r9,%ymm31), %ymm30 {%k1} {%k1}
+ 62 02 7d 21 92 74 39 vgatherdps 0x00000100(%r9,%ymm31), %ymm30 {%k1} {%k1}
  40
  62 22 7d 21 92 b4 b9 vgatherdps 0x00000400(%rcx,%ymm31,4), %ymm30 {%k1} {%k1}
  00 04 00 00
- 62 02 fd 01 93 b4 fe vgatherqpd -0x0000007b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
+ 62 02 fd 01 93 b4 fe vgatherqpd -0x7b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 01 93 74 39 vgatherqpd 0x20(%r9,%xmm31), %xmm30 {%k1} {%k1}
+ 62 02 fd 01 93 74 39 vgatherqpd 0x00000100(%r9,%xmm31), %xmm30 {%k1} {%k1}
  20
  62 22 fd 01 93 b4 b9 vgatherqpd 0x00000400(%rcx,%xmm31,4), %xmm30 {%k1} {%k1}
  00 04 00 00
- 62 02 fd 21 93 b4 fe vgatherqpd -0x0000007b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
+ 62 02 fd 21 93 b4 fe vgatherqpd -0x7b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 21 93 74 39 vgatherqpd 0x20(%r9,%ymm31), %ymm30 {%k1} {%k1}
+ 62 02 fd 21 93 74 39 vgatherqpd 0x00000100(%r9,%ymm31), %ymm30 {%k1} {%k1}
  20
  62 22 fd 21 93 b4 b9 vgatherqpd 0x00000400(%rcx,%ymm31,4), %ymm30 {%k1} {%k1}
  00 04 00 00
- 62 02 7d 01 93 b4 fe vgatherqps -0x0000007b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
+ 62 02 7d 01 93 b4 fe vgatherqps -0x7b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 01 93 74 39 vgatherqps 0x40(%r9,%xmm31), %xmm30 {%k1} {%k1}
+ 62 02 7d 01 93 74 39 vgatherqps 0x00000100(%r9,%xmm31), %xmm30 {%k1} {%k1}
  40
  62 22 7d 01 93 b4 b9 vgatherqps 0x00000400(%rcx,%xmm31,4), %xmm30 {%k1} {%k1}
  00 04 00 00
- 62 02 7d 21 93 b4 fe vgatherqps -0x0000007b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
+ 62 02 7d 21 93 b4 fe vgatherqps -0x7b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 21 93 74 39 vgatherqps 0x40(%r9,%ymm31), %ymm30 {%k1} {%k1}
+ 62 02 7d 21 93 74 39 vgatherqps 0x00000100(%r9,%ymm31), %ymm30 {%k1} {%k1}
  40
  62 22 7d 21 93 b4 b9 vgatherqps 0x00000400(%rcx,%ymm31,4), %ymm30 {%k1} {%k1}
  00 04 00 00
@@ -92968,51 +93023,51 @@ test_x86_64_s:
  62 02 fd 28 89 f5    vpexpandq %ymm29, %ymm30 {%k0}
  62 02 fd 2f 89 f5    vpexpandq %ymm29, %ymm30 {%k7}
  62 02 fd af 89 f5    vpexpandq %ymm29, %ymm30 {%k7}
- 62 02 7d 01 90 b4 fe vpgatherdd -0x0000007b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
+ 62 02 7d 01 90 b4 fe vpgatherdd -0x7b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 01 90 74 39 vpgatherdd 0x40(%r9,%xmm31), %xmm30 {%k1} {%k1}
+ 62 02 7d 01 90 74 39 vpgatherdd 0x00000100(%r9,%xmm31), %xmm30 {%k1} {%k1}
  40
  62 22 7d 01 90 b4 b9 vpgatherdd 0x00000400(%rcx,%xmm31,4), %xmm30 {%k1} {%k1}
  00 04 00 00
- 62 02 7d 21 90 b4 fe vpgatherdd -0x0000007b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
+ 62 02 7d 21 90 b4 fe vpgatherdd -0x7b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 21 90 74 39 vpgatherdd 0x40(%r9,%ymm31), %ymm30 {%k1} {%k1}
+ 62 02 7d 21 90 74 39 vpgatherdd 0x00000100(%r9,%ymm31), %ymm30 {%k1} {%k1}
  40
  62 22 7d 21 90 b4 b9 vpgatherdd 0x00000400(%rcx,%ymm31,4), %ymm30 {%k1} {%k1}
  00 04 00 00
- 62 02 fd 01 90 b4 fe vpgatherdq -0x0000007b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
+ 62 02 fd 01 90 b4 fe vpgatherdq -0x7b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 01 90 74 39 vpgatherdq 0x20(%r9,%xmm31), %xmm30 {%k1} {%k1}
+ 62 02 fd 01 90 74 39 vpgatherdq 0x00000100(%r9,%xmm31), %xmm30 {%k1} {%k1}
  20
  62 22 fd 01 90 b4 b9 vpgatherdq 0x00000400(%rcx,%xmm31,4), %xmm30 {%k1} {%k1}
  00 04 00 00
- 62 02 fd 21 90 b4 fe vpgatherdq -0x0000007b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
+ 62 02 fd 21 90 b4 fe vpgatherdq -0x7b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 21 90 74 39 vpgatherdq 0x20(%r9,%ymm31), %ymm30 {%k1} {%k1}
+ 62 02 fd 21 90 74 39 vpgatherdq 0x00000100(%r9,%ymm31), %ymm30 {%k1} {%k1}
  20
  62 22 fd 21 90 b4 b9 vpgatherdq 0x00000400(%rcx,%ymm31,4), %ymm30 {%k1} {%k1}
  00 04 00 00
- 62 02 7d 01 91 b4 fe vpgatherqd -0x0000007b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
+ 62 02 7d 01 91 b4 fe vpgatherqd -0x7b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 01 91 74 39 vpgatherqd 0x40(%r9,%xmm31), %xmm30 {%k1} {%k1}
+ 62 02 7d 01 91 74 39 vpgatherqd 0x00000100(%r9,%xmm31), %xmm30 {%k1} {%k1}
  40
  62 22 7d 01 91 b4 b9 vpgatherqd 0x00000400(%rcx,%xmm31,4), %xmm30 {%k1} {%k1}
  00 04 00 00
- 62 02 7d 21 91 b4 fe vpgatherqd -0x0000007b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
+ 62 02 7d 21 91 b4 fe vpgatherqd -0x7b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 21 91 74 39 vpgatherqd 0x40(%r9,%ymm31), %ymm30 {%k1} {%k1}
+ 62 02 7d 21 91 74 39 vpgatherqd 0x00000100(%r9,%ymm31), %ymm30 {%k1} {%k1}
  40
  62 22 7d 21 91 b4 b9 vpgatherqd 0x00000400(%rcx,%ymm31,4), %ymm30 {%k1} {%k1}
  00 04 00 00
- 62 02 fd 01 91 b4 fe vpgatherqq -0x0000007b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
+ 62 02 fd 01 91 b4 fe vpgatherqq -0x7b(%r14,%xmm31,8), %xmm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 01 91 74 39 vpgatherqq 0x20(%r9,%xmm31), %xmm30 {%k1} {%k1}
+ 62 02 fd 01 91 74 39 vpgatherqq 0x00000100(%r9,%xmm31), %xmm30 {%k1} {%k1}
  20
  62 22 fd 01 91 b4 b9 vpgatherqq 0x00000400(%rcx,%xmm31,4), %xmm30 {%k1} {%k1}
  00 04 00 00
- 62 02 fd 21 91 b4 fe vpgatherqq -0x0000007b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
+ 62 02 fd 21 91 b4 fe vpgatherqq -0x7b(%r14,%ymm31,8), %ymm30 {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 21 91 74 39 vpgatherqq 0x20(%r9,%ymm31), %ymm30 {%k1} {%k1}
+ 62 02 fd 21 91 74 39 vpgatherqq 0x00000100(%r9,%ymm31), %ymm30 {%k1} {%k1}
  20
  62 22 fd 21 91 b4 b9 vpgatherqq 0x00000400(%rcx,%ymm31,4), %ymm30 {%k1} {%k1}
  00 04 00 00
@@ -93750,67 +93805,67 @@ test_x86_64_s:
  62 61 95 30 eb 72 80 vporq  %ymm29, -0x00000400(%rdx), %ymm30 {%k0}
  62 61 95 30 eb b2 f8 vporq  %ymm29, -0x00000408(%rdx), %ymm30 {%k0}
  fb ff ff
- 62 02 7d 01 a0 b4 fe vpscatterdd %xmm30, -0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 7d 01 a0 b4 fe vpscatterdd %xmm30, -0x7b(%r14,%xmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 01 a0 b4 fe vpscatterdd %xmm30, -0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 7d 01 a0 b4 fe vpscatterdd %xmm30, -0x7b(%r14,%xmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 01 a0 74 39 vpscatterdd %xmm30, 0x40(%r9,%xmm31) {%k1} {%k1}
+ 62 02 7d 01 a0 74 39 vpscatterdd %xmm30, 0x00000100(%r9,%xmm31) {%k1} {%k1}
  40
  62 22 7d 01 a0 b4 b9 vpscatterdd %xmm30, 0x00000400(%rcx,%xmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 7d 21 a0 b4 fe vpscatterdd %ymm30, -0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 7d 21 a0 b4 fe vpscatterdd %ymm30, -0x7b(%r14,%ymm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 21 a0 b4 fe vpscatterdd %ymm30, -0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 7d 21 a0 b4 fe vpscatterdd %ymm30, -0x7b(%r14,%ymm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 21 a0 74 39 vpscatterdd %ymm30, 0x40(%r9,%ymm31) {%k1} {%k1}
+ 62 02 7d 21 a0 74 39 vpscatterdd %ymm30, 0x00000100(%r9,%ymm31) {%k1} {%k1}
  40
  62 22 7d 21 a0 b4 b9 vpscatterdd %ymm30, 0x00000400(%rcx,%ymm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 fd 01 a0 b4 fe vpscatterdq %xmm30, -0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 fd 01 a0 b4 fe vpscatterdq %xmm30, -0x7b(%r14,%xmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 01 a0 b4 fe vpscatterdq %xmm30, -0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 fd 01 a0 b4 fe vpscatterdq %xmm30, -0x7b(%r14,%xmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 01 a0 74 39 vpscatterdq %xmm30, 0x20(%r9,%xmm31) {%k1} {%k1}
+ 62 02 fd 01 a0 74 39 vpscatterdq %xmm30, 0x00000100(%r9,%xmm31) {%k1} {%k1}
  20
  62 22 fd 01 a0 b4 b9 vpscatterdq %xmm30, 0x00000400(%rcx,%xmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 fd 21 a0 b4 fe vpscatterdq %ymm30, -0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 fd 21 a0 b4 fe vpscatterdq %ymm30, -0x7b(%r14,%ymm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 21 a0 b4 fe vpscatterdq %ymm30, -0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 fd 21 a0 b4 fe vpscatterdq %ymm30, -0x7b(%r14,%ymm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 21 a0 74 39 vpscatterdq %ymm30, 0x20(%r9,%ymm31) {%k1} {%k1}
+ 62 02 fd 21 a0 74 39 vpscatterdq %ymm30, 0x00000100(%r9,%ymm31) {%k1} {%k1}
  20
  62 22 fd 21 a0 b4 b9 vpscatterdq %ymm30, 0x00000400(%rcx,%ymm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 7d 01 a1 b4 fe vpscatterqd %xmm30, -0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 7d 01 a1 b4 fe vpscatterqd %xmm30, -0x7b(%r14,%xmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 01 a1 b4 fe vpscatterqd %xmm30, -0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 7d 01 a1 b4 fe vpscatterqd %xmm30, -0x7b(%r14,%xmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 01 a1 74 39 vpscatterqd %xmm30, 0x40(%r9,%xmm31) {%k1} {%k1}
+ 62 02 7d 01 a1 74 39 vpscatterqd %xmm30, 0x00000100(%r9,%xmm31) {%k1} {%k1}
  40
  62 22 7d 01 a1 b4 b9 vpscatterqd %xmm30, 0x00000400(%rcx,%xmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 7d 21 a1 b4 fe vpscatterqd %ymm30, -0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 7d 21 a1 b4 fe vpscatterqd %ymm30, -0x7b(%r14,%ymm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 21 a1 b4 fe vpscatterqd %ymm30, -0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 7d 21 a1 b4 fe vpscatterqd %ymm30, -0x7b(%r14,%ymm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 21 a1 74 39 vpscatterqd %ymm30, 0x40(%r9,%ymm31) {%k1} {%k1}
+ 62 02 7d 21 a1 74 39 vpscatterqd %ymm30, 0x00000100(%r9,%ymm31) {%k1} {%k1}
  40
  62 22 7d 21 a1 b4 b9 vpscatterqd %ymm30, 0x00000400(%rcx,%ymm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 fd 01 a1 b4 fe vpscatterqq %xmm30, -0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 fd 01 a1 b4 fe vpscatterqq %xmm30, -0x7b(%r14,%xmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 01 a1 b4 fe vpscatterqq %xmm30, -0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 fd 01 a1 b4 fe vpscatterqq %xmm30, -0x7b(%r14,%xmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 01 a1 74 39 vpscatterqq %xmm30, 0x20(%r9,%xmm31) {%k1} {%k1}
+ 62 02 fd 01 a1 74 39 vpscatterqq %xmm30, 0x00000100(%r9,%xmm31) {%k1} {%k1}
  20
  62 22 fd 01 a1 b4 b9 vpscatterqq %xmm30, 0x00000400(%rcx,%xmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 fd 21 a1 b4 fe vpscatterqq %ymm30, -0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 fd 21 a1 b4 fe vpscatterqq %ymm30, -0x7b(%r14,%ymm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 21 a1 b4 fe vpscatterqq %ymm30, -0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 fd 21 a1 b4 fe vpscatterqq %ymm30, -0x7b(%r14,%ymm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 21 a1 74 39 vpscatterqq %ymm30, 0x20(%r9,%ymm31) {%k1} {%k1}
+ 62 02 fd 21 a1 74 39 vpscatterqq %ymm30, 0x00000100(%r9,%ymm31) {%k1} {%k1}
  20
  62 22 fd 21 a1 b4 b9 vpscatterqq %ymm30, 0x00000400(%rcx,%ymm31,4) {%k1} {%k1}
  00 04 00 00
@@ -94858,67 +94913,67 @@ test_x86_64_s:
  62 62 7d 38 4e 72 80 vrsqrt14ps -0x00000200(%rdx), %ymm30 {%k0}
  62 62 7d 38 4e b2 fc vrsqrt14ps -0x00000204(%rdx), %ymm30 {%k0}
  fd ff ff
- 62 02 fd 01 a2 b4 fe vscatterdpd %xmm30, -0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 fd 01 a2 b4 fe vscatterdpd %xmm30, -0x7b(%r14,%xmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 01 a2 b4 fe vscatterdpd %xmm30, -0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 fd 01 a2 b4 fe vscatterdpd %xmm30, -0x7b(%r14,%xmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 01 a2 74 39 vscatterdpd %xmm30, 0x20(%r9,%xmm31) {%k1} {%k1}
+ 62 02 fd 01 a2 74 39 vscatterdpd %xmm30, 0x00000100(%r9,%xmm31) {%k1} {%k1}
  20
  62 22 fd 01 a2 b4 b9 vscatterdpd %xmm30, 0x00000400(%rcx,%xmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 fd 21 a2 b4 fe vscatterdpd %ymm30, -0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 fd 21 a2 b4 fe vscatterdpd %ymm30, -0x7b(%r14,%ymm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 21 a2 b4 fe vscatterdpd %ymm30, -0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 fd 21 a2 b4 fe vscatterdpd %ymm30, -0x7b(%r14,%ymm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 21 a2 74 39 vscatterdpd %ymm30, 0x20(%r9,%ymm31) {%k1} {%k1}
+ 62 02 fd 21 a2 74 39 vscatterdpd %ymm30, 0x00000100(%r9,%ymm31) {%k1} {%k1}
  20
  62 22 fd 21 a2 b4 b9 vscatterdpd %ymm30, 0x00000400(%rcx,%ymm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 7d 01 a2 b4 fe vscatterdps %xmm30, -0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 7d 01 a2 b4 fe vscatterdps %xmm30, -0x7b(%r14,%xmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 01 a2 b4 fe vscatterdps %xmm30, -0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 7d 01 a2 b4 fe vscatterdps %xmm30, -0x7b(%r14,%xmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 01 a2 74 39 vscatterdps %xmm30, 0x40(%r9,%xmm31) {%k1} {%k1}
+ 62 02 7d 01 a2 74 39 vscatterdps %xmm30, 0x00000100(%r9,%xmm31) {%k1} {%k1}
  40
  62 22 7d 01 a2 b4 b9 vscatterdps %xmm30, 0x00000400(%rcx,%xmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 7d 21 a2 b4 fe vscatterdps %ymm30, -0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 7d 21 a2 b4 fe vscatterdps %ymm30, -0x7b(%r14,%ymm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 21 a2 b4 fe vscatterdps %ymm30, -0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 7d 21 a2 b4 fe vscatterdps %ymm30, -0x7b(%r14,%ymm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 21 a2 74 39 vscatterdps %ymm30, 0x40(%r9,%ymm31) {%k1} {%k1}
+ 62 02 7d 21 a2 74 39 vscatterdps %ymm30, 0x00000100(%r9,%ymm31) {%k1} {%k1}
  40
  62 22 7d 21 a2 b4 b9 vscatterdps %ymm30, 0x00000400(%rcx,%ymm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 fd 01 a3 b4 fe vscatterqpd %xmm30, -0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 fd 01 a3 b4 fe vscatterqpd %xmm30, -0x7b(%r14,%xmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 01 a3 b4 fe vscatterqpd %xmm30, -0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 fd 01 a3 b4 fe vscatterqpd %xmm30, -0x7b(%r14,%xmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 01 a3 74 39 vscatterqpd %xmm30, 0x20(%r9,%xmm31) {%k1} {%k1}
+ 62 02 fd 01 a3 74 39 vscatterqpd %xmm30, 0x00000100(%r9,%xmm31) {%k1} {%k1}
  20
  62 22 fd 01 a3 b4 b9 vscatterqpd %xmm30, 0x00000400(%rcx,%xmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 fd 21 a3 b4 fe vscatterqpd %ymm30, -0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 fd 21 a3 b4 fe vscatterqpd %ymm30, -0x7b(%r14,%ymm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 21 a3 b4 fe vscatterqpd %ymm30, -0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 fd 21 a3 b4 fe vscatterqpd %ymm30, -0x7b(%r14,%ymm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 fd 21 a3 74 39 vscatterqpd %ymm30, 0x20(%r9,%ymm31) {%k1} {%k1}
+ 62 02 fd 21 a3 74 39 vscatterqpd %ymm30, 0x00000100(%r9,%ymm31) {%k1} {%k1}
  20
  62 22 fd 21 a3 b4 b9 vscatterqpd %ymm30, 0x00000400(%rcx,%ymm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 7d 01 a3 b4 fe vscatterqps %xmm30, -0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 7d 01 a3 b4 fe vscatterqps %xmm30, -0x7b(%r14,%xmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 01 a3 b4 fe vscatterqps %xmm30, -0x0000007b(%r14,%xmm31,8) {%k1} {%k1}
+ 62 02 7d 01 a3 b4 fe vscatterqps %xmm30, -0x7b(%r14,%xmm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 01 a3 74 39 vscatterqps %xmm30, 0x40(%r9,%xmm31) {%k1} {%k1}
+ 62 02 7d 01 a3 74 39 vscatterqps %xmm30, 0x00000100(%r9,%xmm31) {%k1} {%k1}
  40
  62 22 7d 01 a3 b4 b9 vscatterqps %xmm30, 0x00000400(%rcx,%xmm31,4) {%k1} {%k1}
  00 04 00 00
- 62 02 7d 21 a3 b4 fe vscatterqps %ymm30, -0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 7d 21 a3 b4 fe vscatterqps %ymm30, -0x7b(%r14,%ymm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 21 a3 b4 fe vscatterqps %ymm30, -0x0000007b(%r14,%ymm31,8) {%k1} {%k1}
+ 62 02 7d 21 a3 b4 fe vscatterqps %ymm30, -0x7b(%r14,%ymm31,8) {%k1} {%k1}
  85 ff ff ff
- 62 02 7d 21 a3 74 39 vscatterqps %ymm30, 0x40(%r9,%ymm31) {%k1} {%k1}
+ 62 02 7d 21 a3 74 39 vscatterqps %ymm30, 0x00000100(%r9,%ymm31) {%k1} {%k1}
  40
  62 22 7d 21 a3 b4 b9 vscatterqps %ymm30, 0x00000400(%rcx,%ymm31,4) {%k1} {%k1}
  00 04 00 00
@@ -104946,43 +105001,43 @@ test_x86_64_s:
  c4 e2 31 92 04 88    vgatherdps (%rax,%xmm1,4), %xmm9, %xmm0
  c4 e2 69 92 0c c8    vgatherdps (%rax,%xmm1,8), %xmm2, %xmm1
  c4 62 69 92 0c c8    vgatherdps (%rax,%xmm1,8), %xmm2, %xmm9
- 62 e2 fd 41 92 84 cd vgatherdpd 0x0000007b(%rbp,%zmm17,8), %zmm16 {%k1} {%k1}
+ 62 e2 fd 41 92 84 cd vgatherdpd 0x7b(%rbp,%zmm17,8), %zmm16 {%k1} {%k1}
  7b 00 00 00
- 62 e2 fd 41 92 84 c5 vgatherdpd 0x0000007b(%rbp,%zmm16,8), %zmm16 {%k1} {%k1}
+ 62 e2 fd 41 92 84 c5 vgatherdpd 0x7b(%rbp,%zmm16,8), %zmm16 {%k1} {%k1}
  7b 00 00 00
- 62 e2 7d 41 92 84 cd vgatherdps 0x0000007b(%rbp,%zmm17,8), %zmm16 {%k1} {%k1}
+ 62 e2 7d 41 92 84 cd vgatherdps 0x7b(%rbp,%zmm17,8), %zmm16 {%k1} {%k1}
  7b 00 00 00
- 62 e2 7d 41 92 84 c5 vgatherdps 0x0000007b(%rbp,%zmm16,8), %zmm16 {%k1} {%k1}
+ 62 e2 7d 41 92 84 c5 vgatherdps 0x7b(%rbp,%zmm16,8), %zmm16 {%k1} {%k1}
  7b 00 00 00
- 62 e2 fd 41 93 84 cd vgatherqpd 0x0000007b(%rbp,%zmm17,8), %zmm16 {%k1} {%k1}
+ 62 e2 fd 41 93 84 cd vgatherqpd 0x7b(%rbp,%zmm17,8), %zmm16 {%k1} {%k1}
  7b 00 00 00
- 62 e2 fd 41 93 84 c5 vgatherqpd 0x0000007b(%rbp,%zmm16,8), %zmm16 {%k1} {%k1}
+ 62 e2 fd 41 93 84 c5 vgatherqpd 0x7b(%rbp,%zmm16,8), %zmm16 {%k1} {%k1}
  7b 00 00 00
- 62 e2 7d 41 93 84 cd vgatherqps 0x0000007b(%rbp,%zmm17,8), %zmm16 {%k1} {%k1}
+ 62 e2 7d 41 93 84 cd vgatherqps 0x7b(%rbp,%zmm17,8), %zmm16 {%k1} {%k1}
  7b 00 00 00
- 62 e2 7d 41 93 84 c5 vgatherqps 0x0000007b(%rbp,%zmm16,8), %zmm16 {%k1} {%k1}
+ 62 e2 7d 41 93 84 c5 vgatherqps 0x7b(%rbp,%zmm16,8), %zmm16 {%k1} {%k1}
  7b 00 00 00
- 62 e2 7d 41 90 84 cd vpgatherdd 0x0000007b(%rbp,%zmm17,8), %zmm16 {%k1} {%k1}
+ 62 e2 7d 41 90 84 cd vpgatherdd 0x7b(%rbp,%zmm17,8), %zmm16 {%k1} {%k1}
  7b 00 00 00
- 62 e2 7d 41 90 84 c5 vpgatherdd 0x0000007b(%rbp,%zmm16,8), %zmm16 {%k1} {%k1}
+ 62 e2 7d 41 90 84 c5 vpgatherdd 0x7b(%rbp,%zmm16,8), %zmm16 {%k1} {%k1}
  7b 00 00 00
- 62 e2 fd 41 90 84 cd vpgatherdq 0x0000007b(%rbp,%zmm17,8), %zmm16 {%k1} {%k1}
+ 62 e2 fd 41 90 84 cd vpgatherdq 0x7b(%rbp,%zmm17,8), %zmm16 {%k1} {%k1}
  7b 00 00 00
- 62 e2 fd 41 90 84 c5 vpgatherdq 0x0000007b(%rbp,%zmm16,8), %zmm16 {%k1} {%k1}
+ 62 e2 fd 41 90 84 c5 vpgatherdq 0x7b(%rbp,%zmm16,8), %zmm16 {%k1} {%k1}
  7b 00 00 00
- 62 e2 7d 41 91 84 cd vpgatherqd 0x0000007b(%rbp,%zmm17,8), %zmm16 {%k1} {%k1}
+ 62 e2 7d 41 91 84 cd vpgatherqd 0x7b(%rbp,%zmm17,8), %zmm16 {%k1} {%k1}
  7b 00 00 00
- 62 e2 7d 41 91 84 c5 vpgatherqd 0x0000007b(%rbp,%zmm16,8), %zmm16 {%k1} {%k1}
+ 62 e2 7d 41 91 84 c5 vpgatherqd 0x7b(%rbp,%zmm16,8), %zmm16 {%k1} {%k1}
  7b 00 00 00
- 62 e2 fd 41 91 84 cd vpgatherqq 0x0000007b(%rbp,%zmm17,8), %zmm16 {%k1} {%k1}
+ 62 e2 fd 41 91 84 cd vpgatherqq 0x7b(%rbp,%zmm17,8), %zmm16 {%k1} {%k1}
  7b 00 00 00
- 62 e2 fd 41 91 84 c5 vpgatherqq 0x0000007b(%rbp,%zmm16,8), %zmm16 {%k1} {%k1}
+ 62 e2 fd 41 91 84 c5 vpgatherqq 0x7b(%rbp,%zmm16,8), %zmm16 {%k1} {%k1}
  7b 00 00 00
- 62 e2 7d 21 91 84 cd vpgatherqd 0x0000007b(%rbp,%ymm17,8), %ymm16 {%k1} {%k1}
+ 62 e2 7d 21 91 84 cd vpgatherqd 0x7b(%rbp,%ymm17,8), %ymm16 {%k1} {%k1}
  7b 00 00 00
- 62 e2 7d 21 91 84 c5 vpgatherqd 0x0000007b(%rbp,%ymm16,8), %ymm16 {%k1} {%k1}
+ 62 e2 7d 21 91 84 c5 vpgatherqd 0x7b(%rbp,%ymm16,8), %ymm16 {%k1} {%k1}
  7b 00 00 00
- 62 f1 7c 48 28 05 00 vmovaps <rel> 0x00000000100736f0, %zmm0 {%k0}
+ 62 f1 7c 48 28 05 00 vmovaps <rel> 0x0000000010073803, %zmm0 {%k0}
  fc ff ff
  62 f1 7c 48 28 04 05 vmovaps 0x40(,%rax), %zmm0 {%k0}
  40 00 00 00
@@ -105231,9 +105286,9 @@ test_x86_64_s:
  48 0f 38 f9 01       movdiri %rax, (%rcx)
  66 0f 38 f8 01       movdir64b (%rcx), %rax
  67 66 0f 38 f8 01    movdir64b (%ecx), %eax
- 66 0f 38 f8 0d 00 00 movdir64b <rel> 0x000000001007408b, %rcx
+ 66 0f 38 f8 0d 00 00 movdir64b <rel> 0x000000001007419e, %rcx
  00 00
- 67 66 0f 38 f8 0d 00 movdir64b <rel> 0x0000000010074095, %ecx
+ 67 66 0f 38 f8 0d 00 movdir64b <rel> 0x00000000100741a8, %ecx
  00 00 00
  67 66 0f 38 f8 0c 25 movdir64b 0x00, %ecx
  00 00 00 00
@@ -105245,9 +105300,9 @@ test_x86_64_s:
  48 0f 38 f9 01       movdiri %rax, (%rcx)
  66 0f 38 f8 01       movdir64b (%rcx), %rax
  67 66 0f 38 f8 01    movdir64b (%ecx), %eax
- 66 0f 38 f8 0d 00 00 movdir64b <rel> 0x00000000100740d1, %rcx
+ 66 0f 38 f8 0d 00 00 movdir64b <rel> 0x00000000100741e4, %rcx
  00 00
- 67 66 0f 38 f8 0d 00 movdir64b <rel> 0x00000000100740db, %ecx
+ 67 66 0f 38 f8 0d 00 movdir64b <rel> 0x00000000100741ee, %ecx
  00 00 00
  67 66 0f 38 f8 0c 25 movdir64b 0x00, %ecx
  00 00 00 00
@@ -105257,13 +105312,13 @@ test_x86_64_s:
  67 f2 0f 38 f8 01    enqcmd (%ecx), %eax
  f3 0f 38 f8 01       enqcmds (%rcx), %rax
  67 f3 0f 38 f8 01    enqcmds (%ecx), %eax
- f2 0f 38 f8 0d 00 00 enqcmd <rel> 0x0000000010074110, %rcx
+ f2 0f 38 f8 0d 00 00 enqcmd <rel> 0x0000000010074223, %rcx
  00 00
- 67 f2 0f 38 f8 0d 00 enqcmd <rel> 0x000000001007411a, %ecx
+ 67 f2 0f 38 f8 0d 00 enqcmd <rel> 0x000000001007422d, %ecx
  00 00 00
- f3 0f 38 f8 0d 00 00 enqcmds <rel> 0x0000000010074123, %rcx
+ f3 0f 38 f8 0d 00 00 enqcmds <rel> 0x0000000010074236, %rcx
  00 00
- 67 f3 0f 38 f8 0d 00 enqcmds <rel> 0x000000001007412d, %ecx
+ 67 f3 0f 38 f8 0d 00 enqcmds <rel> 0x0000000010074240, %ecx
  00 00 00
  f2 0f 38 f8 0c 25 00 enqcmd 0x00, %rcx
  00 00 00
@@ -105277,13 +105332,13 @@ test_x86_64_s:
  67 f2 0f 38 f8 01    enqcmd (%ecx), %eax
  f3 0f 38 f8 01       enqcmds (%rcx), %rax
  67 f3 0f 38 f8 01    enqcmds (%ecx), %eax
- f2 0f 38 f8 0d 00 00 enqcmd <rel> 0x0000000010074176, %rcx
+ f2 0f 38 f8 0d 00 00 enqcmd <rel> 0x0000000010074289, %rcx
  00 00
- 67 f2 0f 38 f8 0d 00 enqcmd <rel> 0x0000000010074180, %ecx
+ 67 f2 0f 38 f8 0d 00 enqcmd <rel> 0x0000000010074293, %ecx
  00 00 00
- f3 0f 38 f8 0d 00 00 enqcmds <rel> 0x0000000010074189, %rcx
+ f3 0f 38 f8 0d 00 00 enqcmds <rel> 0x000000001007429c, %rcx
  00 00
- 67 f3 0f 38 f8 0d 00 enqcmds <rel> 0x0000000010074193, %ecx
+ 67 f3 0f 38 f8 0d 00 enqcmds <rel> 0x00000000100742a6, %ecx
  00 00 00
  f2 0f 38 f8 0c 25 00 enqcmd 0x00, %rcx
  00 00 00

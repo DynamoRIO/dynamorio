@@ -80,7 +80,7 @@ struct {
                     { PIII_EMON_KNI_PREF_MISS << 8, "Prefetch NTA miss all caches" } };
 
 void
-hardware_perfctr_init()
+hardware_perfctr_init(void)
 {
     int a;
     perfctr_eventset = PAPI_NULL;
@@ -126,7 +126,7 @@ hardware_perfctr_init()
 }
 
 void
-hardware_perfctr_exit()
+hardware_perfctr_exit(void)
 {
     int a;
     uint64 vals[NUM_EVENTS]; /* only used if nullcalls */
@@ -148,7 +148,7 @@ hardware_perfctr_exit()
 }
 
 void
-perfctr_update_gui()
+perfctr_update_gui(void)
 {
     if (PAPI_read(perfctr_eventset, d_r_stats->perfctr_vals) != PAPI_OK) {
         LOG(GLOBAL, LOG_TOP, 1,

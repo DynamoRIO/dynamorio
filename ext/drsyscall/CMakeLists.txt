@@ -19,7 +19,8 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 # TODO i#7399: Add Android, MUSL, and RISCV64 support to DrSyscall.
-if (RISCV64 OR ANDROID OR MUSL)
+# TODO i#5383: Add macOS ARM64 support to DrSyscall.
+if (RISCV64 OR ANDROID OR MUSL OR (AARCH64 AND APPLE))
   return()
 endif ()
 
@@ -169,10 +170,52 @@ use_DynamoRIO_extension(drsyscall_static drcontainers)
 use_DynamoRIO_extension(drsyscall_static drsyms_static)
 configure_drsyscall_target(drsyscall_static)
 
-add_library(drsyscall_drstatic STATIC ${srcs_static})
+add_library(drsyscall_drstatic STATIC ${srcs_static} ${external_srcs})
 configure_extension(drsyscall_drstatic ON ON)
-use_DynamoRIO_extension(drsyscall_drstatic drcontainers_drstatuc)
-use_DynamoRIO_extension(drsyscall_drstatic drmgr_static)
+use_DynamoRIO_extension(drsyscall_drstatic drmgr_drstatic)
+use_DynamoRIO_extension(drsyscall_drstatic drcontainers_drstatic)
+use_DynamoRIO_extension(drsyscall_drstatic drsyms_drstatic)
 configure_drsyscall_target(drsyscall_drstatic)
 
-install_ext_header(drsyscall.h)
+if (LINUX)
+  set(drsyscall_record_lib_srcs
+    drsyscall_record_lib.c
+  )
+
+  set(drsyscall_record_lib_external_srcs
+    ../drmf/framework/drmf_utils.c
+  )
+
+  add_library(drsyscall_record_lib SHARED ${drsyscall_record_lib_srcs}
+    ${drsyscall_record_lib_external_srcs})
+  configure_extension(drsyscall_record_lib OFF OFF)
+  # configure_extension calls configure_DynamoRIO_client/configure_DynamoRIO_static_client
+  use_DynamoRIO_extension(drsyscall_record_lib drsyscall)
+
+  add_library(drsyscall_record_lib_static STATIC ${drsyscall_record_lib_srcs}
+    ${drsyscall_record_lib_external_srcs})
+  configure_extension(drsyscall_record_lib_static ON OFF)
+  use_DynamoRIO_extension(drsyscall_record_lib_static drsyscall_static)
+
+  add_library(drsyscall_record_lib_drstatic STATIC ${drsyscall_record_lib_srcs}
+    ${drsyscall_record_lib_external_srcs})
+  configure_extension(drsyscall_record_lib_drstatic ON ON)
+  use_DynamoRIO_extension(drsyscall_record_lib_drstatic drsyscall_drstatic)
+
+  install_ext_header(drsyscall_record.h)
+  install_ext_header(drsyscall_record_lib.h)
+
+  add_executable(drsyscall_record_viewer drsyscall_record_viewer.c)
+  configure_DynamoRIO_standalone(drsyscall_record_viewer)
+  configure_DynamoRIO_static(drsyscall_record_viewer)
+  use_DynamoRIO_extension(drsyscall_record_viewer drsyscall_record_lib_static)
+  set_target_properties(drsyscall_record_viewer PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${PROJECT_BINARY_DIR}/${INSTALL_BIN}")
+
+  add_executable(drsyscall_record_trimmer drsyscall_record_trimmer.cpp)
+  configure_DynamoRIO_standalone(drsyscall_record_trimmer)
+  configure_DynamoRIO_static(drsyscall_record_trimmer)
+  use_DynamoRIO_extension(drsyscall_record_trimmer drsyscall_record_lib_static)
+  set_target_properties(drsyscall_record_trimmer PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${PROJECT_BINARY_DIR}/${INSTALL_BIN}")
+endif ()

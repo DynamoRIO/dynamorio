@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,6 +34,7 @@
 
 #include "configure.h"
 #include "dr_api.h"
+#include "dr_project_wide_defines.h"
 #include "tools.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,9 +46,6 @@
     ((void)((!(x)) ? (print("ASSERT FAILURE: %s:%d: %s\n", __FILE__, __LINE__, #x), \
                       abort(), 0)                                                   \
                    : 0))
-
-#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
 
 static void
 test_disasm_style(void)
@@ -61,9 +59,36 @@ test_disasm_style(void)
                                          opnd_create_reg(REG_EAX)));
     instrlist_append(
         ilist, INSTR_CREATE_mov_imm(GD, opnd_create_reg(REG_EDI), OPND_CREATE_INT32(17)));
+    /* Test instructions with custom suffixes. */
+    instrlist_append(ilist, INSTR_CREATE_iret(GD));
+    instrlist_append(ilist, INSTR_CREATE_pushf(GD));
+    instrlist_append(ilist, INSTR_CREATE_popf(GD));
+#ifndef X64
+    instrlist_append(ilist, INSTR_CREATE_pusha(GD));
+    instrlist_append(ilist, INSTR_CREATE_popa(GD));
+#endif
     end = instrlist_encode(GD, ilist, buf, false);
+    ASSERT(end != NULL && end - buf < BUFFER_SIZE_ELEMENTS(buf));
+    /* It's a pain to synthesize the data16 versions so we use the encoding. */
+    *end++ = 0x66;
+    *end++ = 0xcf; /* iret */
+    *end++ = 0x66;
+    *end++ = 0x9c; /* push */
+    *end++ = 0x66;
+    *end++ = 0x9d; /* popf */
+#ifndef X64
+    *end++ = 0x66;
+    *end++ = 0x60; /* pusha */
+    *end++ = 0x66;
+    *end++ = 0x61; /* popa */
+#endif
     ASSERT(end - buf < BUFFER_SIZE_ELEMENTS(buf));
 
+    pc = buf;
+    while (pc < end)
+        pc = disassemble_with_info(GD, pc, STDOUT, false /*no pc*/, true);
+
+    disassemble_set_syntax(DR_DISASM_ATT);
     pc = buf;
     while (pc < end)
         pc = disassemble_with_info(GD, pc, STDOUT, false /*no pc*/, true);
@@ -259,8 +284,35 @@ test_store_source(void)
 #endif
 }
 
+static void
+test_isa_features(void)
+{
+    /* TODO i#7842: Until instr_get_isa_feature() and instr_get_isa_feature_name() are
+     * implemented for X86, we can only test ISA_FEAT_UNKNOWN.
+     */
+    uint unused_buf = 0;
+    instr_t *instr = NULL;
+    uint isa_feat = ISA_FEAT_INVALID;
+
+    instr = XINST_CREATE_load(GD, opnd_create_reg(DR_REG_XAX),
+                              OPND_CREATE_MEMPTR(DR_REG_XAX, 42));
+    isa_feat = instr_get_isa_feature((byte *)&unused_buf, instr);
+    ASSERT(isa_feat == ISA_FEAT_UNKNOWN);
+    ASSERT(strncmp(instr_get_isa_feature_name(isa_feat), "<unknown>",
+                   strlen("<unknown>")) == 0);
+    instr_destroy(GD, instr);
+
+    instr = XINST_CREATE_store(GD, OPND_CREATE_MEMPTR(DR_REG_XAX, 42),
+                               opnd_create_reg(DR_REG_XDX));
+    isa_feat = instr_get_isa_feature((byte *)&unused_buf, instr);
+    ASSERT(isa_feat == ISA_FEAT_UNKNOWN);
+    ASSERT(strncmp(instr_get_isa_feature_name(isa_feat), "<unknown>",
+                   strlen("<unknown>")) == 0);
+    instr_destroy(GD, instr);
+}
+
 int
-main()
+main(int argc, const char *argv[])
 {
     test_disasm_style();
 
@@ -273,6 +325,8 @@ main()
     test_categories();
 
     test_store_source();
+
+    test_isa_features();
 
     print("done\n");
 

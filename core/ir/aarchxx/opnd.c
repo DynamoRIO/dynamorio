@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -40,7 +40,7 @@ reg_id_t dr_reg_stolen = DR_REG_NULL;
 uint
 opnd_immed_float_arch(uint opcode)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1551, i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1551, i#1569 */
     return 0;
 }
 

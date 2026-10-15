@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -186,7 +186,7 @@ drsym_init(const wchar_t *shmid_in)
     symbol_lock = dr_recurlock_create();
 
     if (IS_SIDELINE) {
-        /* FIXME NYI: establish connection with sideline server via
+        /* TODO NYI: establish connection with sideline server via
          * shared memory specified by shmid
          */
     } else {
@@ -194,7 +194,7 @@ drsym_init(const wchar_t *shmid_in)
                           true /*strdup*/, false /*!synch: using symbol_lock*/,
                           modtable_entry_free, NULL, NULL);
 
-        /* FIXME i#601: We'd like to honor the mangling flags passed to each
+        /* XXX i#601: We'd like to honor the mangling flags passed to each
          * search routine, but the demangling process used by SYMOPT_UNDNAME
          * loses information, so we can provide neither the fully mangled name
          * nor the parameter types for the symbol.  We can't change
@@ -389,7 +389,7 @@ load_module(HANDLE proc, const char *path, DR_PARAM_OUT uint64 *size_out)
                 size = 0;
                 continue;
             } else {
-                /* FIXME PR 463897: for !single_target, we should handle load
+                /* XXX PR 463897: for !single_target, we should handle load
                  * failure by trying a different address, informed by some
                  * memory queries.  For now we assume only one .exe and that
                  * it's below our start load address and that we won't fail.
@@ -451,7 +451,7 @@ lookup_or_load(const char *modpath, bool use_dbghelp)
  */
 
 /* SYMBOL_INFO.Name has 1 char in the struct */
-#define NAME_EXTRA_SZ(full_sz) ((full_sz)-1)
+#define NAME_EXTRA_SZ(full_sz) ((full_sz) - 1)
 
 enum {
     /* MAX_SYM_NAME comes from dbghelp.h and is equal to 2000 */
@@ -923,7 +923,7 @@ drsym_search_symbols_local(const char *modpath, const char *match, uint flags,
         info.base = mod->u.load_base;
         if (!(*func)(GetCurrentProcess(), mod->u.load_base, 0, 0, match, 0, enum_cb,
                      (PVOID)&info,
-                     TEST(DRSYM_FULL_SEARCH, flags) ? SYMSEARCH_ALLITEMS : 0)) {
+                     TESTANY(DRSYM_FULL_SEARCH, flags) ? SYMSEARCH_ALLITEMS : 0)) {
             NOTIFY("SymSearch error %d\n", GetLastError());
             res = DRSYM_ERROR_SYMBOL_NOT_FOUND;
         }
@@ -943,8 +943,8 @@ demangle_symbol(char *dst DR_PARAM_OUT, size_t dst_sz, const char *mangled, uint
     DWORD undec_flags;
     size_t len;
 
-    if (TEST(DRSYM_DEMANGLE_FULL, flags)) {
-        /* FIXME: I'd like to suppress "class" from the types, but I can't find
+    if (TESTANY(DRSYM_DEMANGLE_FULL, flags)) {
+        /* XXX: I'd like to suppress "class" from the types, but I can't find
          * an option to control it other than UNDNAME_NAME_ONLY, which
          * suppresses overloads, which we want.
          */
@@ -984,7 +984,7 @@ demangle_symbol(char *dst DR_PARAM_OUT, size_t dst_sz, const char *mangled, uint
         NOTIFY("UnDecorateSymbolName error %d\n", GetLastError());
     } else if (len + 2 >= dst_sz) {
         NOTIFY("UnDecorateSymbolName overflowed\n");
-        /* FIXME: This return value is made up and may not be large enough.
+        /* XXX: This return value is made up and may not be large enough.
          * It will work eventually if the caller reallocates their buffer
          * and retries in a loop, or if they just want to detect truncation.
          */
@@ -1815,7 +1815,7 @@ drsym_module_has_symbols(const char *modpath)
 
         /* fall back to slower lookup */
         r = drsym_get_module_debug_kind(modpath, &kind);
-        if (r == DRSYM_SUCCESS && !TEST(DRSYM_SYMBOLS, kind))
+        if (r == DRSYM_SUCCESS && !TESTANY(DRSYM_SYMBOLS, kind))
             r = DRSYM_ERROR;
         return r;
     }

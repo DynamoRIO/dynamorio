@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /* Dr. Memory: the memory debugger
@@ -48,7 +48,7 @@
  * process is still fairly manual: duplicate the prior column, and
  * manually update numbers by examining the -usercalls output.
  *
- * FIXME i#728:
+ * XXX i#728:
  * + get the syscall numbers for Windows 2000
  * + verify all the intermediate calls for Windows 7.
  *   for i#389 I verified calls at a number of points throughout the list.
@@ -58,9 +58,9 @@
  *   and params are unknown
  */
 
-/* FIXME i#1153: figure out UNKNOWN names below for win8 */
-/* FIXME i#1360: figure out UNKNOWN names below for win8.1 */
-/* FIXME i#1750: figure out UNKNOWN names below for win10 */
+/* XXX i#1153: figure out UNKNOWN names below for win8 */
+/* XXX i#1360: figure out UNKNOWN names below for win8.1 */
+/* XXX i#1750: figure out UNKNOWN names below for win10 */
 
 /* N.B.: this list must contain the same number of entries as syscall_usercall_info[]
  * in table_windows_ntusercall.c.

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,6 +35,7 @@
  * (fewer executables reduces the limited-resource CI time).
  */
 
+#include "test_helpers.h"
 #include <assert.h>
 #include "tracer/instru.h"
 

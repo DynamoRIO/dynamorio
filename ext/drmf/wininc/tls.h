@@ -10,7 +10,7 @@
  ****************************************************************************/
 
 #ifndef _WINDOWS_TLS_
-#define _WINDOWS_TLS_ 1
+#define _WINDOWS_TLS_
 
 typedef struct _THREAD_TLS_INFORMATION {
     ULONG Flags;

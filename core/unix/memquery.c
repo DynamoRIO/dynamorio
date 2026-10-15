@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -145,7 +145,7 @@ memquery_library_bounds_by_iterator_internal(
                 !funcs->module_is_header(iter.vm_start, iter.vm_end - iter.vm_start))
                 last_lib_base = prev_base;
             /* last_lib_end is used to know what's readable beyond last_lib_base */
-            if (TEST(MEMPROT_READ, iter.prot))
+            if (TESTANY(MEMPROT_READ, iter.prot))
                 last_lib_end = iter.vm_end;
             else
                 last_lib_end = last_lib_base;
@@ -233,6 +233,11 @@ memquery_library_bounds_by_iterator_internal(
                     }
                 } else {
                     ASSERT(false && "expected elf header");
+                    /* Return failure in release build. */
+                    count = 0;
+                    mod_start = NULL;
+                    cur_end = NULL;
+                    break;
                 }
             }
             count++;
@@ -250,14 +255,14 @@ memquery_library_bounds_by_iterator_internal(
      * maps file), but not every library has one.  We have to parse the ELF
      * header to know since we can't assume that a subsequent anonymous
      * region is .bss. */
-    if (image_size != 0 && cur_end - mod_start < image_size) {
+    if (image_size != 0 && cur_end - mod_start < image_size && cur_end != NULL) {
         if (iter.comment[0] != '\0') {
             /* There's something else in the text-data gap: xref i#2641. */
         } else {
             /* Found a .bss section. Check current mapping (note might only be
-             * part of the mapping (due to os region merging? FIXME investigate).
+             * part of the mapping (due to os region merging? XXX investigate).
              */
-            ASSERT_CURIOSITY(iter.vm_start == cur_end /* no gaps, FIXME might there be
+            ASSERT_CURIOSITY(iter.vm_start == cur_end /* no gaps, XXX might there be
                                                        * a gap if the file has large
                                                        * alignment and no data section?
                                                        * curiosity for now*/);

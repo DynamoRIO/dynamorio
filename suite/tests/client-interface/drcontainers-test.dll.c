@@ -38,6 +38,11 @@
 #include "hashtable.h"
 #include "stdint.h"
 
+typedef struct _accumulators_t {
+    uintptr_t key_acc;
+    uintptr_t payload_acc;
+} accumulators_t;
+
 static void
 test_vector(void)
 {
@@ -86,6 +91,47 @@ test_vector(void)
 
     ok = drvector_delete(&vec);
     CHECK(ok, "drvector_delete failed");
+
+    /* Test zero_alloc and drvector_clear() features. */
+    drvector_config_t config;
+    config.size = sizeof(config);
+    config.zero_alloc = true;
+    ok = drvector_init_ex(&vec, 1, false /*!synch*/, NULL, &config);
+    CHECK(ok, "drvector_init failed");
+    drvector_set_entry(&vec, 4, (void *)&vec);
+    /* Entries 0 to 3 should be zero even if they were not explicitly set because
+     * zero_alloc is true.
+     */
+    CHECK(drvector_get_entry(&vec, 0) == (void *)0, "entry not zeroed");
+    CHECK(drvector_get_entry(&vec, 1) == (void *)0, "entry not zeroed");
+    CHECK(drvector_get_entry(&vec, 2) == (void *)0, "entry not zeroed");
+    CHECK(drvector_get_entry(&vec, 3) == (void *)0, "entry not zeroed");
+    CHECK(drvector_get_entry(&vec, 4) == (void *)&vec, "entries not equal");
+    /* Set all entries and the clear the vector. */
+    drvector_set_entry(&vec, 0, (void *)&vec);
+    drvector_set_entry(&vec, 1, (void *)&vec);
+    drvector_set_entry(&vec, 2, (void *)&vec);
+    drvector_set_entry(&vec, 3, (void *)&vec);
+    CHECK(drvector_get_entry(&vec, 0) == (void *)&vec, "entries not equal");
+    CHECK(drvector_get_entry(&vec, 1) == (void *)&vec, "entries not equal");
+    CHECK(drvector_get_entry(&vec, 2) == (void *)&vec, "entries not equal");
+    CHECK(drvector_get_entry(&vec, 3) == (void *)&vec, "entries not equal");
+    /* drvector_clear() should set every element to zero. */
+    drvector_clear(&vec);
+    /* Set entry 4 so that vec.entries increases to 4 as well and we can check entries
+     * 0 to 4.
+     */
+    drvector_set_entry(&vec, 4, (void *)&vec);
+    /* Entries 0 to 3 should be zero even if they were not explicitly set because
+     * we cleared the vector with zero_alloc set to true.
+     */
+    CHECK(drvector_get_entry(&vec, 0) == (void *)0, "entry not zeroed");
+    CHECK(drvector_get_entry(&vec, 1) == (void *)0, "entry not zeroed");
+    CHECK(drvector_get_entry(&vec, 2) == (void *)0, "entry not zeroed");
+    CHECK(drvector_get_entry(&vec, 3) == (void *)0, "entry not zeroed");
+    CHECK(drvector_get_entry(&vec, 4) == (void *)&vec, "entries not equal");
+    ok = drvector_delete(&vec);
+    CHECK(ok, "drvector_delete failed");
 }
 
 unsigned int c;
@@ -106,6 +152,16 @@ count_user_data(void *payload, void *user_data)
 }
 
 static void
+count_key_payload_user_data(void *key, void *payload, void *user_data)
+{
+    accumulators_t *counters = (accumulators_t *)user_data;
+    /* Count key. */
+    ++counters->key_acc;
+    /* Count payload. */
+    ++counters->payload_acc;
+}
+
+static void
 count_null_user_data(void *payload, void *user_data)
 {
     c++;
@@ -123,6 +179,14 @@ sum_user_data(void *payload, void *user_data)
 {
     total += (uintptr_t)payload;
     total += (uintptr_t)user_data;
+}
+
+static void
+sum_key_payload_user_data(void *key, void *payload, void *user_data)
+{
+    accumulators_t *sums = (accumulators_t *)user_data;
+    sums->key_acc += (uintptr_t)key;
+    sums->payload_acc += (uintptr_t)payload;
 }
 
 static void
@@ -182,6 +246,32 @@ test_hashtable_apply_all_user_data(void)
     hashtable_delete(&hash_table);
 }
 
+static void
+test_hashtable_apply_all_key_payload_pairs_user_data(void)
+{
+    hashtable_t hash_table;
+    hashtable_init(&hash_table, 8, HASH_INTPTR, false);
+
+    hashtable_add_replace(&hash_table, (void *)1, (void *)1);
+    hashtable_add_replace(&hash_table, (void *)2, (void *)2);
+    hashtable_add_replace(&hash_table, (void *)3, (void *)3);
+
+    accumulators_t counters = { .key_acc = 0, .payload_acc = 0 };
+    hashtable_apply_to_all_key_payload_pairs_user_data(
+        &hash_table, count_key_payload_user_data, (void *)&counters);
+    accumulators_t sums = { .key_acc = 0, .payload_acc = 0 };
+    hashtable_apply_to_all_key_payload_pairs_user_data(
+        &hash_table, sum_key_payload_user_data, (void *)&sums);
+
+    CHECK((counters.key_acc == (uintptr_t)hash_table.entries) &&
+              (counters.payload_acc == (uintptr_t)hash_table.entries),
+          "hashtable_apply_to_all_key_payload_pairs_user_data (count test) failed");
+    CHECK((sums.key_acc == 6) && (sums.payload_acc == 6),
+          "hashtable_apply_to_all_key_payload_pairs_user_data (sum test) failed");
+
+    hashtable_delete(&hash_table);
+}
+
 #define KEY 42
 #define PAYLOAD ((void *)12)
 static bool free_func_called;
@@ -217,6 +307,7 @@ dr_init(client_id_t id)
     test_vector();
     test_hashtable_apply_all();
     test_hashtable_apply_all_user_data();
+    test_hashtable_apply_all_key_payload_pairs_user_data();
     test_dr_hashtable();
 
     /* XXX: test other data structures */

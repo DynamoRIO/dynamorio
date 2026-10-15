@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,6 +41,11 @@
 #define OS_SHARED_H
 
 #include "os_api.h"
+
+/* Keep in sync with the ptrace_attach.c OS_SRCS guard in core/CMakeLists.txt. */
+#if defined(LINUX) && !defined(ANDROID) && (defined(AARCH64) || defined(X86))
+#    define PTRACE_TAKEOVER_SUPPORTED 1
+#endif
 
 enum { VM_ALLOCATION_BOUNDARY = 64 * 1024 }; /* 64KB allocation size for Windows */
 
@@ -90,6 +95,11 @@ os_process_not_under_dynamorio(dcontext_t *dcontext);
 
 bool
 os_take_over_all_unknown_threads(dcontext_t *dcontext);
+
+#ifdef PTRACE_TAKEOVER_SUPPORTED
+bool
+os_unmask_suspend_signal_via_ptrace(thread_id_t skip_tid);
+#endif
 
 bool
 detach_do_not_translate(thread_record_t *tr);
@@ -239,12 +249,26 @@ get_thread_private_dcontext(void);
 void
 set_thread_private_dcontext(dcontext_t *dcontext);
 
-/* converts a local_state_t offset to a segment offset */
-ushort
+/* Converts a local-state slot offset to a signed segment displacement. */
+int
 os_tls_offset(ushort tls_offs);
 
-ushort
-os_local_state_offset(ushort seg_offs);
+/* Converts a signed segment displacement to a local-state slot offset relative
+ * to tls_base. Returns false if the local-state offset does not fit in ushort.
+ * Pass os_tls_offset(0) for the current OS's local-state base displacement.
+ */
+static inline bool
+os_local_state_offset(int seg_offs, int tls_base, ushort *local_offs)
+{
+    /* Widen before subtracting: the two signed displacements can differ by more
+     * than INT_MAX, even though valid local-state offsets fit in a ushort.
+     */
+    int64 offs = (int64)seg_offs - tls_base;
+    if (offs < 0 || offs > USHRT_MAX)
+        return false;
+    *local_offs = (ushort)offs;
+    return true;
+}
 
 struct _local_state_t;          /* in arch_exports.h */
 struct _local_state_extended_t; /* in arch_exports.h */
@@ -292,7 +316,7 @@ char *
 get_application_name(void);
 
 int
-num_app_args();
+num_app_args(void);
 int
 get_app_args(DR_PARAM_OUT dr_app_arg_t *args_array, int args_count);
 const char *
@@ -408,7 +432,7 @@ os_syslog(syslog_event_type_t priority, uint message_id, uint substitutions_num,
  * XXX: we're duplicating these types above as dr_auxlib*
  */
 typedef void *shlib_handle_t;
-typedef void (*shlib_routine_ptr_t)();
+typedef void (*shlib_routine_ptr_t)(void);
 
 shlib_handle_t
 load_shared_library(const char *name, bool reachable);
@@ -564,7 +588,7 @@ enum {
     /* .data == variables written only at init or exit time or rarely in between */
     SELFPROT_DATA_RARE = 0x001,
     /* .fspdata == frequently written enough that we separate from .data.
-     * FIXME case 8073: currently these are unprotected on every cxt switch
+     * XXX case 8073: currently these are unprotected on every cxt switch
      */
     SELFPROT_DATA_FREQ = 0x002,
     /* .cspdata == so frequently written that to protect them requires unprotecting
@@ -582,24 +606,24 @@ enum {
     SELFPROT_DCONTEXT = 0x010, /* means we split out unprotected_context_t --
                                 * no actual protection unless SELFPROT_GLOBAL */
     SELFPROT_LOCAL = 0x020,
-    SELFPROT_CACHE = 0x040, /* FIXME: thread-safe NYI when doing all units */
+    SELFPROT_CACHE = 0x040, /* TODO: thread-safe NYI when doing all units */
     SELFPROT_STACK = 0x080, /* essentially always on with clean-dstack d_r_dispatch()
                              * design, leaving as a bit in case we do more later */
     /* protect our generated thread-shared and thread-private code */
     SELFPROT_GENCODE = 0x100,
-    /* FIXME: TEB page on Win32
+    /* XXX: TEB page on Win32
      * Other global structs, like thread-local callbacks on Win32?
      * PEB page?
      */
     /* options that require action on every context switch
-     * FIXME: global heap used to be much rarer before shared
+     * XXX: global heap used to be much rarer before shared
      * fragments, only containing "important" data, which is why we
      * un-protected on every context switch.  We should re-think that
      * now that most things are shared.
      */
     SELFPROT_ON_CXT_SWITCH = (SELFPROT_DATA_CXTSW |
                               SELFPROT_GLOBAL
-                              /* FIXME case 8073: this is only temporary until
+                              /* XXX case 8073: this is only temporary until
                                * we finish implementing .fspdata unprots */
                               | SELFPROT_DATA_FREQ),
     SELFPROT_ANY_DATA_SECTION =
@@ -671,34 +695,34 @@ extern uint datasec_writable_cxtswprot;
      INTERNAL_OPTION(single_privileged_thread))
 
 /* macros to put mask check outside of function, for efficiency */
-#define SELF_PROTECT_LOCAL(dc, w)                              \
-    do {                                                       \
-        if (TEST(SELFPROT_LOCAL, dynamo_options.protect_mask)) \
-            protect_local_heap(dc, w);                         \
+#define SELF_PROTECT_LOCAL(dc, w)                                 \
+    do {                                                          \
+        if (TESTANY(SELFPROT_LOCAL, dynamo_options.protect_mask)) \
+            protect_local_heap(dc, w);                            \
     } while (0);
 
-#define SELF_PROTECT_GLOBAL(w)                                  \
-    do {                                                        \
-        if (TEST(SELFPROT_GLOBAL, dynamo_options.protect_mask)) \
-            protect_global_heap(w);                             \
+#define SELF_PROTECT_GLOBAL(w)                                     \
+    do {                                                           \
+        if (TESTANY(SELFPROT_GLOBAL, dynamo_options.protect_mask)) \
+            protect_global_heap(w);                                \
     } while (0);
 
-#define ASSERT_LOCAL_HEAP_PROTECTED(dcontext)                    \
-    ASSERT(!TEST(SELFPROT_LOCAL, dynamo_options.protect_mask) || \
+#define ASSERT_LOCAL_HEAP_PROTECTED(dcontext)                       \
+    ASSERT(!TESTANY(SELFPROT_LOCAL, dynamo_options.protect_mask) || \
            local_heap_protected(dcontext))
-#define ASSERT_LOCAL_HEAP_UNPROTECTED(dcontext)                  \
-    ASSERT(!TEST(SELFPROT_LOCAL, dynamo_options.protect_mask) || \
+#define ASSERT_LOCAL_HEAP_UNPROTECTED(dcontext)                     \
+    ASSERT(!TESTANY(SELFPROT_LOCAL, dynamo_options.protect_mask) || \
            !local_heap_protected(dcontext))
 
-#define SELF_PROTECT_DATASEC(which)                                     \
-    do {                                                                \
-        if (TEST(DATASEC_SELFPROT[which], DYNAMO_OPTION(protect_mask))) \
-            protect_data_section(which, READONLY);                      \
+#define SELF_PROTECT_DATASEC(which)                                        \
+    do {                                                                   \
+        if (TESTANY(DATASEC_SELFPROT[which], DYNAMO_OPTION(protect_mask))) \
+            protect_data_section(which, READONLY);                         \
     } while (0);
-#define SELF_UNPROTECT_DATASEC(which)                                   \
-    do {                                                                \
-        if (TEST(DATASEC_SELFPROT[which], DYNAMO_OPTION(protect_mask))) \
-            protect_data_section(which, WRITABLE);                      \
+#define SELF_UNPROTECT_DATASEC(which)                                      \
+    do {                                                                   \
+        if (TESTANY(DATASEC_SELFPROT[which], DYNAMO_OPTION(protect_mask))) \
+            protect_data_section(which, WRITABLE);                         \
     } while (0);
 
 /***************************************************************************/
@@ -853,6 +877,10 @@ os_get_disk_free_space(/*IN*/ file_t file_handle,
                        /*OUT*/ uint64 *AvailableQuotaBytes /*OPTIONAL*/,
                        /*OUT*/ uint64 *TotalQuotaBytes /*OPTIONAL*/,
                        /*OUT*/ uint64 *TotalVolumeBytes /*OPTIONAL*/);
+file_t
+redirect_open(const char *fname, int flags, int mode);
+void
+redirect_close(file_t f);
 
 #ifdef PROFILE_RDTSC
 extern uint kilo_hertz;
@@ -982,6 +1010,11 @@ wait_for_event(event_t e, int timeout_ms);
 timestamp_t
 get_timer_frequency(void);
 
+/* DR has standardized on UTC time which counts from Jan 1, 1601.
+ * That's the Windows standard.  But Linux uses the Epoch of Jan 1, 1970.
+ */
+#define UTC_TO_EPOCH_SECONDS 11644473600
+
 /* Returns the number of seconds since Jan 1, 1601 (this is
  * the current UTC time).
  */
@@ -996,7 +1029,7 @@ query_time_millis(void);
 
 /* microseconds since 1601 */
 uint64
-query_time_micros();
+query_time_micros(void);
 
 /* gives a good but not necessarily crypto-strength random seed */
 uint
@@ -1009,7 +1042,7 @@ rct_process_module_mmap(app_pc module_base, size_t module_size, bool add,
                         bool already_relocated);
 
 /* module boundary and code section analysis for RCT policies */
-/* FIXME: should be better abstracted by calling a routine that
+/* XXX: should be better abstracted by calling a routine that
  * enumerates code sections, while keeping the general driver in rct.c
  */
 bool
@@ -1084,14 +1117,14 @@ enum {
 };
 #elif defined(AARCHXX)
 enum {
-    /* FIXME i#1551, i#1569: this is for A32 for now to get things compiling */
+    /* XXX i#1551, i#1569: this is for A32 for now to get things compiling */
     JMP_REL32_OPCODE = 0xec000000,
     JMP_REL32_SIZE = 4,
     CALL_REL32_OPCODE = 0xed000000,
 };
 #elif defined(RISCV64)
 enum {
-    /* FIXME i#3544: Fix proper values. Those are for compilation only. */
+    /* XXX i#3544: Fix proper values. Those are for compilation only. */
     JMP_REL32_OPCODE = 0xec000000,
     JMP_REL32_SIZE = 4,
     CALL_REL32_OPCODE = 0xed000000,

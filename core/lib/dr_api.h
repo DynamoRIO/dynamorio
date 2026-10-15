@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,7 +32,7 @@
  */
 
 #ifndef _DR_API_H_
-#define _DR_API_H_ 1
+#define _DR_API_H_
 
 /**
  * @file dr_api.h
@@ -91,6 +91,9 @@ extern "C" {
 
 /* opcode OP_ constants and opcode-only routines */
 #include "dr_ir_opcodes.h" // IWYU pragma: export
+
+/* ISA_FEAT_ constants for ISA features (e.g., SVE, SVE2) */
+#include "dr_ir_isa_features.h" // IWYU pragma: export
 
 /* CREATE_INSTR_ macros */
 #include "dr_ir_macros.h" // IWYU pragma: export

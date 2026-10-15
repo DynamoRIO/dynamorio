@@ -31,9 +31,9 @@
  */
 
 /* Generates a .B from a trace.
- * FIXME: need to put in a template
- * FIXME: need to make native work (exception handling stuff)
- * FIXME: need to make it work with -detect_mode
+ * XXX: need to put in a template
+ * XXX: need to make native work (exception handling stuff)
+ * XXX: need to make it work with -detect_mode
  */
 
 #define NEED_HANDLER 1
@@ -44,7 +44,7 @@
 
 /* totally random dummy function */
 int
-dummycall()
+dummycall(void)
 {
     int i = 1, j = 2;
 
@@ -56,11 +56,11 @@ dummycall()
 
 int badtarget = 10; /* .B */
 int
-bad_trace4()
+bad_trace4(void)
 {
     int i, j;
     int a = 1, b = 100, c = 1000;
-    int (*fnptr)();
+    int (*fnptr)(void);
     fnptr = dummycall;
     for (i = 0; i < NUM_TIMES; i++) {
         for (j = 0; j < NUM_TIMES; j++) {
@@ -74,7 +74,7 @@ bad_trace4()
                 fnptr();
             }
             if (c < SWITCH_AFTER) {
-                fnptr = (int (*)()) & badtarget;
+                fnptr = (int (*)())&badtarget;
                 print("Next time around jump to data section\n");
             }
         }
@@ -83,7 +83,7 @@ bad_trace4()
 }
 
 int
-main()
+main(int argc, const char *argv[])
 {
     INIT();
     print("Start\n");

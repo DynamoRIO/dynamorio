@@ -55,7 +55,7 @@ defaults:
 jobs:
   # 64-bit OSX build with clang and run tests:
   osx-x86-64:
-    runs-on: macos-13
+    runs-on: macos-15-intel
 
     steps:
     - uses: actions/checkout@v4
@@ -90,7 +90,7 @@ jobs:
         # https://github.community/t/selecting-an-xcode-version/16204/3
         # To find available versions, add the following as a step above:
         #  - run: ls -l /Applications
-        DEVELOPER_DIR: /Applications/Xcode_14.1.app/Contents/Developer
+        DEVELOPER_DIR: /Applications/Xcode_16.app/Contents/Developer
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
         DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}

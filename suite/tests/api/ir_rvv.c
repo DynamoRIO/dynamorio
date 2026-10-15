@@ -152,15 +152,32 @@ static byte buf[8192];
         opnd_create_reg(DR_REG_VR2), opnd_create_immed_int(0b1, OPSZ_1b)); \
     test_instr_encoding(dc, OP_##opcode, instr);
 
+#define TEST_Vd_Rs1fp_Vs2_vm(opcode)                                       \
+    instr = INSTR_CREATE_##opcode(                                         \
+        dc, opnd_create_reg(DR_REG_VR0), opnd_create_reg(DR_REG_F11),      \
+        opnd_create_reg(DR_REG_VR2), opnd_create_immed_int(0b1, OPSZ_1b)); \
+    test_instr_encoding(dc, OP_##opcode, instr);
+
 #define TEST_Vd_Rs1_Vs2(opcode)                                                         \
     instr =                                                                             \
         INSTR_CREATE_##opcode(dc, opnd_create_reg(DR_REG_VR0),                          \
                               opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_VR2)); \
     test_instr_encoding(dc, OP_##opcode, instr);
 
+#define TEST_Vd_Rs1fp_Vs2(opcode)                                                        \
+    instr =                                                                              \
+        INSTR_CREATE_##opcode(dc, opnd_create_reg(DR_REG_VR0),                           \
+                              opnd_create_reg(DR_REG_F11), opnd_create_reg(DR_REG_VR2)); \
+    test_instr_encoding(dc, OP_##opcode, instr);
+
 #define TEST_Vd_Rs1(opcode)                                        \
     instr = INSTR_CREATE_##opcode(dc, opnd_create_reg(DR_REG_VR0), \
                                   opnd_create_reg(DR_REG_A1));     \
+    test_instr_encoding(dc, OP_##opcode, instr);
+
+#define TEST_Vd_Rs1fp(opcode)                                      \
+    instr = INSTR_CREATE_##opcode(dc, opnd_create_reg(DR_REG_VR0), \
+                                  opnd_create_reg(DR_REG_F11));    \
     test_instr_encoding(dc, OP_##opcode, instr);
 
 #define TEST_Vd_Vs1_Vs2_vm(opcode)                                         \
@@ -365,47 +382,47 @@ test_load_store(void *dc)
 static void
 test_FVF(void *dc)
 {
-    TEST_Vd_Rs1_Vs2_vm(vfadd_vf);
-    TEST_Vd_Rs1_Vs2_vm(vfsub_vf);
-    TEST_Vd_Rs1_Vs2_vm(vfmin_vf);
-    TEST_Vd_Rs1_Vs2_vm(vfmax_vf);
-    TEST_Vd_Rs1_Vs2_vm(vfsgnj_vf);
-    TEST_Vd_Rs1_Vs2_vm(vfsgnjn_vf);
-    TEST_Vd_Rs1_Vs2_vm(vfsgnjx_vf);
-    TEST_Vd_Rs1_Vs2_vm(vfslide1up_vf);
-    TEST_Vd_Rs1_Vs2_vm(vfslide1down_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfadd_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfsub_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfmin_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfmax_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfsgnj_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfsgnjn_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfsgnjx_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfslide1up_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfslide1down_vf);
 
-    TEST_Vd_Rs1(vfmv_s_f);
-    TEST_Vd_Rs1(vfmv_v_f);
+    TEST_Vd_Rs1fp(vfmv_s_f);
+    TEST_Vd_Rs1fp(vfmv_v_f);
 
-    TEST_Vd_Rs1_Vs2(vfmerge_vfm);
-    TEST_Vd_Rs1_Vs2_vm(vmfeq_vf);
-    TEST_Vd_Rs1_Vs2_vm(vmfle_vf);
-    TEST_Vd_Rs1_Vs2_vm(vmflt_vf);
-    TEST_Vd_Rs1_Vs2_vm(vmfne_vf);
-    TEST_Vd_Rs1_Vs2_vm(vmfgt_vf);
-    TEST_Vd_Rs1_Vs2_vm(vmfge_vf);
+    TEST_Vd_Rs1fp_Vs2(vfmerge_vfm);
+    TEST_Vd_Rs1fp_Vs2_vm(vmfeq_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vmfle_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vmflt_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vmfne_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vmfgt_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vmfge_vf);
 
-    TEST_Vd_Rs1_Vs2_vm(vfrdiv_vf);
-    TEST_Vd_Rs1_Vs2_vm(vfmul_vf);
-    TEST_Vd_Rs1_Vs2_vm(vfrsub_vf);
-    TEST_Vd_Rs1_Vs2_vm(vfmadd_vf);
-    TEST_Vd_Rs1_Vs2_vm(vfnmadd_vf);
-    TEST_Vd_Rs1_Vs2_vm(vfmsub_vf);
-    TEST_Vd_Rs1_Vs2_vm(vfnmsub_vf);
-    TEST_Vd_Rs1_Vs2_vm(vfmacc_vf);
-    TEST_Vd_Rs1_Vs2_vm(vfnmacc_vf);
-    TEST_Vd_Rs1_Vs2_vm(vfmsac_vf);
-    TEST_Vd_Rs1_Vs2_vm(vfnmsac_vf);
-    TEST_Vd_Rs1_Vs2_vm(vfwadd_vf);
-    TEST_Vd_Rs1_Vs2_vm(vfwsub_vf);
-    TEST_Vd_Rs1_Vs2_vm(vfwadd_wf);
-    TEST_Vd_Rs1_Vs2_vm(vfwsub_wf);
-    TEST_Vd_Rs1_Vs2_vm(vfwmul_vf);
-    TEST_Vd_Rs1_Vs2_vm(vfwmacc_vf);
-    TEST_Vd_Rs1_Vs2_vm(vfwnmacc_vf);
-    TEST_Vd_Rs1_Vs2_vm(vfwmsac_vf);
-    TEST_Vd_Rs1_Vs2_vm(vfwnmsac_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfrdiv_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfmul_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfrsub_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfmadd_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfnmadd_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfmsub_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfnmsub_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfmacc_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfnmacc_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfmsac_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfnmsac_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfwadd_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfwsub_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfwadd_wf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfwsub_wf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfwmul_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfwmacc_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfwnmacc_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfwmsac_vf);
+    TEST_Vd_Rs1fp_Vs2_vm(vfwnmsac_vf);
 }
 
 static void

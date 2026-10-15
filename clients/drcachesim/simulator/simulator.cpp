@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -130,8 +130,10 @@ simulator_t::initialize_shard_type(shard_type_t shard_type)
 bool
 simulator_t::process_memref(const memref_t &memref)
 {
-    if (memref.marker.type != TRACE_TYPE_MARKER)
+    if (memref.marker.type != TRACE_TYPE_MARKER) {
+        ++non_marker_count_;
         return true;
+    }
     if (memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID && knob_cpu_scheduling_) {
         assert(shard_type_ == SHARD_BY_THREAD);
         int64_t cpu = static_cast<int64_t>(memref.marker.marker_value);
@@ -277,6 +279,11 @@ simulator_t::core_for_thread(memref_tid_t tid)
     auto exists = thread2core_.find(tid);
     if (exists != thread2core_.end())
         return exists->second;
+    if (non_marker_count_ == 0) {
+        // We just haven't seen a cpuid marker yet.
+        // The caller shouldn't need the core yet so return a sentinel.
+        return -1;
+    }
     // Either knob_cpu_scheduling_is off and we're ignoring cpu
     // markers, or there has not yet been a cpu marker for this
     // thread.  We fall back to scheduling threads directly to cores.

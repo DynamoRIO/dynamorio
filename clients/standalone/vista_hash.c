@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -64,9 +64,9 @@ static bool vv = false;
 
 #define ASSERT(x) ((x) ? 0 : dr_messagebox("Error %d %s\n", __LINE__, #x), 0)
 
-#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((alignment)-1)))
+#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((alignment) - 1)))
 #define ALIGN_FORWARD(x, alignment) \
-    ((((ptr_uint_t)x) + ((alignment)-1)) & (~((alignment)-1)))
+    ((((ptr_uint_t)x) + ((alignment) - 1)) & (~((alignment) - 1)))
 
 bool
 compare_pages(void *drcontext, byte *start1, byte *start2, uint start_offset)
@@ -252,7 +252,7 @@ main(int argc, char *argv[])
     uint arg_offs = 1;
     bool use_second_pass = true;
     bool assume_header_match = true;
-    uint second_pass_offset = 16; /* FIXME arbitrary, what's a good choice? */
+    uint second_pass_offset = 16; /* XXX arbitrary, what's a good choice? */
     bool assume_IAT_written = true;
     bool spin_for_debugger = false;
 

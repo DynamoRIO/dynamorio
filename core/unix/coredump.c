@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2024-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -58,7 +58,6 @@
 #define MAX_SECTION_HEADERS 300
 #define MAX_SECTION_NAME_BUFFER_SIZE 8192
 #define SECTION_HEADER_TABLE ".shstrtab"
-#define VVAR_SECTION "[vvar]"
 #define VSYSCALL_SECTION "[vsyscall]"
 /*
  * The length of the name has to be a multiple of eight (for X64) to ensure the next
@@ -95,6 +94,9 @@ typedef struct _section_header_info_t {
     app_pc vm_end;
     uint prot;
     ELF_ADDR name_offset;
+    /* This field is true for [vvar] and [vvar_vclock]. They are kernel-owned pages that
+     * fault on direct access despite PROT_READ. */
+    bool is_vvar;
 } section_header_info_t;
 
 /*
@@ -399,7 +401,7 @@ write_fpregset_note(DR_PARAM_IN dcontext_t *dcontext, DR_PARAM_IN priv_mcontext_
  * the file, false otherwise.
  */
 static bool
-write_arm_tls_note(DR_PARAM_IN file_t elf_file)
+write_arm_tls_note(DR_PARAM_IN dcontext_t *dcontext, DR_PARAM_IN file_t elf_file)
 {
     ELF_NOTE_HEADER_TYPE nhdr;
     // Add one to include the terminating null character.
@@ -412,7 +414,7 @@ write_arm_tls_note(DR_PARAM_IN file_t elf_file)
     if (os_write(elf_file, NOTE_OWNER, NOTE_OWNER_LENGTH) != NOTE_OWNER_LENGTH) {
         return false;
     }
-    const reg_t tpidr_el0 = read_thread_register(DR_REG_TPIDRURW);
+    const reg_t tpidr_el0 = (reg_t)os_get_app_tls_base(dcontext, TLS_REG_LIB);
     return os_write(elf_file, &tpidr_el0, sizeof(tpidr_el0)) == sizeof(tpidr_el0);
 }
 #endif
@@ -422,7 +424,8 @@ write_arm_tls_note(DR_PARAM_IN file_t elf_file)
  * false otherwise.
  */
 static bool
-os_dump_core_internal(dcontext_t *dcontext, char *path DR_PARAM_OUT, size_t path_sz)
+os_dump_core_internal(dcontext_t *dcontext, const char *output_directory DR_PARAM_IN,
+                      char *path DR_PARAM_OUT, size_t path_sz)
 {
     priv_mcontext_t mc;
     if (!dr_get_mcontext_priv(dcontext, NULL, &mc))
@@ -461,11 +464,15 @@ os_dump_core_internal(dcontext_t *dcontext, char *path DR_PARAM_OUT, size_t path
     // without duplications. An offset is used in the section header to locate
     // the section name in the section name table.
     while (memquery_iterator_next(&iter)) {
-        // Skip non-readable section.
-        if (iter.prot == MEMPROT_NONE || strcmp(iter.comment, VVAR_SECTION) == 0 ||
-            strcmp(iter.comment, VSYSCALL_SECTION) == 0) {
+        // Skip non-readable sections during processing, with the exception of the VVAR
+        // sections. The VVAR mappings are included in the core dump file, but their
+        // contents are not saved.
+        if (iter.prot == MEMPROT_NONE || strcmp(iter.comment, VSYSCALL_SECTION) == 0) {
             continue;
         }
+        /* [vvar] and [vvar_vclock] are kernel-owned pages that return EFAULT on read. */
+        const bool is_vvar = strncmp(iter.comment, VVAR_PAGE_MAPS_NAME_PREFIX,
+                                     strlen(VVAR_PAGE_MAPS_NAME_PREFIX)) == 0;
         ELF_ADDR offset = 0;
         if (iter.comment != NULL && iter.comment[0] != '\0') {
             TABLE_RWLOCK(string_htable, write, lock);
@@ -492,7 +499,10 @@ os_dump_core_internal(dcontext_t *dcontext, char *path DR_PARAM_OUT, size_t path
         section_header_info[section_count].vm_end = iter.vm_end;
         section_header_info[section_count].prot = iter.prot;
         section_header_info[section_count].name_offset = offset;
-        section_data_size += iter.vm_end - iter.vm_start;
+        section_header_info[section_count].is_vvar = is_vvar;
+        if (!is_vvar) {
+            section_data_size += iter.vm_end - iter.vm_start;
+        }
         ++section_count;
         if (section_count > MAX_SECTION_HEADERS) {
             SYSLOG_INTERNAL_ERROR("Too many section headers.");
@@ -514,7 +524,8 @@ os_dump_core_internal(dcontext_t *dcontext, char *path DR_PARAM_OUT, size_t path
     file_t elf_file;
     char dump_core_file_name[MAXIMUM_PATH];
     if (!get_unique_logfile(".elf", dump_core_file_name, sizeof(dump_core_file_name),
-                            false, &elf_file) ||
+                            /*open_directory=*/false, output_directory,
+                            /*embed_timestamp=*/true, &elf_file) ||
         elf_file == INVALID_FILE) {
         SYSLOG_INTERNAL_ERROR("Unable to open the core dump file.");
         return false;
@@ -572,31 +583,35 @@ os_dump_core_internal(dcontext_t *dcontext, char *path DR_PARAM_OUT, size_t path
     // not require a LOAD program header.
     for (int section_index = 0; section_index < section_count - 1; ++section_index) {
         ELF_WORD flags = 0;
-        if (TEST(PROT_EXEC, section_header_info[section_index].prot)) {
+        if (TESTANY(PROT_EXEC, section_header_info[section_index].prot)) {
             flags |= PF_X;
         }
-        if (TEST(PROT_WRITE, section_header_info[section_index].prot)) {
+        if (TESTANY(PROT_WRITE, section_header_info[section_index].prot)) {
             flags |= PF_W;
         }
-        if (TEST(PROT_READ, section_header_info[section_index].prot)) {
+        if (TESTANY(PROT_READ, section_header_info[section_index].prot)) {
             flags |= PF_R;
         }
         const ELF_WORD size = section_header_info[section_index].vm_end -
             section_header_info[section_index].vm_start;
+        // The vvar section is not readable. The file size is set to zero to
+        // initialize the memory region to 0.
         if (!write_program_header(
                 elf_file, PT_LOAD, flags,
                 /*offset=*/core_file_offset,
                 /*virtual_address=*/(ELF_ADDR)section_header_info[section_index].vm_start,
                 /*physical_address=*/
                 (ELF_ADDR)section_header_info[section_index].vm_start,
-                /*file_size=*/size,
+                /*file_size=*/section_header_info[section_index].is_vvar ? 0 : size,
                 /*memory_size=*/size,
                 /*alignment=*/os_page_size())) {
             os_close(elf_file);
             return false;
         }
-        core_file_offset += section_header_info[section_index].vm_end -
-            section_header_info[section_index].vm_start;
+        if (!section_header_info[section_index].is_vvar) {
+            core_file_offset += section_header_info[section_index].vm_end -
+                section_header_info[section_index].vm_start;
+        }
     }
     if (!write_prstatus_note(&mc, elf_file)) {
         os_close(elf_file);
@@ -609,7 +624,7 @@ os_dump_core_internal(dcontext_t *dcontext, char *path DR_PARAM_OUT, size_t path
     // XXX: We need to add support for model specific registers like FS and GS for
     // x86_64.
 #if defined(AARCH64)
-    if (!write_arm_tls_note(elf_file)) {
+    if (!write_arm_tls_note(dcontext, elf_file)) {
         os_close(elf_file);
         return false;
     }
@@ -630,6 +645,11 @@ os_dump_core_internal(dcontext_t *dcontext, char *path DR_PARAM_OUT, size_t path
     }
     // Write memory content to the core dump file.
     for (int section_index = 0; section_index < section_count - 1; ++section_index) {
+        // [vvar] and [vvar_vclock] are not readable. Their program headers have
+        // file size zero, so there is no content to write.
+        if (section_header_info[section_index].is_vvar) {
+            continue;
+        }
         const size_t length = section_header_info[section_index].vm_end -
             section_header_info[section_index].vm_start;
         const size_t written = os_write(
@@ -663,10 +683,10 @@ os_dump_core_internal(dcontext_t *dcontext, char *path DR_PARAM_OUT, size_t path
     // this loop.
     for (int section_index = 0; section_index < section_count - 1; ++section_index) {
         ELF_WORD flags = SHF_ALLOC | SHF_MERGE;
-        if (TEST(PROT_WRITE, section_header_info[section_index].prot)) {
+        if (TESTANY(PROT_WRITE, section_header_info[section_index].prot)) {
             flags |= SHF_WRITE;
         }
-        if (TEST(PROT_EXEC, section_header_info[section_index].prot)) {
+        if (TESTANY(PROT_EXEC, section_header_info[section_index].prot)) {
             flags |= SHF_EXECINSTR;
         }
         if (!write_section_header(
@@ -681,8 +701,10 @@ os_dump_core_internal(dcontext_t *dcontext, char *path DR_PARAM_OUT, size_t path
             os_close(elf_file);
             return false;
         }
-        core_file_offset += section_header_info[section_index].vm_end -
-            section_header_info[section_index].vm_start;
+        if (!section_header_info[section_index].is_vvar) {
+            core_file_offset += section_header_info[section_index].vm_end -
+                section_header_info[section_index].vm_start;
+        }
     }
     // Write the section name section.
     if (!write_section_header(
@@ -703,7 +725,8 @@ os_dump_core_internal(dcontext_t *dcontext, char *path DR_PARAM_OUT, size_t path
  * Returns true if a core dump file is written, false otherwise.
  */
 bool
-os_dump_core_live(dcontext_t *dcontext, char *path DR_PARAM_OUT, size_t path_sz)
+os_dump_core_live(dcontext_t *dcontext, char *output_directory DR_PARAM_IN,
+                  char *path DR_PARAM_OUT, size_t path_sz)
 {
 #ifdef DR_HOST_NOT_TARGET
     // Memory dump is supported only when the host and the target are the same.
@@ -724,7 +747,7 @@ os_dump_core_live(dcontext_t *dcontext, char *path DR_PARAM_OUT, size_t path_sz)
     }
 
     // TODO i#7046: Add support to save register values for all threads.
-    const bool ret = os_dump_core_internal(dcontext, path, path_sz);
+    const bool ret = os_dump_core_internal(dcontext, output_directory, path, path_sz);
 
     end_synch_with_all_threads(threads, num_threads,
                                /*resume=*/true);

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -36,7 +36,7 @@
 /* Copyright (c) 2000-2001 Hewlett-Packard Company */
 
 #ifndef _DR_IR_OPCODES_X86_H_
-#define _DR_IR_OPCODES_X86_H_ 1
+#define _DR_IR_OPCODES_X86_H_
 
 /****************************************************************************
  * OPCODES
@@ -60,7 +60,7 @@
  *   7) suite/tests/api/ir* tests
  *   8) add binutils tests in third_party/binutils/test_decenc
  */
-/** Opcode constants for use in the instr_t data structure. */
+/** Opcode constants for use in the #instr_t data structure. */
 enum {
     /*   0 */ OP_INVALID,
     /* NULL, */ /**< INVALID opcode */
@@ -1684,6 +1684,28 @@ enum {
     /* 1475 */ OP_vpshrdvw,    /**< IA-32/AMD64 vpshrdvw opcode. */
     /* 1476 */ OP_vpshrdvd,    /**< IA-32/AMD64 vpshrdvd opcode. */
     /* 1477 */ OP_vpshrdvq,    /**< IA-32/AMD64 vpshrdvq opcode. */
+
+    /* Intel FRED instructions */
+    /* 1478 */ OP_erets, /**< IA-32/AMD64 erets opcode. */
+    /* 1479 */ OP_eretu, /**< IA-32/AMD64 eretu opcode. */
+    /* 1480 */ OP_lkgs,  /**< IA-32/AMD64 lkgs opcode. */
+
+    /* WAITPKG */
+    /* 1481 */ OP_umonitor, /**< IA-32/AMD64 umonitor opcode. */
+    /* 1482 */ OP_tpause,   /**< IA-32/AMD64 tpause opcode. */
+    /* 1483 */ OP_umwait,   /**< IA-32/AMD64 uwait opcode. */
+
+    /* Intel CET instructions */
+    /* 1484 */ OP_endbr64,     /**< IA-32/AMD64 endbr64 opcode. */
+    /* 1485 */ OP_endbr32,     /**< IA-32/AMD64 endbr32 opcode. */
+    /* 1486 */ OP_rdssp,       /**< IA-32/AMD64 rdsspd or rdsspq opcode. */
+    /* 1487 */ OP_incssp,      /**< IA-32/AMD64 incsspd or incsspq opcode. */
+    /* 1488 */ OP_rstorssp,    /**< IA-32/AMD64 rstorssp opcode. */
+    /* 1489 */ OP_saveprevssp, /**< IA-32/AMD64 saveprevssp opcode. */
+    /* 1490 */ OP_setssbsy,    /**< IA-32/AMD64 setssbsy opcode. */
+    /* 1491 */ OP_clrssbsy,    /**< IA-32/AMD64 clrssbsy opcode. */
+    /* 1492 */ OP_wrss,        /**< IA-32/AMD64 wrssd or wrssq opcode. */
+    /* 1493 */ OP_wruss,       /**< IA-32/AMD64 wrussd or wrussq opcode. */
 
     OP_AFTER_LAST,
     OP_FIRST = OP_add,           /**< First real opcode. */

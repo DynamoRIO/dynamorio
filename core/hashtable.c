@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -137,7 +137,7 @@ generic_hash_clear(dcontext_t *dcontext, generic_table_t *htable)
 void
 generic_hash_destroy(dcontext_t *dcontext, generic_table_t *htable)
 {
-    /* FIXME: why doesn't hashtablex.h walk the table and call the free routine
+    /* XXX: why doesn't hashtablex.h walk the table and call the free routine
      * in free() or in remove()?  It only seems to do it for range_remove().
      */
     uint i;
@@ -274,7 +274,7 @@ generic_hash_iterate_remove(dcontext_t *dcontext, generic_table_t *htable, int i
 static inline bool
 strhash_key_cmp(strhash_table_t *htable, const char *s1, const char *s2)
 {
-    if (TEST(STRHASH_CASE_INSENSITIVE, htable->table_flags))
+    if (TESTANY(STRHASH_CASE_INSENSITIVE, htable->table_flags))
         return strcasecmp(s1, s2) == 0;
     else
         return strcmp(s1, s2) == 0;
@@ -326,7 +326,7 @@ strhash_hash_create(dcontext_t *dcontext, uint bits, uint load_factor_percent,
     strhash_table_t *table =
         HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, strhash_table_t, ACCT_OTHER, PROTECTED);
     hashtable_strhash_init(GLOBAL_DCONTEXT, table, bits, load_factor_percent,
-                           TEST(STRHASH_CASE_INSENSITIVE, table_flags)
+                           TESTANY(STRHASH_CASE_INSENSITIVE, table_flags)
                                ? HASH_FUNCTION_STRING_NOCASE
                                : HASH_FUNCTION_STRING,
                            0 /* hash_mask_offset */, table_flags _IF_DEBUG(table_name));
@@ -343,7 +343,7 @@ strhash_hash_clear(dcontext_t *dcontext, strhash_table_t *htable)
 void
 strhash_hash_destroy(dcontext_t *dcontext, strhash_table_t *htable)
 {
-    /* FIXME: why doesn't hashtablex.h walk the table and call the free routine
+    /* XXX: why doesn't hashtablex.h walk the table and call the free routine
      * in free() or in remove()?  It only seems to do it for range_remove().
      */
     uint i;
@@ -442,7 +442,7 @@ print_hashtable_stats(dcontext_t *dcontext, const char *is_final_str,
             ">2_or_miss: %u, overwrap: %u\n",
             is_final_str, is_trace_str, lookup_routine_str, brtype_str,
             lookup_stats->collision_stat,
-            /* FIXME: collision hit stats are updated only when inlining IBL head */
+            /* XXX: collision hit stats are updated only when inlining IBL head */
             lookup_stats->collision_hit_stat,
             lookup_stats->collision_stat - lookup_stats->collision_hit_stat,
             lookup_stats->overwrap_stat);
@@ -471,7 +471,7 @@ print_hashtable_stats(dcontext_t *dcontext, const char *is_final_str,
                      ? lookup_stats->ib_trace_last_ibl_speculate_success
                      : 0);
 
-            /* FIXME: add ib_stay_on_trace_stat_ovfl here */
+            /* XXX: add ib_stay_on_trace_stat_ovfl here */
 
             if (total_dynamic_ibs > 0) {
                 divide_uint64_print(lookup_stats->ib_stay_on_trace_stat,
@@ -509,7 +509,7 @@ print_hashtable_stats(dcontext_t *dcontext, const char *is_final_str,
 
         if (lookup_stats->ib_trace_last_ibl_exit > 0) {
             /* ignoring indirect branches that stayed on trace */
-            /* FIXME: add ib_stay_on_trace_stat_ovfl here */
+            /* XXX: add ib_stay_on_trace_stat_ovfl here */
             uint speculate_only_lastexit_top = 0;
             uint speculate_only_lastexit_bottom = 0;
             uint lastexit_ibl_top = 0;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2021 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,7 +36,7 @@
  */
 
 #ifndef _DRREG_H_
-#define _DRREG_H_ 1
+#define _DRREG_H_
 
 #include "drmgr.h"
 #include "drvector.h"

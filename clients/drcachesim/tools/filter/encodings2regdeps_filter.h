@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _ENCODING_FILTER_H_
-#define _ENCODING_FILTER_H_ 1
+#define _ENCODING_FILTER_H_
 
 #include "record_filter.h"
 #include "trace_entry.h"
