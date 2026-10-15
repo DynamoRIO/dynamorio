@@ -311,6 +311,9 @@ Further non-compatibility-affecting changes include:
    "-main_buf_records 4K".
  - On Linux, shared non-executable ELF module candidates are now validated against
    their executable load segments (i#8117).
+ - Raised the maximum -vm_size on AArch64 from 2GB to 64GB.  A value larger
+   than 2GB removes the code cache reachability guarantees described in
+   \ref sec_64bit_reach.
 
 **************************************************
 <hr>

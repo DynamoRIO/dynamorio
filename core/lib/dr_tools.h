@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2010-2026, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -439,7 +440,9 @@ typedef enum {
      * this flag is specified.  If this flag is passed, the requested
      * location (\p addr parameter) must be NULL.  This flag is not
      * compatible with #DR_ALLOC_LOW_2GB, #DR_ALLOC_FIXED_LOCATION, or
-     * #DR_ALLOC_NON_DR.
+     * #DR_ALLOC_NON_DR.  On AArch64 with -vm_size larger than 2GB, none
+     * of this memory is reachable and dr_custom_alloc() with this flag
+     * returns NULL; see \ref sec_64bit_reach.
      */
     DR_ALLOC_CACHE_REACHABLE = 0x0004,
     /**

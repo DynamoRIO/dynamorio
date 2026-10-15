@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -168,6 +169,8 @@ heap_check_option_compatibility(void);
 bool
 is_vmm_reserved_address(byte *pc, size_t size, DR_PARAM_OUT byte **region_start,
                         DR_PARAM_OUT byte **region_end);
+bool
+vmcode_is_reachable(void);
 /* Returns whether "target" is reachable from all future vmcode allocations. */
 bool
 rel32_reachable_from_vmcode(byte *target);
@@ -295,6 +298,7 @@ nonpersistent_heap_free(dcontext_t *dcontext, void *p,
                         size_t size HEAPACCT(which_heap_t which));
 
 /* Passing dcontext == GLOBAL_DCONTEXT allocates from a global pool.
+ * The memory comes from vmcode and is reachable only if vmcode_is_reachable().
  * Important note: within the W^X scheme (-satisfy_w_xor_x), this will return an address
  * of the writeable view. vmcode_get_executable_addr() needs to be called in order to get
  * the reachable address.

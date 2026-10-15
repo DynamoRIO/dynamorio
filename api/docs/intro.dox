@@ -1,5 +1,6 @@
 /* ******************************************************************************
  * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -496,6 +497,13 @@ memory directly allocated via DynamoRIO's API.  The \ref op_reachable_heap
 "-reachable_heap runtime option" can be used to guarantee that all memory
 is reachable, at the risk of running out of memory due to the smaller space
 of available memory.
+
+On AArch64, the -vm_size runtime option can be as large as 64GB.  If it is
+larger than 2GB, the code caches no longer fit in a single 2GB region and
+DynamoRIO does not provide the guarantees above.  In this mode,
+dr_custom_alloc() with #DR_ALLOC_CACHE_REACHABLE returns NULL, \ref
+op_reachable_client "-reachable_client" is turned off, and \ref
+op_reachable_heap "-reachable_heap" reduces -vm_size to 2GB.
 
 To make more space available for the code caches when running larger
 applications, or for clients that use a lot of heap memory that is not
