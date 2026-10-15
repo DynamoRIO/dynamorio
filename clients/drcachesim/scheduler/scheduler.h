@@ -276,7 +276,7 @@ public:
         std::vector<int> shards;
         /**
          * Limits these threads to this set of output streams, which are specified by
-         * ordinal 0 through the output count minus oner.  They will not be scheduled
+         * ordinal 0 through the output count minus one.  They will not be scheduled
          * on any other output streams.
          */
         std::set<output_ordinal_t> output_binding;
