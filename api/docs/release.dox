@@ -305,9 +305,7 @@ Further non-compatibility-affecting changes include:
    "-main_buf_records 4K".
  - Changed the drmemtrace scheduler to have a core whose ready queue holds only
    blocked inputs attempt to steal work from other cores rather than idling.  This is
-   controlled by the new on-by-default option
-   #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t::steal_when_only_blocked
-   and the corresponding -sched_steal_when_only_blocked launcher option.
+   controlled by the new on-by-default -sched_steal_when_only_blocked launcher option.
 
 **************************************************
 <hr>
