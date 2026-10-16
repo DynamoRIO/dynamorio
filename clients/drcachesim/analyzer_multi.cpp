@@ -702,6 +702,7 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::init_dynamic_schedule()
     sched_ops.migration_threshold_us = op_sched_migration_threshold_us.get_value();
     sched_ops.rebalance_period_us = op_sched_rebalance_period_us.get_value();
     sched_ops.steal_attempt_period = op_sched_steal_attempt_period.get_value();
+    sched_ops.steal_when_only_blocked = op_sched_steal_when_only_blocked.get_value();
     sched_ops.randomize_next_input = op_sched_randomize.get_value();
     sched_ops.honor_direct_switches = !op_sched_disable_direct_switches.get_value();
     sched_ops.exit_if_fraction_inputs_left =
