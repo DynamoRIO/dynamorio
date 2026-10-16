@@ -542,8 +542,8 @@ parse_instr_intervals_file(std::string path_to_file)
             NOTIFY(0,
                    "Instruction interval [%" PRIu64 ", %" PRIu64 "] has been merged with "
                    "instruction interval [%" PRIu64 ", %" PRIu64 "] .\n",
-                   last_interval.start, last_interval.start + last_interval.duration,
-                   interval.start, interval.start + interval.duration);
+                   interval.start, interval.start + interval.duration,
+                   last_interval.start, last_interval.start + last_interval.duration);
             uint64 max_end = last_end > end ? last_end : end;
             last_interval.duration = max_end - last_interval.start;
         } else {
