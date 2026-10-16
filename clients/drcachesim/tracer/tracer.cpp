@@ -2672,14 +2672,14 @@ init_offline_dir(void)
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         if (!file_ops_func.create_dir(kernel_trace_logsubdir))
             return false;
-    }
-    dr_snprintf(kcore_path, BUFFER_SIZE_ELEMENTS(kcore_path), "%s%s%s",
-                kernel_trace_logsubdir, DIRSEP, DRMEMTRACE_KCORE_FILENAME);
-    NULL_TERMINATE_BUFFER(kcore_path);
+        dr_snprintf(kcore_path, BUFFER_SIZE_ELEMENTS(kcore_path), "%s%s%s",
+                    kernel_trace_logsubdir, DIRSEP, DRMEMTRACE_KCORE_FILENAME);
+        NULL_TERMINATE_BUFFER(kcore_path);
 
-    dr_snprintf(kallsyms_path, BUFFER_SIZE_ELEMENTS(kallsyms_path), "%s%s%s",
-                kernel_trace_logsubdir, DIRSEP, DRMEMTRACE_KALLSYMS_FILENAME);
-    NULL_TERMINATE_BUFFER(kallsyms_path);
+        dr_snprintf(kallsyms_path, BUFFER_SIZE_ELEMENTS(kallsyms_path), "%s%s%s",
+                    kernel_trace_logsubdir, DIRSEP, DRMEMTRACE_KALLSYMS_FILENAME);
+        NULL_TERMINATE_BUFFER(kallsyms_path);
+    }
 #endif
     if (has_tracing_windows())
         open_new_window_dir(tracing_window.load(std::memory_order_acquire));
