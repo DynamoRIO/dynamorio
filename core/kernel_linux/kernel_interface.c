@@ -40,6 +40,7 @@
 #include "kernel_interface.h"
 
 #include <asm/page.h>
+#include <asm/tsc.h>
 #include <linux/cpumask.h>
 #include <linux/kprobes.h>
 #include <linux/ktime.h>
@@ -207,6 +208,13 @@ kernel_module_init(size_t dr_heap_size)
         return ret;
     }
 
+#if defined(KSTATS) && defined(X86)
+    if (tsc_khz == 0) {
+        pr_err("TSC frequency is unavailable\n");
+        return -ENODEV;
+    }
+#endif
+
     heap_size = dr_heap_size;
     /* PAGE_KERNEL_EXEC makes the heap RWX because it backs both DR's vmcode and vmheap.
      * TODO i#8124: Allocate two separate regions instead for fine-grained W^X protection.
@@ -220,6 +228,12 @@ kernel_module_init(size_t dr_heap_size)
     }
 
     return 0;
+}
+
+unsigned int
+kernel_get_tsc_khz(void)
+{
+    return tsc_khz;
 }
 
 void

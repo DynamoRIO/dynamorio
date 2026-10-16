@@ -532,6 +532,16 @@ get_num_processors(void)
     return num_online_processors;
 }
 
+timestamp_t
+get_timer_frequency(void)
+{
+#ifdef X86
+    return kernel_get_tsc_khz();
+#else
+#    error "Unsupported platform"
+#endif
+}
+
 uint
 query_time_seconds(void)
 {

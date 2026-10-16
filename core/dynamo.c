@@ -593,12 +593,6 @@ dynamorio_app_init_part_two_finalize(void)
         loader_init_prologue();
 
         d_r_arch_init();
-#ifdef LINUX_KERNEL
-        /* TODO i#8021: Remove this early return as the remainder of part two is ported.
-         * Move it further down for each incremental step.
-         */
-        return SUCCESS;
-#endif
         synch_init();
 
 #ifdef KSTATS
@@ -611,6 +605,12 @@ dynamorio_app_init_part_two_finalize(void)
         moduledb_init();    /* before vm_areas_init, after heap_init */
         perscache_init();   /* before vm_areas_init */
         native_exec_init(); /* before vm_areas_init, after arch_init */
+#ifdef LINUX_KERNEL
+        /* TODO i#8021: Remove this early return as the remainder of part two is ported.
+         * Move it further down for each incremental step.
+         */
+        return SUCCESS;
+#endif
 
         if (!DYNAMO_OPTION(thin_client)) {
 #ifdef HOT_PATCHING_INTERFACE
