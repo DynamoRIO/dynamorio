@@ -510,9 +510,9 @@ parse_instr_intervals_file(std::string path_to_file)
         uint64 duration = std::stoull(elem);
         if (duration == 0) {
             NOTIFY(0,
-                   "Instruction interval starting at %" PRIu64 " has duration of 0. "
+                   "Instruction interval [%" PRIu64 ", %" PRIu64 "] has duration of 0. "
                    "Removing interval.\n",
-                   start);
+                   start, start + duration);
             continue;
         }
         // Ignore the remaining comma-separated elements, if any.
@@ -539,12 +539,13 @@ parse_instr_intervals_file(std::string path_to_file)
         instr_interval_t &last_interval = instr_intervals_merged.back();
         uint64 last_end = last_interval.start + last_interval.duration;
         if (interval.start <= last_end) {
+            NOTIFY(0,
+                   "Instruction interval [%" PRIu64 ", %" PRIu64 "] has been merged with "
+                   "instruction interval [%" PRIu64 ", %" PRIu64 "] .\n",
+                   last_interval.start, last_interval.start + last_interval.duration,
+                   interval.start, interval.start + interval.duration);
             uint64 max_end = last_end > end ? last_end : end;
             last_interval.duration = max_end - last_interval.start;
-            NOTIFY(0,
-                   "Instruction interval starting at %" PRIu64 " has been merged with "
-                   "instruction interval starting at %" PRIu64 " .\n",
-                   last_interval.start, interval.start);
         } else {
             instr_intervals_merged.emplace_back(interval);
         }
