@@ -1,5 +1,6 @@
 /* ******************************************************************************
  * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2010-2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -2961,7 +2962,9 @@ void *
 dr_thread_alloc(void *drcontext, size_t size)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
-    /* For back-compat this is guaranteed-reachable. */
+    /* For back-compat this is guaranteed-reachable, except on AArch64 with
+     * -vm_size > 2G.
+     */
     return heap_reachable_alloc(dcontext, size HEAPACCT(ACCT_CLIENT));
 }
 
@@ -2984,7 +2987,9 @@ DR_API
 void *
 dr_global_alloc(size_t size)
 {
-    /* For back-compat this is guaranteed-reachable. */
+    /* For back-compat this is guaranteed-reachable, except on AArch64 with
+     * -vm_size > 2G.
+     */
     return heap_reachable_alloc(GLOBAL_DCONTEXT, size HEAPACCT(ACCT_CLIENT));
 }
 
@@ -3008,7 +3013,9 @@ dr_nonheap_alloc(size_t size, uint prot)
             !DYNAMO_OPTION(satisfy_w_xor_x),
         "reachable executable client memory is not supported with -satisfy_w_xor_x");
     return heap_mmap_ex(size, size, prot, false /*no guard pages*/,
-                        /* For back-compat we preserve reachability. */
+                        /* For back-compat we preserve reachability, except on
+                         * AArch64 with -vm_size > 2G.
+                         */
                         VMM_SPECIAL_MMAP | VMM_REACHABLE);
 }
 
@@ -3147,6 +3154,12 @@ custom_memory_shared(bool alloc, void *drcontext, dr_alloc_flags_t flags, size_t
                   "dr_custom_alloc: cannot combine non-DR and cache-reachable");
     CLIENT_ASSERT(!alloc || TESTANY(DR_ALLOC_FIXED_LOCATION, flags) || addr == NULL,
                   "dr_custom_alloc: address only honored for fixed location");
+    if (alloc && TESTANY(DR_ALLOC_CACHE_REACHABLE, flags) && !vmcode_is_reachable()) {
+        CLIENT_ASSERT(false,
+                      "dr_custom_alloc: DR_ALLOC_CACHE_REACHABLE is not "
+                      "supported with -vm_size above 2G");
+        return NULL;
+    }
 #ifdef WINDOWS
     CLIENT_ASSERT(!TESTANY(DR_ALLOC_RESERVE_ONLY | DR_ALLOC_COMMIT_ONLY, flags) ||
                       TESTALL(DR_ALLOC_NON_HEAP | DR_ALLOC_NON_DR, flags),
@@ -4734,16 +4747,18 @@ dr_raw_tls_opnd(void *drcontext, reg_id_t tls_register, uint tls_offs)
 {
     CLIENT_ASSERT(drcontext != NULL, "dr_raw_tls_opnd: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT, "dr_raw_tls_opnd: drcontext is invalid");
+    /* The public API represents signed displacements by their unsigned bits. */
+    int disp = (int)tls_offs;
     IF_X86_ELSE(
         {
             return opnd_create_far_base_disp_ex(tls_register, DR_REG_NULL, DR_REG_NULL, 0,
-                                                tls_offs, OPSZ_PTR,
+                                                disp, OPSZ_PTR,
                                                 /* modern processors don't want addr16
                                                  * prefixes
                                                  */
                                                 false, true, false);
         },
-        { return OPND_CREATE_MEMPTR(tls_register, tls_offs); });
+        { return OPND_CREATE_MEMPTR(tls_register, disp); });
 }
 
 DR_API
@@ -5582,7 +5597,7 @@ dr_save_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg,
 #endif
 
     if (slot <= SPILL_SLOT_TLS_MAX) {
-        ushort offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
+        int offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
         MINSERT(ilist, where,
                 XINST_CREATE_store(dcontext, opnd_create_tls_slot(offs),
                                    opnd_create_reg(reg)));
@@ -5628,7 +5643,7 @@ dr_restore_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg
 #endif
 
     if (slot <= SPILL_SLOT_TLS_MAX) {
-        ushort offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
+        int offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
         MINSERT(ilist, where,
                 XINST_CREATE_load(dcontext, opnd_create_reg(reg),
                                   opnd_create_tls_slot(offs)));
@@ -5667,7 +5682,7 @@ reg_spill_slot_opnd(void *drcontext, dr_spill_slot_t slot)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     if (slot <= SPILL_SLOT_TLS_MAX) {
-        ushort offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
+        int offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
         return opnd_create_tls_slot(offs);
     } else {
         reg_id_t reg_slot = SPILL_SLOT_MC_REG[slot - NUM_TLS_SPILL_SLOTS];

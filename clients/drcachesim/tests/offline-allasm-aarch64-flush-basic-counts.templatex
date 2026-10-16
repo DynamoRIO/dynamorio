@@ -1,9 +1,8 @@
 Hello, world!
 Basic counts tool results:
 Total counts:
-          19 total \(fetched\) instructions
-          19 total unique \(fetched\) instructions
-           0 total non-fetched instructions
+          19 total instructions
+          19 total unique instructions
            0 total prefetches
            0 total data loads
            0 total data stores
@@ -13,9 +12,8 @@ Total counts:
            6 total timestamp \+ cpuid markers
 .*
 Thread .* counts:
-          19 \(fetched\) instructions
-          19 unique \(fetched\) instructions
-           0 non-fetched instructions
+          19 instructions
+          19 unique instructions
            0 prefetches
            0 data loads
            0 data stores

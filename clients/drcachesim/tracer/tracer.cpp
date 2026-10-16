@@ -222,16 +222,9 @@ get_L0_filters_enabled(uintptr_t mode, DR_PARAM_OUT bool *l0i_enabled,
 }
 
 static bool
-was_L0_filtering_ever_enabled()
-{
-    return op_L0_filter_until_instrs.get_value() > 0 || op_L0I_filter.get_value() ||
-        op_L0D_filter.get_value();
-}
-
-static bool
 is_repstr_expansion_enabled()
 {
-    return !op_offline.get_value() || was_L0_filtering_ever_enabled();
+    return !op_offline.get_value();
 }
 
 std::atomic<ptr_int_t> tracing_window;
@@ -267,6 +260,165 @@ clean_call(void)
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     append_timestamp_and_cpu_marker(data);
     process_and_output_buffer(drcontext, false);
+}
+
+static offline_entry_t *
+filter_repstr_address(offline_entry_t *next_record, addr_t addr, int line_bits,
+                      ptr_int_t mask, ptr_int_t *dcache, offline_entry_t pc,
+                      offline_entry_t meminfo, int num_memrefs)
+{
+    ptr_int_t line = addr >> line_bits;
+    ptr_int_t index = line & mask;
+    ptr_int_t entry = dcache[index];
+    offline_entry_t addr_entry;
+    if (entry == line) {
+        // It's a hit. Do not emit the memref.
+    } else {
+        // It's a miss so write it out.
+        *next_record++ = pc;
+        if (num_memrefs > 1) // Only multi-memref instrs need MEMINFO records.
+            *next_record++ = meminfo;
+        addr_entry.combined_value = addr;
+        *next_record++ = addr_entry;
+        // Update the cache.
+        dcache[index] = line;
+    }
+    return next_record;
+}
+
+/* Clean callee that applies d-cache filters to the rep string loop first-last
+ * memrefs that were just added to the trace buffer.
+ * We expect not expanding rep strings to be key to performance with
+ * -L0_filter_until_instrs for sure, even if it is not a huge win for
+ * always-filter modes.
+ */
+static void
+filter_repstr_callee(int num_memrefs, int opsize)
+{
+    void *drcontext = dr_get_current_drcontext();
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    byte *buf_ptr = BUF_PTR(data->seg_base);
+    if (thread_filtering_enabled && buf_ptr == nullptr)
+        return;
+    DR_ASSERT(buf_ptr != nullptr);
+    DR_ASSERT(instru->sizeof_entry() == sizeof(offline_entry_t));
+    DR_ASSERT(buf_ptr - data->buf_base >=
+              static_cast<ssize_t>(num_memrefs * instru->sizeof_entry()));
+    DR_ASSERT(num_memrefs == 1 || num_memrefs == 2);
+    offline_entry_t *next_record = reinterpret_cast<offline_entry_t *>(buf_ptr);
+    // We expect 3 records for each memref: PC, MEMINFO, and address; or 2 records
+    // for 1-memref instrs where MEMINFO is not needed.
+    const int records_per = (num_memrefs == 1) ? 2 : 3;
+    // Roll back now and re-add those that make it through the filter.
+    next_record -= records_per * num_memrefs * /*start+end*/ 2;
+    // Remember the PC and MEMINFO records, and the address bounds.
+    offline_entry_t *record = next_record;
+#ifdef DEBUG
+    if (op_verbose.get_value() >= 5) {
+        for (int i = 0; i < num_memrefs * 2 * records_per; ++i) {
+            NOTIFY(5, "%s: %d: 0x" HEX64_FORMAT_STRING " @ +%zd\n", __FUNCTION__, i,
+                   record->combined_value,
+                   reinterpret_cast<byte *>(record) - data->buf_base);
+            ++record;
+        }
+        record = next_record;
+    }
+#endif
+    offline_entry_t pc = *record++;
+    DR_ASSERT(pc.pc.type ==
+              OFFLINE_TYPE_PC IF_X64(|| pc.pc.type == OFFLINE_TYPE_PC_TOP_BIT));
+    offline_entry_t meminfo;
+    if (num_memrefs > 1) { // Only multi-memref instrs need MEMINFO records.
+        meminfo = *record++;
+        DR_ASSERT(meminfo.extended.type == OFFLINE_TYPE_EXTENDED &&
+                  meminfo.extended.ext == OFFLINE_EXT_TYPE_MEMINFO);
+    } else
+        meminfo.combined_value = 0;
+    offline_entry_t start = *record++;
+    offline_entry_t end, pc2, meminfo2, start2, end2;
+    // Clear to be safe.
+    end.combined_value = 0;
+    pc2.combined_value = 0;
+    meminfo2.combined_value = 0;
+    start2.combined_value = 0;
+    end2.combined_value = 0;
+    if (num_memrefs == 1) {
+        record += records_per - 1; // Skip redundant pc+meminfo.
+        end = *record++;
+    } else {
+        pc2 = *record++;
+        DR_ASSERT(pc2.pc.type ==
+                  OFFLINE_TYPE_PC IF_X64(|| pc2.pc.type == OFFLINE_TYPE_PC_TOP_BIT));
+        meminfo2 = *record++;
+        DR_ASSERT(meminfo2.extended.type == OFFLINE_TYPE_EXTENDED &&
+                  meminfo2.extended.ext == OFFLINE_EXT_TYPE_MEMINFO);
+        start2 = *record++;
+        record += records_per - 1; // Skip redundant pc+meminfo.
+        end = *record++;
+        record += records_per - 1; // Skip redundant pc+meminfo.
+        end2 = *record++;
+    }
+
+    uint64 cache_size = op_L0D_size.get_value();
+    DR_ASSERT(cache_size > 0); // Size 0 should avoid coming here.
+    ptr_int_t mask = (ptr_int_t)(cache_size / op_line_size.get_value()) - 1;
+    int line_bits = compute_log2(op_line_size.get_value());
+    ptr_int_t *dcache = reinterpret_cast<ptr_int_t *>(data->l0_dcache);
+
+    bool backward = end.combined_value < start.combined_value;
+    addr_t addr = static_cast<addr_t>(start.combined_value);
+    addr_t addr2 = static_cast<addr_t>(start2.combined_value);
+    DR_ASSERT((backward && addr >= end.combined_value) ||
+              (!backward && addr <= end.combined_value));
+    uint64 iters = backward ? (addr - end.combined_value) : (end.combined_value - addr);
+    static constexpr uint64 SUSPICIOUSLY_LARGE = 32ULL * 1024 * 1024 * 1024;
+    if (iters > SUSPICIOUSLY_LARGE) {
+        // Help catch bugs.
+        NOTIFY(1,
+               "Suspiciously large rep string loop from %p to 0x" HEX64_FORMAT_STRING
+               " backward=%d\n",
+               addr, end.combined_value, backward);
+    }
+    // The end is exclusive: the register holding the address is updated *after*
+    // the memory operation so it ends pointing one past the final memop.
+    while ((backward && addr > end.combined_value) ||
+           (!backward && addr < end.combined_value)) {
+        DR_ASSERT(num_memrefs == 1 || (backward && addr2 > end2.combined_value) ||
+                  (!backward && addr2 < end2.combined_value));
+        next_record = filter_repstr_address(next_record, addr, line_bits, mask, dcache,
+                                            pc, meminfo, num_memrefs);
+        if (num_memrefs == 2) {
+            next_record = filter_repstr_address(next_record, addr2, line_bits, mask,
+                                                dcache, pc2, meminfo2, num_memrefs);
+        }
+        if (reinterpret_cast<byte *>(next_record) >=
+            data->buf_base + data->trace_buf_size) {
+            BUF_PTR(data->seg_base) = reinterpret_cast<byte *>(next_record);
+            NOTIFY(4, "Rep string hit buffer end @%p: outputting\n", next_record);
+            process_and_output_buffer(drcontext, /*skip_size_cap=*/false);
+            // Roll back the buffer header (otherwise its markers will break raw2trace
+            // out of not only its repstring synthesis loop but the outer bb loop).
+            BUF_PTR(data->seg_base) = data->buf_base;
+            next_record = reinterpret_cast<offline_entry_t *>(BUF_PTR(data->seg_base));
+        }
+        if (backward) {
+            addr -= opsize;
+            addr2 -= opsize;
+        } else {
+            addr += opsize;
+            addr2 += opsize;
+        }
+    }
+
+#ifndef X64
+    // If we didn't cover the start/end pair, zero out the rest to meet
+    // the top bit assumptions for 32-bit.
+    if (reinterpret_cast<byte *>(next_record) < buf_ptr) {
+        memset(reinterpret_cast<byte *>(next_record), 0,
+               buf_ptr - reinterpret_cast<byte *>(next_record));
+    }
+#endif
+    BUF_PTR(data->seg_base) = reinterpret_cast<byte *>(next_record);
 }
 
 void
@@ -1211,7 +1363,10 @@ instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t 
     bool is_L0I_enabled, is_L0D_enabled;
     get_L0_filters_enabled(mode, &is_L0I_enabled, &is_L0D_enabled);
 
-    if (is_L0D_enabled) {
+    if (is_L0D_enabled &&
+        // When we don't expand repstr and we perform filtering in filter_repstr_callee,
+        // we do not want to filter the repstr first and last iters here.
+        app != ud->repstr_for_post) {
         reg_third = insert_filter_addr(drcontext, ilist, where, ud, reg_ptr, ref, NULL,
                                        skip, pred, mode);
         if (reg_third == DR_REG_NULL) {
@@ -1233,7 +1388,7 @@ instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t 
         adjust = 0;
     }
     MINSERT(ilist, where, skip);
-    if (is_L0D_enabled) {
+    if (is_L0D_enabled && app != ud->repstr_for_post) {
         // drreg requires parity on all paths, so we need to restore the scratch regs
         // for the filter *after* the skip target.
         if (reg_third != DR_REG_NULL &&
@@ -1525,8 +1680,34 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         // rep-string loops just prior to the next instruction. Do that before
         // instrumenting the new instruction. (We don't do this as a post-insert
         // as that would require duplicating scratch register and other setup.)
+        // We are confusing drreg by doing this: it might pick a register for
+        // scratch that is dead after the repstr but used by the repstr, so we
+        // change the vector to avoid that.
+        drvector_t post_repstr_vec;
+        drreg_init_and_fill_vector(&post_repstr_vec, false);
+        for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; ++reg) {
+            if (drvector_get_entry(&scratch_reserve_vec, reg - DR_REG_START_GPR) !=
+                    NULL &&
+                !instr_uses_reg(ud->repstr_for_post, reg))
+                drreg_set_vector_entry(&post_repstr_vec, reg, true);
+        }
+        instru->set_reg_vector(&post_repstr_vec);
         adjust = instrument_memref_operands(drcontext, bb, where, ud->repstr_for_post,
                                             reg_ptr, adjust, mode, ud);
+        instru->set_reg_vector(&scratch_reserve_vec);
+        drvector_delete(&post_repstr_vec);
+        if (is_L0D_enabled) {
+            // Since we didn't expand the rep string, and it likely has too many
+            // cache operations to simulate in raw2trace, we invoke a callee to apply
+            // the memrefs to the cache.
+            int num_memrefs = instr_num_memory_read_access(ud->repstr_for_post) +
+                instr_num_memory_write_access(ud->repstr_for_post);
+            uint memref_size = instr_memory_reference_size(ud->repstr_for_post);
+            dr_insert_clean_call_ex(drcontext, bb, where, (void *)filter_repstr_callee,
+                                    DR_CLEANCALL_ALWAYS_OUT_OF_LINE, 2,
+                                    OPND_CREATE_INT32(num_memrefs),
+                                    OPND_CREATE_INT32(memref_size));
+        }
         ud->repstr_for_post = nullptr;
     }
 
@@ -1588,14 +1769,19 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     /* Data entries. */
     if (instr_operands != NULL &&
         (instr_reads_memory(instr_operands) || instr_writes_memory(instr_operands))) {
-        adjust = instrument_memref_operands(drcontext, bb, where, instr_operands, reg_ptr,
-                                            adjust, mode, ud);
-        if (instr_is_rep_string_op(instr_operands) && !is_repstr_expansion_enabled()) {
+        if (instr_is_rep_string_op(instr_operands) && !is_repstr_expansion_enabled() &&
+            (!is_L0D_enabled || op_L0D_size.get_value() > 0) &&
+            !op_instr_only_trace.get_value()) {
             // We need the post-loop addresses so we insert *after* the app instr.
             // We added a nop if necessary to ensure our end-of-block code is afterward.
             DR_ASSERT(!is_last_instr(drcontext, instr));
+            // We rely on setting this *before* calling instrument_memref, so when
+            // d-filtering we don't filter the first iteration so it's available to
+            // filter_repstr_callee.
             ud->repstr_for_post = instr_operands;
         }
+        adjust = instrument_memref_operands(drcontext, bb, where, instr_operands, reg_ptr,
+                                            adjust, mode, ud);
     } else if (adjust != 0) {
         insert_update_buf_ptr(drcontext, bb, where, reg_ptr, DR_PRED_NONE, adjust, mode);
         adjust = 0;
@@ -2014,11 +2200,46 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
             instr_t *instr = instr_create(drcontext);
             app_pc next = decode(drcontext, info->source_mcontext->pc, instr);
             if (next != nullptr && instr_valid(instr) && instr_is_rep_string_op(instr)) {
+                int num_memrefs = instr_num_memory_read_access(instr) +
+                    instr_num_memory_write_access(instr);
+                uint memref_size = instr_memory_reference_size(instr);
+                bool is_L0I_enabled, is_L0D_enabled;
+                get_L0_filters_enabled(tracing_mode.load(std::memory_order_acquire),
+                                       &is_L0I_enabled, &is_L0D_enabled);
+                offline_entry_t orig_pc, orig_meminfo;
+                orig_pc.combined_value = 0;
+                orig_meminfo.combined_value = 0;
+                if (is_L0D_enabled) {
+                    // We expect 3 records for each memref: PC, MEMINFO, and address; or 2
+                    // records for 1-memref instrs where MEMINFO is not needed.
+                    const int records_per = (num_memrefs == 1) ? 2 : 3;
+                    offline_entry_t *entry =
+                        reinterpret_cast<offline_entry_t *>(BUF_PTR(data->seg_base));
+                    orig_pc = *(entry - records_per);
+                    DR_ASSERT(orig_pc.pc.type ==
+                              OFFLINE_TYPE_PC IF_X64(
+                                  || orig_pc.pc.type == OFFLINE_TYPE_PC_TOP_BIT));
+                    // Only multi-memref instrs need MEMINFO records.
+                    if (num_memrefs > 1) {
+                        orig_meminfo = *(entry - records_per + 1);
+                        DR_ASSERT(orig_meminfo.extended.type == OFFLINE_TYPE_EXTENDED &&
+                                  orig_meminfo.extended.ext == OFFLINE_EXT_TYPE_MEMINFO);
+                    }
+                }
                 if (instr_reads_memory(instr)) {
                     NOTIFY(2, "interrupted repstr: inserting end xsi=%p\n",
                            info->source_mcontext->xsi);
                     offline_entry_t *entry =
                         reinterpret_cast<offline_entry_t *>(BUF_PTR(data->seg_base));
+                    if (is_L0D_enabled) {
+                        *entry++ = orig_pc;
+                        if (num_memrefs > 1) {
+                            offline_entry_t meminfo = orig_meminfo;
+                            meminfo.extended.valueB = TRACE_TYPE_READ;
+                            *entry++ = meminfo;
+                        }
+                        BUF_PTR(data->seg_base) += num_memrefs * sizeof(offline_entry_t);
+                    }
                     entry->combined_value = info->source_mcontext->xsi;
                     BUF_PTR(data->seg_base) += sizeof(offline_entry_t);
                 }
@@ -2027,9 +2248,20 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
                            info->source_mcontext->xdi);
                     offline_entry_t *entry =
                         reinterpret_cast<offline_entry_t *>(BUF_PTR(data->seg_base));
+                    if (is_L0D_enabled) {
+                        *entry++ = orig_pc;
+                        if (num_memrefs > 1) {
+                            offline_entry_t meminfo = orig_meminfo;
+                            meminfo.extended.valueB = TRACE_TYPE_WRITE;
+                            *entry++ = meminfo;
+                        }
+                        BUF_PTR(data->seg_base) += num_memrefs * sizeof(offline_entry_t);
+                    }
                     entry->combined_value = info->source_mcontext->xdi;
                     BUF_PTR(data->seg_base) += sizeof(offline_entry_t);
                 }
+                if (is_L0D_enabled)
+                    filter_repstr_callee(num_memrefs, memref_size);
             }
             instr_destroy(drcontext, instr);
             break;

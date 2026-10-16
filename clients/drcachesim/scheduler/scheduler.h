@@ -142,6 +142,8 @@ public:
          */
         STATUS_IMPOSSIBLE_BINDING,
         STATUS_STOLE, /**< Used for internal scheduler purposes. */
+        /** Failed to find an appropriate template. */
+        STATUS_MISSING_TEMPLATE,
     };
 
     /** Identifies an input stream by its index (0-based). */
@@ -274,7 +276,7 @@ public:
         std::vector<int> shards;
         /**
          * Limits these threads to this set of output streams, which are specified by
-         * ordinal 0 through the output count minus oner.  They will not be scheduled
+         * ordinal 0 through the output count minus one.  They will not be scheduled
          * on any other output streams.
          */
         std::set<output_ordinal_t> output_binding;
@@ -1088,6 +1090,17 @@ public:
         virtual stream_status_t
         set_active(bool active);
 
+        /**
+         * Returns a string further describing an error code on this stream.
+         * For scheduler-wide errors such as during initialization, use the scheduler
+         * object function of the same name instead.
+         */
+        std::string
+        get_error_string() const
+        {
+            return error_string_;
+        }
+
         // memtrace_stream_t interface:
 
         /**
@@ -1360,6 +1373,7 @@ public:
         uint64_t chunk_instr_count_ = 0;
         uint64_t page_size_ = 0;
         RecordType prev_record_ = {};
+        std::string error_string_;
 
         // Let the impl class update our state.
         friend class scheduler_impl_tmpl_t<RecordType, ReaderType>;
@@ -1410,7 +1424,11 @@ public:
     int64_t
     get_output_cpuid(output_ordinal_t output) const;
 
-    /** Returns a string further describing an error code. */
+    /**
+     * Returns a string further describing an error code for scheduler-wide errors
+     * such as during initialization. Use the per-output-stream function of the same
+     * name for per-output-stream errors.
+     */
     std::string
     get_error_string() const;
 

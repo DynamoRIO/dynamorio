@@ -44,6 +44,7 @@
 #include <linux/kprobes.h>
 #include <linux/ktime.h>
 #include <linux/limits.h>
+#include <linux/module.h>
 #include <linux/panic.h>
 #include <linux/percpu.h>
 #include <linux/printk.h>
@@ -275,6 +276,18 @@ kernel_get_cpu_local_state(void)
     return this_cpu_ptr(&dr_cpu_local_storage)->data;
 }
 
+int
+kernel_get_cpu_local_state_segment_offset(void)
+{
+    /* With -mcmodel=kernel, module code refers to this address through an R_X86_64_32S
+     * relocation. The module loader rejects the module unless the address fits in a
+     * sign-extended 32-bit value, so it always fits in an int.
+     */
+    long offs = (__force long)&dr_cpu_local_storage.data;
+    KERNEL_ASSERT(offs == (int)offs);
+    return (int)offs;
+}
+
 size_t
 kernel_get_page_size(void)
 {
@@ -292,6 +305,24 @@ void *
 kernel_get_image_end(void)
 {
     return kernel_image_end;
+}
+
+char *
+kernel_get_module_name(void)
+{
+    return THIS_MODULE->name;
+}
+
+void *
+kernel_get_module_text_start(void)
+{
+    return THIS_MODULE->mem[MOD_TEXT].base;
+}
+
+void *
+kernel_get_module_text_end(void)
+{
+    return THIS_MODULE->mem[MOD_TEXT].base + THIS_MODULE->mem[MOD_TEXT].size;
 }
 
 /* Returns whether the |size| bytes at |addr| can be read without faulting.  Probes one
@@ -345,6 +376,12 @@ unsigned int
 kernel_query_time_seconds(void)
 {
     return (unsigned int)ktime_get_real_seconds();
+}
+
+unsigned long long
+kernel_query_time_nanos(void)
+{
+    return ktime_get_real_fast_ns();
 }
 
 void

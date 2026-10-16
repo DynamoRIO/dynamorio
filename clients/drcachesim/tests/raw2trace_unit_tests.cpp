@@ -106,9 +106,7 @@ public:
                      void *drcontext)
         : raw2trace_t(nullptr, input, output, {}, INVALID_FILE, nullptr, nullptr,
                       drcontext,
-                      // The sequences are small so we print everything for easier
-                      // debugging and viewing of what's going on.
-                      /*verbosity=*/4)
+                      /*verbosity=*/0)
     {
         module_mapper_ = std::unique_ptr<module_mapper_t>(
             new test_module_mapper_t(&instrs, drcontext));
@@ -120,9 +118,7 @@ public:
                      std::unique_ptr<record_reader_t> syscall_template_file)
         : raw2trace_t(nullptr, input, output, {}, INVALID_FILE, nullptr, nullptr,
                       drcontext,
-                      // The sequences are small so we print everything for easier
-                      // debugging and viewing of what's going on.
-                      /*verbosity=*/4,
+                      /*verbosity=*/0,
                       // Reusing the default values, as we need to set the
                       // syscall_template_file arg later.
                       /*worker_count=*/-1, /*alt_module_dir=*/"",
@@ -139,9 +135,7 @@ public:
                      void *drcontext, uint64_t chunk_instr_count = 10 * 1000 * 1000)
         : raw2trace_t(nullptr, input, {}, output, INVALID_FILE, nullptr, nullptr,
                       drcontext,
-                      // The sequences are small so we print everything for easier
-                      // debugging and viewing of what's going on.
-                      /*verbosity=*/4, /*worker_count=*/-1,
+                      /*verbosity=*/0, /*worker_count=*/-1,
                       /*alt_module_dir=*/"", chunk_instr_count)
     {
         module_mapper_ = std::unique_ptr<module_mapper_t>(
@@ -154,9 +148,7 @@ public:
                      void *drcontext)
         : raw2trace_t(nullptr, input, output, {}, INVALID_FILE, nullptr, nullptr,
                       drcontext,
-                      // The sequences are small so we print everything for easier
-                      // debugging and viewing of what's going on.
-                      4)
+                      /*verbosity=*/0)
     {
         module_mapper_ =
             std::unique_ptr<module_mapper_t>(new test_multi_module_mapper_t(modules));
@@ -361,12 +353,15 @@ populate_all_stats(raw2trace_test_t &raw2trace, std::vector<uint64_t> *stats)
 }
 
 // Takes ownership of ilist and destroys it.
+// Pass true for verbose to see the output list; we omit by default to shrink
+// the regression test log size.
 bool
 run_raw2trace(void *drcontext, const std::vector<offline_entry_t> raw, instrlist_t *ilist,
               std::vector<trace_entry_t> &entries, std::vector<uint64_t> *stats = nullptr,
               int chunk_instr_count = 0,
               const std::vector<test_multi_module_mapper_t::bounds_t> &modules = {},
-              std::unique_ptr<record_reader_t> syscall_tmpl = nullptr)
+              std::unique_ptr<record_reader_t> syscall_tmpl = nullptr,
+              bool verbose = false)
 {
     // We need an istream so we use istringstream.
     std::ostringstream raw_out;
@@ -445,11 +440,13 @@ run_raw2trace(void *drcontext, const std::vector<offline_entry_t> raw, instrlist
         entries.push_back(*reinterpret_cast<trace_entry_t *>(start));
         start += sizeof(trace_entry_t);
     }
-    int idx = 0;
-    for (const auto &entry : entries) {
-        std::cerr << idx << " type: " << entry.type << " size: " << entry.size
-                  << " val: " << entry.addr << "\n";
-        ++idx;
+    if (verbose) {
+        int idx = 0;
+        for (const auto &entry : entries) {
+            std::cerr << idx << " type: " << entry.type << " size: " << entry.size
+                      << " val: " << entry.addr << "\n";
+            ++idx;
+        }
     }
     return true;
 }
@@ -3698,14 +3695,13 @@ test_asynchronous_signal(void *drcontext)
             check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
             // The rep_stos instruction.
             check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-            check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_rep_stos) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1, offs_rep_stos) &&
             check_entry(entries, idx, TRACE_TYPE_WRITE, -1) &&
-            check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1) &&
             check_entry(entries, idx, TRACE_TYPE_WRITE, -1) &&
             // The last rep_stos instruction and the write record are removed because of
             // the asynchronous signal.
             // Actually, because of the expanded loop having the same PC for
-            // each iteration, we can't be sure which iteration faulted:]
+            // each iteration, we can't be sure which iteration faulted:
             // but we are moving to never expanding string loops.
             check_entry(entries, idx, TRACE_TYPE_MARKER,
                         TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION) &&
@@ -3870,6 +3866,21 @@ test_syscall_injection(void *drcontext)
     static constexpr addr_t ENCODING_IGNORE = 0xfe;
     std::vector<trace_entry_t> syscall_sequence = {
         /* clang-format off */
+        // Test multi-version: start with an old version.
+        test_util::make_header(TRACE_ENTRY_VERSION-1),
+        test_util::make_thread(TID_IN_SYSCALL),
+        test_util::make_pid(TID_IN_SYSCALL),
+        test_util::make_version(TRACE_ENTRY_VERSION-1),
+        test_util::make_timestamp(0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_NUM),
+        test_util::make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
+        test_util::make_instr(SYSCALL_PC_START),
+        test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, 0),
+        test_util::make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
+        test_util::make_instr(SYSCALL_PC_START + 1, TRACE_TYPE_INSTR_INDIRECT_JUMP),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_NUM),
+        test_util::make_exit(TID_IN_SYSCALL),
+        // Our version.
         test_util::make_header(TRACE_ENTRY_VERSION),
         test_util::make_thread(TID_IN_SYSCALL),
         test_util::make_pid(TID_IN_SYSCALL),
@@ -5203,6 +5214,60 @@ test_stack_elision(void *drcontext)
 #endif
 }
 
+// Tests an elided address whose base moved by more than 16 bits within its block.
+bool
+test_large_base_delta(void *drcontext)
+{
+#ifdef AARCH64
+    std::cerr << "\n===============\nTesting a large base delta\n";
+    instrlist_t *ilist = instrlist_create(drcontext);
+    // Offset 0 would look like non-module code.
+    instrlist_append(ilist, XINST_CREATE_nop(drcontext));
+    size_t offs_block = instr_length(drcontext, instrlist_first(ilist));
+    auto sp_reg = opnd_create_reg(DR_REG_XSP);
+    // str REG2, [sp]
+    instrlist_append(ilist,
+                     XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(DR_REG_XSP, 0),
+                                        opnd_create_reg(REG2)));
+    // 4080 is the largest 16-byte-aligned unshifted immediate. 9 of them move sp
+    // 36720 bytes, past what 16 bits can hold.
+    constexpr int SUB_COUNT = 9, SUB_IMM = 4080;
+    for (int i = 0; i < SUB_COUNT; ++i) {
+        // sub sp, sp, #4080
+        instrlist_append(ilist,
+                         XINST_CREATE_sub(drcontext, sp_reg, OPND_CREATE_INT(SUB_IMM)));
+    }
+    // str REG2, [sp, #8]
+    instrlist_append(ilist,
+                     XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(DR_REG_XSP, 8),
+                                        opnd_create_reg(REG2)));
+    instrlist_append(ilist, XINST_CREATE_nop(drcontext));
+    constexpr addr_t BASE = 0xfffff0001000;
+    std::vector<offline_entry_t> raw = { make_header(),
+                                         make_tid(),
+                                         make_pid(),
+                                         make_line_size(),
+                                         make_timestamp(),
+                                         make_core(),
+                                         make_block(offs_block, SUB_COUNT + 3),
+                                         make_memref(BASE),
+                                         make_timestamp(),
+                                         make_core(),
+                                         make_exit() };
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, ilist, entries))
+        return false;
+    std::vector<addr_t> addrs;
+    for (const auto &entry : entries) {
+        if (entry.type == TRACE_TYPE_READ || entry.type == TRACE_TYPE_WRITE)
+            addrs.push_back(entry.addr);
+    }
+    std::vector<addr_t> expect = { BASE, BASE - SUB_COUNT * SUB_IMM + 8 };
+    CHECK(addrs == expect, "wrong address after a large base delta");
+#endif
+    return true;
+}
+
 bool
 test_filter_endpoint(void *drcontext)
 {
@@ -5437,101 +5502,85 @@ test_repstr_firstlast(void *drcontext)
               check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
               // Entries for "rep stos" variants.
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_repsto_zero) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1,
+                          offs_repsto_zero) &&
               // There should be no memref records for zero iters.
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_repsto1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1, offs_repsto1) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1, offs_repsto1) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR + 1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1, offs_repsto1) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR + 2) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1, offs_repsto1) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR + 3) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_repsto4) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1, offs_repsto4) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_repsto8) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1, offs_repsto8) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 8, START_ADDR) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1, offs_repsto8) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 8, START_ADDR + 8) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_repsto_back1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1,
+                          offs_repsto_back1) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1,
-                          offs_repsto_back1) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR - 1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1,
-                          offs_repsto_back1) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR - 2) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1,
-                          offs_repsto_back1) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR - 3) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_repsto_back4) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1,
+                          offs_repsto_back4) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_repsto_back8) &&
-              check_entry(entries, idx, TRACE_TYPE_WRITE, 8, START_ADDR) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1,
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1,
                           offs_repsto_back8) &&
+              check_entry(entries, idx, TRACE_TYPE_WRITE, 8, START_ADDR) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 8, START_ADDR - 8) &&
               // Entries for "rep movs" variants.
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_repmov_zero) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1,
+                          offs_repmov_zero) &&
               // There should be no memref records for zero iters.
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_repmov1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1, offs_repmov1) &&
               check_entry(entries, idx, TRACE_TYPE_READ, 1, START_ADDR) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR2) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1, offs_repmov1) &&
               check_entry(entries, idx, TRACE_TYPE_READ, 1, START_ADDR + 1) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR2 + 1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1, offs_repmov1) &&
               check_entry(entries, idx, TRACE_TYPE_READ, 1, START_ADDR + 2) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR2 + 2) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1, offs_repmov1) &&
               check_entry(entries, idx, TRACE_TYPE_READ, 1, START_ADDR + 3) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR2 + 3) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_repmov4) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1, offs_repmov4) &&
               check_entry(entries, idx, TRACE_TYPE_READ, 4, START_ADDR) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR2) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_repmov8) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1, offs_repmov8) &&
               check_entry(entries, idx, TRACE_TYPE_READ, 8, START_ADDR) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 8, START_ADDR2) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1, offs_repmov8) &&
               check_entry(entries, idx, TRACE_TYPE_READ, 8, START_ADDR + 8) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 8, START_ADDR2 + 8) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_repmov_back1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1,
+                          offs_repmov_back1) &&
               check_entry(entries, idx, TRACE_TYPE_READ, 1, START_ADDR) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR2) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1,
-                          offs_repmov_back1) &&
               check_entry(entries, idx, TRACE_TYPE_READ, 1, START_ADDR - 1) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR2 - 1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1,
-                          offs_repmov_back1) &&
               check_entry(entries, idx, TRACE_TYPE_READ, 1, START_ADDR - 2) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR2 - 2) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1,
-                          offs_repmov_back1) &&
               check_entry(entries, idx, TRACE_TYPE_READ, 1, START_ADDR - 3) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 1, START_ADDR2 - 3) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_repcmp_back4) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1,
+                          offs_repcmp_back4) &&
               check_entry(entries, idx, TRACE_TYPE_READ, 4, START_ADDR) &&
               // Note the 2nd load.
               check_entry(entries, idx, TRACE_TYPE_READ, 4, START_ADDR2) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_repmov_back8) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1,
+                          offs_repmov_back8) &&
               check_entry(entries, idx, TRACE_TYPE_READ, 8, START_ADDR) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 8, START_ADDR2) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1,
-                          offs_repmov_back8) &&
               check_entry(entries, idx, TRACE_TYPE_READ, 8, START_ADDR - 8) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 8, START_ADDR2 - 8) &&
               // Tail of trace.
@@ -5591,11 +5640,9 @@ test_repstr_firstlast(void *drcontext)
                           TIME_VALUE) &&
               check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_repsto) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1, offs_repsto) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1, offs_repsto) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR + 4) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1, offs_repsto) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR + 8) &&
               // Tail of trace.
               check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
@@ -5606,7 +5653,7 @@ test_repstr_firstlast(void *drcontext)
             return false;
     }
     {
-        std::cerr << "\n===============\nTesting filtered repstr\n";
+        std::cerr << "\n===============\nTesting legacy filtered repstr\n";
         instrlist_t *ilist = instrlist_create(drcontext);
         instr_t *nop = XINST_CREATE_nop(drcontext);
         instr_t *repsto = INSTR_CREATE_rep_stos_4(drcontext);
@@ -5616,8 +5663,9 @@ test_repstr_firstlast(void *drcontext)
         size_t offs_repsto = offs_nop + instr_length(drcontext, nop);
 
         std::vector<offline_entry_t> raw;
-        // This is a filtered trace, so it won't use the repstr first-last scheme.
-        raw.push_back(make_header(OFFLINE_FILE_VERSION, OFFLINE_FILE_TYPE_DFILTERED));
+        // This is a legacy filtered trace, so it won't use the repstr first-last scheme.
+        raw.push_back(make_header(OFFLINE_FILE_VERSION_REPSTR_LOOP_ALL - 1,
+                                  OFFLINE_FILE_TYPE_DFILTERED));
         raw.push_back(make_tid());
         raw.push_back(make_pid());
         raw.push_back(make_line_size());
@@ -5654,11 +5702,9 @@ test_repstr_firstlast(void *drcontext)
                           TIME_VALUE) &&
               check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_repsto) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1, offs_repsto) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1, offs_repsto) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR + 4) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1, offs_repsto) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR + 8) &&
               // Tail of trace.
               check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
@@ -5669,7 +5715,64 @@ test_repstr_firstlast(void *drcontext)
             return false;
     }
     {
-        std::cerr << "\n===============\nTesting start-filtered repstr\n";
+        std::cerr << "\n===============\nTesting filtered repstr\n";
+        instrlist_t *ilist = instrlist_create(drcontext);
+        instr_t *nop = XINST_CREATE_nop(drcontext);
+        instr_t *repsto = INSTR_CREATE_rep_stos_4(drcontext);
+        instrlist_append(ilist, nop);
+        instrlist_append(ilist, repsto);
+        size_t offs_nop = 0;
+        size_t offs_repsto = offs_nop + instr_length(drcontext, nop);
+
+        std::vector<offline_entry_t> raw;
+        raw.push_back(make_header(OFFLINE_FILE_VERSION, OFFLINE_FILE_TYPE_DFILTERED));
+        raw.push_back(make_tid());
+        raw.push_back(make_pid());
+        raw.push_back(make_line_size());
+        constexpr uint64_t TIME_VALUE = 0x0013000000000000;
+        raw.push_back(make_timestamp(TIME_VALUE));
+        raw.push_back(make_core());
+        constexpr uint64_t START_ADDR = 0x1200;
+        raw.push_back(make_block(offs_repsto, 1));
+        raw.push_back(make_memref(START_ADDR));
+        raw.push_back(make_memref(START_ADDR + 4));
+        raw.push_back(make_memref(START_ADDR + 8));
+        raw.push_back(make_timestamp(TIME_VALUE));
+        raw.push_back(make_core());
+        raw.push_back(make_exit());
+
+        std::vector<uint64_t> stats;
+        std::vector<trace_entry_t> entries;
+        if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
+            return false;
+        int idx = 0;
+        if (!(check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+              check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER,
+                          TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER,
+                          TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                          TIME_VALUE) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1, offs_repsto) &&
+              check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR) &&
+              check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR + 4) &&
+              check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR + 8) &&
+              // Tail of trace.
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                          TIME_VALUE) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+              check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_FOOTER, -1)))
+            return false;
+    }
+    {
+        std::cerr << "\n===============\nTesting legacy start-filtered repstr\n";
         instrlist_t *ilist = instrlist_create(drcontext);
         instr_t *nop = XINST_CREATE_nop(drcontext);
         instr_t *nop2 = XINST_CREATE_nop(drcontext);
@@ -5683,8 +5786,8 @@ test_repstr_firstlast(void *drcontext)
 
         std::vector<offline_entry_t> raw;
         // This is a filtered trace that transitions to unfiltered.
-        // It won't use the repstr first-last scheme.
-        raw.push_back(make_header(OFFLINE_FILE_VERSION,
+        // As it is a legacy version, it won't use the repstr first-last scheme.
+        raw.push_back(make_header(OFFLINE_FILE_VERSION_REPSTR_LOOP_ALL - 1,
                                   OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP |
                                       OFFLINE_FILE_TYPE_DFILTERED));
         raw.push_back(make_tid());
@@ -5739,21 +5842,94 @@ test_repstr_firstlast(void *drcontext)
                           TIME_VALUE) &&
               check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_repsto) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1, offs_repsto) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1, offs_repsto) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR + 4) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1, offs_repsto) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR + 8) &&
               check_entry(entries, idx, TRACE_TYPE_MARKER,
                           TRACE_MARKER_TYPE_FILTER_ENDPOINT) &&
               check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
               check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_nop2) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_repsto) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1, offs_repsto) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1, offs_repsto) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR + 4) &&
-              check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1, offs_repsto) &&
+              check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR + 8) &&
+              // Tail of trace.
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                          TIME_VALUE) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+              check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_FOOTER, -1)))
+            return false;
+    }
+    {
+        std::cerr << "\n===============\nTesting start-filtered repstr\n";
+        instrlist_t *ilist = instrlist_create(drcontext);
+        instr_t *nop = XINST_CREATE_nop(drcontext);
+        instr_t *repsto = INSTR_CREATE_rep_stos_4(drcontext);
+        instr_t *repsto2 = INSTR_CREATE_rep_stos_4(drcontext);
+        instrlist_append(ilist, nop);
+        instrlist_append(ilist, repsto);
+        instrlist_append(ilist, repsto2);
+        size_t offs_nop = 0;
+        size_t offs_repsto = offs_nop + instr_length(drcontext, nop);
+        size_t offs_repsto2 = offs_repsto + instr_length(drcontext, repsto);
+
+        std::vector<offline_entry_t> raw;
+        // This is a filtered trace that transitions to unfiltered.
+        raw.push_back(make_header(OFFLINE_FILE_VERSION,
+                                  OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP |
+                                      OFFLINE_FILE_TYPE_DFILTERED));
+        raw.push_back(make_tid());
+        raw.push_back(make_pid());
+        raw.push_back(make_line_size());
+        constexpr uint64_t TIME_VALUE = 0x0013000000000000;
+        raw.push_back(make_timestamp(TIME_VALUE));
+        raw.push_back(make_core());
+        constexpr uint64_t START_ADDR = 0x1200;
+        raw.push_back(make_block(offs_repsto, 1));
+        raw.push_back(make_memref(START_ADDR));
+        raw.push_back(make_memref(START_ADDR + 4));
+        raw.push_back(make_memref(START_ADDR + 8));
+        // Check again after the endpoint marker.
+        raw.push_back(make_marker(TRACE_MARKER_TYPE_FILTER_ENDPOINT, 0));
+        // Test back-to-back rep string.
+        raw.push_back(make_block(offs_repsto2, 1));
+        raw.push_back(make_memref(START_ADDR));
+        raw.push_back(make_memref(START_ADDR + 4));
+        raw.push_back(make_memref(START_ADDR + 8));
+        raw.push_back(make_timestamp(TIME_VALUE));
+        raw.push_back(make_core());
+        raw.push_back(make_exit());
+
+        std::vector<uint64_t> stats;
+        std::vector<trace_entry_t> entries;
+        if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
+            return false;
+        int idx = 0;
+        if (!(check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+              check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER,
+                          TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER,
+                          TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                          TIME_VALUE) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1, offs_repsto) &&
+              check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR) &&
+              check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR + 4) &&
+              check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR + 8) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER,
+                          TRACE_MARKER_TYPE_FILTER_ENDPOINT) &&
+              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_INSTR_REPEATED, -1, offs_repsto2) &&
+              check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR) &&
+              check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR + 4) &&
               check_entry(entries, idx, TRACE_TYPE_WRITE, 4, START_ADDR + 8) &&
               // Tail of trace.
               check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
@@ -6057,7 +6233,8 @@ test_main(int argc, const char *argv[])
         !test_negative_timestamps(drcontext) || !test_top_byte_ignore(drcontext) ||
         !test_missing_memref(drcontext) || !test_skipped_memrefs(drcontext) ||
         !test_stack_elision(drcontext) || !test_filter_endpoint(drcontext) ||
-        !test_repstr_firstlast(drcontext) || !test_gpr_elision(drcontext))
+        !test_repstr_firstlast(drcontext) || !test_gpr_elision(drcontext) ||
+        !test_large_base_delta(drcontext))
         return 1;
     return 0;
 }

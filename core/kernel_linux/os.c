@@ -54,6 +54,8 @@ static bool heap_already_reserved = false;
 static int num_online_processors = 0;
 static bool os_state_ready = false;
 
+static int tls_local_state_seg_offs;
+
 #define ASSERT_NOT_PORTED(x) assert_not_ported(__FILE__, __LINE__, __func__)
 
 static void
@@ -66,6 +68,35 @@ assert_not_ported(const char *file, int line, const char *func)
     os_terminate(NULL, 0);
 #endif
 }
+
+#ifdef DEBUG
+/* Verifies that segment accesses through os_tls_offset() and C accesses through the
+ * CPU-local state pointer reach the same memory, in both directions.
+ */
+static void
+check_tls_segment_mapping(void)
+{
+    local_state_extended_t *ls = get_local_state_extended();
+    /* Lowest and highest pointer-sized slots that generated code accesses:
+     * the first register spill slot and the last IBL hashtable pointer.
+     */
+    const ushort first = TLS_REG0_SLOT;
+    const ushort last = TLS_TABLE_SLOT(IBL_BRANCH_TYPE_END - 1);
+    ptr_uint_t *first_slot = (ptr_uint_t *)((byte *)ls + first);
+    ptr_uint_t *last_slot = (ptr_uint_t *)((byte *)ls + last);
+    const ptr_uint_t sentinel1 = 0xdecafbadcafef00d;
+    const ptr_uint_t sentinel2 = 0x0123456789abcdef;
+
+    *first_slot = sentinel1;
+    ASSERT((ptr_uint_t)d_r_get_tls(os_tls_offset(first)) == sentinel1);
+
+    d_r_set_tls(os_tls_offset(last), (void *)sentinel2);
+    ASSERT(*last_slot == sentinel2);
+
+    *first_slot = 0;
+    *last_slot = 0;
+}
+#endif
 
 void
 d_r_os_init(void)
@@ -89,7 +120,50 @@ d_r_os_init(void)
          */
         os_terminate(NULL, 0);
     }
+#ifdef X86
+    /* Generated code accesses local state as gs:[disp32] off the kernel's per-CPU base.
+     * TODO i#8021: Move x86-specific TLS code to an arch-specific file when AArch64
+     * support starts.
+     */
+    tls_local_state_seg_offs = kernel_get_cpu_local_state_segment_offset();
+#else
+    ASSERT_NOT_PORTED(false);
+#endif
+    /* Ensures os_tls_offset() cannot overflow. */
+    ASSERT(tls_local_state_seg_offs <= INT_MAX - (int)sizeof(local_state_extended_t));
     os_state_ready = true;
+    DOCHECK(1, { check_tls_segment_mapping(); });
+}
+
+void *
+d_r_get_tls(int tls_offs)
+{
+#ifdef X86
+    void *value;
+    /* Sign-extend tls_offs as it can be negative since Linux 6.15. */
+    asm volatile("mov %" ASM_SEG ":(%1), %0"
+                 : "=r"(value)
+                 : "r"((ptr_int_t)tls_offs)
+                 : "memory");
+    return value;
+#else
+    ASSERT_NOT_PORTED(false);
+    return NULL;
+#endif
+}
+
+void
+d_r_set_tls(int tls_offs, void *value)
+{
+#ifdef X86
+    /* Sign-extend tls_offs as it can be negative since Linux 6.15. */
+    asm volatile("mov %0, %" ASM_SEG ":(%1)"
+                 :
+                 : "r"(value), "r"((ptr_int_t)tls_offs)
+                 : "memory");
+#else
+    ASSERT_NOT_PORTED(false);
+#endif
 }
 
 void
@@ -233,6 +307,28 @@ DYNAMORIO_EXPORT const char *
 get_application_short_name(void)
 {
     return get_application_name();
+}
+
+char *
+get_dynamorio_library_path(void)
+{
+    return kernel_get_module_name();
+}
+
+/* Module regions are allocated separately, so these cover only MOD_TEXT.  That is
+ * sufficient as the kernel module only uses them to locate DR's code (printing its base,
+ * pc checks), not as an image base or to cover DR's data.
+ */
+app_pc
+get_dynamorio_dll_start(void)
+{
+    return (app_pc)kernel_get_module_text_start();
+}
+
+app_pc
+get_dynamorio_dll_end(void)
+{
+    return (app_pc)kernel_get_module_text_end();
 }
 
 /* The kernel port has no OS-specific module-list state, matching core/unix/module.c. */
@@ -447,6 +543,18 @@ query_time_seconds(void)
     return kernel_query_time_seconds() + UTC_TO_EPOCH_SECONDS;
 }
 
+uint64
+query_time_millis(void)
+{
+    return kernel_query_time_nanos() / 1000000 + UTC_TO_EPOCH_SECONDS * 1000;
+}
+
+uint64
+query_time_micros(void)
+{
+    return kernel_query_time_nanos() / 1000 + UTC_TO_EPOCH_SECONDS * 1000000;
+}
+
 uint
 os_random_seed(void)
 {
@@ -533,6 +641,13 @@ os_check_option_compatibility(void)
     FORCE_OPTION_VALUE(switch_to_os_at_vmm_reset_limit, false);
     FORCE_OPTION_VALUE(vm_reserve, true);
 
+    /* Self-protection toggles page protections via change_protection(). This needs to be
+     * disabled in the kernel build because DR memory is a single RWX region shared by
+     * code and data, and each page permission change requires a cross-CPU TLB flush.
+     * TODO i#8124: Revisit once code and data are in separate regions.
+     */
+    FORCE_OPTION_VALUE(protect_mask, 0);
+
     /* A reset rebuilds the code cache after suspending every thread at a safe point,
      * which we cannot do yet.  DISABLE_RESET() also clears the -reset_at_* sub-options:
      * leaving those set makes check_option_compatibility_helper() turn -enable_reset
@@ -595,6 +710,19 @@ char *
 our_getenv(const char *name)
 {
     return (char *)kernel_getenv(name);
+}
+
+void
+mem_stats_snapshot(void)
+{
+    /* No-op as in core/unix/os.c. */
+}
+
+int
+os_tls_offset(ushort tls_offs)
+{
+    ASSERT(os_state_ready);
+    return tls_local_state_seg_offs + tls_offs;
 }
 
 /* Diagnostics are not supported in kernel mode, as is also the case in

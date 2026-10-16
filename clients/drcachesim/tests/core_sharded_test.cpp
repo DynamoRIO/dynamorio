@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -165,7 +165,7 @@ Core [0-9] counts:
         std::string output = run_analyzer(sizeof(args) / sizeof(args[0]), args);
         assert(std::regex_search(output, std::regex(R"DELIM(Basic counts tool results:
 Total counts:
-      650576 total \(fetched\) instructions
+      650576 total instructions
 (.|\n)*
 Core [0-9] counts:
 (.|\n)*
@@ -198,7 +198,7 @@ Core [0-9] counts:
         assert(
             std::regex_search(total_stats, std::regex(R"DELIM(Basic counts tool results:
 Total counts:
-      650576 total \(fetched\) instructions
+      650576 total instructions
 (.|\n)*
            9 total threads
 )DELIM")));
@@ -210,7 +210,7 @@ Total counts:
         std::string core_8_stats = core_8_onwards_stats.substr(
             0, core_8_stats_end_index + strlen(kLastRelevantLine));
         assert(std::regex_search(core_8_stats, std::regex(R"DELIM(Core 8 counts:
-      156381 \(fetched\) instructions
+      156381 instructions
 (.|\n)*
            1 threads
 )DELIM")));
@@ -226,7 +226,7 @@ Total counts:
             run_analyzer(sizeof(record_args) / sizeof(record_args[0]), record_args);
         assert(std::regex_search(record_out, std::regex(R"DELIM(Basic counts tool results:
 Total counts:
-      650576 total \(fetched\) instructions
+      650576 total instructions
 (.|\n)*
 Core .*
 (.|\n)*

@@ -223,13 +223,14 @@ public:
         scheduler_t::scheduler_options_t sched_ops =
             scheduler_t::make_scheduler_serial_options(verbosity_);
         sched_mapping_ = sched_ops.mapping;
-        if (scheduler_.init(sched_inputs, worker_count_, std::move(sched_ops)) !=
+        scheduler_ = std::make_unique<scheduler_t>();
+        if (scheduler_->init(sched_inputs, worker_count_, std::move(sched_ops)) !=
             sched_type_t::STATUS_SUCCESS) {
             assert(false);
             success_ = false;
         }
         for (int i = 0; i < worker_count_; ++i) {
-            worker_data_.push_back(analyzer_worker_data_t(i, scheduler_.get_stream(i)));
+            worker_data_.push_back(analyzer_worker_data_t(i, scheduler_->get_stream(i)));
         }
     }
 };
@@ -674,7 +675,7 @@ run_single_thread_chunk_test(void *drcontext)
     const memref_tid_t t1 = 3;
     std::vector<memref_tid_t> tids = { t1 };
     std::vector<std::vector<trace_entry_t>> entries = { {
-        { TRACE_TYPE_HEADER, 0, { 0x1 } },
+        { TRACE_TYPE_HEADER, 0, { 0x3 } },
         { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 3 } },
         { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE, { 0 } },
         { TRACE_TYPE_THREAD, 0, { t1 } },
@@ -726,7 +727,7 @@ run_serial_chunk_test(void *drcontext)
     std::vector<memref_tid_t> tids = { t1, t2 };
     std::vector<std::vector<trace_entry_t>> entries = {
         {
-            { TRACE_TYPE_HEADER, 0, { 0x1 } },
+            { TRACE_TYPE_HEADER, 0, { 0x3 } },
             { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 3 } },
             { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE, { 0 } },
             { TRACE_TYPE_THREAD, 0, { t1 } },
@@ -742,7 +743,7 @@ run_serial_chunk_test(void *drcontext)
             { TRACE_TYPE_INSTR, 4, { 42 } },
         },
         {
-            { TRACE_TYPE_HEADER, 0, { 0x1 } },
+            { TRACE_TYPE_HEADER, 0, { 0x3 } },
             { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 3 } },
             { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE, { 0 } },
             { TRACE_TYPE_THREAD, 0, { t2 } },
@@ -805,7 +806,7 @@ run_chunk_tests(void *drcontext)
 
 #ifdef X86
 bool
-run_unfetched_rep_string_test(void *drcontext)
+run_legacy_unfetched_rep_string_test(void *drcontext)
 {
     static constexpr addr_t BASE_ADDR = 0x123450;
     const memref_tid_t tid = 1;
@@ -858,7 +859,7 @@ run_regdeps_test(void *drcontext)
     constexpr addr_t ENCODING_REGDEPS_ISA_lock_cmpxchg_2 = 0x00000026;
     constexpr addr_t ENCODING_REGDEPS_ISA_branch = 0x00002200;
     std::vector<std::vector<trace_entry_t>> entries = { {
-        { TRACE_TYPE_HEADER, 0, { 0x1 } },
+        { TRACE_TYPE_HEADER, 0, { 0x3 } },
         { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 3 } },
         { TRACE_TYPE_MARKER,
           TRACE_MARKER_TYPE_FILETYPE,
@@ -1004,7 +1005,7 @@ test_main(int argc, const char *argv[])
     void *drcontext = dr_standalone_init();
     if (run_limit_tests(drcontext) && run_chunk_tests(drcontext) &&
 #ifdef X86
-        run_unfetched_rep_string_test(drcontext) &&
+        run_legacy_unfetched_rep_string_test(drcontext) &&
 #endif
 #ifdef AARCH64
         run_vector_length_test(drcontext) &&

@@ -20,9 +20,8 @@ All done
 ---- <application exited with code 0> ----
 Basic counts tool results:
 Total counts:
-     .* total \(fetched\) instructions
-     .* total unique \(fetched\) instructions
-     .* total non-fetched instructions
+     .* total instructions
+     .* total unique instructions
      .* total prefetches
      .* total data loads
      .* total data stores
@@ -49,9 +48,8 @@ Total counts:
      .* total other markers
      .* total encodings
 Thread .* counts:
-     .* \(fetched\) instructions
-     .* unique \(fetched\) instructions
-     .* non-fetched instructions
+     .* instructions
+     .* unique instructions
      .* prefetches
      .* data loads
      .* data stores

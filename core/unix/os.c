@@ -1,5 +1,6 @@
 /* *******************************************************************************
  * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * Copyright (c) 2025 Foundation of Research and Technology, Hellas.
@@ -1659,8 +1660,10 @@ os_timeout(int time_in_milliseconds)
 
 #    define WRITE_TLS_SLOT(offs, var)                                              \
         IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                                     \
+        ASSERT(sizeof(var) == sizeof(void *));                                     \
+        ASSERT(sizeof(offs) == sizeof(int));                                       \
         __asm__ __volatile__("mov %%gs:%0, %%" ASM_XAX " \n\t"                     \
-                             "movzwq %1, %%" ASM_XDX " \n\t"                       \
+                             "movslq %1, %%" ASM_XDX " \n\t"                       \
                              "movq %2, (%%" ASM_XAX ", %%" ASM_XDX ") \n\t"        \
                              :                                                     \
                              : "m"(*(void **)(DR_TLS_BASE_SLOT * sizeof(void *))), \
@@ -1670,8 +1673,9 @@ os_timeout(int time_in_milliseconds)
 #    define READ_TLS_SLOT(offs, var)                                               \
         IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                                     \
         ASSERT(sizeof(var) == sizeof(void *));                                     \
+        ASSERT(sizeof(offs) == sizeof(int));                                       \
         __asm__ __volatile__("mov %%gs:%1, %%" ASM_XAX " \n\t"                     \
-                             "movzwq %2, %%" ASM_XDX " \n\t"                       \
+                             "movslq %2, %%" ASM_XDX " \n\t"                       \
                              "movq (%%" ASM_XAX ", %%" ASM_XDX "), %0 \n\t"        \
                              : "=r"(var)                                           \
                              : "m"(*(void **)(DR_TLS_BASE_SLOT * sizeof(void *))), \
@@ -1699,21 +1703,24 @@ os_timeout(int time_in_milliseconds)
         ASSERT(sizeof(var) == sizeof(int));    \
         asm volatile("movl %" ASM_SEG ":%c1, %0" : "=r"(var) : "i"(imm));
 
-/* XXX: need dedicated-storage var for _TLS_SLOT macros, can't use expr */
-#    define WRITE_TLS_SLOT(offs, var)                                                   \
-        IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                                          \
-        ASSERT(sizeof(var) == sizeof(void *));                                          \
-        ASSERT(sizeof(offs) == 2);                                                      \
-        asm("mov %0, %%" ASM_XAX : : "m"((var)) : ASM_XAX);                             \
-        asm("movzw" IF_X64_ELSE("q", "l") " %0, %%" ASM_XDX : : "m"((offs)) : ASM_XDX); \
-        asm("mov %%" ASM_XAX ", %" ASM_SEG ":(%%" ASM_XDX ")" : : : ASM_XAX, ASM_XDX);
+/* Widen the signed displacement before using it as an address register. */
+#    define WRITE_TLS_SLOT(offs, var)                   \
+        IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());          \
+        ASSERT(sizeof(var) == sizeof(void *));          \
+        ASSERT(sizeof(offs) == sizeof(int));            \
+        asm volatile("mov %0, %" ASM_SEG ":(%1)"        \
+                     :                                  \
+                     : "r"(var), "r"((ptr_int_t)(offs)) \
+                     : "memory");
 
-#    define READ_TLS_SLOT(offs, var)                                                    \
-        ASSERT(sizeof(var) == sizeof(void *));                                          \
-        ASSERT(sizeof(offs) == 2);                                                      \
-        asm("movzw" IF_X64_ELSE("q", "l") " %0, %%" ASM_XAX : : "m"((offs)) : ASM_XAX); \
-        asm("mov %" ASM_SEG ":(%%" ASM_XAX "), %%" ASM_XAX : : : ASM_XAX);              \
-        asm("mov %%" ASM_XAX ", %0" : "=m"((var)) : : ASM_XAX);
+#    define READ_TLS_SLOT(offs, var)             \
+        IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());   \
+        ASSERT(sizeof(var) == sizeof(void *));   \
+        ASSERT(sizeof(offs) == sizeof(int));     \
+        asm volatile("mov %" ASM_SEG ":(%1), %0" \
+                     : "=r"(var)                 \
+                     : "r"((ptr_int_t)(offs))    \
+                     : "memory");
 #elif defined(AARCHXX)
 /* Android needs indirection through a global.  The Android toolchain has
  * trouble with relocations if we use a global directly in asm, so we convert to
@@ -1740,15 +1747,15 @@ os_timeout(int time_in_milliseconds)
         } while (0)
 #    define WRITE_TLS_INT_SLOT_IMM WRITE_TLS_SLOT_IMM /* b/c 32-bit */
 #    define READ_TLS_INT_SLOT_IMM READ_TLS_SLOT_IMM   /* b/c 32-bit */
-#    define WRITE_TLS_SLOT(offs, var)                                               \
-        do {                                                                        \
-            ptr_int_t _base_offs = DR_TLS_BASE_OFFSET;                              \
-            __asm__ __volatile__("mov " ASM_R2 ", %0 \n\t" READ_TP_TO_R3_DISP_IN_R2 \
-                                 "add " ASM_R3 ", " ASM_R3 ", %2 \n\t"              \
-                                 "str %1, [" ASM_R3 "]   \n\t"                      \
-                                 :                                                  \
-                                 : "r"(_base_offs), "r"(var), "r"(offs)             \
-                                 : "memory", ASM_R2, ASM_R3);                       \
+#    define WRITE_TLS_SLOT(offs, var)                                                \
+        do {                                                                         \
+            ptr_int_t _base_offs = DR_TLS_BASE_OFFSET;                               \
+            __asm__ __volatile__("mov " ASM_R2 ", %0 \n\t" READ_TP_TO_R3_DISP_IN_R2  \
+                                 "add " ASM_R3 ", " ASM_R3 ", %2 \n\t"               \
+                                 "str %1, [" ASM_R3 "]   \n\t"                       \
+                                 :                                                   \
+                                 : "r"(_base_offs), "r"(var), "r"((ptr_int_t)(offs)) \
+                                 : "memory", ASM_R2, ASM_R3);                        \
         } while (0)
 #    define READ_TLS_SLOT(offs, var)                                                \
         do {                                                                        \
@@ -1757,7 +1764,7 @@ os_timeout(int time_in_milliseconds)
                                  "add " ASM_R3 ", " ASM_R3 ", %2 \n\t"              \
                                  "ldr %0, [" ASM_R3 "]   \n\t"                      \
                                  : "=r"(var)                                        \
-                                 : "r"(_base_offs), "r"(offs)                       \
+                                 : "r"(_base_offs), "r"((ptr_int_t)(offs))          \
                                  : ASM_R2, ASM_R3);                                 \
         } while (0)
 #elif defined(RISCV64)
@@ -1799,26 +1806,27 @@ os_timeout(int time_in_milliseconds)
                                  : "=r"(var)                           \
                                  : "i"(DR_TLS_BASE_OFFSET), "i"(imm)); \
         } while (0)
-#    define WRITE_TLS_SLOT(offs, var)                                           \
-        do {                                                                    \
-            IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                              \
-            ASSERT(sizeof(var) == sizeof(void *));                              \
-            __asm__ __volatile__("ld t0, %0(tp) \n\t"                           \
-                                 "add t0, t0, %2 \n\t"                          \
-                                 "sd %1, 0(t0) \n\t"                            \
-                                 :                                              \
-                                 : "i"(DR_TLS_BASE_OFFSET), "r"(var), "r"(offs) \
-                                 : "memory", "t0");                             \
+#    define WRITE_TLS_SLOT(offs, var)                                 \
+        do {                                                          \
+            IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                    \
+            ASSERT(sizeof(var) == sizeof(void *));                    \
+            __asm__ __volatile__("ld t0, %0(tp) \n\t"                 \
+                                 "add t0, t0, %2 \n\t"                \
+                                 "sd %1, 0(t0) \n\t"                  \
+                                 :                                    \
+                                 : "i"(DR_TLS_BASE_OFFSET), "r"(var), \
+                                   "r"((ptr_int_t)(offs))             \
+                                 : "memory", "t0");                   \
         } while (0)
-#    define READ_TLS_SLOT(offs, var)                                    \
-        do {                                                            \
-            IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                      \
-            ASSERT(sizeof(var) == sizeof(void *));                      \
-            __asm__ __volatile__("ld %0, %1(tp) \n\t"                   \
-                                 "add %0, %0, %2 \n\t"                  \
-                                 "ld %0, 0(%0) \n\t"                    \
-                                 : "+r"(var)                            \
-                                 : "i"(DR_TLS_BASE_OFFSET), "r"(offs)); \
+#    define READ_TLS_SLOT(offs, var)                                                 \
+        do {                                                                         \
+            IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                                   \
+            ASSERT(sizeof(var) == sizeof(void *));                                   \
+            __asm__ __volatile__("ld %0, %1(tp) \n\t"                                \
+                                 "add %0, %0, %2 \n\t"                               \
+                                 "ld %0, 0(%0) \n\t"                                 \
+                                 : "+r"(var)                                         \
+                                 : "i"(DR_TLS_BASE_OFFSET), "r"((ptr_int_t)(offs))); \
         } while (0)
 #endif /* X86/ARM/RISCV64 */
 
@@ -1976,23 +1984,13 @@ is_thread_tls_allocated(void)
 #endif
 
 /* converts a local_state_t offset to a segment offset */
-ushort
+int
 os_tls_offset(ushort tls_offs)
 {
     /* no ushort truncation issues b/c TLS_LOCAL_STATE_OFFSET is 0 */
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());
     ASSERT(TLS_LOCAL_STATE_OFFSET == 0);
     return (TLS_LOCAL_STATE_OFFSET + tls_offs IF_X86(IF_MACOS64(+tls_get_dr_offs())));
-}
-
-/* converts a segment offset to a local_state_t offset */
-ushort
-os_local_state_offset(ushort seg_offs)
-{
-    /* no ushort truncation issues b/c TLS_LOCAL_STATE_OFFSET is 0 */
-    IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());
-    ASSERT(TLS_LOCAL_STATE_OFFSET == 0);
-    return (seg_offs - TLS_LOCAL_STATE_OFFSET IF_X86(IF_MACOS64(-tls_get_dr_offs())));
 }
 
 /* XXX: Will return NULL if called before os_thread_init(), which sets
@@ -2150,7 +2148,7 @@ os_get_app_tls_reg_offset(reg_id_t reg)
 #endif
 
 void *
-d_r_get_tls(ushort tls_offs)
+d_r_get_tls(int tls_offs)
 {
     void *val = 0;
     READ_TLS_SLOT(tls_offs, val);
@@ -2158,7 +2156,7 @@ d_r_get_tls(ushort tls_offs)
 }
 
 void
-d_r_set_tls(ushort tls_offs, void *value)
+d_r_set_tls(int tls_offs, void *value)
 {
     WRITE_TLS_SLOT(tls_offs, value);
 }
@@ -10199,6 +10197,43 @@ add_to_memcache(byte *region_start, byte *region_end, void *user_data)
 }
 #endif
 
+/* Returns whether the mapping in iter looks like the start of a loaded module. */
+static bool
+is_loaded_module_header(memquery_iter_t *iter, size_t size)
+{
+    if (!TESTANY(MEMPROT_READ, iter->prot) || !module_is_header(iter->vm_start, size))
+        return false;
+#ifdef LINUX
+    /* i#8117: An app may mmap an ELF file as data (a flat mapping).  DR sizes a
+     * module from its program headers, so a flat mapping could cover unrelated
+     * memory (e.g., JIT code).  Standard loaders map modules privately, so we
+     * validate only shared mappings.
+     * XXX i#8117: Private flat mappings have the same problem, but validating
+     * private mappings would also reject loaded modules that have no executable
+     * segment or whose code was remapped (e.g., onto huge pages).
+     */
+    if (!iter->is_shared)
+        return true;
+
+    /* Validation finds the file's executable mappings by device and inode and
+     * compares their file offsets with the program headers, so this must be a file
+     * mapped from offset 0.  An executable flat mapping could match itself: it maps
+     * file offset N at base + N, which is usually where the program headers place
+     * the code.
+     */
+    if (iter->inode == 0 || iter->offset != 0 || TESTANY(MEMPROT_EXEC, iter->prot))
+        return true;
+
+    if (!iter->may_alloc)
+        return true;
+
+    return module_validate_shared_elf_mapping(iter->vm_start, size, iter->device_major,
+                                              iter->device_minor, iter->inode);
+#else
+    return true;
+#endif
+}
+
 int
 os_walk_address_space(memquery_iter_t *iter, bool add_modules)
 {
@@ -10305,8 +10340,7 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
             /* we already added the whole image region when we hit the first map for it */
             image = true;
             DODEBUG({ map_type = "ELF SO"; });
-        } else if (TESTANY(MEMPROT_READ, iter->prot) &&
-                   module_is_header(iter->vm_start, size)) {
+        } else if (is_loaded_module_header(iter, size)) {
             DEBUG_DECLARE(size_t image_size = size;)
             app_pc mod_base, mod_first_end, mod_max_end;
             char *exec_match;

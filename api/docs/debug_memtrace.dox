@@ -78,6 +78,7 @@ Cheat sheet:
 - c20a* is the cache line size
 - c212* is the page size
 - c200* is kernel event; c201* is kernel xfer
+- c3* is a meminfo
 
 ## Viewing post-processed files
 

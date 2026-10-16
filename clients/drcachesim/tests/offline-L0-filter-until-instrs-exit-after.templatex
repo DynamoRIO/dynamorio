@@ -5,9 +5,8 @@ Hit tracing window #0 filter limit: switching to full trace.
 Exiting process after .* references.
 Basic counts tool results:
 Total counts:
-     .* total \(fetched\) instructions
-     .* total unique \(fetched\) instructions
-     .* total non-fetched instructions
+     .* total instructions
+     .* total unique instructions
      .* total prefetches
      .* total data loads
      .* total data stores
@@ -17,9 +16,8 @@ Total counts:
      .* total timestamp \+ cpuid markers
 .*
 Thread .* counts:
-     .* \(fetched\) instructions
-     .* unique \(fetched\) instructions
-     .* non-fetched instructions
+     .* instructions
+     .* unique instructions
      .* prefetches
      .* data loads
      .* data stores

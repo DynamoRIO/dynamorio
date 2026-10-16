@@ -272,6 +272,9 @@ protected:
         uint64_t last_next_trace_pc_ = static_cast<uint64_t>(-1);
         std::set<switch_type_t> saw_switch_trace_;
         std::set<int> saw_syscall_trace_;
+        // For limiting to a single report.
+        bool reported_maybe_fetch_ = false;
+        bool reported_no_fetch_ = false;
 
         // Resets specific state on context switch to a different thread.
         void

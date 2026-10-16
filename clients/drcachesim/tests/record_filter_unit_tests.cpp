@@ -607,70 +607,143 @@ test_modify_marker_value_filter()
 {
     constexpr addr_t PC = 0x7f6fdd3ec360;
     constexpr addr_t ENCODING = 0xe78948;
-    constexpr uint64_t NEW_PAGE_SIZE_MARKER_VALUE = 0x800; // 2k pages.
-    std::vector<test_case_t> entries = {
-        // Trace shard header.
-        { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, true, { true } },
-        { { TRACE_TYPE_MARKER,
-            TRACE_MARKER_TYPE_FILETYPE,
-            { OFFLINE_FILE_TYPE_ARCH_X86_64 | OFFLINE_FILE_TYPE_ENCODINGS |
-              OFFLINE_FILE_TYPE_SYSCALL_NUMBERS | OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS } },
-          true,
-          { true } },
-        { { TRACE_TYPE_THREAD, 0, { 0x4 } }, true, { true } },
-        { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
-          true,
-          { true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PAGE_SIZE, { 0x1000 } }, // 4k pages.
-          true,
-          { false } },
-        // Overwrite the value of TRACE_MARKER_TYPE_PAGE_SIZE with 0x800 == 2048 == 2k
-        // page size.
-        { { TRACE_TYPE_MARKER,
-            TRACE_MARKER_TYPE_PAGE_SIZE,
-            { NEW_PAGE_SIZE_MARKER_VALUE } },
-          false,
-          { true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } }, true, { true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { false } },
-        // Overwrite the value of TRACE_MARKER_TYPE_CPU_ID with ((uintptr_t)-1).
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { INVALID_CPU_MARKER_VALUE } },
-          false,
-          { true } },
-        // We need at least one instruction with encodings to make record_filter output
-        // the trace.
-        { { TRACE_TYPE_ENCODING, 3, { ENCODING } }, true, { true } },
-        { { TRACE_TYPE_INSTR, 3, { PC } }, true, { true } },
+    {
+        // Test modifying the page size marker.
+        constexpr uint64_t NEW_PAGE_SIZE_MARKER_VALUE = 0x800; // 2k pages.
+        std::vector<test_case_t> entries = {
+            // Trace shard header.
+            { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, true, { true } },
+            { { TRACE_TYPE_MARKER,
+                TRACE_MARKER_TYPE_FILETYPE,
+                { OFFLINE_FILE_TYPE_ARCH_X86_64 | OFFLINE_FILE_TYPE_ENCODINGS |
+                  OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
+                  OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS } },
+              true,
+              { true } },
+            { { TRACE_TYPE_THREAD, 0, { 0x4 } }, true, { true } },
+            { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
+              true,
+              { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PAGE_SIZE, { 0x1000 } }, // 4k pages.
+              true,
+              { false } },
+            // Overwrite the value of TRACE_MARKER_TYPE_PAGE_SIZE with 0x800 == 2048 == 2k
+            // page size.
+            { { TRACE_TYPE_MARKER,
+                TRACE_MARKER_TYPE_PAGE_SIZE,
+                { NEW_PAGE_SIZE_MARKER_VALUE } },
+              false,
+              { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } },
+              true,
+              { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { false } },
+            // Overwrite the value of TRACE_MARKER_TYPE_CPU_ID with ((uintptr_t)-1).
+            { { TRACE_TYPE_MARKER,
+                TRACE_MARKER_TYPE_CPU_ID,
+                { INVALID_CPU_MARKER_VALUE } },
+              false,
+              { true } },
+            // We need at least one instruction with encodings to make record_filter
+            // output
+            // the trace.
+            { { TRACE_TYPE_ENCODING, 3, { ENCODING } }, true, { true } },
+            { { TRACE_TYPE_INSTR, 3, { PC } }, true, { true } },
 
-        { { TRACE_TYPE_FOOTER, 0, { 0x0 } }, true, { true } },
-    };
+            { { TRACE_TYPE_FOOTER, 0, { 0x0 } }, true, { true } },
+        };
 
-    // Construct modify_marker_value_filter_t. We change TRACE_MARKER_TYPE_CPU_ID values
-    // with INVALID_CPU_MARKER_VALUE == ((uintptr_t)-1) and TRACE_MARKER_TYPE_PAGE_SIZE
-    // with 2k.
-    std::vector<uint64_t> modify_marker_value_pairs_list = { TRACE_MARKER_TYPE_CPU_ID,
-                                                             INVALID_CPU_MARKER_VALUE,
-                                                             TRACE_MARKER_TYPE_PAGE_SIZE,
-                                                             NEW_PAGE_SIZE_MARKER_VALUE };
-    std::vector<std::unique_ptr<record_filter_func_t>> filters;
-    auto modify_marker_value_filter = std::unique_ptr<record_filter_func_t>(
-        new dynamorio::drmemtrace::modify_marker_value_filter_t(
-            modify_marker_value_pairs_list));
-    if (!modify_marker_value_filter->get_error_string().empty()) {
-        fprintf(stderr, "Couldn't construct a modify_marker_value_filter %s",
-                modify_marker_value_filter->get_error_string().c_str());
-        return false;
+        // Construct modify_marker_value_filter_t. We change TRACE_MARKER_TYPE_CPU_ID
+        // values with INVALID_CPU_MARKER_VALUE == ((uintptr_t)-1) and
+        // TRACE_MARKER_TYPE_PAGE_SIZE with 2k.
+        std::vector<uint64_t> modify_marker_value_pairs_list = {
+            TRACE_MARKER_TYPE_CPU_ID, INVALID_CPU_MARKER_VALUE,
+            TRACE_MARKER_TYPE_PAGE_SIZE, NEW_PAGE_SIZE_MARKER_VALUE
+        };
+        std::vector<std::unique_ptr<record_filter_func_t>> filters;
+        auto modify_marker_value_filter = std::unique_ptr<record_filter_func_t>(
+            new dynamorio::drmemtrace::modify_marker_value_filter_t(
+                modify_marker_value_pairs_list));
+        if (!modify_marker_value_filter->get_error_string().empty()) {
+            fprintf(stderr, "Couldn't construct a modify_marker_value_filter %s",
+                    modify_marker_value_filter->get_error_string().c_str());
+            return false;
+        }
+        filters.push_back(std::move(modify_marker_value_filter));
+
+        // Construct record_filter_t.
+        test_record_filter_t record_filter(std::move(filters), 0, /*write_archive=*/true);
+
+        // Run the test.
+        if (!process_entries_and_check_result(&record_filter, entries, 0).empty())
+            return false;
     }
-    filters.push_back(std::move(modify_marker_value_filter));
+    {
+        // Test modifying the version marker, which should also change the header.
+        constexpr uint64_t OLD_VERSION = 7;
+        constexpr uint64_t NEW_VERSION = 8;
+        std::vector<test_case_t> entries = {
+            // Trace shard header, which should be updated.
+            { { TRACE_TYPE_HEADER, 0, { OLD_VERSION } }, true, { false } },
+            { { TRACE_TYPE_HEADER, 0, { NEW_VERSION } }, false, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { OLD_VERSION } },
+              true,
+              { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { NEW_VERSION } },
+              false,
+              { true } },
+            { { TRACE_TYPE_MARKER,
+                TRACE_MARKER_TYPE_FILETYPE,
+                { OFFLINE_FILE_TYPE_ARCH_X86_64 | OFFLINE_FILE_TYPE_ENCODINGS |
+                  OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
+                  OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS } },
+              true,
+              { true } },
+            { { TRACE_TYPE_THREAD, 0, { 0x4 } }, true, { true } },
+            { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
+              true,
+              { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PAGE_SIZE, { 0x1000 } },
+              true,
+              { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } },
+              true,
+              { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { true } },
+            // We need at least one instruction with encodings to make record_filter
+            // output
+            // the trace.
+            { { TRACE_TYPE_ENCODING, 3, { ENCODING } }, true, { true } },
+            { { TRACE_TYPE_INSTR, 3, { PC } }, true, { true } },
 
-    // Construct record_filter_t.
-    test_record_filter_t record_filter(std::move(filters), 0, /*write_archive=*/true);
+            { { TRACE_TYPE_FOOTER, 0, { 0x0 } }, true, { true } },
+        };
 
-    // Run the test.
-    if (!process_entries_and_check_result(&record_filter, entries, 0).empty())
-        return false;
+        // Construct modify_marker_value_filter_t.
+        std::vector<uint64_t> modify_marker_value_pairs_list = {
+            TRACE_MARKER_TYPE_VERSION, NEW_VERSION
+        };
+        std::vector<std::unique_ptr<record_filter_func_t>> filters;
+        auto modify_marker_value_filter = std::unique_ptr<record_filter_func_t>(
+            new dynamorio::drmemtrace::modify_marker_value_filter_t(
+                modify_marker_value_pairs_list));
+        if (!modify_marker_value_filter->get_error_string().empty()) {
+            fprintf(stderr, "Couldn't construct a modify_marker_value_filter %s",
+                    modify_marker_value_filter->get_error_string().c_str());
+            return false;
+        }
+        filters.push_back(std::move(modify_marker_value_filter));
+
+        // Construct record_filter_t.
+        test_record_filter_t record_filter(std::move(filters), 0, /*write_archive=*/true);
+
+        // Run the test.
+        if (!process_entries_and_check_result(&record_filter, entries, 0).empty())
+            return false;
+    }
 
     fprintf(stderr, "test_modify_marker_value_filter passed\n");
     return true;

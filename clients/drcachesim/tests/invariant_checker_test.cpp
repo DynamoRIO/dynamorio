@@ -5911,6 +5911,83 @@ check_hardware_event_markers()
     return true;
 }
 
+bool
+check_repstring(void)
+{
+    std::cerr << "Testing repeated string instructions\n";
+    // Correct: legacy type with no-fetch record.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
+                       TRACE_ENTRY_VERSION_NO_UNFETCHED_INSTRUCTIONS - 1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr_type(TRACE_TYPE_INSTR, TID_A, 1),
+            gen_instr_type(TRACE_TYPE_INSTR_NO_FETCH, TID_A, 1),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Incorrect: latest version with no-fetch record.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr_type(TRACE_TYPE_INSTR, TID_A, 1),
+            gen_instr_type(TRACE_TYPE_INSTR_NO_FETCH, TID_A, 1),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(
+                memrefs, true,
+                { "No-fetch records should never appear in final non-legacy traces",
+                  /*tid=*/TID_A,
+                  /*ref_ordinal=*/5, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/1 },
+                "Failed to catch no-fetch instruction"))
+            return false;
+    }
+    // Incorrect: maybe-fetch record.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr_type(TRACE_TYPE_INSTR, TID_A, 1),
+            gen_instr_type(TRACE_TYPE_INSTR_MAYBE_FETCH, TID_A, 1),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "Maybe-fetch records should never appear in final traces",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/5, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/1 },
+                         "Failed to catch maybe-fetch instruction"))
+            return false;
+    }
+    // Incorrect: consecutive same-pc repeated instrs is a discontinuity.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr_type(TRACE_TYPE_INSTR, TID_A, 1),
+            gen_instr_type(TRACE_TYPE_INSTR_REPEATED, TID_A, 2),
+            gen_instr_type(TRACE_TYPE_INSTR_REPEATED, TID_A, 2),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "Non-explicit control flow has no marker",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/6, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/3 },
+                         "Failed to mark consecutive same-pc repeated instructions"))
+            return false;
+    }
+    return true;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -5926,7 +6003,7 @@ test_main(int argc, const char *argv[])
         check_kernel_trace_and_signal_markers(/*for_syscall=*/false) &&
         check_kernel_trace_and_signal_markers(/*for_syscall=*/true) && check_regdeps() &&
         check_chunk_order() && check_core_sharded() && check_core_sharded_with_kernel() &&
-        check_hardware_event_markers()) {
+        check_hardware_event_markers() && check_repstring()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }

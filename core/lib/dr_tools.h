@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2010-2026, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -439,7 +440,9 @@ typedef enum {
      * this flag is specified.  If this flag is passed, the requested
      * location (\p addr parameter) must be NULL.  This flag is not
      * compatible with #DR_ALLOC_LOW_2GB, #DR_ALLOC_FIXED_LOCATION, or
-     * #DR_ALLOC_NON_DR.
+     * #DR_ALLOC_NON_DR.  On AArch64 with -vm_size larger than 2GB, none
+     * of this memory is reachable and dr_custom_alloc() with this flag
+     * returns NULL; see \ref sec_64bit_reach.
      */
     DR_ALLOC_CACHE_REACHABLE = 0x0004,
     /**
@@ -2074,6 +2077,7 @@ DR_API
 /**
  * Returns an operand that refers to the raw TLS slot with offset \p
  * tls_offs from the TLS base \p tls_register.
+ * A negative displacement can be specified using its unsigned representation.
  */
 opnd_t
 dr_raw_tls_opnd(void *drcontext, reg_id_t tls_register, uint tls_offs);

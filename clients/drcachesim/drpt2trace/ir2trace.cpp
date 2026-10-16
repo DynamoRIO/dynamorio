@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -69,7 +69,6 @@ ir2trace_t::convert(DR_PARAM_IN drir_t *drir,
         return IR2TRACE_CONV_ERROR_INVALID_PARAMETER;
     }
     instr_t *instr = instrlist_first(drir->get_ilist());
-    bool prev_was_repstr = false;
     while (instr != nullptr) {
         trace_entry_t entry = {};
         entry.size = instr_length(GLOBAL_DCONTEXT, instr);
@@ -96,7 +95,6 @@ ir2trace_t::convert(DR_PARAM_IN drir_t *drir,
          */
         trace_type_t entry_type = TRACE_TYPE_INSTR;
         if (instr_opcode_valid(instr)) {
-            bool cur_is_repstr = false;
             if (instr_is_call_direct(instr)) {
                 entry_type = TRACE_TYPE_INSTR_DIRECT_CALL;
             } else if (instr_is_call_indirect(instr)) {
@@ -113,15 +111,7 @@ ir2trace_t::convert(DR_PARAM_IN drir_t *drir,
             } else if (instr_get_opcode(instr) == OP_sysenter) {
                 entry_type = TRACE_TYPE_INSTR_SYSENTER;
             } else if (instr_is_rep_string_op(instr)) {
-                cur_is_repstr = true;
-                if (prev_was_repstr) {
-                    entry_type = TRACE_TYPE_INSTR_MAYBE_FETCH;
-                } else {
-                    prev_was_repstr = true;
-                }
-            }
-            if (!cur_is_repstr) {
-                prev_was_repstr = false;
+                entry_type = TRACE_TYPE_INSTR_REPEATED;
             }
         } else {
             VPRINT(1, "Trying to convert an invalid instruction.\n");

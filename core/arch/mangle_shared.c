@@ -1224,6 +1224,53 @@ mangle_rseq_write_exit_reason(dcontext_t *dcontext, instrlist_t *ilist,
                       REG1_OFFSET);
 }
 
+#    ifdef AARCHXX
+/* Inserts address adjustments before insert_at and returns the remaining displacement
+ * for a pointer-sized rseq TLS store.  The generated code preserves the sum of base_reg
+ * and the displacement, as well as condition flags.  The caller must save and restore
+ * base_reg.
+ * XXX i#8183: AArch32 may need similar adjustment.
+ */
+static int
+mangle_rseq_adjust_tls_base(dcontext_t *dcontext, instrlist_t *ilist, instr_t *insert_at,
+                            reg_id_t base_reg, int offset)
+{
+#        ifdef AARCH64
+    /* For our pointer-sized stores, STR accepts offsets [0, 32760] in multiples of 8
+     * (a 12-bit unsigned immediate scaled by 8); STUR accepts [-256, 255].
+     * Therefore, the combined range is [-256, 32760].
+     */
+    enum {
+        MIN_DISP = -256,
+        MAX_DISP = 4095 * 8,   /* 32760 */
+        ADDSUB_MAX_IMM = 4095, /* ADD/SUB 12-bit unsigned immediate. */
+        ADDSUB_SHIFT = 12,     /* ADD/SUB immediate shifted by LSL 12. */
+    };
+    while (offset < MIN_DISP || offset > MAX_DISP) {
+        /* We use ADD/SUB with LSL 12 so that base_reg and offset are always adjusted by
+         * multiples of 4096, preserving their alignment.
+         */
+        if (offset < MIN_DISP) {
+            int step = MIN(ADDSUB_MAX_IMM, ((MIN_DISP - offset) >> ADDSUB_SHIFT) + 1);
+            PRE(ilist, insert_at,
+                INSTR_CREATE_sub_shift(dcontext, opnd_create_reg(base_reg),
+                                       opnd_create_reg(base_reg), OPND_CREATE_INT(step),
+                                       OPND_CREATE_LSL(), OPND_CREATE_INT(ADDSUB_SHIFT)));
+            offset += step << ADDSUB_SHIFT;
+        } else {
+            int step = MIN(ADDSUB_MAX_IMM, ((offset - MAX_DISP) >> ADDSUB_SHIFT) + 1);
+            PRE(ilist, insert_at,
+                INSTR_CREATE_add_shift(dcontext, opnd_create_reg(base_reg),
+                                       opnd_create_reg(base_reg), OPND_CREATE_INT(step),
+                                       OPND_CREATE_LSL(), OPND_CREATE_INT(ADDSUB_SHIFT)));
+            offset -= step << ADDSUB_SHIFT;
+        }
+    }
+#        endif
+    return offset;
+}
+#    endif
+
 /* May modify next_instr. */
 static void
 mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
@@ -1397,11 +1444,12 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
     instr_t *start_mangling = INSTR_CREATE_mrs(dcontext, opnd_create_reg(scratch2),
                                                opnd_create_reg(LIB_SEG_TLS));
     instrlist_preinsert(ilist, insert_at, start_mangling);
+    int disp = mangle_rseq_adjust_tls_base(dcontext, ilist, insert_at, scratch2,
+                                           rseq_get_tls_ptr_offset());
     PRE(ilist, insert_at,
-        XINST_CREATE_store(dcontext,
-                           opnd_create_base_disp(scratch2, DR_REG_NULL, 0,
-                                                 rseq_get_tls_ptr_offset(), OPSZ_PTR),
-                           opnd_create_reg(scratch_reg)));
+        XINST_CREATE_store(
+            dcontext, opnd_create_base_disp(scratch2, DR_REG_NULL, 0, disp, OPSZ_PTR),
+            opnd_create_reg(scratch_reg)));
     PRE(ilist, insert_at,
         instr_create_restore_from_tls(dcontext, scratch2, TLS_REG2_SLOT));
 #    endif
@@ -1460,13 +1508,14 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
             instrlist_preinsert(ilist, insert_at, exit);
         }
 #    if defined(DEBUG) && defined(X86)
-        /* Support for the api.rseq test with (officially unsupported) syscall in
-         * its rseq code executing before the app executes a syscall.
+        /* Support for the api.rseq/api.rseq_splitvma tests with (officially unsupported)
+         * syscall in their rseq code executing before the app executes a syscall.
          */
         if (instr_is_syscall(copy) &&
             get_syscall_method() == SYSCALL_METHOD_UNINITIALIZED) {
             ASSERT(instr_get_opcode(copy) == OP_syscall &&
-                   check_filter("api.rseq", get_short_name(get_application_name())));
+                   check_filter("api.rseq;api.rseq_splitvma",
+                                get_short_name(get_application_name())));
             set_syscall_method(SYSCALL_METHOD_SYSCALL);
             update_syscalls(dcontext);
         }
@@ -1529,12 +1578,13 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
         XINST_CREATE_load_int(dcontext, opnd_create_reg(scratch_reg),
                               OPND_CREATE_INT(0)));
 #        endif
+    disp = mangle_rseq_adjust_tls_base(dcontext, ilist, insert_at, scratch2,
+                                       rseq_get_tls_ptr_offset());
     instrlist_preinsert(
         ilist, insert_at,
-        XINST_CREATE_store(dcontext,
-                           opnd_create_base_disp(scratch2, DR_REG_NULL, 0,
-                                                 rseq_get_tls_ptr_offset(), OPSZ_PTR),
-                           opnd_create_reg(IF_AARCH64_ELSE(DR_REG_XZR, scratch_reg))));
+        XINST_CREATE_store(
+            dcontext, opnd_create_base_disp(scratch2, DR_REG_NULL, 0, disp, OPSZ_PTR),
+            opnd_create_reg(IF_AARCH64_ELSE(DR_REG_XZR, scratch_reg))));
 #        ifdef ARM /* No zero register. */
     PRE(ilist, insert_at,
         instr_create_restore_from_tls(dcontext, scratch_reg, TLS_REG1_SLOT));

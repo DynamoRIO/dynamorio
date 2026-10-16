@@ -5,9 +5,8 @@ ERROR: failed to initialize analyzer: Directory setup failed: Failed sanity chec
 #elif defined(X86) && defined(X64)
 Basic counts tool results:
 Total counts:
-      109201 total \(fetched\) instructions
-        6765 total unique \(fetched\) instructions
-          93 total non-fetched instructions
+      109201 total instructions
+        6765 total unique instructions
           11 total prefetches
        23972 total data loads
         5543 total data stores
@@ -30,9 +29,8 @@ Total counts:
           16 total other markers
         8426 total encodings
 Thread 552306 counts:
-      101045 \(fetched\) instructions
-        6390 unique \(fetched\) instructions
-          93 non-fetched instructions
+      101045 instructions
+        6390 unique instructions
           11 prefetches
        21710 data loads
         4441 data stores
@@ -54,9 +52,8 @@ Thread 552306 counts:
            8 other markers
         6390 encodings
 Thread 552323 counts:
-        4674 \(fetched\) instructions
-        1028 unique \(fetched\) instructions
-           0 non-fetched instructions
+        4674 instructions
+        1028 unique instructions
            0 prefetches
         1317 data loads
          651 data stores
@@ -78,9 +75,8 @@ Thread 552323 counts:
            4 other markers
         1028 encodings
 Thread 552324 counts:
-        3482 \(fetched\) instructions
-        1008 unique \(fetched\) instructions
-           0 non-fetched instructions
+        3482 instructions
+        1008 unique instructions
            0 prefetches
          945 data loads
          451 data stores

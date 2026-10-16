@@ -211,6 +211,12 @@ compatibility changes:
    instead of dr_register_pre_detach_event() when using drmgr and provide
    priorities and user data to the pre-detach event.
  - A C++17-supporting toolchain is now required to build.
+ - The drmemtrace record type #dynamorio::drmemtrace::TRACE_TYPE_INSTR_NO_FETCH
+   is no longer present in offline or online traces with the new drmemtrace
+   trace version #dynamorio::drmemtrace::TRACE_ENTRY_VERSION_NO_UNFETCHED_INSTRUCTIONS.
+   Instead, a repeated string loop will start with an instruction fetch of the new type
+   #dynamorio::drmemtrace::TRACE_TYPE_INSTR_REPEATED, followed by consecutive
+   load and store records.
 
 Further non-compatibility-affecting changes include:
  - Changed the types of `block_size`, `total_size`, `num_blocks`, to `int64_t`
@@ -303,6 +309,11 @@ Further non-compatibility-affecting changes include:
    by 8x. This also decreased the granularity of checking for the -trace_for_instrs
    and -exit_after_instrs flags; the old granularity can be reproduced by setting
    "-main_buf_records 4K".
+ - On Linux, shared non-executable ELF module candidates are now validated against
+   their executable load segments (i#8117).
+ - Raised the maximum -vm_size on AArch64 from 2GB to 64GB.  A value larger
+   than 2GB removes the code cache reachability guarantees described in
+   \ref sec_64bit_reach.
  - Changed the drmemtrace scheduler to have a core whose ready queue holds only
    blocked inputs attempt to steal work from other cores rather than idling.  This is
    controlled by the new drmemtrace analyzer option -sched_steal_when_only_blocked and

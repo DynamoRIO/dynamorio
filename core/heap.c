@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -438,15 +439,36 @@ DECLARE_NEVERPROT_VAR(static thread_units_t global_racy_units, { 0 });
 
 typedef byte *vm_addr_t;
 
+/* vmcode must be 32-bit-displacement reachable from itself, except on AArch64
+ * (see HEAP_REACHABILITY_ENABLED()).
+ */
+#define MAX_VMCODE_SIZE (IF_AARCH64_ELSE(64ULL, 2ULL) * 1024 * 1024 * 1024)
+#define MAX_VMCODE_REACHABLE_SIZE (2ULL * 1024 * 1024 * 1024)
+#define MAX_VMHEAP_SIZE (IF_X64_ELSE(128ULL, (4ULL - 1)) * 1024 * 1024 * 1024)
+
+bool
+vmcode_is_reachable(void)
+{
+    return IF_AARCH64_ELSE(DYNAMO_OPTION(vm_size) <= MAX_VMCODE_REACHABLE_SIZE, true);
+}
+
 #ifdef X64
 /* designates the closed interval within which we must allocate DR heap space */
 static byte *heap_allowable_region_start = (byte *)PTR_UINT_0;
 static byte *heap_allowable_region_end = (byte *)POINTER_MAX;
 
-/* In standalone mode we do not guarantee 32-bit reachability for anything.
- * This lets apps grow beyond 4G of heap.
+/* Standalone library mode has no code cache, so it does not need 32-bit
+ * heap reachability constraints.
+ *
+ * AArch64 can also skip these constraints: far fragment links use an
+ * absolute target in the exit stub's data slot, and calls into DR load an
+ * absolute target. On AArch64, a VM size over 2 GB removes the reachability
+ * guarantees.
+ *
+ * This supports vmcode reservations above 2 GB and lets reachable allocations
+ * fall back to OS memory at any address when vmcode is full.
  */
-#    define HEAP_REACHABILITY_ENABLED() (!standalone_library)
+#    define HEAP_REACHABILITY_ENABLED() (!standalone_library && vmcode_is_reachable())
 
 /* Used only to protect read/write access to the must_reach_* static variables
  * used in request_region_be_heap_reachable().
@@ -610,9 +632,6 @@ typedef enum {
 static void
 report_low_on_memory(which_vmm_t which, oom_source_t source,
                      heap_error_code_t os_error_code);
-
-#define MAX_VMCODE_SIZE (2ULL * 1024 * 1024 * 1024)
-#define MAX_VMHEAP_SIZE (IF_X64_ELSE(128ULL, (4ULL - 1)) * 1024 * 1024 * 1024)
 
 /* We should normally have only one large unit, so this is in fact
  * the maximum we should count on in one process
@@ -915,7 +934,7 @@ vmm_place_vmcode(vm_heap_t *vmh, /*INOUT*/ size_t *size, heap_error_code_t *erro
             preferred, *size / (1024 * 1024), vmh->start_addr);
         if (vmh->alloc_start == NULL && DYNAMO_OPTION(vm_allow_smaller)) {
             /* Just a little smaller might fit */
-            size_t sub = (size_t)ALIGN_FORWARD(size / 16, 1024 * 1024);
+            size_t sub = (size_t)ALIGN_FORWARD(*size / 16, 1024 * 1024);
             SYSLOG_INTERNAL_WARNING_ONCE("Full size vmm heap allocation failed");
             /* Don't go too small. */
             if (*size > 2 * sub)
@@ -2216,6 +2235,19 @@ heap_check_option_compatibility(void)
     ret = check_param_bounds(&dynamo_options.vm_size, MIN_VMM_HEAP_UNIT_SIZE,
                              MAX_VMCODE_SIZE, "vm_size") ||
         ret;
+#ifdef AARCH64
+    if (DYNAMO_OPTION(vm_size) > MAX_VMCODE_REACHABLE_SIZE) {
+        if (DYNAMO_OPTION(reachable_heap) || DYNAMO_OPTION(heap_in_lower_4GB)) {
+            USAGE_ERROR("-reachable_heap/-heap_in_lower_4GB require -vm_size <= 2G: "
+                        "reducing vm_size");
+            dynamo_options.vm_size = MAX_VMCODE_REACHABLE_SIZE;
+            ret = true;
+        } else if (DYNAMO_OPTION(reachable_client)) {
+            dynamo_options.reachable_client = false;
+            ret = true;
+        }
+    }
+#endif
     ret = check_param_bounds(&dynamo_options.vmheap_size, MIN_VMM_HEAP_UNIT_SIZE,
                              MAX_VMHEAP_SIZE, "vmheap_size") ||
         ret;

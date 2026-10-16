@@ -88,9 +88,9 @@ online_instru_t::get_instr_count(byte *buf_ptr) const
     trace_entry_t *entry = (trace_entry_t *)buf_ptr;
     if (!type_is_instr((trace_type_t)entry->type))
         return 0;
-    // TODO i#3995: We should *not* count "non-fetched" instrs so we'll match
+    // TODO i#3995: We should *not* count "maybe-fetched" instrs so we'll match
     // hardware performance counters.
-    // Xref i#4948 and i#4915 on getting rid of "non-fetched" instrs.
+    // Xref i#4948 on getting rid of "maybe-fetched" instrs.
     if (entry->type == TRACE_TYPE_INSTR_BUNDLE)
         return entry->size;
     return 1;

@@ -264,8 +264,14 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             if (trace_version_ == -1) {
                 trace_version_ = static_cast<int>(memref.marker.marker_value);
             } else if (trace_version_ != static_cast<int>(memref.marker.marker_value)) {
-                error_string_ = std::string("Version mismatch across files");
-                return false;
+                if (TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES,
+                            filetype_)) {
+                    // No error for a multi-version kernel template file.
+                    trace_version_ = static_cast<int>(memref.marker.marker_value);
+                } else {
+                    error_string_ = std::string("Version mismatch across files");
+                    return false;
+                }
             }
             std::cerr << "<marker: version " << trace_version_ << ">\n";
             break;
@@ -589,6 +595,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         case TRACE_TYPE_INSTR_RETURN: std::cerr << "return\n"; break;
         case TRACE_TYPE_INSTR_NO_FETCH: std::cerr << "non-fetched instruction\n"; break;
         case TRACE_TYPE_INSTR_SYSENTER: std::cerr << "sysenter\n"; break;
+        case TRACE_TYPE_INSTR_REPEATED: std::cerr << "repeated instruction\n"; break;
         default: error_string_ = "Unknown instruction type\n"; return false;
         }
         ++num_disasm_instrs_;

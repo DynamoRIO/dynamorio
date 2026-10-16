@@ -1,5 +1,6 @@
 /* *******************************************************************************
  * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -36,6 +37,9 @@
 #include "../module_shared.h"
 #include "os_private.h"
 #include "module_private.h"
+#ifdef LINUX
+#    include "memquery.h"
+#endif
 #include "../utils.h"
 #include "instrument.h"
 #include "include/syscall.h"
@@ -161,6 +165,138 @@ module_is_partial_map(app_pc base, size_t size, uint memprot)
     return last_seg_end == NULL ||
         ALIGN_FORWARD(size, PAGE_SIZE) < (last_seg_end - first_seg_base);
 }
+
+#ifdef LINUX
+typedef struct _elf_exec_load_t {
+    app_pc start;
+    size_t offset;
+    bool matched;
+} elf_exec_load_t;
+
+/* i#8117: A flat mapping reads an ELF file as data without loading it as a
+ * module.  Treat it as a module only if executable mappings from that file
+ * exist at the addresses and offsets described by its program headers.
+ */
+bool
+module_validate_shared_elf_mapping(app_pc base, size_t view_size, uint device_major,
+                                   uint device_minor, uint64 inode)
+{
+    ELF_HEADER_TYPE ehdr;
+    ELF_PROGRAM_HEADER_TYPE *phdrs = NULL;
+    elf_exec_load_t *exec_loads = NULL;
+    size_t phdr_bytes;
+    ptr_uint_t min_vaddr = POINTER_MAX;
+    ptr_uint_t max_end = 0;
+    uint exec_count = 0;
+    uint matched_exec_count = 0;
+    uint i;
+    bool valid = false;
+
+    if (!d_r_safe_read(base, sizeof(ehdr), &ehdr) ||
+        !is_elf_so_header((app_pc)&ehdr, sizeof(ehdr))) {
+        return false;
+    }
+    /* Validate the program header table metadata. */
+    if (ehdr.e_phoff == 0 || ehdr.e_phentsize != sizeof(*phdrs) || ehdr.e_phnum == 0 ||
+        ehdr.e_phnum == PN_XNUM) {
+        return false;
+    }
+    phdr_bytes = (size_t)ehdr.e_phnum * sizeof(*phdrs);
+    /* Ensure that the program header table fits in this mapping. */
+    if ((size_t)ehdr.e_phoff > view_size ||
+        phdr_bytes > view_size - (size_t)ehdr.e_phoff) {
+        return false;
+    }
+    phdrs = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, ELF_PROGRAM_HEADER_TYPE, ehdr.e_phnum,
+                             ACCT_OTHER, PROTECTED);
+    if (phdrs == NULL || !d_r_safe_read(base + (size_t)ehdr.e_phoff, phdr_bytes, phdrs)) {
+        goto cleanup;
+    }
+    {
+        app_pc max_end_pc = NULL;
+        app_pc min_vaddr_pc =
+            module_vaddr_from_prog_header((app_pc)phdrs, ehdr.e_phnum, NULL, &max_end_pc);
+        min_vaddr = (ptr_uint_t)min_vaddr_pc;
+        max_end = (ptr_uint_t)max_end_pc;
+    }
+    if (max_end <= min_vaddr || max_end - min_vaddr > POINTER_MAX - (ptr_uint_t)base) {
+        goto cleanup;
+    }
+    exec_loads = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, elf_exec_load_t, ehdr.e_phnum,
+                                  ACCT_OTHER, PROTECTED);
+    if (exec_loads == NULL)
+        goto cleanup;
+    /* Record the expected executable segments. */
+    for (i = 0; i < ehdr.e_phnum; ++i) {
+        ptr_uint_t vaddr;
+        ptr_uint_t offset;
+
+        if (phdrs[i].p_type != PT_LOAD || !TESTANY(PF_X, phdrs[i].p_flags) ||
+            phdrs[i].p_filesz == 0) {
+            continue;
+        }
+        offset = (ptr_uint_t)phdrs[i].p_offset;
+        vaddr = ALIGN_BACKWARD((ptr_uint_t)phdrs[i].p_vaddr, PAGE_SIZE);
+        offset = ALIGN_BACKWARD(offset, PAGE_SIZE);
+        if (vaddr < min_vaddr || vaddr - min_vaddr > POINTER_MAX - (ptr_uint_t)base) {
+            goto cleanup;
+        }
+        exec_loads[exec_count].start = (app_pc)((ptr_uint_t)base + (vaddr - min_vaddr));
+        exec_loads[exec_count].offset = (size_t)offset;
+        exec_loads[exec_count].matched = false;
+        ++exec_count;
+    }
+    if (exec_count == 0)
+        goto cleanup;
+
+    /* Match each executable segment to its expected file mapping. */
+    {
+        const app_pc projected_end = (app_pc)((ptr_uint_t)base + (max_end - min_vaddr));
+        memquery_iter_t iter;
+
+        if (!memquery_iterator_start(&iter, base, false /*may_alloc*/))
+            goto cleanup;
+
+        while (memquery_iterator_next(&iter)) {
+            if (iter.vm_start >= projected_end)
+                break;
+            if (iter.vm_end <= base)
+                continue;
+            if (!TESTANY(MEMPROT_EXEC, iter.prot) || iter.device_major != device_major ||
+                iter.device_minor != device_minor || iter.inode != inode) {
+                continue;
+            }
+            for (i = 0; i < exec_count; ++i) {
+                if (!exec_loads[i].matched && iter.vm_start <= exec_loads[i].start &&
+                    exec_loads[i].start < iter.vm_end) {
+                    ptr_uint_t map_delta =
+                        (ptr_uint_t)exec_loads[i].start - (ptr_uint_t)iter.vm_start;
+                    if (map_delta <= POINTER_MAX - iter.offset &&
+                        iter.offset + map_delta == exec_loads[i].offset) {
+                        exec_loads[i].matched = true;
+                        ++matched_exec_count;
+                    }
+                }
+            }
+            if (matched_exec_count == exec_count)
+                break;
+        }
+        memquery_iterator_stop(&iter);
+        valid = matched_exec_count == exec_count;
+    }
+
+cleanup:
+    if (exec_loads != NULL) {
+        HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, exec_loads, elf_exec_load_t, ehdr.e_phnum,
+                        ACCT_OTHER, PROTECTED);
+    }
+    if (phdrs != NULL) {
+        HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, phdrs, ELF_PROGRAM_HEADER_TYPE, ehdr.e_phnum,
+                        ACCT_OTHER, PROTECTED);
+    }
+    return valid;
+}
+#endif /* LINUX */
 
 /* Returns absolute address of the ELF dynamic array DT_ target */
 static app_pc

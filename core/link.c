@@ -119,11 +119,11 @@ void *stub32_heap;
 #    define SEPARATE_STUB_HEAP(flags) stub_heap
 #endif
 
-/* We save 1 byte per stub by not aligning to 16/24 bytes, since
- * infrequently executed and infrequently accessed (heap free list
- * adds to start so doesn't walk list).
+/* Use the regular direct-stub size without rounding up for alignment.
+ * These stubs are infrequently executed and accessed; the heap free list
+ * inserts at the front without walking the list.
  */
-#define SEPARATE_STUB_ALLOC_SIZE(flags) (DIRECT_EXIT_STUB_SIZE(flags)) /* 15x23 */
+#define SEPARATE_STUB_ALLOC_SIZE(flags) (DIRECT_EXIT_STUB_SIZE(flags)) /* 15x23/24 */
 
 /* Coarse stubs must be hot-patchable, so we avoid having their last
  * 4 bytes cross cache lines.
@@ -895,16 +895,13 @@ local_exit_stub_size(dcontext_t *dcontext, app_pc target, uint fragment_flags)
           !TESTANY(FRAG_COARSE_GRAIN, fragment_flags) &&
           TESTANY(FRAG_SHARED, fragment_flags)) ||
          /* entrance stubs are always separated */
-         (TESTANY(FRAG_COARSE_GRAIN, fragment_flags)
-          /* XXX: for now we inline ind stubs but eventually we want to separate.
-           * We need this check only for coarse since its stubs are the same size
-           * as the direct stubs.
-           */
-          && !is_indirect_branch_lookup_routine(dcontext, (cache_pc)target))) &&
-        /* we only separate stubs of the regular type, which we determine
-         * by letting exit_stub_size dispatch on flags and return its
-         * results in the stub size
+         TESTANY(FRAG_COARSE_GRAIN, fragment_flags)) &&
+        /* We only separate direct stubs of the regular size.  The indirect
+         * check must be explicit: in x64 kernel builds the regular direct and
+         * indirect stub sizes can be equal (i#8165), so the size comparison below
+         * cannot distinguish them.
          */
+        !is_indirect_branch_lookup_routine(dcontext, (cache_pc)target) &&
         sz ==
             (TESTANY(FRAG_COARSE_GRAIN, fragment_flags)
                  ? STUB_COARSE_DIRECT_SIZE(fragment_flags)

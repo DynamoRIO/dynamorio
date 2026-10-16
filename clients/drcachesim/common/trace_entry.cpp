@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -86,6 +86,8 @@ const char *const trace_type_names[] = {
     "encoding",
     "taken_jump",
     "untaken_jump",
+    "<invalid>",
+    "string_loop",
 };
 
 } // namespace drmemtrace
