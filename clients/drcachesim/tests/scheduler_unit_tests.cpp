@@ -9645,7 +9645,7 @@ test_steal_when_only_blocked()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/0);
         sched_ops.exit_if_fraction_inputs_left = 0.;
         // Use a round-robin layout for simpler deterministic testing.
         sched_ops.random_initial_layout = -1;
