@@ -483,9 +483,9 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::pick_next_input_for_mode(
         set_cur_input(output, sched_type_t::INVALID_INPUT_ORDINAL);
         input_info_t *queue_next = nullptr;
         stream_status_t status = pop_from_ready_queue(output, output, queue_next);
+        // If our queue holds only blocked inputs, rather than idling until one of
+        // them unblocks, try to run a ready input from another output.
         if (status == sched_type_t::STATUS_IDLE && options_.steal_when_only_blocked &&
-            // Our queue holds only blocked inputs: rather than idling until one of
-            // them unblocks, try to run a ready input from another output.
             try_steal(output) == sched_type_t::STATUS_STOLE) {
             index = outputs_[output].cur_input;
             return sched_type_t::STATUS_OK;
