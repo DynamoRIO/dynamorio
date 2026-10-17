@@ -4462,8 +4462,13 @@ if (BUILD_CLIENTS)
       if (${testname_full}_nopost)
         # No post needed.
       else ()
+        if (DEFINED ${testname_full}_subdir)
+          set(subdir ${${testname_full}_subdir})
+        else ()
+          set(subdir "")
+        endif ()
         set(${testname_full}_postcmd
-          "firstglob@${cmd_pfx}${drcachesim_path}@-indir@${dir_prefix}.*.dir${sim_atops}")
+          "firstglob@${cmd_pfx}${drcachesim_path}@-indir@${dir_prefix}.*.dir${subdir}${sim_atops}")
       endif ()
       set(${testname_full}_self_serial ON)
     endmacro()
@@ -5070,6 +5075,7 @@ if (BUILD_CLIENTS)
       endif ()
 
       set(tool.drcacheoff.burst_replace_nodr ON)
+      set(tool.drcacheoff.burst_replace_subdir "/trace/window.0001")
       torunonly_drcacheoff(burst_replace tool.drcacheoff.burst_replace "" "" "")
 
       # This test has not been updated to write out encodings.bin and so it has
