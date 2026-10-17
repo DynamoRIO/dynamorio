@@ -699,6 +699,8 @@ Further non-compatibility-affecting changes include:
  - Added proc_get_vector_length_bytes() for AArch64. This returns the current
    vector length on all ARMv8 hardware including hardware which supports the
    Scalable Vector Extension (SVE).
+ - Added drmemtrace_boundary_events() and adjusted drmemtrace_get_output_path()
+   to better support windowed traces.
 
 **************************************************
 <hr>

@@ -240,6 +240,34 @@ drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
                           drmemtrace_exit_func_t exit_func, void *exit_func_arg);
 
 /**
+ * Function for commencement of tracing.  This is called at the start
+ * of any tracing mode, which may be delayed or may repeat depending on
+ * parameters.
+ *
+ * @param[in] user_arg  The \p user_arg passed to drmemtrace_boundary_events().
+ */
+typedef void (*drmemtrace_started_tracing_func_t)(void *user_arg);
+
+/**
+ * Function for termination of tracing.  This is called at the end
+ * of any tracing mode, which may repeat depending on parameters.
+ * drmemtrace_get_output_path() can be used to obtain the current window output
+ * subdirectory when -split_windows is set to true.
+ *
+ * @param[in] user_arg  The \p user_arg passed to drmemtrace_boundary_events().
+ */
+typedef void (*drmemtrace_ended_tracing_func_t)(void *user_arg);
+
+/**
+ * Registers callbacks to be invoked at the start and end boundaries of
+ * "windows" of tracing from options like -trace_for_instrs and -retrace_every_instrs.
+ * The "user_arg" parameter is passed to each callback.
+ */
+drmemtrace_status_t
+drmemtrace_boundary_events(drmemtrace_started_tracing_func_t started_func,
+                           drmemtrace_ended_tracing_func_t ended_func, void *user_arg);
+
+/**
  * Structure holding all the file replacement operations for passing to
  * drmemtrace_replace_file_ops_ex().
  */
@@ -292,6 +320,9 @@ DR_EXPORT
 /**
  * Retrieves the full path to the output directory in -offline mode
  * where data is being written.
+ * If "windows" of tracing are active (from options like -trace_for_instrs and
+ * -retrace_every_instrs with -split_windows set to true), this will include the
+ * current window subdirectory.
  */
 drmemtrace_status_t
 drmemtrace_get_output_path(DR_PARAM_OUT const char **path);

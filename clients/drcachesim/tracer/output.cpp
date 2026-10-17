@@ -168,14 +168,18 @@ reached_traced_instrs_threshold(void *drcontext)
     // (If -retrace_every_instrs is not set and we're not going to trace
     // again, we still use a counting mode for simplicity of not adding
     // yet another mode.)
-    NOTIFY(0, "Hit tracing window #%zd limit: disabling tracing.\n",
-           tracing_window.load(std::memory_order_acquire));
+
     // No need to append TRACE_MARKER_TYPE_WINDOW_ID: the next buffer will have
     // one in its header.
     // If we're counting at exit time, this increment means that the thread
     // exit entries will be the only ones in this new window: but that seems
     // reasonable.
-    tracing_window.fetch_add(1, std::memory_order_release);
+    ptr_int_t prior_window = tracing_window.fetch_add(1, std::memory_order_release);
+
+    NOTIFY(0, "Hit tracing window #%zd limit: disabling tracing.\n", prior_window);
+    if (ended_tracing_func != nullptr) {
+        ended_tracing_func(tracing_func_arg);
+    }
     // We delay creating a new ouput dir until tracing is enabled again, to avoid
     // an empty final dir.
     DR_ASSERT(tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_TRACE);
@@ -451,13 +455,12 @@ open_new_window_dir(ptr_int_t window_num)
     if (outdir_none_mode)
         return;
 
-    char windir[MAXIMUM_PATH];
-    dr_snprintf(windir, BUFFER_SIZE_ELEMENTS(windir), "%s%s" WINDOW_SUBDIR_FORMAT,
+    dr_snprintf(winsubdir, BUFFER_SIZE_ELEMENTS(winsubdir), "%s%s" WINDOW_SUBDIR_FORMAT,
                 logsubdir, DIRSEP, window_num);
-    NULL_TERMINATE_BUFFER(windir);
-    if (!file_ops_func.create_dir(windir))
-        FATAL("Failed to create window subdir %s\n", windir);
-    NOTIFY(2, "Created new window dir %s\n", windir);
+    NULL_TERMINATE_BUFFER(winsubdir);
+    if (!file_ops_func.create_dir(winsubdir))
+        FATAL("Failed to create window subdir %s\n", winsubdir);
+    NOTIFY(2, "Created new window dir %s\n", winsubdir);
 }
 
 static void
@@ -528,17 +531,10 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
         return false;
     }
 
-    const char *dir = logsubdir;
-    char windir[MAXIMUM_PATH];
-    if (has_tracing_windows()) {
-        if (op_split_windows.get_value()) {
-            dr_snprintf(windir, BUFFER_SIZE_ELEMENTS(windir), "%s%s" WINDOW_SUBDIR_FORMAT,
-                        logsubdir, DIRSEP, window_num);
-            NULL_TERMINATE_BUFFER(windir);
-            dir = windir;
-        } else if (data->file != INVALID_FILE) {
-            return false;
-        }
+    const char *dir = has_tracing_windows() ? winsubdir : logsubdir;
+    if (has_tracing_windows() && !op_split_windows.get_value() &&
+        data->file != INVALID_FILE) {
+        return false;
     }
     /* We do not need to call drx_init before using drx_open_unique_appid_file.
      * Since we're now in a subdir we could make the name simpler but this
