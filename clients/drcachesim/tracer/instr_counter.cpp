@@ -603,6 +603,9 @@ compute_irregular_trace_windows(std::vector<instr_interval_t> &instr_intervals)
         (irregular_window_t *)dr_global_alloc(sizeof(irregular_window_t));
     // We assume that a no_trace_for_instrs of UINT64_MAX is a long enough period that we
     // stop tracing for the remaining execution of the traced program.
+    // We keep counting instructions during this last window even though we will never
+    // trace again. We could improve performance by stopping instruction counting
+    // altogether once we reach this non-tracing window.
     irregular_window_ptr->no_trace_for_instrs = UINT64_MAX;
     irregular_window_ptr->trace_for_instrs = 0;
     drvector_set_entry(&irregular_windows_list, num_intervals, irregular_window_ptr);
