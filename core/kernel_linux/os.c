@@ -39,6 +39,7 @@
 #include "globals.h"
 #include "kernel_interface.h"
 #include "module_shared.h"
+#include "native_exec.h"
 
 /* Kernel code has no standard streams of its own. These synthetic handles use
  * conventional descriptor numbers for compatibility with shared DR code.
