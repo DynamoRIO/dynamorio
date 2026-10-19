@@ -702,6 +702,11 @@ os_check_option_compatibility(void)
     FORCE_OPTION_VALUE(free_private_stubs, false);
     FORCE_OPTION_VALUE(unsafe_free_shared_stubs, false);
 
+    /* Native execution of kernel code is unsupported. */
+    FORCE_OPTION_VALUE(native_exec, false);
+    FORCE_OPTION_VALUE(native_exec_retakeover, false);
+    FORCE_OPTION_VALUE(native_exec_opt, false);
+
     /* Asynchronous interrupts require exact reconstruction of application EFLAGS.
      * The unsafe flag-preservation elisions are unsupported in the kernel.
      */
