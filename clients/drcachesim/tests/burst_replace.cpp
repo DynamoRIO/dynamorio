@@ -210,6 +210,16 @@ window_end(void *user_data)
     drmemtrace_status_t mem_res = drmemtrace_get_output_path(&raw_dir);
     assert(mem_res == DRMEMTRACE_SUCCESS);
     dr_fprintf(STDERR, "%s for path %s\n", __FUNCTION__, raw_dir);
+
+    // Test a mid-run module info dump.
+    char *buf;
+    size_t size, wrote;
+    mem_res = drmemtrace_dump_module_info(&buf, &size, &wrote);
+    assert(mem_res == DRMEMTRACE_SUCCESS);
+    // We at least do a sanity check to ensure our executable is in there.
+    buf[wrote] = '\0';
+    assert(strstr(buf, "burst_replace") != nullptr);
+    dr_global_free(buf, size);
 }
 
 static void
