@@ -344,6 +344,21 @@ os_modules_exit(void)
     /* Nothing. */
 }
 
+/* Native module retakeover relies on ELF PLT/GOT and ld.so hooking,
+ * which has no kernel equivalent.
+ */
+void
+native_module_init(void)
+{
+    /* Nothing. */
+}
+
+void
+native_module_exit(void)
+{
+    /* Nothing. */
+}
+
 void
 os_file_init(void)
 {
