@@ -40,7 +40,9 @@
 #include "kernel_interface.h"
 
 #include <asm/page.h>
-#include <asm/tsc.h>
+#ifdef CONFIG_X86
+#    include <asm/tsc.h>
+#endif
 #include <linux/cpumask.h>
 #include <linux/kprobes.h>
 #include <linux/ktime.h>
@@ -208,9 +210,10 @@ kernel_module_init(size_t dr_heap_size)
         return ret;
     }
 
-#if defined(KSTATS) && defined(X86)
+#if defined(KSTATS) && defined(CONFIG_X86)
+    /* kstats use tsc_khz as their tick rate and divide by it when reporting. */
     if (tsc_khz == 0) {
-        pr_err("TSC frequency is unavailable\n");
+        pr_err("TSC frequency is unavailable (required by kstats)\n");
         return -ENODEV;
     }
 #endif
@@ -228,12 +231,6 @@ kernel_module_init(size_t dr_heap_size)
     }
 
     return 0;
-}
-
-unsigned int
-kernel_get_tsc_khz(void)
-{
-    return tsc_khz;
 }
 
 void
@@ -272,6 +269,14 @@ kernel_get_online_processor_count(void)
 {
     return num_online_cpus();
 }
+
+#ifdef CONFIG_X86
+unsigned int
+kernel_get_tsc_khz(void)
+{
+    return tsc_khz;
+}
+#endif
 
 void
 kernel_get_cpu_local_state_layout(size_t *size, size_t *alignment)
