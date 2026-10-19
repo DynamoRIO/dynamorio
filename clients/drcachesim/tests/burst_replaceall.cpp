@@ -350,6 +350,19 @@ test_main(int argc, const char *argv[])
 #    endif
     }
 #endif
+
+#ifdef BUILD_PT_TRACER
+    // Make sure kernel paths are not misleadingly provided when no kernel
+    // tracing was done.
+    const char *kpath;
+    res = drmemtrace_get_kcore_path(&kpath);
+    assert(res == DRMEMTRACE_SUCCESS);
+    assert(kpath[0] == '\0');
+    res = drmemtrace_get_kallsyms_path(&kpath);
+    assert(res == DRMEMTRACE_SUCCESS);
+    assert(kpath[0] == '\0');
+#endif
+
     std::cerr << "all done\n";
     return 0;
 }
