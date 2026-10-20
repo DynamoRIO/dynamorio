@@ -1627,6 +1627,7 @@ dynamo_exit_post_detach(void)
     dynamo_heap_initialized = false;
     automatic_startup = false;
     control_all_threads = false;
+    dr_started_and_attached = false;
     dr_api_entry = false;
     dr_api_exit = false;
 #ifdef UNIX

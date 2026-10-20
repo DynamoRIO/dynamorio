@@ -131,6 +131,8 @@ DECLARE_NEVERPROT_VAR(uint debug_bb_count, 0);
 void
 interp_init(void)
 {
+    ASSIGN_INIT_LOCK_FREE(bb_building_lock, bb_building_lock);
+    bb_lock_start = false;
     if (INTERNAL_OPTION(bbdump_tags)) {
         bbdump_file = open_log_file("bbs", NULL, 0);
         ASSERT(bbdump_file != INVALID_FILE);

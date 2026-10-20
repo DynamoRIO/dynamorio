@@ -245,8 +245,11 @@ loader_exit(void)
     vmvector_delete_vector(GLOBAL_DCONTEXT, modlist_areas);
     release_recursive_lock(&privload_lock);
     DELETE_RECURSIVE_LOCK(privload_lock);
-    if (doing_detach)
+    if (doing_detach) {
         past_initial_libs = false;
+        privmod_static_idx = 0;
+        search_paths_idx = 0;
+    }
 }
 
 void

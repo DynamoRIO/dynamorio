@@ -3307,6 +3307,21 @@ if (X86 OR AARCH64)
   endif ()
 endif ()
 
+if (WIN32 AND X86)
+  add_library(api.windows-reattach.dll SHARED api/windows-reattach.dll.c)
+  setup_test_client_dll_basics(api.windows-reattach.dll)
+  # Keep client reload independent of Windows system-library teardown.
+  target_compile_options(api.windows-reattach.dll PRIVATE /GS- /RTC-)
+  target_link_options(api.windows-reattach.dll PRIVATE /NODEFAULTLIB /NOENTRY)
+  target_include_directories(api.windows-reattach.dll PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/client-interface")
+  get_client_path(reattach_client_path api.windows-reattach.dll api.windows-reattach)
+  set(api.windows-reattach_timeout 30)
+  tobuild_api(api.windows-reattach api/windows-reattach.c
+    "-client_lib ${reattach_client_path}" "" OFF OFF ON)
+  add_dependencies(api.windows-reattach api.windows-reattach.dll)
+endif ()
+
 if (NOT RISCV64)
   # TODO i#3544: Port tests to RISC-V 64
   tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
