@@ -3307,6 +3307,11 @@ if (X86 OR AARCH64)
   endif ()
 endif ()
 
+if (WIN32 AND X86)
+  set(api.attach-flags_timeout 30)
+  tobuild_api(api.attach-flags api/attach-flags.c "" "" OFF OFF OFF)
+endif ()
+
 if (NOT RISCV64)
   # TODO i#3544: Port tests to RISC-V 64
   tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)

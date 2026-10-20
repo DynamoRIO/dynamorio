@@ -396,6 +396,7 @@ if (!assume_xsp)
       # dcontext for initializing thread (where we actually use the app's
       # stack) or exiting thread
       # If we are already on the d_r_initstack, should just continue to use it.
+ if (!assume_not_on_dstack)
       # need to check if already on d_r_initstack
       # assumes eflags, but we already did on this path for checking dstack
       mov $INITSTACK, xcx
@@ -408,6 +409,7 @@ if (!assume_xsp)
       # record stack method: using dstack/d_r_initstack unmodified
       push $2
       jmp have_stack_now
+ endif
     grab_initstack:
       mov $1, ecx # upper 32 bits zeroed on x64
      if x64 # can't directly address initstack_mutex or initstack_app_xsp
@@ -994,25 +996,32 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
         /* use d_r_initstack to avoid any assumptions about app xsp */
         /* first check if we are already on it */
         APP(&ilist, no_local_stack);
-        APP(&ilist,
-            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XCX),
-                                 OPND_CREATE_INTPTR((ptr_int_t)d_r_initstack)));
-        APP(&ilist,
-            INSTR_CREATE_cmp(dcontext, opnd_create_reg(REG_XSP),
-                             opnd_create_reg(REG_XCX)));
-        APP(&ilist,
-            INSTR_CREATE_jcc(dcontext, OP_jge, opnd_create_instr(grab_initstack)));
-        APP(&ilist,
-            INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XCX),
-                             opnd_create_base_disp(REG_XCX, REG_NULL, 0,
-                                                   -(int)DYNAMORIO_STACK_SIZE, OPSZ_0)));
-        APP(&ilist,
-            INSTR_CREATE_cmp(dcontext, opnd_create_reg(REG_XSP),
-                             opnd_create_reg(REG_XCX)));
-        APP(&ilist, INSTR_CREATE_jcc(dcontext, OP_jl, opnd_create_instr(grab_initstack)));
-        APP(&ilist, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_XSP)));
-        APP(&ilist, INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32(2)));
-        APP(&ilist, INSTR_CREATE_jmp(dcontext, opnd_create_instr(have_stack_now)));
+        /* A thread redirected at an arbitrary instruction is never on the
+         * d_r_initstack, and its eflags stay live until the register save.
+         */
+        if (!assume_not_on_dstack) {
+            APP(&ilist,
+                INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XCX),
+                                     OPND_CREATE_INTPTR((ptr_int_t)d_r_initstack)));
+            APP(&ilist,
+                INSTR_CREATE_cmp(dcontext, opnd_create_reg(REG_XSP),
+                                 opnd_create_reg(REG_XCX)));
+            APP(&ilist,
+                INSTR_CREATE_jcc(dcontext, OP_jge, opnd_create_instr(grab_initstack)));
+            APP(&ilist,
+                INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XCX),
+                                 opnd_create_base_disp(REG_XCX, REG_NULL, 0,
+                                                       -(int)DYNAMORIO_STACK_SIZE,
+                                                       OPSZ_0)));
+            APP(&ilist,
+                INSTR_CREATE_cmp(dcontext, opnd_create_reg(REG_XSP),
+                                 opnd_create_reg(REG_XCX)));
+            APP(&ilist,
+                INSTR_CREATE_jcc(dcontext, OP_jl, opnd_create_instr(grab_initstack)));
+            APP(&ilist, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_XSP)));
+            APP(&ilist, INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32(2)));
+            APP(&ilist, INSTR_CREATE_jmp(dcontext, opnd_create_instr(have_stack_now)));
+        }
         APP(&ilist, grab_initstack);
         APP(&ilist,
             INSTR_CREATE_mov_imm(dcontext,
