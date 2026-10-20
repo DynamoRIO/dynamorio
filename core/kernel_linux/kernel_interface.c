@@ -40,6 +40,9 @@
 #include "kernel_interface.h"
 
 #include <asm/page.h>
+#ifdef CONFIG_X86
+#    include <asm/tsc.h>
+#endif
 #include <linux/cpumask.h>
 #include <linux/kprobes.h>
 #include <linux/ktime.h>
@@ -207,6 +210,14 @@ kernel_module_init(size_t dr_heap_size)
         return ret;
     }
 
+#if defined(KSTATS) && defined(CONFIG_X86)
+    /* kstats use tsc_khz as their tick rate and divide by it when reporting. */
+    if (tsc_khz == 0) {
+        pr_err("TSC frequency is unavailable (required by kstats)\n");
+        return -ENODEV;
+    }
+#endif
+
     heap_size = dr_heap_size;
     /* PAGE_KERNEL_EXEC makes the heap RWX because it backs both DR's vmcode and vmheap.
      * TODO i#8124: Allocate two separate regions instead for fine-grained W^X protection.
@@ -258,6 +269,14 @@ kernel_get_online_processor_count(void)
 {
     return num_online_cpus();
 }
+
+#ifdef CONFIG_X86
+unsigned int
+kernel_get_tsc_khz(void)
+{
+    return tsc_khz;
+}
+#endif
 
 void
 kernel_get_cpu_local_state_layout(size_t *size, size_t *alignment)

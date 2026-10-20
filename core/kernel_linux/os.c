@@ -39,6 +39,7 @@
 #include "globals.h"
 #include "kernel_interface.h"
 #include "module_shared.h"
+#include "native_exec.h"
 
 /* Kernel code has no standard streams of its own. These synthetic handles use
  * conventional descriptor numbers for compatibility with shared DR code.
@@ -344,6 +345,21 @@ os_modules_exit(void)
     /* Nothing. */
 }
 
+/* Native module retakeover relies on ELF PLT/GOT and ld.so hooking,
+ * which has no kernel equivalent.
+ */
+void
+native_module_init(void)
+{
+    /* Nothing. */
+}
+
+void
+native_module_exit(void)
+{
+    /* Nothing. */
+}
+
 void
 os_file_init(void)
 {
@@ -532,6 +548,16 @@ get_num_processors(void)
     return num_online_processors;
 }
 
+timestamp_t
+get_timer_frequency(void)
+{
+#ifdef X86
+    return kernel_get_tsc_khz();
+#else
+#    error "Unsupported platform"
+#endif
+}
+
 uint
 query_time_seconds(void)
 {
@@ -691,6 +717,11 @@ os_check_option_compatibility(void)
      */
     FORCE_OPTION_VALUE(free_private_stubs, false);
     FORCE_OPTION_VALUE(unsafe_free_shared_stubs, false);
+
+    /* Native execution of kernel code is unsupported. */
+    FORCE_OPTION_VALUE(native_exec, false);
+    FORCE_OPTION_VALUE(native_exec_retakeover, false);
+    FORCE_OPTION_VALUE(native_exec_opt, false);
 
     /* Asynchronous interrupts require exact reconstruction of application EFLAGS.
      * The unsafe flag-preservation elisions are unsupported in the kernel.

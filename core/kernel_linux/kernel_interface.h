@@ -57,6 +57,10 @@ kernel_get_cpu_id(void);
 int
 kernel_get_online_processor_count(void);
 
+/* Returns the TSC frequency in kHz, i.e., TSC ticks per millisecond (x86 only). */
+unsigned int
+kernel_get_tsc_khz(void);
+
 /* Reports the per-CPU buffer capacity and alignment in bytes. Both output pointers
  * must be non-NULL. Does not require preemption to be disabled.
  */
