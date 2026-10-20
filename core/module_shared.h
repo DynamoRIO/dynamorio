@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -632,6 +632,9 @@ redirect_strdup(const char *str);
 
 size_t
 redirect_malloc_requested_size(void *mem);
+
+void *
+redirect_aligned_alloc(size_t alignment, size_t size);
 
 #ifdef DEBUG
 void *

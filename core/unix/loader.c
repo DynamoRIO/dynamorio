@@ -1651,6 +1651,7 @@ static const redirect_import_t redirect_imports[] = {
     { "free", (app_pc)redirect_free },
     { "realloc", (app_pc)redirect_realloc },
     { "strdup", (app_pc)redirect_strdup },
+    { "aligned_alloc", (app_pc)redirect_aligned_alloc },
     /* TODO i#4243: we should also redirect functions including:
      * + malloc_usable_size, memalign, valloc, mallinfo, mallopt, etc.
      * + tcmalloc: tc_malloc, tc_free, etc.
@@ -1736,6 +1737,7 @@ privload_redirect_sym(os_privmod_data_t *opd, ptr_uint_t *r_addr, const char *na
 #endif
     for (i = 0; i < REDIRECT_IMPORTS_NUM; i++) {
         if (strcmp(redirect_imports[i].name, name) == 0) {
+            LOG(GLOBAL, LOG_LOADER, 3, "redirecting %s\n", name);
             if (opd->use_app_imports && redirect_imports[i].app_func != NULL)
                 *r_addr = (ptr_uint_t)redirect_imports[i].app_func;
             else
