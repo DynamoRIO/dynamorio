@@ -791,7 +791,7 @@ else (UNIX)
     set(LD_FLAGS "${LD_FLAGS} /machine:I386")
   endif (X64)
   set(dynamorio_link_flags
-    "${LD_FLAGS} ${ntimp_flags} ${dynamorio_link_flags} /dll /incremental:no")
+    "${LD_FLAGS} \"${ntimp_flags}\" ${dynamorio_link_flags} /dll /incremental:no")
   set(dynamorio_link_flags
     "${dynamorio_link_flags} ${NOLIBC_DLL_ENTRY} ${FORWARD_TO_NTDLL}")
   # cmake does /out, /implib, and /pdb for us, but we do want map file
@@ -1203,6 +1203,15 @@ if (BUILD_TESTS AND
   get_target_path_for_execution(unit_relpath core_unit_tests "${location_suffix}")
   prefix_cmd_if_necessary(unit_relpath OFF ${unit_relpath})
   add_test(core_unit_tests ${unit_relpath})
+  if (WIN32)
+    add_test(NAME build.windows_path_with_spaces COMMAND ${CMAKE_COMMAND}
+      "-Dsource=${PROJECT_SOURCE_DIR}" "-Dbinary=${PROJECT_BINARY_DIR}/link path with spaces"
+      "-Dgenerator=${CMAKE_GENERATOR}" "-Dplatform=${CMAKE_GENERATOR_PLATFORM}"
+      "-Dtoolset=${CMAKE_GENERATOR_TOOLSET}" "-Dconfig=$<CONFIG>" "-Ddebug=${DEBUG}"
+      "-Ddisable_warnings=${DISABLE_WARNINGS}"
+      -P "${PROJECT_SOURCE_DIR}/suite/tests/build-path-spaces.cmake")
+    set_tests_properties(build.windows_path_with_spaces PROPERTIES TIMEOUT 300)
+  endif ()
   if (APPLE)
     set_tests_properties(core_unit_tests PROPERTIES LABELS OSX)
   endif ()
