@@ -1903,6 +1903,9 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags DR_PARAM_INOUT,
            bool mangle_calls, bool record_translation)
 {
     instr_t *instr, *next_instr;
+#ifdef X86
+    bool single_step_instrumented = false;
+#endif
 #ifdef WINDOWS
     bool ignorable_sysenter = DYNAMO_OPTION(ignore_syscalls) &&
         DYNAMO_OPTION(ignore_syscalls_follow_sysenter) &&
@@ -2028,6 +2031,24 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags DR_PARAM_INOUT,
         }
 #endif
 
+#if defined(X86) && defined(X64)
+        /* Preserve a step before address mangling replaces its application instruction.
+         */
+        if (!single_step_instrumented && dcontext->single_step_addr != NULL &&
+            instr_is_app(instr) && !instr_is_our_mangling(instr) &&
+            dcontext->single_step_addr == instr->translation &&
+            instr_has_rel_addr_reference(instr) &&
+            (!instr_can_set_single_step(instr) || instr_get_opcode(instr) == OP_iret)) {
+            instr_t *last_addr = instr_get_next_app(instr);
+            /* A synthetic exit must not defer stepping past a taken branch. */
+            if (last_addr == NULL || last_addr->translation != instr->translation ||
+                instr_is_our_mangling(last_addr)) {
+                mangle_single_step(dcontext, ilist, *flags, instr);
+                single_step_instrumented = true;
+            }
+        }
+#endif
+
 #if defined(X64) || defined(ARM)
         /* XXX i#1834: We do not limit mangling of pc-relative operands to app instrs,
          * because we were mangling tool operands before and now our own samples rely
@@ -2147,14 +2168,16 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags DR_PARAM_INOUT,
             /* iret is handled in mangle_return. */
             mangle_possible_single_step(dcontext, ilist, instr);
             continue;
-        } else if (dcontext->single_step_addr != NULL && instr_is_app(instr) &&
+        } else if (!single_step_instrumented && dcontext->single_step_addr != NULL &&
+                   instr_is_app(instr) && !instr_is_our_mangling(instr) &&
                    dcontext->single_step_addr == instr->translation) {
             instr_t *last_addr = instr_get_next_app(instr);
-            /* Checks if sandboxing added another app instruction. */
-            if (last_addr == NULL || last_addr->translation != instr->translation) {
+            /* A synthetic exit must not defer stepping past a taken branch. */
+            if (last_addr == NULL || last_addr->translation != instr->translation ||
+                instr_is_our_mangling(last_addr)) {
                 mangle_single_step(dcontext, ilist, *flags, instr);
-                /* Resets to generate single step exception only once. */
-                dcontext->single_step_addr = NULL;
+                /* Instrument the selected application instruction only once. */
+                single_step_instrumented = true;
             }
         }
 #endif

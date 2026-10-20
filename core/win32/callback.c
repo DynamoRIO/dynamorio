@@ -70,6 +70,8 @@
 
 #include <windows.h>
 
+#define EFLAGS_TF 0x100
+
 /* forward declarations */
 static dcontext_t *
 callback_setup(app_pc next_pc);
@@ -4039,6 +4041,12 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
              * from pre_syscall, prior to entering cache)
              */
             dcontext->asynch_target = (app_pc)cxt->CXT_XIP;
+            if (TESTANY(EFLAGS_TF, cxt->EFlags)) {
+                /* Run one application instruction before delivering the debugger's step.
+                 */
+                dcontext->single_step_addr = dcontext->asynch_target;
+                cxt->EFlags &= ~EFLAGS_TF;
+            }
             /* Point Xip to allow dynamo to retain control
              * XXX: w/ stateless handling here, can point at fcache_return
              * like signals do for better performance?
@@ -4112,6 +4120,10 @@ intercept_nt_setcontext(dcontext_t *dcontext, CONTEXT *cxt)
          * prior to entering cache)
          */
         dcontext->asynch_target = (app_pc)cxt->CXT_XIP;
+        if (TESTANY(EFLAGS_TF, cxt->EFlags)) {
+            dcontext->single_step_addr = dcontext->asynch_target;
+            cxt->EFlags &= ~EFLAGS_TF;
+        }
         /* Point Xip to allow dynamo to retain control
          * XXX: w/ stateless handling here, can point at fcache_return
          * like signals do for better performance?
@@ -5877,6 +5889,11 @@ intercept_exception(app_state_at_intercept_t *state)
                 }
                 instr_free(dcontext, &instr);
             }
+
+            /* Native fault contexts preserve TF; WOW64 clears it. */
+            if (dcontext->single_step_addr == mcontext.pc &&
+                !is_wow64_process(NT_CURRENT_PROCESS))
+                mcontext.xflags |= EFLAGS_TF;
 
             /* cxt came from the kernel, so it should already have ss and cs
              * initialized. Thus there's no need to get them again.

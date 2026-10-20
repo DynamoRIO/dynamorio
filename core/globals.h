@@ -997,8 +997,11 @@ struct _dcontext_t {
     app_pc forged_exception_addr;
 
     /* DR sets this field to indicate that it should forge a single
-     * step exception when app comes to that address. */
+     * step exception when app comes to that address.  Keep it until completion or
+     * asynchronous transfer so fault reconstruction uses the same block boundaries.
+     */
     app_pc single_step_addr;
+    app_pc single_step_target;
 #ifdef HOT_PATCHING_INTERFACE
     /* Fix for case 5367. */
     bool nudge_thread;             /* True only if this is a nudge thread. */

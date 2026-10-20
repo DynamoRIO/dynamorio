@@ -3357,7 +3357,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         bb->record_translation = true;
     }
     if (my_dcontext != NULL && my_dcontext->single_step_addr == bb->start_pc) {
-        /* Decodes only one instruction because of single step exception. */
+        /* Decode the stepped instruction separately from adjacent non-CTIs. */
+        bb->full_decode = true;
         cur_max_bb_instrs = 1;
     }
 
@@ -4237,8 +4238,10 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         }
 #endif
     } else if (my_dcontext != NULL && my_dcontext->single_step_addr == bb->instr_start) {
-        /* Field exit_type might have been cleared by client_process_bb. */
+        /* Preserve both conditional exits after client branch-type changes. */
         bb->exit_type |= LINK_SPECIAL_EXIT;
+        if (bb->instr != NULL)
+            instr_branch_set_special_exit(bb->instr, true);
     }
 
     if (TESTANY(FRAG_COARSE_GRAIN, bb->flags) &&

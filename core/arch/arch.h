@@ -83,6 +83,7 @@ mixed_mode_enabled(void)
  * XXX: we could get rid of this hack if unprotected_context_t == priv_mcontext_t
  */
 #define PROT_OFFS (sizeof(unprotected_context_t))
+#define SINGLE_STEP_TARGET_OFFSET (PROT_OFFS + offsetof(dcontext_t, single_step_target))
 #define MC_OFFS (offsetof(unprotected_context_t, mcontext))
 
 #ifdef X86

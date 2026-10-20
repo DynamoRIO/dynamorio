@@ -999,6 +999,11 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
                 dcontext->upcontext.upcontext.exit_reason = EXIT_REASON_SELFMOD;
             } else if (dcontext->upcontext.upcontext.exit_reason ==
                        EXIT_REASON_SINGLE_STEP) {
+                dcontext->single_step_addr = NULL;
+                if (dcontext->single_step_target != NULL) {
+                    dcontext->next_tag = dcontext->single_step_target;
+                    dcontext->single_step_target = NULL;
+                }
                 /* Delete basic block to generate only one single step exception. */
                 ASSERT(!TESTANY(FRAG_SHARED, dcontext->last_fragment->flags));
                 fragment_delete(dcontext, dcontext->last_fragment, FRAGDEL_ALL);
@@ -1026,6 +1031,25 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
             }
         }
     }
+
+#ifdef WINDOWS
+    if (dcontext->last_exit == get_asynch_linkstub() &&
+        dcontext->single_step_addr != NULL) {
+        app_pc single_step_addr = dcontext->single_step_addr;
+        if (single_step_addr != dcontext->next_tag) {
+            /* An asynchronous transfer abandons the stepped instruction. */
+            dcontext->single_step_addr = NULL;
+            dcontext->single_step_target = NULL;
+            dcontext->upcontext.upcontext.exit_reason = EXIT_REASON_SELFMOD;
+        }
+        /* Invalidate cached translations without the setter's thread-init lock. */
+        get_mcontext(dcontext)->pc = dcontext->next_tag;
+        flush_fragments_from_region(
+            dcontext, single_step_addr, 1, false /*don't force synchall*/,
+            THREAD_SYNCH_VALID_MCONTEXT_NO_XFER, NULL /*flush_completion_callback*/,
+            NULL /*user_data*/);
+    }
+#endif
 
     /* make sure to tell flushers that we are now going to be mucking
      * with link info

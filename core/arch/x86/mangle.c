@@ -1836,6 +1836,27 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 #endif
     }
 
+    if (instr_branch_special_exit(instr) && instr_get_opcode(instr) == OP_ret) {
+        /* Preserve the return target and dispatch without an indirect lookup. */
+        if (DYNAMO_OPTION(private_ib_in_tls) || TESTANY(FRAG_SHARED, flags)) {
+            insert_shared_get_dcontext(dcontext, ilist, instr, true /*save_xdi*/);
+            PRE(ilist, instr,
+                instr_create_save_to_dc_via_reg(dcontext, REG_NULL, REG_XCX,
+                                                SINGLE_STEP_TARGET_OFFSET));
+            insert_shared_restore_dcontext_reg(dcontext, ilist, instr);
+        } else {
+            PRE(ilist, instr,
+                instr_create_save_to_dcontext(dcontext, REG_XCX,
+                                              SINGLE_STEP_TARGET_OFFSET));
+        }
+        PRE(ilist, instr,
+            RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XCX, MANGLE_XCX_SPILL_SLOT,
+                                   XCX_OFFSET));
+        instr_set_branch_target_pc(next_instr, instr_get_translation(instr));
+        instr_exit_branch_set_type(next_instr,
+                                   LINK_DIRECT | LINK_JMP | LINK_SPECIAL_EXIT);
+    }
+
     /* remove the ret */
     instrlist_remove(ilist, instr);
     instr_destroy(dcontext, instr);
