@@ -578,6 +578,10 @@ alignment_test(void)
             free(mem[i]);
     }
 
+    /* I had trouble getting /std:c11 passed to VS so we disable this for Windows.
+     * It is here to test the UNIX private loader in any case.
+     */
+#ifdef UNIX
     /* Test redirection of C11/C++17's aligned_alloc(). */
     void *p = aligned_alloc(32, 53);
     ASSERT(ALIGNED(p, 32));
@@ -592,6 +596,7 @@ alignment_test(void)
     p = aligned_alloc(128, 987);
     ASSERT(ALIGNED(p, 128));
     free(p);
+#endif
 
     dr_fprintf(STDERR, "success\n");
 }
