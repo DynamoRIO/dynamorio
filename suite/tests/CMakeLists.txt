@@ -2537,6 +2537,9 @@ if (X86) # XXX i#1551, i#1569: port to ARM and AArch64
     # way.  We also raise the checklevel so we get memory filling for client allocs.
     # We keep vmheap_size at 2G to more easily trigger OOM.
     "-no_vm_base_near_app -vm_base 0x120000000 -vmheap_size 2G -checklevel 3" "")
+  if (WIN32)
+    append_property_string(TARGET client.alloc COMPILE_FLAGS "/std:c11")
+  endif ()
   # A second test for i#4335's OOM despite a reset.  We leave checklevel for CI speed.
   tobuild_ci(client.alloc-noreset client-interface/alloc.c ""
     "-no_enable_reset -no_vm_base_near_app -vm_base 0x120000000 -vmheap_size 2G" "")

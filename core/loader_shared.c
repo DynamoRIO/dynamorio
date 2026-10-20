@@ -936,10 +936,10 @@ void *
 redirect_aligned_alloc(size_t alignment, size_t size)
 {
     void *mem;
-    /* We need extra space to store the size and alignment bit and ensure the returned
-     * pointer is aligned.
+    /* We need extra space to store the size and alignment bit, possible second
+     * header, and ensure the returned pointer is aligned.
      */
-    size_t alloc_size = size + sizeof(size_t) + alignment - HEAP_ALIGNMENT;
+    size_t alloc_size = size + 2 * sizeof(size_t) + alignment - HEAP_ALIGNMENT;
     /* Our header is the size itself, with the top bit stolen to indicate alignment. */
     if (TESTANY(REDIRECT_DOUBLE_HEADER, alloc_size)) {
         /* We do not support the top bit being set as that conflicts with the bit in
