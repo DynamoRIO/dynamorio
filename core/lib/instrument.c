@@ -1512,6 +1512,7 @@ instrument_thread_init(dcontext_t *dcontext, bool client_thread, bool valid_mc)
     if (valid_mc)
         dcontext->client_data->mcontext_in_dcontext = true;
     call_all(thread_init_callbacks, int (*)(void *), (void *)dcontext);
+    dcontext->client_data->thread_events_initialized = true;
     if (valid_mc)
         dcontext->client_data->mcontext_in_dcontext = false;
 #ifdef WINDOWS
@@ -1556,6 +1557,8 @@ instrument_thread_exit_event(dcontext_t *dcontext)
     if (!dynamo_initialized)
         return;
 
+    /* Native observer callbacks must stop before client thread state is released. */
+    dcontext->client_data->thread_events_initialized = false;
     /* support dr_get_mcontext() from the exit event */
     dcontext->client_data->mcontext_in_dcontext = true;
     /* Note - currently own initexit lock when this is called (see PR 227619). */

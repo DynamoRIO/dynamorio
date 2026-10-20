@@ -84,6 +84,7 @@ app_pc KiFastSystemCallRet_address = NULL;
 #define TRAMPOLINE_MAX (SYS_MAX + CLIENT_EXTRA_TRAMPOLINE)
 /* no lock needed since only supported during dr_client_main */
 static uint syscall_extra_idx;
+static char syscall_extra_names[CLIENT_EXTRA_TRAMPOLINE][128];
 
 const char *SYS_CONST syscall_names[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
@@ -664,6 +665,20 @@ syscall_while_native(app_state_at_intercept_t *state)
      * be required to avoid infinite loop on error here!
      */
     STATS_INC(num_syscall_trampolines);
+    /* Additional native observers require initialized client thread state. */
+    if (sysnum >= SYS_MAX &&
+        (!dynamo_initialized || dynamo_exited || doing_detach || dcontext == NULL ||
+         dcontext->client_data == NULL ||
+         !dcontext->client_data->thread_events_initialized ||
+         IS_CLIENT_THREAD(dcontext) || dcontext->whereami != DR_WHERE_APP ||
+         dcontext->client_data->in_pre_syscall || dcontext->client_data->in_post_syscall))
+        return AFTER_INTERCEPT_LET_GO;
+    if (sysnum >= SYS_MAX) {
+        app_pc caller = NULL;
+        if (d_r_safe_read((void *)state->mc.xsp, sizeof(caller), &caller) &&
+            (is_in_dynamo_dll(caller) || is_in_client_lib(caller)))
+            return AFTER_INTERCEPT_LET_GO;
+    }
     if (dcontext == NULL) {
         /* unknown thread */
         return AFTER_INTERCEPT_LET_GO; /* do syscall natively */
@@ -916,6 +931,18 @@ exit_syscall_trampolines(void)
         }
         DEBUG_DECLARE(else ASSERT(syscall_trampoline_pc[i] == NULL));
     }
+    /* Retire client registrations after restoring their native entry points. */
+    for (i = SYS_MAX; i < TRAMPOLINE_MAX; ++i) {
+        syscall_names[i] = NULL;
+        syscalls[i] = SYSCALL_NOT_PRESENT;
+        syscall_argsz[i] = 0;
+        syscall_requires_action[i] = false;
+        syscall_trampoline_pc[i] = NULL;
+        syscall_trampoline_skip_pc[i] = NULL;
+        syscall_trampoline_hook_pc[i] = NULL;
+        syscall_trampoline_copy_pc[i] = NULL;
+    }
+    syscall_extra_idx = 0;
 }
 
 #ifdef DEBUG
@@ -4783,7 +4810,12 @@ dr_syscall_intercept_natively(const char *name, int sysnum, int num_args, int wo
         return false;
     /* no lock needed since only supported during dr_client_main */
     idx = SYS_MAX + syscall_extra_idx;
-    syscall_names[idx] = name;
+    if (strlen(name) >= BUFFER_SIZE_ELEMENTS(syscall_extra_names[0]))
+        return false;
+    snprintf(syscall_extra_names[syscall_extra_idx],
+             BUFFER_SIZE_ELEMENTS(syscall_extra_names[0]), "%s", name);
+    NULL_TERMINATE_BUFFER(syscall_extra_names[syscall_extra_idx]);
+    syscall_names[idx] = syscall_extra_names[syscall_extra_idx];
     syscalls[idx] = sysnum;
     syscall_argsz[idx] = num_args * 4;
     if (wow64_index != NULL)

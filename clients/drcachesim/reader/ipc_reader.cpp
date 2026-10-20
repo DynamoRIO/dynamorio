@@ -95,13 +95,12 @@ ipc_reader_t::~ipc_reader_t()
 trace_entry_t *
 ipc_reader_t::read_next_entry()
 {
+    if (at_eof_)
+        return nullptr;
     ++cur_buf_;
     if (cur_buf_ >= end_buf_) {
         ssize_t sz = pipe_.read(buf_, sizeof(buf_)); // blocking read
         if (sz < 0 || sz % sizeof(*end_buf_) != 0) {
-            // If called again at eof, do not return the footer: return an error.
-            if (at_eof_)
-                return nullptr;
             // We aren't able to easily distinguish truncation from a clean
             // end (we could at least ensure the prior entry was a thread exit
             // I suppose).

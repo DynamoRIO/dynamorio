@@ -421,6 +421,7 @@ typedef struct _client_data_t {
 
     /* Flag for dr_invoke_syscall_as_app(). */
     bool skip_client_syscall_events;
+    bool thread_events_initialized;
 } client_data_t;
 
 #ifdef UNIX
