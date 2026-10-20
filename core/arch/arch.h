@@ -232,6 +232,12 @@ mixed_mode_enabled(void)
 #    define PRIV_RPC_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, priv_nt_rpc))
 #    define APP_NLS_CACHE_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_nls_cache))
 #    define PRIV_NLS_CACHE_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, priv_nls_cache))
+#    define APP_LANGUAGE_LIST_OFFSET(index)                       \
+        ((PROT_OFFS) + offsetof(dcontext_t, app_language_lists) + \
+         (index) * sizeof(void *))
+#    define PRIV_LANGUAGE_LIST_OFFSET(index)                       \
+        ((PROT_OFFS) + offsetof(dcontext_t, priv_language_lists) + \
+         (index) * sizeof(void *))
 #    define APP_STATIC_TLS_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_static_tls))
 #    define PRIV_STATIC_TLS_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, priv_static_tls))
 #    define APP_STACK_LIMIT_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_stack_limit))

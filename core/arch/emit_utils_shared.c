@@ -1775,6 +1775,31 @@ preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next, bool
                                opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL, 0,
                                                          NLS_CACHE_TIB_OFFSET, OPSZ_PTR),
                                opnd_create_reg(reg_scratch)));
+        /* Keep language-list allocations paired with the active PEB heap. */
+        const uint language_offsets[] = { offsetof(TEB, PreferredLanguages),
+                                          offsetof(TEB, UserPrefLanguages),
+                                          offsetof(TEB, MergedPrefLanguages) };
+        for (uint index = 0; index < BUFFER_SIZE_ELEMENTS(language_offsets); ++index) {
+            PRE(ilist, next,
+                XINST_CREATE_load(dcontext, opnd_create_reg(reg_scratch),
+                                  opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL,
+                                                            0, language_offsets[index],
+                                                            OPSZ_PTR)));
+            PRE(ilist, next,
+                SAVE_TO_DC_VIA_REG(absolute, dcontext, reg_dr, reg_scratch,
+                                   to_priv ? APP_LANGUAGE_LIST_OFFSET(index)
+                                           : PRIV_LANGUAGE_LIST_OFFSET(index)));
+            PRE(ilist, next,
+                RESTORE_FROM_DC_VIA_REG(absolute, dcontext, reg_dr, reg_scratch,
+                                        to_priv ? PRIV_LANGUAGE_LIST_OFFSET(index)
+                                                : APP_LANGUAGE_LIST_OFFSET(index)));
+            PRE(ilist, next,
+                XINST_CREATE_store(dcontext,
+                                   opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL,
+                                                             0, language_offsets[index],
+                                                             OPSZ_PTR),
+                                   opnd_create_reg(reg_scratch)));
+        }
     }
     if (should_swap_teb_static_tls()) {
         /* We also have to swap TEB->ThreadLocalStoragePointer.  Unlike the other

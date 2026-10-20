@@ -794,6 +794,8 @@ struct _dcontext_t {
     void *priv_nt_rpc;
     void *app_nls_cache;
     void *priv_nls_cache;
+    void *app_language_lists[3];
+    void *priv_language_lists[3];
     void *app_static_tls;
     void *priv_static_tls;
     void *app_stack_limit;

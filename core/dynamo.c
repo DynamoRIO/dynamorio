@@ -1908,6 +1908,10 @@ create_callback_dcontext(dcontext_t *old_dcontext)
     new_dcontext->priv_nt_rpc = old_dcontext->priv_nt_rpc;
     new_dcontext->app_nls_cache = old_dcontext->app_nls_cache;
     new_dcontext->priv_nls_cache = old_dcontext->priv_nls_cache;
+    memcpy(new_dcontext->app_language_lists, old_dcontext->app_language_lists,
+           sizeof(new_dcontext->app_language_lists));
+    memcpy(new_dcontext->priv_language_lists, old_dcontext->priv_language_lists,
+           sizeof(new_dcontext->priv_language_lists));
     new_dcontext->app_static_tls = old_dcontext->app_static_tls;
     new_dcontext->priv_static_tls = old_dcontext->priv_static_tls;
     new_dcontext->app_stack_limit = old_dcontext->app_stack_limit;

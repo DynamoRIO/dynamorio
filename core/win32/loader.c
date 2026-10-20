@@ -147,6 +147,12 @@ static void *pre_fls_data;
 static void *pre_nt_rpc;
 /* Isolate TEB->NlsCache: for first thread we need to copy before have dcontext */
 static void *pre_nls_cache;
+
+/* Keep cached language lists paired with the heap that allocated them. */
+static const ushort language_list_offsets[] = { offsetof(TEB, PreferredLanguages),
+                                                offsetof(TEB, UserPrefLanguages),
+                                                offsetof(TEB, MergedPrefLanguages) };
+static void *pre_language_lists[3];
 /* Isolate TEB->ThreadLocalStoragePointer. */
 static void *pre_static_tls;
 /* XXX i#875: we do not have ntdll!RtlpFlsLock isolated.  Living w/ it for now. */
@@ -238,6 +244,11 @@ os_loader_init_prologue(void)
             pre_fls_data = d_r_get_tls(FLS_DATA_TIB_OFFSET);
             pre_nt_rpc = d_r_get_tls(NT_RPC_TIB_OFFSET);
             pre_nls_cache = d_r_get_tls(NLS_CACHE_TIB_OFFSET);
+            for (uint index = 0; index < BUFFER_SIZE_ELEMENTS(language_list_offsets);
+                 ++index) {
+                pre_language_lists[index] = d_r_get_tls(language_list_offsets[index]);
+                d_r_set_tls(language_list_offsets[index], NULL);
+            }
             /* Clear state to separate priv from app.
              * XXX: if we attach or something it seems possible that ntdll or user32
              * or some other shared resource might set these and we want to share
@@ -402,6 +413,14 @@ os_loader_thread_init_prologue(dcontext_t *dcontext)
                 dcontext->priv_fls_data = d_r_get_tls(FLS_DATA_TIB_OFFSET);
                 dcontext->priv_nt_rpc = d_r_get_tls(NT_RPC_TIB_OFFSET);
                 dcontext->priv_nls_cache = d_r_get_tls(NLS_CACHE_TIB_OFFSET);
+                for (uint index = 0; index < BUFFER_SIZE_ELEMENTS(language_list_offsets);
+                     ++index) {
+                    dcontext->priv_language_lists[index] =
+                        d_r_get_tls(language_list_offsets[index]);
+                    dcontext->app_language_lists[index] = pre_language_lists[index];
+                    d_r_set_tls(language_list_offsets[index],
+                                dcontext->app_language_lists[index]);
+                }
                 dcontext->app_fls_data = pre_fls_data;
                 dcontext->app_nt_rpc = pre_nt_rpc;
                 dcontext->app_nls_cache = pre_nls_cache;
@@ -425,6 +444,10 @@ os_loader_thread_init_prologue(dcontext_t *dcontext)
                 dcontext->priv_fls_data = NULL;
                 dcontext->priv_nt_rpc = NULL;
                 dcontext->priv_nls_cache = NULL;
+                memset(dcontext->app_language_lists, 0,
+                       sizeof(dcontext->app_language_lists));
+                memset(dcontext->priv_language_lists, 0,
+                       sizeof(dcontext->priv_language_lists));
             }
             if (should_swap_teb_static_tls()) {
                 dcontext->app_static_tls = NULL;
@@ -712,6 +735,15 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                     set_teb_field(dcontext, NLS_CACHE_TIB_OFFSET,
                                   dcontext->priv_nls_cache);
                 }
+                for (uint index = 0; index < BUFFER_SIZE_ELEMENTS(language_list_offsets);
+                     ++index) {
+                    void *current = get_teb_field(dcontext, language_list_offsets[index]);
+                    if (current != dcontext->priv_language_lists[index]) {
+                        dcontext->app_language_lists[index] = current;
+                        set_teb_field(dcontext, language_list_offsets[index],
+                                      dcontext->priv_language_lists[index]);
+                    }
+                }
             }
             if (TESTANY(DR_STATE_TEB_MISC, flags) && should_swap_teb_static_tls()) {
                 if (dcontext->priv_static_tls !=
@@ -756,6 +788,15 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                     dcontext->priv_nls_cache = cur_nls_cache;
                     set_teb_field(dcontext, NLS_CACHE_TIB_OFFSET,
                                   dcontext->app_nls_cache);
+                }
+                for (uint index = 0; index < BUFFER_SIZE_ELEMENTS(language_list_offsets);
+                     ++index) {
+                    void *current = get_teb_field(dcontext, language_list_offsets[index]);
+                    if (current != dcontext->app_language_lists[index]) {
+                        dcontext->priv_language_lists[index] = current;
+                        set_teb_field(dcontext, language_list_offsets[index],
+                                      dcontext->app_language_lists[index]);
+                    }
                 }
             }
             if (TESTANY(DR_STATE_TEB_MISC, flags) && should_swap_teb_static_tls()) {
@@ -828,6 +869,11 @@ restore_peb_pointer_for_thread(dcontext_t *dcontext)
         set_teb_field(dcontext, NT_RPC_TIB_OFFSET, dcontext->app_nt_rpc);
         LOG(THREAD, LOG_LOADER, 3, "restored app fls to " PFX "\n", dcontext->app_nt_rpc);
         set_teb_field(dcontext, NLS_CACHE_TIB_OFFSET, dcontext->app_nls_cache);
+        for (uint index = 0; index < BUFFER_SIZE_ELEMENTS(language_list_offsets);
+             ++index) {
+            set_teb_field(dcontext, language_list_offsets[index],
+                          dcontext->app_language_lists[index]);
+        }
         LOG(THREAD, LOG_LOADER, 3, "restored app nls_cache to " PFX "\n",
             dcontext->app_nls_cache);
     }
