@@ -3307,6 +3307,16 @@ if (X86 OR AARCH64)
   endif ()
 endif ()
 
+if (WIN32 AND X86)
+  tobuild_appdll(client.native-return-state client-interface/native-return-state.c)
+  get_target_path_for_execution(native_return_path client.native-return-state.appdll "${location_suffix}")
+  get_filename_component(native_return_name "${native_return_path}" NAME)
+  set(client.native-return-state_timeout 30)
+  tobuild_ci(client.native-return-state client-interface/native-return-state.c ""
+    "-no_early_inject -native_exec_list ${native_return_name}" "")
+  target_link_libraries(client.native-return-state client.native-return-state.appdll)
+endif ()
+
 if (NOT RISCV64)
   # TODO i#3544: Port tests to RISC-V 64
   tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)

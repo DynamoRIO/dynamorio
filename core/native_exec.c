@@ -354,6 +354,11 @@ back_from_native_common(dcontext_t *dcontext, priv_mcontext_t *mc, app_pc target
     /* clear pc */
     get_mcontext(dcontext)->pc = 0;
 
+#ifdef WINDOWS
+    /* Restore private thread state before dispatching on the runtime stack. */
+    swap_peb_pointer(dcontext, true /*to priv*/);
+#endif
+
     DOLOG(2, LOG_TOP, {
         byte *cur_esp;
         GET_STACK_PTR(cur_esp);
