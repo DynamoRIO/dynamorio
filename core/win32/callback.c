@@ -3564,11 +3564,37 @@ PVOID SystemArgument2)
  */
 static int apc_context_xsp_offs; /* updated by check_apc_context_offset() */
 #define APC_TARGET_XSP_OFFS IF_X64_ELSE(0x18, 0)
+
+#ifdef X64
+/* Special user-mode APCs can interrupt any instruction, including the runtime, its
+ * clients and the code cache.  Taking over there would run the APC on the stack that
+ * holds the kernel's APC frame and the interrupted runtime frames, and the kernel can
+ * refuse to continue such a frame while further special APCs are queued.  Such an APC
+ * is therefore dispatched in place and its interrupted context resumes in user mode.
+ * Only lock-free checks are safe here because the interrupted code may hold any
+ * runtime lock.
+ */
+static bool
+apc_interrupted_runtime(CONTEXT *cxt)
+{
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    app_pc pc = (app_pc)cxt->CXT_XIP;
+    if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT ||
+        pc == after_do_syscall_addr(dcontext) ||
+        pc == after_shared_syscall_addr(dcontext) ||
+        pc == (app_pc)nt_continue_dynamo_start)
+        return false;
+    return is_on_dstack(dcontext, (byte *)cxt->CXT_XSP) ||
+        is_on_initstack((byte *)cxt->CXT_XSP) || is_in_dynamo_dll(pc) ||
+        is_vmm_reserved_address(pc, 1, NULL, NULL);
+}
+#endif
+
 /* Remember that every path out of here must invoke the DR exit hook.
  * The normal return path will do so as the interception code has an
  * enter and exit hook around the call to this routine.
  */
-static after_intercept_action_t /* note return value will be ignored */
+static after_intercept_action_t
 intercept_apc(app_state_at_intercept_t *state)
 {
     CONTEXT *cxt;
@@ -3577,6 +3603,20 @@ intercept_apc(app_state_at_intercept_t *state)
      * We try to verify that at interception time via check_apc_context_offset().
      */
     cxt = ((CONTEXT *)(state->mc.xsp + apc_context_xsp_offs));
+#ifdef X64
+    if (apc_interrupted_runtime(cxt)) {
+        /* Call the routine as KiUserApcDispatcher does, then return to the interrupted
+         * pc through the interception's alternate exit.
+         */
+        typedef void (*apc_dispatch_t)(void *, void *, void *, CONTEXT *);
+        ((apc_dispatch_t)cxt->P4Home)((void *)cxt->P1Home, (void *)cxt->P2Home,
+                                      (void *)cxt->P3Home, cxt);
+        context_to_mcontext_new_thread(&state->mc, cxt);
+        state->mc.xsp = cxt->CXT_XSP - XSP_SZ;
+        *(ptr_uint_t *)state->mc.xsp = cxt->CXT_XIP;
+        return AFTER_INTERCEPT_LET_GO_ALT_DYN;
+    }
+#endif
 
     /* this might be a new thread */
     possible_new_thread_wait_for_dr_init(cxt);
@@ -7591,11 +7631,27 @@ callback_interception_init_start(void)
     check_apc_context_offset((byte *)KiUserApcDispatcher);
     after_apc_orig_pc = get_pc_after_call((byte *)KiUserApcDispatcher, NULL);
     apc_pc = pc;
+#ifdef X64
+    {
+        byte *apc_resume_slot = NULL;
+        pc = intercept_call(
+            pc, (byte *)KiUserApcDispatcher, intercept_apc, 0, /* no arg */
+            true, /* XXX: assume esp only until dstack check
+                   * separated! */
+            AFTER_INTERCEPT_DYNAMIC_DECISION, false /* cannot ignore on CTI */,
+            false /* handle CTI */, NULL, &apc_resume_slot);
+        /* A runtime context interrupted by an APC resumes by returning to its saved pc.
+         */
+        *(byte **)apc_resume_slot = pc;
+        *pc++ = RAW_OPCODE_ret;
+    }
+#else
     pc = intercept_call(pc, (byte *)KiUserApcDispatcher, intercept_apc, 0, /* no arg */
                         true, /* XXX: assume esp only until dstack check
                                * separated! */
                         AFTER_INTERCEPT_LET_GO, false /* cannot ignore on CTI */,
                         false /* handle CTI */, NULL, NULL);
+#endif
 
     /* The apc hook is how we catch new threads, make sure none sneaked in
      * while we were still initializing. Also the nodemgr etc. use the
