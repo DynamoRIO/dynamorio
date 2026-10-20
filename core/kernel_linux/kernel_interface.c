@@ -407,7 +407,7 @@ typedef struct {
     char value[KERNEL_ENV_VALUE_MAX];
 } kernel_env_t;
 
-/* The env table is not protected by any lock: it is only written during module
+/* The env table is not protected by any lock: it is only written during session
  * initialization (single-threaded) and read afterwards.
  */
 static kernel_env_t env_vars[KERNEL_ENV_MAX];

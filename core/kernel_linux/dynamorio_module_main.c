@@ -37,11 +37,14 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/capability.h>
+#include <linux/err.h>
 #include <linux/fs.h>
 #include <linux/miscdevice.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/preempt.h>
+#include <linux/slab.h>
+#include <linux/string.h>
 #include <linux/uaccess.h>
 
 #include "configure.h"
@@ -58,6 +61,9 @@ static ulong dr_heap_size = 256 * 1024 * 1024;
 module_param(dr_heap_size, ulong, 0444);
 MODULE_PARM_DESC(dr_heap_size, "DynamoRIO module heap size in bytes (read-only)");
 
+static DEFINE_MUTEX(session_lock);
+static enum { SESSION_NONE, SESSION_INITIALIZED, SESSION_FAILED } session_state;
+
 static long
 dynamorio_ioctl_init(const struct dynamorio_init_args __user *uargs)
 {
@@ -66,8 +72,50 @@ dynamorio_ioctl_init(const struct dynamorio_init_args __user *uargs)
         return -EFAULT;
     }
 
-    // TODO
-    return 0;
+    char *options = strndup_user((const char __user *)args.options, KERNEL_ENV_VALUE_MAX);
+    if (IS_ERR(options)) {
+        return PTR_ERR(options);
+    }
+
+    long ret;
+    mutex_lock(&session_lock);
+    if (session_state != SESSION_NONE) {
+        pr_err(session_state == SESSION_FAILED
+                   ? "A previous initialization failed; reload the module and retry\n"
+                   : "Session is already initialized; only one session can be active\n");
+        ret = -EBUSY;
+        goto out;
+    }
+
+    ret = kernel_setenv(DYNAMORIO_VAR_OPTIONS, options);
+    if (ret != 0) {
+        goto out;
+    }
+
+    /* Although session initialization is single-threaded (due to session_lock),
+     * dynamorio_app_init() acquires locks (options_lock, heap and vmarea locks, etc.)
+     * through the shared DR code.  Those locks record their owner using
+     * d_r_get_thread_id(), which returns the CPU ID plus one in kernel mode.
+     * Disabling preemption prevents migration from breaking lock ownership checks.
+     */
+    preempt_disable();
+    ret = dynamorio_app_init();
+    preempt_enable();
+    if (ret != 0) {
+        /* DR reports failure as FAILURE (1), but ioctl must return a negative errno. */
+        pr_err("dynamorio_app_init() failed: %ld\n", ret);
+        session_state = SESSION_FAILED;
+        ret = -EINVAL;
+        goto out;
+    }
+
+    session_state = SESSION_INITIALIZED;
+    pr_info("Session initialized\n");
+
+out:
+    mutex_unlock(&session_lock);
+    kfree(options);
+    return ret;
 }
 
 static long
@@ -106,34 +154,12 @@ dynamorio_module_init(void)
 
     ret = misc_register(&dynamorio_miscdevice);
     if (ret != 0) {
-        goto fail;
-    }
-
-    /* Although module initialization is single-threaded, dynamorio_app_init() acquires
-     * locks (options_lock, heap and vmarea locks, etc.) through the shared DR code. Those
-     * locks record their owner using d_r_get_thread_id(), which returns the CPU ID plus
-     * one in kernel mode. Disabling preemption prevents migration from breaking lock
-     * ownership checks.
-     */
-    preempt_disable();
-    ret = dynamorio_app_init();
-    preempt_enable();
-    if (ret != 0) {
-        /* DR reports failure as FAILURE (1), but the kernel only treats a negative return
-         * value as error: a positive return value would leave the module loaded.
-         */
-        pr_err("dynamorio_app_init() failed: %d\n", ret);
-        ret = -EINVAL;
-        goto fail;
+        kernel_module_exit();
+        return ret;
     }
 
     pr_info("Module started\n");
     return 0;
-
-fail:
-    misc_deregister(&dynamorio_miscdevice);
-    kernel_module_exit();
-    return ret;
 }
 
 static void __exit
