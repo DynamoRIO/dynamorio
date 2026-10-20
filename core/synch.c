@@ -43,6 +43,9 @@
 #include "fcache.h"     /* in_fcache() */
 #include "translate.h"
 #include "native_exec.h"
+#ifdef WINDOWS
+#    include "win32/os_private.h"
+#endif
 
 extern vm_area_vector_t *fcache_unit_areas; /* from fcache.c */
 
@@ -383,6 +386,28 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext, bool restor
     recreate_success_t success;
     bool native_translate = false;
     ASSERT(tsd->pending_synch_count >= 0);
+#ifdef WINDOWS
+    /* Expose application registers queued for a continuation or cache reset. */
+    if (spinmutex_trylock(tsd->synch_lock)) {
+        if (tsd->set_mcontext != NULL || tsd->set_context != NULL) {
+            if (tsd->set_mcontext != NULL) {
+                *mcontext = *tsd->set_mcontext;
+                if (mcontext->pc == (app_pc)get_reset_exit_stub(trec->dcontext))
+                    mcontext->pc = trec->dcontext->next_tag;
+            } else
+                context_to_mcontext(mcontext, (CONTEXT *)tsd->set_context);
+            if (mcontext->pc == (app_pc)nt_continue_dynamo_start)
+                mcontext->pc = trec->dcontext->asynch_target;
+            spinmutex_unlock(tsd->synch_lock);
+            return true;
+        }
+        spinmutex_unlock(tsd->synch_lock);
+    }
+    if (mcontext->pc == (app_pc)nt_continue_dynamo_start) {
+        mcontext->pc = trec->dcontext->asynch_target;
+        return true;
+    }
+#endif
     /* check if native thread */
     if (is_thread_currently_native(trec)) {
         /* running natively, no need to translate unless at do_syscall for an
@@ -536,6 +561,10 @@ at_safe_spot(thread_record_t *trec, priv_mcontext_t *mc,
 {
     bool safe = false;
 
+#ifdef WINDOWS
+    if (mc->pc == (app_pc)nt_continue_dynamo_start && !IS_CLIENT_THREAD(trec->dcontext))
+        return true;
+#endif
     if (waiting_at_safe_spot(trec, desired_state))
         return true;
 

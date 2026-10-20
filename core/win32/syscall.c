@@ -2030,6 +2030,14 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
     priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE thread_handle = (HANDLE)sys_param(dcontext, param_base, 0);
     CONTEXT *cxt = (CONTEXT *)sys_param(dcontext, param_base, 1);
+    /* Keep private interception changes out of the caller's static context buffer. */
+    CONTEXT requested_cxt;
+    /* Let the kernel validate unreadable application contexts without dereferencing them.
+     */
+    if (!d_r_safe_read(cxt, sizeof(requested_cxt), &requested_cxt))
+        return true;
+    if (!CONTEXT_DYNAMICALLY_LAID_OUT(requested_cxt.ContextFlags))
+        cxt = &requested_cxt;
     thread_id_t tid = thread_handle_to_tid(thread_handle);
     bool intercept = true;
     bool execute_syscall = true;
@@ -2069,10 +2077,9 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
                           THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
         ASSERT(synch_res == THREAD_SYNCH_RESULT_SUCCESS);
         copy_mcontext(&mcontext, mc);
-        if (!TESTALL(CONTEXT_CONTROL /*2 bits so ALL*/, cxt->ContextFlags)) {
-            /* app didn't request pc so we'd better get it now.
-             * XXX: this isn't transparent as we have to clobber
-             * fields in the app cxt: should restore in post-syscall.
+        if (!TESTALL(CONTEXT_DR_STATE_NO_YMM, cxt->ContextFlags)) {
+            /* NtContinue at a synchronization point resumes from runtime registers.
+             * Complete the application's context before changing its instruction pointer.
              */
             DWORD cxt_flags = CONTEXT_DR_STATE;
             size_t bufsz = nt_get_context_size(cxt_flags);
@@ -2081,26 +2088,49 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
             STATS_INC(num_app_setcontext_no_control);
             if (thread_get_context(tr, alt_cxt) &&
                 translate_context(tr, alt_cxt, true /*set memory*/)) {
-                LOG(THREAD, LOG_SYSCALLS, 2, "no CONTROL flag on original cxt:\n");
-                DOLOG(3, LOG_SYSCALLS, { dump_context_info(cxt, THREAD, true); });
-                cxt->ContextFlags |= CONTEXT_CONTROL;
-                cxt->CXT_XIP = alt_cxt->CXT_XIP;
-                cxt->CXT_XFLAGS = alt_cxt->CXT_XFLAGS;
-                cxt->CXT_XSP = alt_cxt->CXT_XSP;
-                cxt->CXT_XBP = alt_cxt->CXT_XBP;
-                IF_X64(ASSERT_NOT_IMPLEMENTED(false)); /* Rbp not part of CONTROL */
-                cxt->SegCs = alt_cxt->SegCs;
-                cxt->SegSs = alt_cxt->SegSs;
-                LOG(THREAD, LOG_SYSCALLS, 3, "changed cxt:\n");
-                DOLOG(3, LOG_SYSCALLS, { dump_context_info(cxt, THREAD, true); });
-                /* don't care about other regs -- if app didn't
-                 * specify CONTEXT_INTEGER that's fine
-                 */
+                if (!TESTALL(CONTEXT_CONTROL, cxt->ContextFlags)) {
+                    cxt->CXT_XIP = alt_cxt->CXT_XIP;
+                    cxt->CXT_XFLAGS = alt_cxt->CXT_XFLAGS;
+                    cxt->CXT_XSP = alt_cxt->CXT_XSP;
+#ifndef X64
+                    cxt->CXT_XBP = alt_cxt->CXT_XBP;
+#endif
+                    cxt->SegCs = alt_cxt->SegCs;
+                    cxt->SegSs = alt_cxt->SegSs;
+                    cxt->ContextFlags |= CONTEXT_CONTROL;
+                }
+                if (!TESTALL(CONTEXT_INTEGER, cxt->ContextFlags)) {
+                    cxt->CXT_XAX = alt_cxt->CXT_XAX;
+                    cxt->CXT_XBX = alt_cxt->CXT_XBX;
+                    cxt->CXT_XCX = alt_cxt->CXT_XCX;
+                    cxt->CXT_XDX = alt_cxt->CXT_XDX;
+                    cxt->CXT_XSI = alt_cxt->CXT_XSI;
+                    cxt->CXT_XDI = alt_cxt->CXT_XDI;
+#ifdef X64
+                    cxt->CXT_XBP = alt_cxt->CXT_XBP;
+                    cxt->R8 = alt_cxt->R8;
+                    cxt->R9 = alt_cxt->R9;
+                    cxt->R10 = alt_cxt->R10;
+                    cxt->R11 = alt_cxt->R11;
+                    cxt->R12 = alt_cxt->R12;
+                    cxt->R13 = alt_cxt->R13;
+                    cxt->R14 = alt_cxt->R14;
+                    cxt->R15 = alt_cxt->R15;
+#endif
+                    cxt->ContextFlags |= CONTEXT_INTEGER;
+                }
+                if (!TESTALL(CONTEXT_XMM_FLAG, cxt->ContextFlags) &&
+                    CONTEXT_PRESERVE_XMM) {
+#ifdef X64
+                    cxt->FltSave = alt_cxt->FltSave;
+                    cxt->MxCsr = alt_cxt->MxCsr;
+#else
+                    memcpy(cxt->ExtendedRegisters, alt_cxt->ExtendedRegisters,
+                           sizeof(cxt->ExtendedRegisters));
+#endif
+                    cxt->ContextFlags |= CONTEXT_XMM_FLAG;
+                }
             } else {
-                /* just don't intercept: could crash us in middle of mangled
-                 * sequence once we start translating there and treating them
-                 * as safe spots, but for now will be ok.
-                 */
                 intercept = false;
                 ASSERT_NOT_REACHED();
             }
@@ -2132,7 +2162,7 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
 #endif
             my_cxt = global_heap_alloc(CONTEXT_HEAP_SIZE(*my_cxt) HEAPACCT(ACCT_OTHER));
 #ifdef X64
-            cxt_alloc = (byte *)cxt;
+            cxt_alloc = (byte *)my_cxt;
             if (!ALIGNED(my_cxt, 16)) {
                 ASSERT(ALIGNED(my_cxt, 8));
                 my_cxt = (CONTEXT *)(((app_pc)my_cxt) + 8);
@@ -2149,7 +2179,7 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
              * XXX: if so and thread was waiting we have transparency violation
              */
             ASSERT_CURIOSITY(ok);
-            SET_RETURN_VAL(tr->dcontext, res);
+            SET_RETURN_VAL(dcontext, res);
             /* must wake up thread so it can go to nt_continue_dynamo_start */
             nt_thread_resume(tr->handle, NULL);
             execute_syscall = false;
@@ -3461,7 +3491,7 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
                 preserve_xmm_caller_saved()) {
                 /* PR 264138 */
                 memcpy(CXT_XMM(cxt, 0), CXT_XMM(xlate_cxt, 0),
-                       MCXT_TOTAL_SIMD_SLOTS_SIZE);
+                       MCXT_NUM_SIMD_SSE_AVX_SLOTS * XMM_REG_SIZE);
             }
             if (TESTALL(CONTEXT_YMM_FLAG, cxt->ContextFlags) &&
                 preserve_xmm_caller_saved()) {
