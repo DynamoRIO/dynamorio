@@ -80,8 +80,7 @@ dynamorio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
     switch (cmd) {
     case DYNAMORIO_IOCTL_INIT:
         return dynamorio_ioctl_init((const struct dynamorio_init_args __user *)arg);
-    default:
-        return -ENOTTY;
+    default: return -ENOTTY;
     }
 }
 
