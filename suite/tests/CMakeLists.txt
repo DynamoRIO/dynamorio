@@ -3322,6 +3322,12 @@ if (WIN32)
   append_link_flags(client.drwrap-test.appdll
     "/export:makes_tailcall /export:tailcall_test2 /export:tailcall_tail")
 endif (WIN32)
+if (WIN32 AND X86)
+  tobuild_ci(client.drwrap-return-boundary
+    client-interface/drwrap-return-boundary.c "" "" "")
+  use_DynamoRIO_extension(client.drwrap-return-boundary.dll drwrap)
+endif ()
+
 if (NOT ANDROID) # XXX i#1874: get working on Android
   tobuild_ci(client.drwrap-test-callconv client-interface/drwrap-test-callconv.cpp
     "" "" "")
