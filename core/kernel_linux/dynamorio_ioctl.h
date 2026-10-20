@@ -33,6 +33,10 @@
 #ifndef _DYNAMORIO_IOCTL_H_
 #define _DYNAMORIO_IOCTL_H_
 
+/* Interface between the DynamoRIO kernel module and its user-space control utility.
+ * This header is shared by both sides.
+ */
+
 #include <linux/ioctl.h>
 
 #define DYNAMORIO_DEVICE_NAME "dynamorio"

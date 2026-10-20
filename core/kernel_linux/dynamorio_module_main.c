@@ -61,9 +61,15 @@ static ulong dr_heap_size = 256 * 1024 * 1024;
 module_param(dr_heap_size, ulong, 0444);
 MODULE_PARM_DESC(dr_heap_size, "DynamoRIO module heap size in bytes (read-only)");
 
+/* Serializes session state changes, which includes setting the options environment
+ * variable and running dynamorio_app_init(): neither is safe to run concurrently.
+ */
 static DEFINE_MUTEX(session_lock);
 static enum { SESSION_NONE, SESSION_INITIALIZED, SESSION_FAILED } session_state;
 
+/* XXX i#8115: Define support for per-process options, including how to reuse the
+ * existing configuration infrastructure.
+ */
 static long
 dynamorio_ioctl_init(const struct dynamorio_init_args __user *uargs)
 {
@@ -92,11 +98,11 @@ dynamorio_ioctl_init(const struct dynamorio_init_args __user *uargs)
         goto out;
     }
 
-    /* Although session initialization is single-threaded (due to session_lock),
-     * dynamorio_app_init() acquires locks (options_lock, heap and vmarea locks, etc.)
-     * through the shared DR code.  Those locks record their owner using
-     * d_r_get_thread_id(), which returns the CPU ID plus one in kernel mode.
-     * Disabling preemption prevents migration from breaking lock ownership checks.
+    /* Although session initialization is serialized by session_lock, dynamorio_app_init()
+     * acquires locks (options_lock, heap and vmarea locks, etc.) through the shared DR
+     * code.  Those locks record their owner using d_r_get_thread_id(), which returns the
+     * CPU ID plus one in kernel mode.  Disabling preemption prevents migration from
+     * breaking lock ownership checks.
      */
     preempt_disable();
     ret = dynamorio_app_init();
@@ -128,6 +134,7 @@ dynamorio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
     switch (cmd) {
     case DYNAMORIO_IOCTL_INIT:
         return dynamorio_ioctl_init((const struct dynamorio_init_args __user *)arg);
+    /* TODO i#8021: Implement an exit ioctl that ends the tracing session. */
     default: return -ENOTTY;
     }
 }
