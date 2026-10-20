@@ -6741,6 +6741,15 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
             *mc = *get_mcontext(dcontext);
         else if (!priv_mcontext_to_dr_mcontext(dmc, get_mcontext(dcontext)))
             return false;
+#ifdef WINDOWS
+        /* Expose the real native syscall return site without changing dispatcher control
+         * flow. */
+        if (dmc != NULL && TESTANY(DR_MC_CONTROL, dmc->flags) &&
+            (dcontext->client_data->in_pre_syscall ||
+             dcontext->client_data->in_post_syscall) &&
+            dcontext->native_exec_postsyscall != NULL)
+            dmc->pc = dcontext->native_exec_postsyscall;
+#endif
         return true;
     }
 

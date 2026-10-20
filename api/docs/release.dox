@@ -219,6 +219,8 @@ compatibility changes:
    load and store records.
 
 Further non-compatibility-affecting changes include:
+ - Machine contexts in Windows native syscall callbacks report application
+   return sites.
  - Changed the types of `block_size`, `total_size`, `num_blocks`, to `int64_t`
    in dynamorio::drmemtrace::caching_device_t and its deriving classes.
  - Added support for reading a single drmemtrace trace file from stdin
