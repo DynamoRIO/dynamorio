@@ -184,6 +184,10 @@ static hashtable_t wrap_table;
  * hashtable_lock(&wrap_table)
  */
 static void *wrap_lock;
+/* Writers acquire wrap_lock before this lock.  Block instrumentation only
+ * acquires this lock and can progress while a client callback holds wrap_lock.
+ */
+static void *wrap_table_rwlock;
 
 static void
 wrap_entry_free(void *v)
@@ -219,7 +223,13 @@ typedef enum _drwrap_where_t {
     DRWRAP_WHERE_POST_FUNC
 } drwrap_where_t;
 
+typedef struct _pending_wrap_flush_t {
+    app_pc func;
+    struct _pending_wrap_flush_t *next;
+} pending_wrap_flush_t;
+
 typedef struct _per_thread_t {
+    pending_wrap_flush_t *pending_wrap_flushes;
     int wrap_level;
     /* record which wrap routine */
     app_pc last_wrap_func[MAX_WRAP_NESTING];
@@ -988,6 +998,7 @@ drwrap_init(void)
                       false /*!str_dup*/, false /*!synch*/, post_call_entry_free, NULL,
                       NULL);
     post_call_rwlock = dr_rwlock_create();
+    wrap_table_rwlock = dr_rwlock_create();
     /* This lock may have been set up by drwrap_set_global_flags() (in this thread). */
     if (wrap_lock == NULL)
         wrap_lock = dr_recurlock_create();
@@ -1071,6 +1082,7 @@ drwrap_exit(void)
     hashtable_delete(&wrap_table);
     hashtable_delete(&post_call_table);
     dr_rwlock_destroy(post_call_rwlock);
+    dr_rwlock_destroy(wrap_table_rwlock);
     dr_recurlock_destroy(wrap_lock);
     wrap_lock = NULL; /* For early drwrap_set_global_flags() after re-attach. */
     global_flags = 0; /* For re-attach. */
@@ -1119,6 +1131,11 @@ drwrap_thread_exit(void *drcontext)
     int i;
     for (i = 0; i < MAX_WRAP_NESTING; i++) {
         drwrap_free_user_data(drcontext, pt, i);
+    }
+    while (pt->pending_wrap_flushes != NULL) {
+        pending_wrap_flush_t *pending = pt->pending_wrap_flushes;
+        pt->pending_wrap_flushes = pending->next;
+        dr_thread_free(drcontext, pending, sizeof(*pending));
     }
     dr_thread_free(drcontext, pt, sizeof(*pt));
 }
@@ -1791,6 +1808,19 @@ drwrap_flush_func(app_pc func)
         ASSERT(false, "wrap update flush failed");
 }
 
+static void
+drwrap_flush_pending_wraps(void *drcontext, per_thread_t *pt)
+{
+    if (dr_recurlock_self_owns(wrap_lock))
+        return;
+    while (pt->pending_wrap_flushes != NULL) {
+        pending_wrap_flush_t *pending = pt->pending_wrap_flushes;
+        pt->pending_wrap_flushes = pending->next;
+        drwrap_flush_func(pending->func);
+        dr_thread_free(drcontext, pending, sizeof(*pending));
+    }
+}
+
 static app_pc
 get_retaddr_from_stack(reg_t xsp)
 {
@@ -2129,6 +2159,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(IF_RISCV64_ELSE(reg_t ra, reg
         }
         dr_recurlock_unlock(wrap_lock);
     }
+    drwrap_flush_pending_wraps(drcontext, pt);
     if (pt->skip[pt->wrap_level]) {
         /* drwrap_skip_call already adjusted the stack and pc */
         /* ensure we have DR_MC_ALL */
@@ -2266,6 +2297,7 @@ drwrap_after_callee_func(void *drcontext, per_thread_t *pt, dr_mcontext_t *mc, i
         drvector_init(&toflush, 10, false /*no synch: wrapcxt-local*/, NULL);
         if (TESTANY(DRWRAP_NO_FRILLS, global_flags))
             dr_recurlock_lock(wrap_lock);
+        dr_rwlock_write_lock(wrap_table_rwlock);
         for (i = 0; i < HASHTABLE_SIZE(wrap_table.table_bits); i++) {
             hash_entry_t *he, *next_he;
             for (he = wrap_table.table[i]; he != NULL; he = next_he) {
@@ -2296,6 +2328,7 @@ drwrap_after_callee_func(void *drcontext, per_thread_t *pt, dr_mcontext_t *mc, i
                 }
             }
         }
+        dr_rwlock_write_unlock(wrap_table_rwlock);
         do_flush = true;
         disabled_count = 0;
         if (TESTANY(DRWRAP_NO_FRILLS, global_flags))
@@ -2329,6 +2362,7 @@ drwrap_after_callee_func(void *drcontext, per_thread_t *pt, dr_mcontext_t *mc, i
         }
     } /* else, hopefully our unwind detection heuristics will */
 
+    drwrap_flush_pending_wraps(drcontext, pt);
     if (wrapcxt.is_redirect_requested) {
         NOTIFY(2, "%s: redirecting to " PFX "; stack at " PFX "\n", __FUNCTION__, mc->pc,
                mc->xsp);
@@ -2451,7 +2485,7 @@ drwrap_event_bb_insert_where(void *drcontext, void *tag, instrlist_t *bb, instr_
          * callee. By doing both we minimize flushes from the return point having already
          * been reached before the callee hook can mark it.
          */
-        dr_recurlock_lock(wrap_lock);
+        dr_rwlock_read_lock(wrap_table_rwlock);
         wrap = hashtable_lookup(&wrap_table, (void *)pc);
         if (wrap != NULL) {
             void *arg1 =
@@ -2474,7 +2508,7 @@ drwrap_event_bb_insert_where(void *drcontext, void *tag, instrlist_t *bb, instr_
                 opnd_create_reg(DR_REG_XSP) _IF_AARCHXX_OR_RISCV64(
                     opnd_create_reg(IF_AARCHXX_ELSE(DR_REG_LR, DR_REG_RA))));
         }
-        dr_recurlock_unlock(wrap_lock);
+        dr_rwlock_read_unlock(wrap_table_rwlock);
     }
 
     if (post_call_lookup_for_instru(instr_get_app_pc(inst) /*normalized*/)) {
@@ -2501,11 +2535,11 @@ drwrap_event_bb_insert_where(void *drcontext, void *tag, instrlist_t *bb, instr_
     if (instr_is_call(inst) && instr_is_app(inst) && opnd_is_pc(instr_get_target(inst))) {
         app_pc target = dr_app_pc_as_jump_target(instr_get_isa_mode(inst),
                                                  opnd_get_pc(instr_get_target(inst)));
-        dr_recurlock_lock(wrap_lock);
+        dr_rwlock_read_lock(wrap_table_rwlock);
         wrap = hashtable_lookup(&wrap_table, (void *)target);
         bool add_post = wrap != NULL && wrap->post_cb != NULL &&
             !TESTANY(DRWRAP_REPLACE_RETADDR, wrap->flags);
-        dr_recurlock_unlock(wrap_lock);
+        dr_rwlock_read_unlock(wrap_table_rwlock);
         if (add_post) {
             /* Add the pc-as-load-target (so *not* "pc"). */
             dr_rwlock_write_lock(post_call_rwlock);
@@ -2629,6 +2663,7 @@ drwrap_wrap_ex(app_pc func,
                uint flags)
 {
     wrap_entry_t *wrap_cur, *wrap_new;
+    bool needs_flush = false;
 
     /* allow one side to be NULL (i#562) */
     if (func == NULL || (pre_func_cb == NULL && post_func_cb == NULL))
@@ -2654,6 +2689,7 @@ drwrap_wrap_ex(app_pc func,
         wrap_new->callconv = DRWRAP_CALLCONV_DEFAULT;
 
     dr_recurlock_lock(wrap_lock);
+    dr_rwlock_write_lock(wrap_table_rwlock);
     wrap_cur = hashtable_lookup(&wrap_table, (void *)func);
     if (wrap_cur != NULL) {
         /* we add in reverse order (documented in interface) */
@@ -2669,12 +2705,14 @@ drwrap_wrap_ex(app_pc func,
                     e->user_data = user_data;
                     e->flags = flags;
                     dr_global_free(wrap_new, sizeof(*wrap_new));
+                    dr_rwlock_write_unlock(wrap_table_rwlock);
                     dr_recurlock_unlock(wrap_lock);
                     return true;
                 } /* else continue */
             } else if (TESTANY(DRWRAP_NO_FRILLS, global_flags) && e->enabled) {
                 /* more than one wrap of same address is not allowed */
                 dr_global_free(wrap_new, sizeof(*wrap_new));
+                dr_rwlock_write_unlock(wrap_table_rwlock);
                 dr_recurlock_unlock(wrap_lock);
                 return false;
             }
@@ -2686,18 +2724,28 @@ drwrap_wrap_ex(app_pc func,
         }
         wrap_new->next = wrap_cur;
         hashtable_add_replace(&wrap_table, (void *)func, (void *)wrap_new);
+        dr_rwlock_write_unlock(wrap_table_rwlock);
     } else {
         wrap_new->next = NULL;
         hashtable_add(&wrap_table, (void *)func, (void *)wrap_new);
+        dr_rwlock_write_unlock(wrap_table_rwlock);
         /* XXX: we're assuming void* tag == pc */
-        if (dr_fragment_exists_at(dr_get_current_drcontext(), func)) {
-            dr_atomic_add_stat_return_sum(&drwrap_stats.flush_count, 1);
-            /* we do not guarantee faster than a lazy flush */
-            if (!dr_unlink_flush_region(func, 1))
-                ASSERT(false, "wrap update flush failed");
-        }
+        needs_flush = dr_fragment_exists_at(dr_get_current_drcontext(), func);
     }
     dr_recurlock_unlock(wrap_lock);
+    if (needs_flush) {
+        if (dr_recurlock_self_owns(wrap_lock)) {
+            /* Finish synchronizing before the outer callback returns to application code.
+             */
+            void *drcontext = dr_get_current_drcontext();
+            per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+            pending_wrap_flush_t *pending = dr_thread_alloc(drcontext, sizeof(*pending));
+            pending->func = func;
+            pending->next = pt->pending_wrap_flushes;
+            pt->pending_wrap_flushes = pending;
+        } else
+            drwrap_flush_func(func);
+    }
     return true;
 }
 

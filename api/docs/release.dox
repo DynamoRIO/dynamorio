@@ -219,6 +219,8 @@ compatibility changes:
    load and store records.
 
 Further non-compatibility-affecting changes include:
+ - drwrap() callbacks can wait for block translation or register late wraps
+   without deadlocking.
  - Changed the types of `block_size`, `total_size`, `num_blocks`, to `int64_t`
    in dynamorio::drmemtrace::caching_device_t and its deriving classes.
  - Added support for reading a single drmemtrace trace file from stdin

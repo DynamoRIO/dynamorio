@@ -3307,6 +3307,16 @@ if (X86 OR AARCH64)
   endif ()
 endif ()
 
+if (WIN32 AND X86)
+  set(client.drwrap-lock-progress_timeout 15)
+  set(client.drwrap-lock-progress-late_timeout 15)
+  tobuild_ci(client.drwrap-lock-progress client-interface/drwrap-lock-progress.c "" "" "")
+  torunonly_ci(client.drwrap-lock-progress-late client.drwrap-lock-progress
+    client.drwrap-lock-progress.dll client-interface/drwrap-lock-progress.c "" "" "late")
+  use_DynamoRIO_extension(client.drwrap-lock-progress.dll drmgr)
+  use_DynamoRIO_extension(client.drwrap-lock-progress.dll drwrap)
+endif ()
+
 if (NOT RISCV64)
   # TODO i#3544: Port tests to RISC-V 64
   tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
