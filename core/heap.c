@@ -6054,3 +6054,74 @@ release_landing_pad_mem(void)
 }
 #endif /* WINDOWS */
 /*----------------------------------------------------------------------------*/
+
+#if defined(STANDALONE_UNIT_TEST) && defined(WINDOWS)
+#    include "win32/ntdll.h"
+#    include "win32/os_private.h"
+
+static volatile bool context_heap_locked;
+static volatile bool context_heap_release;
+
+static void
+context_heap_owner(void *arg)
+{
+    acquire_recursive_lock(&heap_unit_lock);
+    context_heap_locked = true;
+    while (!context_heap_release)
+        os_thread_yield();
+    release_recursive_lock(&heap_unit_lock);
+    nt_terminate_thread(NT_CURRENT_THREAD, 0);
+}
+
+void
+unit_test_suspended_context_storage(dcontext_t *dc)
+{
+    thread_units_t *tu = ((thread_heap_t *)dc->heap_field)->local_heap;
+    thread_record_t target = { 0 };
+    priv_mcontext_t mc;
+    void *allocations[512];
+    uint count = 0;
+    size_t size = nt_get_context_size(CONTEXT_DR_STATE);
+    size_t needed = ALIGN_FORWARD(size, HEAP_ALIGNMENT) + HEADER_SIZE;
+    os_thread_init(dc, NULL);
+
+    /* Fill existing heap units so a context allocation would need the unit lock. */
+    for (;;) {
+        bool room = false;
+        for (heap_unit_t *unit = tu->top_unit; unit != NULL; unit = unit->next_local) {
+            if ((size_t)(unit->reserved_end_pc - unit->cur_pc) >= needed)
+                room = true;
+        }
+        for (heap_pc free = tu->free_list[BLOCK_TYPES - 1]; free != NULL;
+             free = *(heap_pc *)free) {
+            if (VARIABLE_SIZE(free) >= size)
+                room = true;
+        }
+        if (!room)
+            break;
+        EXPECT(count < BUFFER_SIZE_ELEMENTS(allocations), true);
+        allocations[count++] = heap_alloc(dc, size HEAPACCT(ACCT_OTHER));
+    }
+    target.dcontext = dc;
+    target.handle = our_create_thread(NT_CURRENT_PROCESS, IF_X64_ELSE(true, false),
+                                      (void *)context_heap_owner, NULL, NULL, 0, 131072,
+                                      65536, false, &target.id);
+    EXPECT(target.handle != NULL, true);
+    while (!context_heap_locked)
+        os_thread_yield();
+    EXPECT(os_thread_suspend(&target), true);
+
+    /* Both operations must complete while the suspended owner retains the heap lock. */
+    EXPECT(thread_get_mcontext(&target, &mc), true);
+    EXPECT(thread_set_mcontext(&target, &mc), true);
+    context_heap_release = true;
+    EXPECT(os_thread_resume(&target), true);
+    EXPECT(nt_wait_event_with_timeout(target.handle, NULL), WAIT_SIGNALED);
+    close_handle(target.handle);
+    for (uint i = 0; i < count; ++i)
+        heap_free(dc, allocations[i], size HEAPACCT(ACCT_OTHER));
+    os_thread_exit(dc, false);
+    dc->os_field = NULL;
+    print_file(STDERR, "suspended context operations completed\n");
+}
+#endif

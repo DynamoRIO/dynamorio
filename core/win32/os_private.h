@@ -60,6 +60,8 @@ typedef struct _os_thread_data_t {
     byte *stack_base;
     byte *stack_top;
     bool teb_stack_no_longer_valid;
+    char *context_buffer;
+    size_t context_buffer_size;
 } os_thread_data_t;
 
 /* pc values delimiting dynamo dll image */

@@ -1669,6 +1669,10 @@ os_thread_init(dcontext_t *dcontext, void *os_data)
     os_thread_data_t *ostd = (os_thread_data_t *)heap_alloc(
         dcontext, sizeof(os_thread_data_t) HEAPACCT(ACCT_OTHER));
     dcontext->os_field = (void *)ostd;
+    /* Reserve context storage before this thread can be suspended for synchronization. */
+    ostd->context_buffer_size = nt_get_context_size(CONTEXT_DR_STATE);
+    ostd->context_buffer =
+        (char *)heap_alloc(dcontext, ostd->context_buffer_size HEAPACCT(ACCT_THREAD_MGT));
     /* init ostd fields here */
     ostd->stack_base = NULL;
     ostd->stack_top = NULL;
@@ -1703,6 +1707,8 @@ os_thread_exit(dcontext_t *dcontext, bool other_thread)
 #    ifdef DEBUG
     /* for non-debug we do fast exit path and don't free local heap */
     /* clean up ostd fields here */
+    heap_free(dcontext, ostd->context_buffer,
+              ostd->context_buffer_size HEAPACCT(ACCT_THREAD_MGT));
     heap_free(dcontext, ostd, sizeof(os_thread_data_t) HEAPACCT(ACCT_OTHER));
 #    endif
 }
@@ -5161,33 +5167,31 @@ os_thread_terminate(thread_record_t *tr)
 bool
 thread_get_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
 {
-    DWORD cxt_flags = CONTEXT_DR_STATE;
-    size_t bufsz = nt_get_context_size(cxt_flags);
-    char *buf = (char *)heap_alloc(tr->dcontext, bufsz HEAPACCT(ACCT_THREAD_MGT));
-    CONTEXT *cxt = nt_initialize_context(buf, bufsz, cxt_flags);
+    /* Thread control is serialized by the runtime's synchronization locks. */
+    os_thread_data_t *ostd = (os_thread_data_t *)tr->dcontext->os_field;
+    CONTEXT *cxt = nt_initialize_context(ostd->context_buffer, ostd->context_buffer_size,
+                                         CONTEXT_DR_STATE);
     bool res = false;
     if (thread_get_context(tr, cxt)) {
         context_to_mcontext(mc, cxt);
         res = true;
     }
-    heap_free(tr->dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
     return res;
 }
 
 bool
 thread_set_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
 {
-    DWORD cxt_flags = CONTEXT_DR_STATE;
-    size_t bufsz = nt_get_context_size(cxt_flags);
-    char *buf = (char *)heap_alloc(tr->dcontext, bufsz HEAPACCT(ACCT_THREAD_MGT));
-    CONTEXT *cxt = nt_initialize_context(buf, bufsz, cxt_flags);
+    /* Thread control is serialized by the runtime's synchronization locks. */
+    os_thread_data_t *ostd = (os_thread_data_t *)tr->dcontext->os_field;
+    CONTEXT *cxt = nt_initialize_context(ostd->context_buffer, ostd->context_buffer_size,
+                                         CONTEXT_DR_STATE);
     /* i#1033: get the context from the dst thread to make sure
      * segments are correctly set.
      */
     thread_get_context(tr, cxt);
     mcontext_to_context(cxt, mc, false /* !set_cur_seg */);
     bool res = thread_set_context(tr, cxt);
-    heap_free(tr->dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
     return res;
 }
 
