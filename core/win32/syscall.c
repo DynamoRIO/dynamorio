@@ -80,7 +80,7 @@ app_pc KiFastSystemCallRet_address = NULL;
 /* i#1230: we support a limited number of extra interceptions.
  * We add extra slots to all of the arrays.
  */
-#define CLIENT_EXTRA_TRAMPOLINE 12
+#define CLIENT_EXTRA_TRAMPOLINE 2048
 #define TRAMPOLINE_MAX (SYS_MAX + CLIENT_EXTRA_TRAMPOLINE)
 /* no lock needed since only supported during dr_client_main */
 static uint syscall_extra_idx;
@@ -867,8 +867,17 @@ init_syscall_trampolines(void)
             fpo_adjustment = &syscall_trampoline_gbop_fpo_offset[i];
 #endif
 
+            HMODULE provider = h;
             syscall_trampoline_hook_pc[i] =
-                (app_pc)d_r_get_proc_address(h, syscall_names[i]);
+                (app_pc)d_r_get_proc_address(provider, syscall_names[i]);
+            if (syscall_trampoline_hook_pc[i] == NULL) {
+                provider = (HMODULE)get_module_handle(L"win32u.dll");
+                if (provider != NULL)
+                    syscall_trampoline_hook_pc[i] =
+                        (app_pc)d_r_get_proc_address(provider, syscall_names[i]);
+            }
+            if (syscall_trampoline_hook_pc[i] == NULL)
+                continue;
             syscall_trampoline_pc[i] =
                 /* XXX: would like to use static references to entry points -- yet,
                  * set of those we care about varies dynamically by platform, and
@@ -4779,7 +4788,10 @@ dr_syscall_intercept_natively(const char *name, int sysnum, int num_args, int wo
         if (intercept_native_syscall(i) && strcmp(syscall_names[i], name) == 0)
             return true;
     }
-    if (d_r_get_proc_address(get_ntdll_base(), name) == NULL)
+    module_handle_t provider = get_ntdll_base();
+    if (d_r_get_proc_address(provider, name) == NULL)
+        provider = get_module_handle(L"win32u.dll");
+    if (provider == NULL || d_r_get_proc_address(provider, name) == NULL)
         return false;
     /* no lock needed since only supported during dr_client_main */
     idx = SYS_MAX + syscall_extra_idx;

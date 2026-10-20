@@ -336,7 +336,7 @@ os_rename_file_in_directory(DR_PARAM_IN HANDLE rootdir, const wchar_t *orig_name
 /* in callback.c ***************************************************/
 
 /* i#2138: on Win10-x64 extra space is needed for dr_syscall_intercept_natively. */
-#define INTERCEPTION_CODE_SIZE IF_X64_ELSE(10 * 4096, 8 * 4096)
+#define INTERCEPTION_CODE_SIZE (512 * 4096)
 
 /* see notes in intercept_new_thread() about these values */
 #define THREAD_START_ADDR IF_X64_ELSE(CXT_XCX, CXT_XAX)
