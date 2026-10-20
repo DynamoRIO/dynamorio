@@ -590,6 +590,12 @@ alignment_test(void)
      */
     free(p);
     /* Check some other values. */
+    p = aligned_alloc(4, 15);
+    ASSERT(ALIGNED(p, 4));
+    free(p);
+    p = aligned_alloc(8, 15);
+    ASSERT(ALIGNED(p, 8));
+    free(p);
     p = aligned_alloc(16, 253);
     ASSERT(ALIGNED(p, 16));
     free(p);

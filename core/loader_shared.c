@@ -920,11 +920,16 @@ loader_allow_unsafe_static_behavior(void)
 
 /* For heap redirection we need to provide alignment beyond what DR's allocator
  * provides: DR does just pointer-sized alignment (HEAP_ALIGNMENT).
- * We store two header values: the size and the offset from the DR allocation.
- * To avoid the offset when we don't need extra alignment, we set a bit at
- * the top of the size indicating whether we have a second header.
+ * We store up to 3 header values: the DR allocation size, the offset from the DR
+ * allocation, and the requested size.
+ * To avoid the extra headers for smaller allocations, we use bits at the top of the
+ * first header to indicate whether the other headers are present.
+ * We also optimize for STANDARD_HEAP_ALIGNMENT=16 with a special shift bit
+ * to avoid the extra headers when we just need to know if the 8-aligned
+ * DR alloc is at 16 or off by 8.
  */
-#define REDIRECT_DOUBLE_HEADER (1ULL << IF_X64_ELSE(63, 31))
+#define REDIRECT_HEADER_SHIFTED (1ULL << IF_X64_ELSE(63, 31))
+#define REDIRECT_EXTRA_HEADERS (1ULL << IF_X64_ELSE(62, 30))
 
 /* This routine allocates memory from DR's global memory pool.  Unlike
  * dr_global_alloc(), however, we store the size of the allocation in
@@ -936,13 +941,22 @@ void *
 redirect_aligned_alloc(size_t alignment, size_t size)
 {
     void *mem;
-    /* We need extra space to store the size and alignment bit, possible second
-     * header, and ensure the returned pointer is aligned.
+    if (!IS_POWER_OF_2(alignment)) {
+        CLIENT_ASSERT(false, "malloc failed: non-power-of-2 alignment not supported");
+        return NULL;
+    }
+    size_t header_size = sizeof(size_t);
+    if (alignment < HEAP_ALIGNMENT)
+        alignment = HEAP_ALIGNMENT;
+    else if (alignment > STANDARD_HEAP_ALIGNMENT)
+        header_size += 2 * sizeof(size_t);
+    /* We always need extra space to store the size and to ensure the returned pointer is
+     * aligned. We try to avoid needing the other two headers.
      */
-    size_t alloc_size = size + 2 * sizeof(size_t) + alignment - HEAP_ALIGNMENT;
-    /* Our header is the size itself, with the top bit stolen to indicate alignment. */
-    if (TESTANY(REDIRECT_DOUBLE_HEADER, alloc_size)) {
-        /* We do not support the top bit being set as that conflicts with the bit in
+    size_t alloc_size = size + header_size + alignment - HEAP_ALIGNMENT;
+    /* Our header is the size itself, with the top bits stolen. */
+    if (TESTANY(REDIRECT_HEADER_SHIFTED | REDIRECT_EXTRA_HEADERS, alloc_size)) {
+        /* We do not support the top bits being set as that conflicts with the bits in
          * our header.  This should be fine as all sytem allocators we have seen also
          * have size limits that are this size (for 32-bit) or even smaller.
          */
@@ -954,13 +968,24 @@ redirect_aligned_alloc(size_t alignment, size_t size)
         CLIENT_ASSERT(false, "malloc failed: out of memory");
         return NULL;
     }
-    ptr_uint_t res = ALIGN_FORWARD((ptr_uint_t)mem + sizeof(size_t), alignment);
+    ptr_uint_t res = ALIGN_FORWARD((ptr_uint_t)mem + header_size, alignment);
     size_t header = alloc_size;
-    if (res == (ptr_uint_t)mem + sizeof(size_t)) {
-        /* Already aligned so no need for a second header. */
-    } else {
-        header |= REDIRECT_DOUBLE_HEADER;
+    if (alignment > STANDARD_HEAP_ALIGNMENT) {
+        header |= REDIRECT_EXTRA_HEADERS;
+        /* The 2nd header is the offset to the start of the alloc. */
         *((size_t *)(res - 2 * sizeof(size_t))) = res - (ptr_uint_t)mem;
+        /* The 3rd header is the requested size, to support user queries for that.
+         * Only Windows really has that interface, though we also use this for our
+         * current redirect_realloc. Should we rewrite redirect_realloc to not
+         * need this and make this Windows-only?
+         */
+        *((size_t *)(res - 3 * sizeof(size_t))) = size;
+    } else if (alignment == STANDARD_HEAP_ALIGNMENT) {
+        if (res == (ptr_uint_t)mem + sizeof(size_t)) {
+            /* Already aligned. */
+        } else {
+            header |= REDIRECT_HEADER_SHIFTED;
+        }
     }
     *((size_t *)(res - sizeof(size_t))) = header;
     ASSERT(res + size <= (ptr_uint_t)mem + alloc_size);
@@ -977,15 +1002,32 @@ redirect_malloc(size_t size)
  * wrapped-malloc-layer pointer from a client/privlib.
  */
 static inline size_t
-redirect_malloc_size_and_start(void *mem, DR_PARAM_OUT void **start_out)
+redirect_malloc_size_and_start(void *mem, DR_PARAM_OUT void **start_out,
+                               DR_PARAM_OUT size_t *requested_size)
 {
     size_t *size_ptr = (size_t *)((ptr_uint_t)mem - sizeof(size_t));
     size_t size = *((size_t *)size_ptr);
     void *start = size_ptr;
-    if (TESTANY(REDIRECT_DOUBLE_HEADER, size)) {
+    if (TESTANY(REDIRECT_EXTRA_HEADERS, size)) {
         size_t offset = *(size_t *)((ptr_uint_t)mem - 2 * sizeof(size_t));
         start = (void *)((ptr_uint_t)mem - offset);
-        size &= ~REDIRECT_DOUBLE_HEADER;
+        if (requested_size != NULL)
+            *requested_size = *(size_t *)((ptr_uint_t)mem - 3 * sizeof(size_t));
+        size &= ~REDIRECT_EXTRA_HEADERS;
+    } else if (TESTANY(REDIRECT_HEADER_SHIFTED, size)) {
+        start = size_ptr - 1;
+        size &= ~REDIRECT_HEADER_SHIFTED;
+        if (requested_size != NULL) {
+            /* Subtract the header. */
+            *requested_size = size - sizeof(size_t);
+            if (start != mem) {
+                /* Subtract the extra size for alignment. */
+                *requested_size -= sizeof(size_t);
+            }
+        }
+    } else if (requested_size != NULL) {
+        /* With no extra alignment, just subtract the header size. */
+        *requested_size = size - sizeof(size_t);
     }
     if (start_out != NULL)
         *start_out = start;
@@ -997,14 +1039,9 @@ redirect_malloc_requested_size(void *mem)
 {
     if (mem == NULL)
         return 0;
-    void *start;
-    size_t size = redirect_malloc_size_and_start(mem, &start);
-    size -= sizeof(size_t);
-    if (start != mem) {
-        /* Subtract the extra size for alignment. */
-        size -= sizeof(size_t);
-    }
-    return size;
+    size_t requested_size;
+    redirect_malloc_size_and_start(mem, NULL, &requested_size);
+    return requested_size;
 }
 
 /* This routine allocates memory from DR's global memory pool. Unlike
@@ -1060,7 +1097,7 @@ redirect_free(void *mem)
     if (mem == NULL)
         return;
     void *start;
-    size_t size = redirect_malloc_size_and_start(mem, &start);
+    size_t size = redirect_malloc_size_and_start(mem, &start, NULL);
     global_heap_free(start, size HEAPACCT(ACCT_LIBDUP));
 }
 
