@@ -399,7 +399,7 @@ remove_module_info_vector(module_info_vector_t *v, app_pc start, app_pc end)
     d_r_mutex_lock(&v->lock);
     /* linear search, we don't have a find_predecessor on module_info_t's to get i */
     for (i = 0; i < v->length; i++) {
-        if (start == v->buf[i].start && end == v->buf[i].end) {
+        if (start == v->buf[i].start && end >= v->buf[i].end) {
             exports_table = v->buf[i].exports_table;
             exports_size = v->buf[i].exports_size;
             break;
@@ -428,6 +428,36 @@ remove_module_info_vector(module_info_vector_t *v, app_pc start, app_pc end)
 
     DOLOG(3, LOG_SYMBOLS, { print_module_list(v); });
 }
+
+#    ifdef STANDALONE_UNIT_TEST
+void
+unit_test_extended_image_unload(void)
+{
+    module_info_vector_t v = { NULL, 0, 0, INIT_LOCK_FREE(process_module_vector_lock) };
+    byte *image = global_heap_alloc(PAGE_SIZE * 8 HEAPACCT(ACCT_OTHER));
+    /* Track adjacent images, with an extra hotpatch page in the middle allocation. */
+    module_info_create(&v, image, image + PAGE_SIZE, "first", 1);
+    module_info_create(&v, image + PAGE_SIZE * 2, image + PAGE_SIZE * 4, "patched", 1);
+    module_info_create(&v, image + PAGE_SIZE * 6, image + PAGE_SIZE * 8, "last", 1);
+    remove_module_info_vector(&v, image + PAGE_SIZE * 2, image + PAGE_SIZE * 5);
+    d_r_mutex_lock(&v.lock);
+    EXPECT(v.length, 2);
+    EXPECT(lookup_module_info(&v, image + PAGE_SIZE * 3) == NULL, true);
+    EXPECT(lookup_module_info(&v, image) != NULL, true);
+    EXPECT(lookup_module_info(&v, image + PAGE_SIZE * 6) != NULL, true);
+    d_r_mutex_unlock(&v.lock);
+    /* Reloading the image must not collide with a stale export-table entry. */
+    module_info_create(&v, image + PAGE_SIZE * 2, image + PAGE_SIZE * 4, "reloaded", 1);
+    remove_module_info_vector(&v, image + PAGE_SIZE * 2, image + PAGE_SIZE * 4);
+    remove_module_info_vector(&v, image, image + PAGE_SIZE);
+    remove_module_info_vector(&v, image + PAGE_SIZE * 6, image + PAGE_SIZE * 8);
+    EXPECT(v.length, 0);
+    global_heap_free(v.buf, v.capacity * sizeof(*v.buf) HEAPACCT(ACCT_SYMBOLS));
+    DELETE_LOCK(v.lock);
+    global_heap_free(image, PAGE_SIZE * 8 HEAPACCT(ACCT_OTHER));
+    print_file(STDERR, "extended image unload complete\n");
+}
+#    endif
 
 /* remove internal bookkeeping for unloaded module
    returns 1 if the range is a known module, and that is removed,
