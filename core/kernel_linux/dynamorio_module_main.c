@@ -36,11 +36,17 @@
  */
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
+#include <linux/capability.h>
+#include <linux/fs.h>
+#include <linux/miscdevice.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/preempt.h>
+#include <linux/uaccess.h>
 
 #include "configure.h"
 #include "dr_interface.h"
+#include "dynamorio_ioctl.h"
 #include "globals_shared.h"
 #include "kernel_interface.h"
 
@@ -52,15 +58,44 @@ static ulong dr_heap_size = 256 * 1024 * 1024;
 module_param(dr_heap_size, ulong, 0444);
 MODULE_PARM_DESC(dr_heap_size, "DynamoRIO module heap size in bytes (read-only)");
 
-/* Initial support accepts global options at module load time only.
- * XXX i#8115: Define support for dynamic updates and per-process options, including
- * how to reuse the existing configuration infrastructure.
- */
-static char options[KERNEL_ENV_VALUE_MAX];
-module_param_string(options, options, sizeof(options), 0444);
-MODULE_PARM_DESC(
-    options,
-    "DynamoRIO runtime options string (read-only), e.g., \"-loglevel 2 -log_to_stderr\"");
+static long
+dynamorio_ioctl_init(const struct dynamorio_init_args __user *uargs)
+{
+    struct dynamorio_init_args args;
+    if (copy_from_user(&args, uargs, sizeof(args))) {
+        return -EFAULT;
+    }
+
+    // TODO
+    return 0;
+}
+
+static long
+dynamorio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+    if (!capable(CAP_SYS_ADMIN)) {
+        return -EPERM;
+    }
+
+    switch (cmd) {
+    case DYNAMORIO_IOCTL_INIT:
+        return dynamorio_ioctl_init((const struct dynamorio_init_args __user *)arg);
+    default:
+        return -ENOTTY;
+    }
+}
+
+static const struct file_operations dynamorio_fops = {
+    .owner = THIS_MODULE,
+    .unlocked_ioctl = dynamorio_ioctl,
+};
+
+static struct miscdevice dynamorio_miscdevice = {
+    .minor = MISC_DYNAMIC_MINOR,
+    .name = DYNAMORIO_DEVICE_NAME,
+    .fops = &dynamorio_fops,
+    .mode = 0600,
+};
 
 static int __init
 dynamorio_module_init(void)
@@ -70,7 +105,7 @@ dynamorio_module_init(void)
         return ret;
     }
 
-    ret = kernel_setenv(DYNAMORIO_VAR_OPTIONS, options);
+    ret = misc_register(&dynamorio_miscdevice);
     if (ret != 0) {
         goto fail;
     }
@@ -97,6 +132,7 @@ dynamorio_module_init(void)
     return 0;
 
 fail:
+    misc_deregister(&dynamorio_miscdevice);
     kernel_module_exit();
     return ret;
 }
@@ -105,6 +141,7 @@ static void __exit
 dynamorio_module_exit(void)
 {
     /* TODO i#8021: Call dynamorio_app_exit() here when it's ported. */
+    misc_deregister(&dynamorio_miscdevice);
     kernel_module_exit();
     pr_info("Module exited\n");
 }
