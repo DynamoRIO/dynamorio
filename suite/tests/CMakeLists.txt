@@ -3307,6 +3307,10 @@ if (X86 OR AARCH64)
   endif ()
 endif ()
 
+if (WIN32 AND X86 AND X64)
+  tobuild_ci(client.special-apc client-interface/special-apc.c "" "" "")
+endif ()
+
 if (NOT RISCV64)
   # TODO i#3544: Port tests to RISC-V 64
   tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
@@ -7384,4 +7388,18 @@ if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64)
     code_api|tool.drcov.eintr
     code_api|tool.histogram.offline
     code_api|tool.record_filter_bycore_multi)
+endif ()
+
+# Bound regressions that exercise thread synchronization.
+foreach (regression_test client.special-apc)
+  foreach (test_prefix "" "code_api|")
+    if (TEST "${test_prefix}${regression_test}")
+      set_tests_properties("${test_prefix}${regression_test}" PROPERTIES TIMEOUT 30)
+    endif ()
+  endforeach ()
+endforeach ()
+
+if (TEST "code_api|client.special-apc")
+  set_tests_properties("code_api|client.special-apc" PROPERTIES
+    SKIP_REGULAR_EXPRESSION "special APCs unavailable")
 endif ()
