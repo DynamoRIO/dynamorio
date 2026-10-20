@@ -173,7 +173,9 @@ d_r_dispatch(dcontext_t *dcontext)
      */
     do {
         if (is_in_dynamo_dll(dcontext->next_tag) ||
-            dcontext->next_tag == BACK_TO_NATIVE_AFTER_SYSCALL || dcontext->go_native) {
+            dcontext->next_tag == BACK_TO_NATIVE_AFTER_SYSCALL || dcontext->go_native ||
+            (dcontext->native_gateway_return != NULL &&
+             dcontext->next_tag == dcontext->native_gateway_return)) {
             handle_special_tag(dcontext);
         }
         /* Neither hotp_only nor thin_client should have any fragment
@@ -252,6 +254,8 @@ d_r_dispatch(dcontext_t *dcontext)
 bool
 is_stopping_point(dcontext_t *dcontext, app_pc arg_pc)
 {
+    if (arg_pc != NULL && arg_pc == dcontext->native_gateway_return)
+        return true;
 #ifdef DR_APP_EXPORTS
     /* TODO i#4720: Find and update other comparisons to function pointers. */
     app_pc pc = PC_AS_JMP_TGT(dr_get_isa_mode(dcontext), arg_pc);
@@ -673,6 +677,9 @@ dispatch_enter_native(dcontext_t *dcontext)
         (fcache_enter_func_t)convert_data_to_function(PC_AS_JMP_TGT(
             DEFAULT_ISA_MODE, (app_pc)get_fcache_enter_gonative_routine(dcontext)));
     set_last_exit(dcontext, (linkstub_t *)get_native_exec_linkstub());
+    /* Complete bounded gateway execution before returning to a native CLR caller. */
+    if (dcontext->next_tag == dcontext->native_gateway_return)
+        dcontext->native_gateway_return = NULL;
     ASSERT_OWN_NO_LOCKS();
     if (dcontext->next_tag == BACK_TO_NATIVE_AFTER_SYSCALL) {
         /* we're simply going native again after an intercepted syscall,

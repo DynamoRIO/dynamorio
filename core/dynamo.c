@@ -1782,6 +1782,7 @@ initialize_dynamo_context(dcontext_t *dcontext)
     dcontext->whereami = DR_WHERE_APP;
     dcontext->next_tag = NULL;
     dcontext->native_exec_postsyscall = NULL;
+    dcontext->native_gateway_return = NULL;
     memset(dcontext->native_retstack, 0, sizeof(dcontext->native_retstack));
     dcontext->native_retstack_cur = 0;
     dcontext->isa_mode = DEFAULT_ISA_MODE;
@@ -2839,6 +2840,24 @@ dr_app_cleanup(void)
     return dynamorio_app_exit();
 }
 
+#    if defined(WINDOWS) && defined(X86)
+/* Rejoin an active session without changing process-wide attachment state. */
+void
+dr_app_retakeover_helper(priv_mcontext_t *mc)
+{
+    dcontext_t *dcontext;
+    if (!dynamo_initialized || !dynamo_started || doing_detach)
+        return;
+    dcontext = get_thread_private_dcontext();
+    if (dcontext == NULL || dcontext->whereami != DR_WHERE_APP)
+        return;
+    dcontext->native_gateway_return = (app_pc)mc->xcx;
+    mc->xsp += DYNAMO_START_XSP_ADJUST;
+    native_module_callout(mc, mc->pc);
+}
+
+#    endif
+
 /* Called by dr_app_start in arch-specific assembly file */
 void
 dr_app_start_helper(priv_mcontext_t *mc)
@@ -2985,7 +3004,7 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
 #ifdef PTRACE_TAKEOVER_SUPPORTED
     /* Use ptrace() to remove blocked SUSPEND_SIGNAL (SIGILL on Linux) from the
      * mask of every thread (except the caller), so that the standard
-     * signal‑based takeover can work on such threads.
+     * signalâ€‘based takeover can work on such threads.
      */
     if (DYNAMO_OPTION(attach_unmask_suspend_signal)) {
         bool are_all_unmasked = os_unmask_suspend_signal_via_ptrace(d_r_get_thread_id());

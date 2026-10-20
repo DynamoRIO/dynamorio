@@ -927,6 +927,7 @@ struct _dcontext_t {
      * d_r_dispatch() for native_exec syscalls
      */
     app_pc native_exec_postsyscall;
+    app_pc native_gateway_return;
 
     /* Stack of app return addresses and stack locations of callsites where we
      * called into a native module.

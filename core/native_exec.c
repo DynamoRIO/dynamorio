@@ -99,10 +99,20 @@ is_dr_native_pc(app_pc pc)
     return false;
 }
 
+DECLARE_NEVERPROT_VAR(static bool (*app_native_code_query)(app_pc), NULL);
+
+/* The host owns the query and its lock-free CLR code map for the session's lifetime. */
+void
+dr_app_native_code_query(bool (*query)(app_pc))
+{
+    app_native_code_query = query;
+}
+
 bool
 is_native_pc(app_pc pc)
 {
-    return vmvector_overlap(native_exec_areas, pc, pc + 1);
+    return vmvector_overlap(native_exec_areas, pc, pc + 1) ||
+        (app_native_code_query != NULL && app_native_code_query(pc));
 }
 
 bool

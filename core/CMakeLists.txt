@@ -806,7 +806,7 @@ else (UNIX)
     "${dynamorio_link_flags} /export:dynamo_auto_start /export:dynamorio_app_take_over")
   if (APP_EXPORTS)
     set(dynamorio_link_flags
-      "${dynamorio_link_flags} /export:dr_app_start /export:dr_app_take_over")
+      "${dynamorio_link_flags} /export:dr_app_start /export:dr_app_take_over /export:dr_app_retakeover /export:dr_app_native_code_query")
     set(dynamorio_link_flags
       "${dynamorio_link_flags} /export:dr_app_running_under_dynamorio")
   endif (APP_EXPORTS)

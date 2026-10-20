@@ -151,6 +151,9 @@ DECL_EXTERN(native_module_callout)
 DECL_EXTERN(d_r_dispatch)
 #ifdef DR_APP_EXPORTS
 DECL_EXTERN(dr_app_start_helper)
+#ifdef WINDOWS
+DECL_EXTERN(dr_app_retakeover_helper)
+#endif
 #endif
 DECL_EXTERN(dynamo_process_exit)
 DECL_EXTERN(dynamo_thread_exit)
@@ -478,6 +481,19 @@ GLOBAL_LABEL(dr_app_start:)
         add      REG_XSP, PRIV_MCXT_SIZE + FRAME_ALIGNMENT - ARG_SZ
         ret
         END_FUNC(dr_app_start)
+
+#ifdef WINDOWS
+        DECLARE_EXPORTED_FUNC(dr_app_retakeover)
+GLOBAL_LABEL(dr_app_retakeover:)
+        ADD_STACK_ALIGNMENT_NOSEH
+        PUSH_PRIV_MCXT(PTRSZ [FRAME_ALIGNMENT - ARG_SZ + REG_XSP -\
+                       PUSH_PRIV_MCXT_PRE_PC_SHIFT])
+        lea      REG_XAX, [REG_XSP]
+        CALLC1(GLOBAL_REF(dr_app_retakeover_helper), REG_XAX)
+        add      REG_XSP, PRIV_MCXT_SIZE + FRAME_ALIGNMENT - ARG_SZ
+        ret
+        END_FUNC(dr_app_retakeover)
+#endif
 
 /*
  * dr_app_take_over - For the client interface, we'll export 'dr_app_take_over'
