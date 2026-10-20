@@ -60,6 +60,8 @@ unit_test_opnd_shared(void);
 #ifdef WINDOWS
 void
 unit_test_drwinapi(void);
+void
+unit_test_attach_hook_exit(dcontext_t *dc);
 #endif
 void
 unit_test_asm(dcontext_t *dc);
@@ -83,6 +85,13 @@ main(int argc, char **argv, char **envp)
      * 0 for success.  If we want to be able to call each test independently, it
      * might be worth looking into gtest, which already does this.
      */
+#ifdef WINDOWS
+    if (argc == 2 && strcmp(argv[1], "attach-hook-exit") == 0) {
+        unit_test_attach_hook_exit(dc);
+        standalone_exit();
+        return 0;
+    }
+#endif
     unit_test_io();
     unit_test_native_exec();
 #ifdef UNIX

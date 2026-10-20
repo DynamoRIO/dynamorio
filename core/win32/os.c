@@ -2533,6 +2533,28 @@ os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid, bool 
         NTSTATUS res;
         takeover_data_t *data;
         void *already_taken_over;
+        uint hook_retries;
+        /* A thread natively running a hook's landing pad or interception code is not at
+         * an application pc, and one that is not waiting for initialization leaves that
+         * code within a few instructions: let it reach application code first.
+         */
+        for (hook_retries = 0; !suspended && hook_retries < 100 &&
+             is_part_of_interception((app_pc)cxt->CXT_XIP) &&
+             !new_thread_is_waiting_for_dr_init(tid, (app_pc)cxt->CXT_XIP);
+             hook_retries++) {
+            if (!nt_thread_resume(hthread, NULL))
+                break;
+            os_thread_sleep(1);
+            if (!nt_thread_suspend(hthread, NULL)) {
+                heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
+                return false;
+            }
+            if (!NT_SUCCESS(nt_get_context(hthread, cxt))) {
+                nt_thread_resume(hthread, NULL);
+                heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
+                return false;
+            }
+        }
         /* i#1443: avoid self-interp on threads that are waiting at our hook
          * for DR to initialize.  We have to check two things: first, whether
          * the context is in DR; second, whether flagged (to cover the thread
@@ -9612,3 +9634,95 @@ os_page_size(void)
     /* XXX i#1680: Determine page size using system call. */
     return 4096;
 }
+
+#ifdef STANDALONE_UNIT_TEST
+static volatile LONG hook_state[3];
+static volatile bool hook_finish;
+static void (*hook_stub)(volatile LONG *);
+static HANDLE hook_thread;
+
+static void
+hook_test_worker(void *arg)
+{
+    hook_stub(hook_state);
+    /* Stay in the runtime image so takeover can stop at its existing guard. */
+    while (!hook_finish)
+        ;
+    nt_terminate_thread(NT_CURRENT_THREAD, 0);
+}
+
+static void
+hook_test_release(void *arg)
+{
+    /* Release the hook only after takeover has suspended its owner. */
+    for (;;) {
+        int previous;
+        EXPECT(nt_thread_suspend(hook_thread, &previous), true);
+        if (previous > 0)
+            hook_state[1] = 1;
+        EXPECT(nt_thread_resume(hook_thread, NULL), true);
+        if (previous > 0)
+            break;
+        os_thread_sleep(1);
+    }
+    nt_terminate_thread(NT_CURRENT_THREAD, 0);
+}
+
+void
+unit_test_attach_hook_exit(dcontext_t *dc)
+{
+    const byte instructions[] = {
+#    ifdef X64
+        0x48, 0x89, 0xca, /* mov rdx, rcx */
+#    else
+        0x8b, 0x54, 0x24, 0x04, /* mov edx, [esp+4] */
+#    endif
+        0xc7, 0x02, 1,    0,    0, 0,    /* mov [edx], 1: entered */
+        0x83, 0x7a, 0x04, 0x00,          /* cmp [edx+4], 0 */
+        0x74, 0xfa,                      /* je loop */
+        0xc7, 0x42, 0x08, 1,    0, 0, 0, /* mov [edx+8], 1: exited */
+        0xc3
+    };
+    byte *code = heap_mmap(PAGE_SIZE, MEMPROT_READ | MEMPROT_WRITE | MEMPROT_EXEC,
+                           VMM_SPECIAL_MMAP | VMM_REACHABLE);
+    HANDLE releaser;
+    LARGE_INTEGER timeout;
+    /* Standalone initialization does not register the runtime image bounds. */
+    app_pc saved_end = dynamo_dll_end;
+    IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *)get_dynamorio_dll_start();
+    IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *)((byte *)dos + dos->e_lfanew);
+    dynamo_dll_end = dynamo_dll_start + nt->OptionalHeader.SizeOfImage;
+    EXPECT(is_in_dynamo_dll((app_pc)hook_test_worker), true);
+    memcpy(code, instructions, sizeof(instructions));
+    vmvector_add(landing_pad_areas, code, code + PAGE_SIZE, NULL);
+    EXPECT(is_part_of_interception(code), true);
+    hook_stub = (void (*)(volatile LONG *))code;
+    hook_thread = our_create_thread(NT_CURRENT_PROCESS, IF_X64_ELSE(true, false),
+                                    (void *)hook_test_worker, NULL, NULL, 0, 131072,
+                                    65536, false, NULL);
+    EXPECT(hook_thread != NULL, true);
+    while (!hook_state[0])
+        os_thread_sleep(1);
+    releaser = our_create_thread(NT_CURRENT_PROCESS, IF_X64_ELSE(true, false),
+                                 (void *)hook_test_release, NULL, NULL, 0, 131072, 65536,
+                                 false, NULL);
+    EXPECT(releaser != NULL, true);
+
+    /* The real takeover path must let the native hook finish before returning. */
+    EXPECT(
+        os_take_over_thread(dc, hook_thread, thread_id_from_handle(hook_thread), false),
+        true);
+    EXPECT(hook_state[2], 1);
+    hook_finish = true;
+    EXPECT(nt_thread_resume(hook_thread, NULL), true);
+    timeout.QuadPart = -5 * 1000 * 10000LL;
+    EXPECT(nt_wait_event_with_timeout(hook_thread, &timeout), WAIT_SIGNALED);
+    EXPECT(nt_wait_event_with_timeout(releaser, &timeout), WAIT_SIGNALED);
+    close_handle(hook_thread);
+    close_handle(releaser);
+    EXPECT(vmvector_remove(landing_pad_areas, code, code + PAGE_SIZE), true);
+    heap_munmap(code, PAGE_SIZE, VMM_SPECIAL_MMAP | VMM_REACHABLE);
+    dynamo_dll_end = saved_end;
+    print_file(STDERR, "takeover allowed the native interception hook to finish\n");
+}
+#endif
