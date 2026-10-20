@@ -356,6 +356,9 @@ get_drmarker(void);
 #define UNDER_DYN_HACK 0xab
 #define IS_UNDER_DYN_HACK(val) ((byte)(val) == UNDER_DYN_HACK)
 
+after_intercept_action_t
+syscall_while_native(app_state_at_intercept_t *state);
+
 byte *
 intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */, intercept_function_t prof_func,
                           void *callee_arg, after_intercept_action_t action_after,

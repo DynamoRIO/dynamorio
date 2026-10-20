@@ -894,6 +894,7 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
                     after_intercept_action_t action_after, byte *alternate_after,
                     byte **alt_after_tgt_p DR_PARAM_OUT)
 {
+    instr_t *original_code = NULL;
     instrlist_t ilist;
     instr_t *inst, *push_start, *push_start2 = NULL;
     instr_t *decision = NULL, *alt_decision = NULL, *alt_after = NULL;
@@ -994,6 +995,34 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
         /* use d_r_initstack to avoid any assumptions about app xsp */
         /* first check if we are already on it */
         APP(&ilist, no_local_stack);
+        if (callee == syscall_while_native) {
+            /* The handler ignores this thread, which may hold a lock the init stack's
+             * owner awaits. */
+            original_code = INSTR_CREATE_label(dcontext);
+#ifdef X64
+            APP(&ilist,
+                INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XCX),
+                                     OPND_CREATE_INTPTR((ptr_uint_t)win32_pid)));
+            APP(&ilist,
+                INSTR_CREATE_xchg(dcontext,
+                                  opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL,
+                                                            0, PID_TIB_OFFSET, OPSZ_PTR),
+                                  opnd_create_reg(REG_XCX)));
+#else
+            APP(&ilist,
+                INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XCX),
+                                    opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL,
+                                                              0, PID_TIB_OFFSET,
+                                                              OPSZ_PTR)));
+            APP(&ilist,
+                INSTR_CREATE_mov_st(dcontext,
+                                    opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL,
+                                                              0, PID_TIB_OFFSET,
+                                                              OPSZ_PTR),
+                                    OPND_CREATE_INTPTR(win32_pid)));
+#endif
+            APP(&ilist, INSTR_CREATE_jmp(dcontext, opnd_create_instr(original_code)));
+        }
         APP(&ilist,
             INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XCX),
                                  OPND_CREATE_INTPTR((ptr_int_t)d_r_initstack)));
@@ -1317,6 +1346,9 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
         insert_let_go_cleanup(dcontext, pc, &ilist, decision, assume_xsp,
                               assume_not_on_dstack, action_after);
     }
+
+    if (original_code != NULL)
+        APP(&ilist, original_code);
 
     /* Now encode the instructions, first setting the offset fields. */
     len = 0;
@@ -8650,3 +8682,61 @@ emit_takeover_code(byte *pc)
         AFTER_INTERCEPT_LET_GO /* won't return anyway */, NULL, NULL);
     return pc;
 }
+
+#ifdef STANDALONE_UNIT_TEST
+static int (*no_context_stub)(void);
+static HANDLE no_context_done;
+
+static void
+no_context_worker(void *arg)
+{
+    EXPECT(get_thread_private_dcontext() == NULL, true);
+    EXPECT(no_context_stub(), 123);
+    EXPECT(get_process_id(), win32_pid);
+    nt_set_event(no_context_done);
+    nt_terminate_thread(NT_CURRENT_THREAD, 0);
+}
+
+void
+unit_test_native_syscall_no_context(dcontext_t *dc)
+{
+    byte *code = heap_mmap(PAGE_SIZE, MEMPROT_READ | MEMPROT_WRITE | MEMPROT_EXEC,
+                           VMM_SPECIAL_MMAP | VMM_REACHABLE);
+    byte *stack =
+        heap_mmap(DYNAMORIO_STACK_SIZE, MEMPROT_READ | MEMPROT_WRITE, VMM_STACK);
+    byte *saved_initstack = d_r_initstack;
+    byte *end;
+    HANDLE worker;
+    LARGE_INTEGER timeout;
+    dr_set_isa_mode(dc, DEFAULT_ISA_MODE, NULL);
+    d_r_initstack = stack + DYNAMORIO_STACK_SIZE;
+    no_context_done = nt_create_event(SynchronizationEvent);
+    EXPECT(no_context_done != NULL, true);
+    /* Emit the same entry path used by native syscall wrappers. */
+    end = emit_intercept_code(dc, code, syscall_while_native, NULL, false, false,
+                              AFTER_INTERCEPT_LET_GO, NULL, NULL);
+    *end++ = 0xb8; /* mov eax, 123; ret */
+    *(int *)end = 123;
+    end += sizeof(int);
+    *end++ = 0xc3;
+    EXPECT(end <= code + PAGE_SIZE, true);
+    no_context_stub = (int (*)(void))code;
+
+    /* The stack owner waits for a native thread that has no runtime TLS context. */
+    initstack_mutex.lock_requests = 1;
+    worker = our_create_thread(NT_CURRENT_PROCESS, IF_X64_ELSE(true, false),
+                               (void *)no_context_worker, NULL, NULL, 0, 131072, 65536,
+                               false, NULL);
+    EXPECT(worker != NULL, true);
+    timeout.QuadPart = -5 * 1000 * 10000LL;
+    EXPECT(nt_wait_event_with_timeout(no_context_done, &timeout), WAIT_SIGNALED);
+    initstack_mutex.lock_requests = 0;
+    EXPECT(nt_wait_event_with_timeout(worker, &timeout), WAIT_SIGNALED);
+    close_handle(worker);
+    nt_close_event(no_context_done);
+    d_r_initstack = saved_initstack;
+    heap_munmap(stack, DYNAMORIO_STACK_SIZE, VMM_STACK);
+    heap_munmap(code, PAGE_SIZE, VMM_SPECIAL_MMAP | VMM_REACHABLE);
+    print_file(STDERR, "native thread bypassed the occupied initialization stack\n");
+}
+#endif
