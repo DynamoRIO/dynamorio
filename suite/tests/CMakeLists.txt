@@ -3308,6 +3308,7 @@ if (X86 OR AARCH64)
 endif ()
 
 if (WIN32 AND X86 AND X64)
+  set(client.special-apc_timeout 30)
   tobuild_ci(client.special-apc client-interface/special-apc.c "" "" "")
 endif ()
 
@@ -7389,15 +7390,6 @@ if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64)
     code_api|tool.histogram.offline
     code_api|tool.record_filter_bycore_multi)
 endif ()
-
-# Bound regressions that exercise thread synchronization.
-foreach (regression_test client.special-apc)
-  foreach (test_prefix "" "code_api|")
-    if (TEST "${test_prefix}${regression_test}")
-      set_tests_properties("${test_prefix}${regression_test}" PROPERTIES TIMEOUT 30)
-    endif ()
-  endforeach ()
-endforeach ()
 
 if (TEST "code_api|client.special-apc")
   set_tests_properties("code_api|client.special-apc" PROPERTIES

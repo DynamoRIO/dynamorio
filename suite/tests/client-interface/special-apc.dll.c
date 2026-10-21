@@ -32,6 +32,7 @@
 
 #include "dr_api.h"
 #include "client_tools.h"
+#include <xmmintrin.h>
 
 typedef BOOL(WINAPI *queue_apc_t)(PAPCFUNC, HANDLE, ULONG_PTR, ULONG);
 static queue_apc_t queue_apc;
@@ -42,6 +43,7 @@ static bool checked;
 static void CALLBACK
 apc(ULONG_PTR nested)
 {
+    _mm_setcsr(0x1f80);
     InterlockedIncrement(&callbacks);
     if (nested)
         ASSERT(queue_apc(apc, GetCurrentThread(), 0, 1));
@@ -52,12 +54,16 @@ interrupt_runtime_stack(void)
 {
     // A clean call runs on the runtime stack, with live client frames below the APC.
     volatile ptr_uint_t canary = (ptr_uint_t)0x12345678;
+    uint saved_mxcsr = _mm_getcsr();
+    _mm_setcsr(0x7f80);
     ASSERT(!dr_using_app_state(dr_get_current_drcontext()));
     for (int i = 0; i < 32; ++i) {
         ASSERT(queue_apc(apc, GetCurrentThread(), 1, 1));
         ASSERT(callbacks == 2 * (i + 1));
         ASSERT(canary == (ptr_uint_t)0x12345678);
+        ASSERT(_mm_getcsr() == 0x7f80);
     }
+    _mm_setcsr(saved_mxcsr);
     checked = true;
 }
 

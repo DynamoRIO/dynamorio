@@ -3612,6 +3612,11 @@ intercept_apc(app_state_at_intercept_t *state)
         ((apc_dispatch_t)cxt->P4Home)((void *)cxt->P1Home, (void *)cxt->P2Home,
                                       (void *)cxt->P3Home, cxt);
         context_to_mcontext_new_thread(&state->mc, cxt);
+        /* The alternate exit restores registers but does not restore x87 or MXCSR. */
+        if (TESTALL(CONTEXT_FLOATING_POINT, cxt->ContextFlags)) {
+            cxt->FltSave.MxCsr = cxt->MxCsr;
+            proc_restore_fpstate((byte *)&cxt->FltSave);
+        }
         state->mc.xsp = cxt->CXT_XSP - XSP_SZ;
         *(ptr_uint_t *)state->mc.xsp = cxt->CXT_XIP;
         return AFTER_INTERCEPT_LET_GO_ALT_DYN;
