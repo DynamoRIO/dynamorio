@@ -46,10 +46,10 @@
 #include <vector>
 
 #ifdef HAS_ZLIB
-#    include "common/gzip_ostream.h"
+#    include "gzip_ostream.h"
 #endif
 #ifdef HAS_ZIP
-#    include "common/zipfile_ostream.h"
+#    include "zipfile_ostream.h"
 #endif
 #include "memref.h"
 #include "memtrace_stream.h"

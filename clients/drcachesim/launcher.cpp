@@ -57,8 +57,8 @@
 #include "dr_config.h"
 #include "dr_frontend.h"
 #include "droption.h"
-#include "common/options.h"
-#include "common/utils.h"
+#include "options.h"
+#include "utils.h"
 
 using namespace ::dynamorio::drmemtrace;
 using ::dynamorio::droption::droption_parser_t;
