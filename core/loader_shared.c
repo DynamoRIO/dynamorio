@@ -954,6 +954,8 @@ redirect_aligned_alloc(size_t alignment, size_t size)
      * aligned. We try to avoid needing the other two headers.
      */
     size_t alloc_size = size + header_size + alignment - HEAP_ALIGNMENT;
+    if (header_size < HEAP_ALIGNMENT)
+        alloc_size += HEAP_ALIGNMENT - header_size;
     /* Our header is the size itself, with the top bits stolen. */
     if (TESTANY(REDIRECT_HEADER_SHIFTED | REDIRECT_EXTRA_HEADERS, alloc_size)) {
         /* We do not support the top bits being set as that conflicts with the bits in
@@ -981,7 +983,7 @@ redirect_aligned_alloc(size_t alignment, size_t size)
          */
         *((size_t *)(res - 3 * sizeof(size_t))) = size;
     } else if (alignment == STANDARD_HEAP_ALIGNMENT) {
-        if (res == (ptr_uint_t)mem + sizeof(size_t)) {
+        if (res == (ptr_uint_t)mem + header_size) {
             /* Already aligned. */
         } else {
             header |= REDIRECT_HEADER_SHIFTED;
@@ -1018,16 +1020,20 @@ redirect_malloc_size_and_start(void *mem, DR_PARAM_OUT void **start_out,
         start = size_ptr - 1;
         size &= ~REDIRECT_HEADER_SHIFTED;
         if (requested_size != NULL) {
-            /* Subtract the header. */
-            *requested_size = size - sizeof(size_t);
-            if (start != mem) {
-                /* Subtract the extra size for alignment. */
-                *requested_size -= sizeof(size_t);
-            }
+            /* Subtract the header and extra size for alignment. */
+            *requested_size = size - 2 * sizeof(size_t);
         }
     } else if (requested_size != NULL) {
-        /* With no extra alignment, just subtract the header size. */
-        *requested_size = size - sizeof(size_t);
+        /* This is either HEAP_ALIGNMENT-aligned or STANDARD_HEAP_ALIGNMENT-aligned. */
+        size_t min_if_standard =
+            sizeof(size_t) + STANDARD_HEAP_ALIGNMENT - HEAP_ALIGNMENT;
+        if (size >= min_if_standard) {
+            /* Subtract the header and alignment. */
+            *requested_size = size - min_if_standard;
+        } else {
+            /* With no extra alignment, just subtract the header size. */
+            *requested_size = size - sizeof(size_t);
+        }
     }
     if (start_out != NULL)
         *start_out = start;
@@ -1155,5 +1161,56 @@ redirect_strdup_initonly(const char *str)
     CLIENT_ASSERT(!disallow_unsafe_static_calls || !dynamo_initialized || dynamo_exited,
                   "strdup invoked mid-run when disallowed by DR_DISALLOW_UNSAFE_STATIC");
     return redirect_strdup(str);
+}
+#endif
+
+#ifdef STANDALONE_UNIT_TEST
+void
+unit_test_redirect_heap(void)
+{
+    print_file(STDERR, "testing heap redirection routines\n");
+
+    void *p = redirect_malloc(HEAP_ALIGNMENT - 2);
+    ASSERT(ALIGNED(p, STANDARD_HEAP_ALIGNMENT));
+    ASSERT(redirect_malloc_requested_size(p) == HEAP_ALIGNMENT - 2);
+    p = redirect_realloc(p, HEAP_ALIGNMENT * 2 + 1);
+    ASSERT(ALIGNED(p, STANDARD_HEAP_ALIGNMENT));
+    ASSERT(redirect_malloc_requested_size(p) == HEAP_ALIGNMENT * 2 + 1);
+    redirect_free(p);
+
+    p = redirect_malloc(HEAP_ALIGNMENT);
+    ASSERT(ALIGNED(p, STANDARD_HEAP_ALIGNMENT));
+    ASSERT(redirect_malloc_requested_size(p) == HEAP_ALIGNMENT);
+    redirect_free(p);
+
+    p = redirect_malloc(STANDARD_HEAP_ALIGNMENT);
+    ASSERT(ALIGNED(p, STANDARD_HEAP_ALIGNMENT));
+    ASSERT(redirect_malloc_requested_size(p) == STANDARD_HEAP_ALIGNMENT);
+    redirect_free(p);
+
+    p = redirect_malloc(STANDARD_HEAP_ALIGNMENT * 2);
+    ASSERT(ALIGNED(p, STANDARD_HEAP_ALIGNMENT));
+    ASSERT(redirect_malloc_requested_size(p) == STANDARD_HEAP_ALIGNMENT * 2);
+    redirect_free(p);
+
+    p = redirect_aligned_alloc(STANDARD_HEAP_ALIGNMENT * 2, HEAP_ALIGNMENT - 2);
+    ASSERT(ALIGNED(p, STANDARD_HEAP_ALIGNMENT * 2));
+    ASSERT(redirect_malloc_requested_size(p) == HEAP_ALIGNMENT - 2);
+    redirect_free(p);
+
+    p = redirect_aligned_alloc(STANDARD_HEAP_ALIGNMENT * 2, HEAP_ALIGNMENT);
+    ASSERT(ALIGNED(p, STANDARD_HEAP_ALIGNMENT * 2));
+    ASSERT(redirect_malloc_requested_size(p) == HEAP_ALIGNMENT);
+    redirect_free(p);
+
+    p = redirect_aligned_alloc(STANDARD_HEAP_ALIGNMENT * 2, STANDARD_HEAP_ALIGNMENT);
+    ASSERT(ALIGNED(p, STANDARD_HEAP_ALIGNMENT * 2));
+    ASSERT(redirect_malloc_requested_size(p) == STANDARD_HEAP_ALIGNMENT);
+    redirect_free(p);
+
+    p = redirect_aligned_alloc(STANDARD_HEAP_ALIGNMENT * 4, STANDARD_HEAP_ALIGNMENT + 2);
+    ASSERT(ALIGNED(p, STANDARD_HEAP_ALIGNMENT * 4));
+    ASSERT(redirect_malloc_requested_size(p) == STANDARD_HEAP_ALIGNMENT + 2);
+    redirect_free(p);
 }
 #endif
