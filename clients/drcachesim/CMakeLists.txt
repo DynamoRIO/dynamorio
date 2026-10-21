@@ -885,6 +885,17 @@ add_subdirectory(tools/external)
 # of these executables.
 
 if (BUILD_TESTS)
+  if (UNIX)
+    add_executable(tool.drcachesim.ipc_reader tests/ipc_reader_test.cpp
+      reader/ipc_reader.cpp common/named_pipe_unix.cpp)
+    target_link_libraries(tool.drcachesim.ipc_reader drmemtrace_analyzer test_helpers)
+    add_win32_flags(tool.drcachesim.ipc_reader ON)
+    add_test(NAME tool.drcachesim.ipc_reader COMMAND tool.drcachesim.ipc_reader)
+    set_tests_properties(tool.drcachesim.ipc_reader PROPERTIES
+      TIMEOUT 15 LABELS RUN_IN_RELEASE
+      FAIL_REGULAR_EXPRESSION "Invalid trace entry type")
+  endif ()
+
   add_executable(tool.reuse_distance.unit_tests tests/reuse_distance_test.cpp)
   target_link_libraries(tool.reuse_distance.unit_tests drmemtrace_reuse_distance
     drmemtrace_static test_helpers)
