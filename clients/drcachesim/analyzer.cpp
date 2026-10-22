@@ -66,7 +66,7 @@
 #ifdef HAS_SNAPPY
 #    include "reader/snappy_file_reader.h"
 #endif
-#include "common/utils.h"
+#include "utils.h"
 
 #undef VPRINT
 // Make printing available in release build by not using ifdef DEBUG here.
