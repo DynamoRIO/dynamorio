@@ -35,7 +35,7 @@
 #ifndef _LZ4_FILE_READER_H_
 #define _LZ4_FILE_READER_H_
 
-#include "common/lz4_istream.h"
+#include "lz4_istream.h"
 #include "file_reader.h"
 #include "record_file_reader.h"
 

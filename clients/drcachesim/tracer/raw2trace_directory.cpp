@@ -63,21 +63,21 @@
 #include "trace_entry.h"
 #include "utils.h"
 #ifdef HAS_ZLIB
-#    include "common/gzip_istream.h"
-#    include "common/gzip_ostream.h"
-#    include "common/zlib_istream.h"
+#    include "gzip_istream.h"
+#    include "gzip_ostream.h"
+#    include "zlib_istream.h"
 #    include "compressed_file_reader.h"
 #    ifdef HAS_ZIP
-#        include "common/zipfile_ostream.h"
+#        include "zipfile_ostream.h"
 #        include "zipfile_file_reader.h"
 #    endif
 #endif
 #ifdef HAS_SNAPPY
-#    include "common/snappy_istream.h"
+#    include "snappy_istream.h"
 #endif
 #ifdef HAS_LZ4
-#    include "common/lz4_istream.h"
-#    include "common/lz4_ostream.h"
+#    include "lz4_istream.h"
+#    include "lz4_ostream.h"
 #endif
 
 namespace dynamorio {

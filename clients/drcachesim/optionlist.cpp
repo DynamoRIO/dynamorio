@@ -33,7 +33,7 @@
 /* optionlist: generates usage info for documentation */
 
 #include <iostream>
-#include "common/options.h"
+#include "options.h"
 
 using ::dynamorio::droption::droption_parser_t;
 using ::dynamorio::droption::DROPTION_SCOPE_ALL;

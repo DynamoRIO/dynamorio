@@ -134,6 +134,7 @@ static bool printed_gdb_commands = false;
 /* Global so visible in release build gdb */
 static char gdb_priv_cmds[4096];
 static size_t gdb_priv_cmds_sofar;
+static ELF_AUXV_TYPE *auxv_base;
 #endif
 
 /* pointing to the I/O data structure in privately loaded libc,
@@ -1515,6 +1516,19 @@ redirect____tls_get_addr(void);
 #endif
 
 #ifdef LINUX
+static unsigned long
+redirect_getauxval(unsigned long type)
+{
+    ELF_AUXV_TYPE *auxv = auxv_base;
+    if (auxv == NULL)
+        return 0;
+    for (; auxv->a_type != AT_NULL; auxv++) {
+        if (auxv->a_type == type)
+            return auxv->a_un.a_val;
+    }
+    return 0;
+}
+
 static int
 redirect_dl_iterate_phdr(int (*callback)(struct dl_phdr_info *info, size_t size,
                                          void *data),
@@ -1675,6 +1689,7 @@ static const redirect_import_t redirect_imports[] = {
     /* i#1717: C++ exceptions call this */
     { "dl_iterate_phdr", (app_pc)redirect_dl_iterate_phdr,
       (app_pc)redirect_dl_iterate_phdr_app },
+    { "getauxval", (app_pc)redirect_getauxval },
 #    if defined(ARM) && !defined(ANDROID)
     /* i#1717: C++ exceptions call this on ARM Linux */
     { "__gnu_Unwind_Find_exidx", (app_pc)redirect___gnu_Unwind_Find_exidx },
@@ -1781,6 +1796,8 @@ privload_setup_auxv(char **envp, app_pc map, ptr_int_t delta, app_pc interp_map,
     while (*envp != NULL)
         envp++;
     auxv = (ELF_AUXV_TYPE *)(envp + 1);
+    /* Remember for use in redirect_getauxval(). */
+    auxv_base = auxv;
 
     /* fix up the auxv entries that refer to the executable */
     for (; auxv->a_type != AT_NULL; auxv++) {
