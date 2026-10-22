@@ -86,9 +86,11 @@ dynamorio_ioctl_init(const struct dynamorio_init_args __user *uargs)
     long ret;
     mutex_lock(&session_lock);
     if (session_state != SESSION_NONE) {
-        pr_err(session_state == SESSION_FAILED
-                   ? "A previous initialization failed; reload the module and retry\n"
-                   : "Session is already initialized; only one session can be active\n");
+        if (session_state == SESSION_FAILED) {
+            pr_err("A previous initialization failed; reload the module and retry\n");
+        } else {
+            pr_err("Session is already initialized; only one session can be active\n");
+        }
         ret = -EBUSY;
         goto out;
     }
