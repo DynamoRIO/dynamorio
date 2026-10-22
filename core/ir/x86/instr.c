@@ -796,15 +796,17 @@ instr_is_wow64_syscall(instr_t *instr)
         return false;
     CLIENT_ASSERT(get_syscall_method() == SYSCALL_METHOD_WOW64,
                   "wow64 system call inconsistency");
-    if (get_os_version() < WINDOWS_VERSION_10) {
-        opnd_t tgt;
-        if (instr_get_opcode(instr) != OP_call_ind)
-            return false;
-        tgt = instr_get_target(instr);
-        return (opnd_is_far_base_disp(tgt) && opnd_get_segment(tgt) == SEG_FS &&
-                opnd_get_base(tgt) == REG_NULL && opnd_get_index(tgt) == REG_NULL &&
-                opnd_get_disp(tgt) == WOW64_TIB_OFFSET);
-    } else {
+    /* Private wrappers can retain the TEB gate on newer WOW64 versions. */
+    if (instr_get_opcode(instr) == OP_call_ind) {
+        opnd_t tgt = instr_get_target(instr);
+        if (opnd_is_far_base_disp(tgt) && opnd_get_segment(tgt) == SEG_FS &&
+            opnd_get_base(tgt) == REG_NULL && opnd_get_index(tgt) == REG_NULL &&
+            opnd_get_disp(tgt) == WOW64_TIB_OFFSET)
+            return true;
+    }
+    if (get_os_version() < WINDOWS_VERSION_10)
+        return false;
+    else {
         /* It's much simpler to have a syscall gateway instruction where
          * does_syscall_ret_to_callsite() is true: so we require that the
          * instr passed here has its translation set.  This also gets the

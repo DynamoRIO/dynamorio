@@ -3308,6 +3308,10 @@ if (X86 OR AARCH64)
   endif ()
 endif ()
 
+if (WIN32 AND NOT X64 AND X86)
+  tobuild_ci(client.wow64-teb-syscall client-interface/wow64-teb-syscall.c "" "" "")
+endif ()
+
 if (NOT RISCV64)
   # TODO i#3544: Port tests to RISC-V 64
   tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
@@ -7385,4 +7389,9 @@ if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64)
     code_api|tool.drcov.eintr
     code_api|tool.histogram.offline
     code_api|tool.record_filter_bycore_multi)
+endif ()
+
+if (TEST "code_api|client.wow64-teb-syscall")
+  set_tests_properties("code_api|client.wow64-teb-syscall" PROPERTIES
+    SKIP_REGULAR_EXPRESSION "WOW64 unavailable")
 endif ()
