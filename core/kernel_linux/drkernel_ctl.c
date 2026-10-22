@@ -46,8 +46,10 @@ print_usage(FILE *stream)
     fprintf(stream,
             "Usage: drkernel_ctl <command> [args]\n"
             "Commands:\n"
-            "  init [options]   Initialize a kernel tracing session with the given "
-            "options string.\n");
+            "  init [OPTIONS_STRING]   Initialize a kernel tracing session.\n"
+            "                          Pass all options as one quoted argument.\n"
+            "Example:\n"
+            "  drkernel_ctl init \"-loglevel 2\"\n");
 }
 
 static int
