@@ -321,7 +321,6 @@ event_pre_syscall(void *drcontext, int sysnum)
         dump_drcov_data(drcontext, data);
         /* TODO: add execve test.
          * i#1390-c#8: iterate over all the other threads using DR API and dump data.
-         * i#1390-c#9: update drcov2lcov to handle multiple dumps in the same file.
          */
     }
 #endif
