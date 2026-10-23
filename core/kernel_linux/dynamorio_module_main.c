@@ -36,11 +36,20 @@
  */
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
+#include <linux/capability.h>
+#include <linux/err.h>
+#include <linux/fs.h>
+#include <linux/miscdevice.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/preempt.h>
+#include <linux/slab.h>
+#include <linux/string.h>
+#include <linux/uaccess.h>
 
 #include "configure.h"
 #include "dr_interface.h"
+#include "dynamorio_ioctl.h"
 #include "globals_shared.h"
 #include "kernel_interface.h"
 
@@ -52,15 +61,97 @@ static ulong dr_heap_size = 256 * 1024 * 1024;
 module_param(dr_heap_size, ulong, 0444);
 MODULE_PARM_DESC(dr_heap_size, "DynamoRIO module heap size in bytes (read-only)");
 
-/* Initial support accepts global options at module load time only.
- * XXX i#8115: Define support for dynamic updates and per-process options, including
- * how to reuse the existing configuration infrastructure.
+/* Serializes session state changes, which includes setting the options environment
+ * variable and running dynamorio_app_init(): neither is safe to run concurrently.
  */
-static char options[KERNEL_ENV_VALUE_MAX];
-module_param_string(options, options, sizeof(options), 0444);
-MODULE_PARM_DESC(
-    options,
-    "DynamoRIO runtime options string (read-only), e.g., \"-loglevel 2 -log_to_stderr\"");
+static DEFINE_MUTEX(session_lock);
+static enum { SESSION_NONE, SESSION_INITIALIZED, SESSION_FAILED } session_state;
+
+/* XXX i#8115: Define support for per-process options, including how to reuse the
+ * existing configuration infrastructure.
+ */
+static long
+dynamorio_ioctl_init(const struct dynamorio_init_args __user *uargs)
+{
+    struct dynamorio_init_args args;
+    if (copy_from_user(&args, uargs, sizeof(args))) {
+        return -EFAULT;
+    }
+
+    char *options = strndup_user((const char __user *)args.options, KERNEL_ENV_VALUE_MAX);
+    if (IS_ERR(options)) {
+        return PTR_ERR(options);
+    }
+
+    long ret;
+    mutex_lock(&session_lock);
+    if (session_state != SESSION_NONE) {
+        if (session_state == SESSION_FAILED) {
+            pr_err("A previous initialization failed; reload the module and retry\n");
+        } else {
+            pr_err("Session is already initialized; only one session can be active\n");
+        }
+        ret = -EBUSY;
+        goto out;
+    }
+
+    ret = kernel_setenv(DYNAMORIO_VAR_OPTIONS, options);
+    if (ret != 0) {
+        goto out;
+    }
+
+    /* Although session initialization is serialized by session_lock, dynamorio_app_init()
+     * acquires locks (options_lock, heap and vmarea locks, etc.) through the shared DR
+     * code.  Those locks record their owner using d_r_get_thread_id(), which returns the
+     * CPU ID plus one in kernel mode.  Disabling preemption prevents migration from
+     * breaking lock ownership checks.
+     */
+    preempt_disable();
+    ret = dynamorio_app_init();
+    preempt_enable();
+    if (ret != 0) {
+        /* DR reports failure as FAILURE (1), but ioctl must return a negative errno. */
+        pr_err("dynamorio_app_init() failed: %ld\n", ret);
+        session_state = SESSION_FAILED;
+        ret = -EINVAL;
+        goto out;
+    }
+
+    session_state = SESSION_INITIALIZED;
+    pr_info("Session initialized\n");
+
+out:
+    mutex_unlock(&session_lock);
+    kfree(options);
+    return ret;
+}
+
+static long
+dynamorio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+    if (!capable(CAP_SYS_ADMIN)) {
+        return -EPERM;
+    }
+
+    switch (cmd) {
+    case DYNAMORIO_IOCTL_INIT:
+        return dynamorio_ioctl_init((const struct dynamorio_init_args __user *)arg);
+    /* TODO i#8021: Implement an exit ioctl that ends the tracing session. */
+    default: return -ENOTTY;
+    }
+}
+
+static const struct file_operations dynamorio_fops = {
+    .owner = THIS_MODULE,
+    .unlocked_ioctl = dynamorio_ioctl,
+};
+
+static struct miscdevice dynamorio_miscdevice = {
+    .minor = MISC_DYNAMIC_MINOR,
+    .name = DYNAMORIO_DEVICE_NAME,
+    .fops = &dynamorio_fops,
+    .mode = 0600,
+};
 
 static int __init
 dynamorio_module_init(void)
@@ -70,41 +161,21 @@ dynamorio_module_init(void)
         return ret;
     }
 
-    ret = kernel_setenv(DYNAMORIO_VAR_OPTIONS, options);
+    ret = misc_register(&dynamorio_miscdevice);
     if (ret != 0) {
-        goto fail;
-    }
-
-    /* Although module initialization is single-threaded, dynamorio_app_init() acquires
-     * locks (options_lock, heap and vmarea locks, etc.) through the shared DR code. Those
-     * locks record their owner using d_r_get_thread_id(), which returns the CPU ID plus
-     * one in kernel mode. Disabling preemption prevents migration from breaking lock
-     * ownership checks.
-     */
-    preempt_disable();
-    ret = dynamorio_app_init();
-    preempt_enable();
-    if (ret != 0) {
-        /* DR reports failure as FAILURE (1), but the kernel only treats a negative return
-         * value as error: a positive return value would leave the module loaded.
-         */
-        pr_err("dynamorio_app_init() failed: %d\n", ret);
-        ret = -EINVAL;
-        goto fail;
+        kernel_module_exit();
+        return ret;
     }
 
     pr_info("Module started\n");
     return 0;
-
-fail:
-    kernel_module_exit();
-    return ret;
 }
 
 static void __exit
 dynamorio_module_exit(void)
 {
-    /* TODO i#8021: Call dynamorio_app_exit() here when it's ported. */
+    /* TODO i#8021: Stop any active session and restore the kernel before unloading. */
+    misc_deregister(&dynamorio_miscdevice);
     kernel_module_exit();
     pr_info("Module exited\n");
 }

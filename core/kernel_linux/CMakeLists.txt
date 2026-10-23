@@ -28,6 +28,11 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
+# Build the user-space controller with the host compiler, outside Kbuild.
+add_executable(drkernel_ctl drkernel_ctl.c)
+set_target_properties(drkernel_ctl PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${EXECUTABLE_OUTPUT_DIRECTORY}")
+
 # Builds the DynamoRIO Linux kernel module via the kernel's own Kbuild
 # system. Kernel modules can't be compiled with CMake's normal compiler
 # invocation, so this shells out to `make` against KERNEL_DIR and
@@ -102,6 +107,7 @@ add_custom_target(dynamorio_module ALL
 KERNEL_DIR=${KERNEL_DIR}"
   VERBATIM
 )
+add_dependencies(dynamorio_module drkernel_ctl)
 
 # Standard `make clean` cannot remove Kbuild bookkeeping files.
 # Run `make clean_dynamorio_module` to invoke Kbuild's clean target.

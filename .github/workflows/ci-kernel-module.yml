@@ -38,7 +38,7 @@ jobs:
           make defconfig
           make -j$(nproc) modules_prepare
 
-      - name: Build DynamoRIO Kernel Module
+      - name: Build DynamoRIO kernel module and controller
         run: |
           cmake -B build -DBUILD_KERNEL_MODULE=ON -DKERNEL_DIR=$GITHUB_WORKSPACE/$KERNEL_DIR
           cmake --build build --parallel $(nproc) --target dynamorio_module
@@ -63,27 +63,31 @@ jobs:
           sudo apt install -y cmake doxygen g++ g++-multilib libelf-dev make vera++ \
             linux-headers-$(uname -r)
 
-      - name: Build DynamoRIO Kernel Module against running kernel
+      - name: Build DynamoRIO kernel module and controller against running kernel
         run: |
           cmake -B build -DBUILD_KERNEL_MODULE=ON -DDEBUG=${{ matrix.debug }}
           cmake --build build --parallel $(nproc) --target dynamorio_module
 
-      - name: Load module and check dmesg for init/exit success
+      - name: Load module, initialize session, and unload
         run: |
           MODULE=build/core/kernel_linux/dynamorio_module.ko
+          CONTROLLER=build/bin64/drkernel_ctl
 
           # Start from a clean log so the checks below can't match stale
           # messages from a previous boot or run.
           sudo dmesg -C
 
           echo "Loading $MODULE"
+          sudo insmod "$MODULE"
+          sudo dmesg | grep -F "dynamorio_module: Module started"
+
           if [ "${{ matrix.debug }}" = "ON" ]; then
-            sudo insmod "$MODULE" options='"-loglevel 2"'
+            sudo "$CONTROLLER" init "-loglevel 2"
             sudo dmesg | grep -F "DYNAMORIO_OPTIONS: -loglevel 2"
           else
-            sudo insmod "$MODULE"
+            sudo "$CONTROLLER" init
           fi
-          sudo dmesg | grep -F "dynamorio_module: Module started"
+          sudo dmesg | grep -F "dynamorio_module: Session initialized"
 
           echo "Removing dynamorio_module"
           sudo rmmod dynamorio_module
