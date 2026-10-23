@@ -174,7 +174,7 @@ dynamorio_module_init(void)
 static void __exit
 dynamorio_module_exit(void)
 {
-    /* TODO i#8021: Call dynamorio_app_exit() here when it's ported. */
+    /* TODO i#8021: Stop any active session and restore the kernel before unloading. */
     misc_deregister(&dynamorio_miscdevice);
     kernel_module_exit();
     pr_info("Module exited\n");
