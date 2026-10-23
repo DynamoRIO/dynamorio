@@ -213,9 +213,9 @@ An AArch64 unconditional immediate/direct branch (B or BL) has a range
 of +/- 128 MiB. If the fragment cache were restricted to a 128 MiB
 block of memory then it would be possible to branch from any fragment
 to any other fragment. DynamoRIO does not currently restrict the
-memory range used for the fragment cache so in general it is necessary
-to use a register/indirect branch when exiting from a fragment. There
-are opportunities for improvement in this area.
+memory range used for the fragment cache, so far-away fragments are
+linked via an indirect branch in the exit stub. See
+\ref page_aarch64_far for details.
 
 # Self-modifying code
 
