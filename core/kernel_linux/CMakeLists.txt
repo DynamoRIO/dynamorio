@@ -31,7 +31,7 @@
 # Build the user-space controller with the host compiler, outside Kbuild.
 add_executable(drkernel_ctl drkernel_ctl.c)
 set_target_properties(drkernel_ctl PROPERTIES
-  RUNTIME_OUTPUT_DIRECTORY "${EXECUTABLE_OUTPUT_DIRECTORY}")
+  RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${EXECUTABLE_OUTPUT_DIRECTORY}")
 
 # Builds the DynamoRIO Linux kernel module via the kernel's own Kbuild
 # system. Kernel modules can't be compiled with CMake's normal compiler
