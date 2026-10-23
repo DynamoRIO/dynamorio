@@ -236,6 +236,7 @@ analyzer_multi_t::create_analysis_tool_from_options(const std::string &tool)
         knobs.distance_limit = op_reuse_distance_limit.get_value();
         knobs.verify_skip = op_reuse_verify_skip.get_value();
         knobs.histogram_bin_multiplier = op_reuse_histogram_bin_multiplier.get_value();
+        knobs.use_splay_tree = op_reuse_use_splay_tree.get_value();
         if (knobs.histogram_bin_multiplier < 1.0) {
             ERRMSG("Usage error: reuse_histogram_bin_multiplier must be >= 1.0\n");
             return nullptr;
