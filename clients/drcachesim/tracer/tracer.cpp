@@ -2803,6 +2803,9 @@ drmemtrace_get_file_ops_ex(drmemtrace_replace_file_ops_t *ops,
                            drmemtrace_open_file_func_t *open_file_func)
 {
     if (open_file_func == nullptr || ops == nullptr ||
+        // If we more fields, add support for only setting up to ops->size.
+        // For now, this struct has only ever had one size, so we require
+        // that size to be passed.
         ops->size != sizeof(drmemtrace_replace_file_ops_t))
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
     *open_file_func = file_ops_func.open_file;

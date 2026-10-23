@@ -312,7 +312,8 @@ test_main(int argc, const char *argv[])
     drmemtrace_open_file_func_t open_func;
     res = drmemtrace_get_file_ops_ex(&query_ops, &open_func);
     assert(res == DRMEMTRACE_SUCCESS);
-    assert(open_func != nullptr || query_ops.open_file_ex_func != nullptr);
+    assert(open_func != nullptr);
+    assert(query_ops.open_file_ex_func == nullptr);
     assert(query_ops.read_file_func != nullptr);
     assert(query_ops.write_file_func != nullptr);
     assert(query_ops.close_file_func != nullptr);
