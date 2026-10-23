@@ -55,6 +55,7 @@ static void
 prepare_pre(void *wrapcxt, void **user_data)
 {
     app_pc target = (app_pc)drwrap_get_arg(wrapcxt, 0);
+    CHECK(returns == entries, "previous boundary return callback missing");
     CHECK(drwrap_wrap(target, boundary_pre, boundary_post), "boundary wrap failed");
 }
 
@@ -69,7 +70,7 @@ module_load(void *drcontext, const module_data_t *module, bool loaded)
 static void
 event_exit(void)
 {
-    CHECK(entries == 3, "boundary entry count differs");
+    CHECK(entries == 9, "boundary entry count differs");
     CHECK(returns == entries, "boundary return callback missing");
     dr_fprintf(STDERR, "wrapped calls: %u returns: %u\n", entries, returns);
     drwrap_exit();

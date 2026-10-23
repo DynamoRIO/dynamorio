@@ -44,26 +44,47 @@ prepare_boundary(void *target)
 int
 main(void)
 {
-    byte *memory =
-        VirtualAlloc(NULL, PAGE_SIZE * 2, MEM_RESERVE | MEM_COMMIT, PAGE_NOACCESS);
+    const byte calls[][6] = {
+        { 0xe8, 32 - 5, 0, 0, 0, 0xc3 }, /* call code+32; ret */
+        { 0xff, 0xd0, 0xc3 },            /* call xax; ret */
+        { 0xff, 0x50, 0, 0xc3 },         /* call [xax+disp8=0]; ret */
+    };
+    const size_t num_calls = sizeof(calls) / sizeof(calls[0]);
+    byte *memory = VirtualAlloc(NULL, PAGE_SIZE * 2 * num_calls, MEM_RESERVE | MEM_COMMIT,
+                                PAGE_NOACCESS);
     DWORD previous;
-    int displacement = 32 - 5;
-    byte *code;
     INIT();
     assert(memory != NULL);
-    code = memory + PAGE_SIZE;
-    assert(VirtualProtect(code, PAGE_SIZE, PAGE_READWRITE, &previous));
+    for (size_t i = 0; i < num_calls; ++i) {
+        byte *code = memory + PAGE_SIZE * (2 * i + 1);
+        byte *target = code + 32;
+        byte *operand = i == 2 ? code + 48 : target;
+        byte *entry = code + 64;
+        byte *cursor = entry;
+        int displacement;
+        assert(VirtualProtect(code, PAGE_SIZE, PAGE_READWRITE, &previous));
 
-    /* Both generated functions are leaf assembly and do not access arguments. */
-    code[0] = 0xe8;
-    memcpy(code + 1, &displacement, sizeof(displacement));
-    code[5] = 0xc3;
-    code[32] = 0xc3;
-    assert(VirtualProtect(code, PAGE_SIZE, PAGE_EXECUTE_READ, &previous));
-    assert(FlushInstructionCache(GetCurrentProcess(), code, PAGE_SIZE));
-    prepare_boundary(code + 32);
-    for (int i = 0; i < 3; ++i)
-        ((void (*)(void))code)();
+        /* Each call starts after an unreadable page and targets a leaf ret. */
+        memcpy(code, calls[i], sizeof(calls[i]));
+        *target = 0xc3;
+        memcpy(code + 48, &target, sizeof(target));
+
+        /* Load the indirect operand before jumping to the page-start call. */
+#ifdef X64
+        *cursor++ = 0x48;
+#endif
+        *cursor++ = 0xb8; /* mov xax, operand */
+        memcpy(cursor, &operand, sizeof(operand));
+        cursor += sizeof(operand);
+        *cursor++ = 0xe9;
+        displacement = (int)(code - (cursor + sizeof(displacement)));
+        memcpy(cursor, &displacement, sizeof(displacement));
+        assert(VirtualProtect(code, PAGE_SIZE, PAGE_EXECUTE_READ, &previous));
+        assert(FlushInstructionCache(GetCurrentProcess(), code, PAGE_SIZE));
+        prepare_boundary(target);
+        for (int j = 0; j < 3; ++j)
+            ((void (*)(void))entry)();
+    }
     assert(VirtualFree(memory, 0, MEM_RELEASE));
     print("boundary calls completed\n");
     return 0;

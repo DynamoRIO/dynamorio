@@ -337,12 +337,12 @@ post_call_entry_add(app_pc postcall, bool external)
     e->existing_instrumented = false;
     e->prior_size = POST_CALL_PRIOR_BYTES_STORED;
     if (!fast_safe_read(postcall - e->prior_size, e->prior_size, e->prior)) {
-#ifdef X86
-        /* An E8 near call is complete without a byte from the preceding page. */
-        if (fast_safe_read(postcall - 5, 5, e->prior) && e->prior[0] == 0xe8)
-            e->prior_size = 5;
-        else
-#endif
+        /* Avoid reading an inaccessible page before a short call. */
+        size_t page_offset = (ptr_uint_t)postcall % dr_page_size();
+        if (page_offset < e->prior_size)
+            e->prior_size = (byte)page_offset;
+        if (e->prior_size == 0 ||
+            !fast_safe_read(postcall - e->prior_size, e->prior_size, e->prior))
             e->prior_size = 0;
     }
     if (!hashtable_add(&post_call_table, (void *)postcall, (void *)e)) {
@@ -368,8 +368,8 @@ post_call_consistent(app_pc postcall, post_call_entry_t *e)
     byte cur[POST_CALL_PRIOR_BYTES_STORED];
     ASSERT(e != NULL, "invalid param");
     /* i#673: to avoid all the problems w/ invalidating on delete, we instead
-     * invalidate on lookup.  We store up to 6 bytes including the complete call
-     * instruction, which is what we care about.  Note that it's ok for us
+     * invalidate on lookup.  We store up to 6 bytes preceding the post-call pc,
+     * normally including the complete call instruction.  Note that it's ok for us
      * to not be 100% accurate b/c we now use stored-esp on
      * post-call and so make no assumptions about post-call sites.
      */
