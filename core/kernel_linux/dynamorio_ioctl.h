@@ -41,8 +41,14 @@
 
 #define DYNAMORIO_DEVICE_NAME "dynamorio"
 
+/* Registering the misc device creates this node when the module is loaded. */
 #define DYNAMORIO_DEVICE_PATH "/dev/" DYNAMORIO_DEVICE_NAME
 
+/* 0xDF is not listed in the kernel's ioctl-number table:
+ * https://docs.kernel.org/userspace-api/ioctl/ioctl-number.html
+ * Ioctls go to the opened device, so another device using the same magic normally
+ * does not interfere.  A distinct magic is meant to help catch wrong-device calls.
+ */
 #define DYNAMORIO_IOCTL_MAGIC 0xDF
 
 struct dynamorio_init_args {
@@ -50,6 +56,7 @@ struct dynamorio_init_args {
     const char *options;
 };
 
+/* _IOW means user space writes the argument and the kernel reads it. */
 #define DYNAMORIO_IOCTL_INIT _IOW(DYNAMORIO_IOCTL_MAGIC, 0, struct dynamorio_init_args)
 
 #endif /* _DYNAMORIO_IOCTL_H_ */
