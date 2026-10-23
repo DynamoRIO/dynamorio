@@ -919,15 +919,19 @@ loader_allow_unsafe_static_behavior(void)
 }
 
 /* For heap redirection we need to provide alignment beyond what DR's allocator
- * provides: DR does just pointer-sized alignment (HEAP_ALIGNMENT) while we want
- * double-pointer-size (STANDARD_HEAP_ALIGNMENT).  We take advantage of knowing
- * that DR's alloc is either already double-aligned or is just off by one pointer:
- * so there are only two conditions.  We use the top bit of the size to form our
- * header word.
- * XXX i#4243: To support redirected memalign or C++17 aligned operator new we'll
- * need support for more general alignment.
+ * provides: DR does just pointer-sized alignment (HEAP_ALIGNMENT).
+ * We store up to 3 header words: the DR allocation size, the offset from the DR
+ * allocation, and the requested size.
+ * To avoid the extra header words for smaller allocations, we use bits at the top of the
+ * first header to indicate whether the other headers are present.
+ * We also optimize for STANDARD_HEAP_ALIGNMENT=16 with a special shift bit
+ * to avoid the extra headers when we just need to know if the 8-aligned
+ * DR alloc is at 16 or off by 8.
  */
 #define REDIRECT_HEADER_SHIFTED (1ULL << IF_X64_ELSE(63, 31))
+#define REDIRECT_EXTRA_HEADERS (1ULL << IF_X64_ELSE(62, 30))
+
+#define HEADER_WORD_SIZE sizeof(size_t)
 
 /* This routine allocates memory from DR's global memory pool.  Unlike
  * dr_global_alloc(), however, we store the size of the allocation in
@@ -936,22 +940,32 @@ loader_allow_unsafe_static_behavior(void)
  * is also not guaranteed-reachable.
  */
 void *
-redirect_malloc(size_t size)
+redirect_aligned_alloc(size_t alignment, size_t size)
 {
     void *mem;
-    /* We need extra space to store the size and alignment bit and ensure the returned
-     * pointer is aligned.
+    if (!IS_POWER_OF_2(alignment))
+        return NULL;
+    size_t header_size = HEADER_WORD_SIZE;
+    if (alignment < STANDARD_HEAP_ALIGNMENT) {
+        /* Do not bother to support HEAP_ALIGNMENT < STANDARD_HEAP_ALIGNMENT.
+         * It is rare here and would require further header bits to know
+         * the requested size.
+         */
+        alignment = STANDARD_HEAP_ALIGNMENT;
+    } else if (alignment > STANDARD_HEAP_ALIGNMENT)
+        header_size += 2 * HEADER_WORD_SIZE;
+    /* We always need extra space to store the size and to ensure the returned pointer is
+     * aligned. We try to avoid needing the other two headers.
      */
-#ifdef ARM
-    size_t alloc_size = size + STANDARD_HEAP_ALIGNMENT;
-    ASSERT(HEAP_ALIGNMENT == STANDARD_HEAP_ALIGNMENT);
-#else
-    size_t alloc_size = size + sizeof(size_t) + STANDARD_HEAP_ALIGNMENT - HEAP_ALIGNMENT;
-    ASSERT(HEAP_ALIGNMENT * 2 == STANDARD_HEAP_ALIGNMENT);
-#endif
-    /* Our header is the size itself, with the top bit stolen to indicate alignment. */
-    if (TESTANY(REDIRECT_HEADER_SHIFTED, alloc_size)) {
-        /* We do not support the top bit being set as that conflicts with the bit in
+    size_t alloc_size = size + header_size + alignment - HEAP_ALIGNMENT;
+    /* For Arm we have HEAP_ALIGNMENT larger than HEADER_WORD_SIZE so we could
+     * end up without enough space for the header: ensure we have enough.
+     */
+    if (header_size < HEAP_ALIGNMENT)
+        alloc_size += HEAP_ALIGNMENT - header_size;
+    /* Our header is the size itself, with the top bits stolen. */
+    if (TESTANY(REDIRECT_HEADER_SHIFTED | REDIRECT_EXTRA_HEADERS, alloc_size)) {
+        /* We do not support the top bits being set as that conflicts with the bits in
          * our header.  This should be fine as all sytem allocators we have seen also
          * have size limits that are this size (for 32-bit) or even smaller.
          */
@@ -963,34 +977,70 @@ redirect_malloc(size_t size)
         CLIENT_ASSERT(false, "malloc failed: out of memory");
         return NULL;
     }
-    ptr_uint_t res =
-        ALIGN_FORWARD((ptr_uint_t)mem + sizeof(size_t), STANDARD_HEAP_ALIGNMENT);
-    size_t header = alloc_size;
-    ASSERT(!TESTANY(REDIRECT_HEADER_SHIFTED, header));
-    if (res == (ptr_uint_t)mem + sizeof(size_t)) {
-        /* Already aligned. */
-    } else if (res == (ptr_uint_t)mem + sizeof(size_t) * 2) {
-        /* DR's alignment is "odd" for double-pointer so we're adding one pointer. */
-        header |= REDIRECT_HEADER_SHIFTED;
-    } else
-        ASSERT_NOT_REACHED();
-    *((size_t *)(res - sizeof(size_t))) = header;
+    ptr_uint_t res = ALIGN_FORWARD((ptr_uint_t)mem + header_size, alignment);
+    size_t header_1 = alloc_size;
+    if (alignment > STANDARD_HEAP_ALIGNMENT) {
+        header_1 |= REDIRECT_EXTRA_HEADERS;
+        ASSERT(header_size == 3 * HEADER_WORD_SIZE);
+        /* The 2nd header is the offset to the start of the alloc. */
+        *((size_t *)(res - 2 * HEADER_WORD_SIZE)) = res - (ptr_uint_t)mem;
+        /* The 3rd header is the requested size, to support user queries for that.
+         * Only Windows really has that interface, though we also use this for our
+         * current redirect_realloc. Should we rewrite redirect_realloc to not
+         * need this and make this Windows-only?
+         */
+        *((size_t *)(res - 3 * HEADER_WORD_SIZE)) = size;
+    } else {
+        ASSERT(alignment == STANDARD_HEAP_ALIGNMENT);
+        if (res == (ptr_uint_t)mem + header_size) {
+            /* Already aligned. */
+        } else {
+            header_1 |= REDIRECT_HEADER_SHIFTED;
+        }
+    }
+    *((size_t *)(res - HEADER_WORD_SIZE)) = header_1;
     ASSERT(res + size <= (ptr_uint_t)mem + alloc_size);
     return (void *)res;
+}
+
+void *
+redirect_malloc(size_t size)
+{
+    return redirect_aligned_alloc(STANDARD_HEAP_ALIGNMENT, size);
 }
 
 /* Returns the underlying DR allocation's size and starting point, given a
  * wrapped-malloc-layer pointer from a client/privlib.
  */
 static inline size_t
-redirect_malloc_size_and_start(void *mem, DR_PARAM_OUT void **start_out)
+redirect_malloc_size_and_start(void *mem, DR_PARAM_OUT void **start_out,
+                               DR_PARAM_OUT size_t *requested_size)
 {
-    size_t *size_ptr = (size_t *)((ptr_uint_t)mem - sizeof(size_t));
+    size_t *size_ptr = (size_t *)((ptr_uint_t)mem - HEADER_WORD_SIZE);
     size_t size = *((size_t *)size_ptr);
     void *start = size_ptr;
-    if (TESTANY(REDIRECT_HEADER_SHIFTED, size)) {
+    if (TESTANY(REDIRECT_EXTRA_HEADERS, size)) {
+        size_t offset = *(size_t *)((ptr_uint_t)mem - 2 * HEADER_WORD_SIZE);
+        start = (void *)((ptr_uint_t)mem - offset);
+        if (requested_size != NULL)
+            *requested_size = *(size_t *)((ptr_uint_t)mem - 3 * HEADER_WORD_SIZE);
+        size &= ~REDIRECT_EXTRA_HEADERS;
+    } else if (TESTANY(REDIRECT_HEADER_SHIFTED, size)) {
         start = size_ptr - 1;
         size &= ~REDIRECT_HEADER_SHIFTED;
+        if (requested_size != NULL) {
+            /* Subtract the header and extra size for alignment. */
+            *requested_size =
+                size - HEADER_WORD_SIZE - (STANDARD_HEAP_ALIGNMENT - HEAP_ALIGNMENT);
+            if (HEADER_WORD_SIZE < HEAP_ALIGNMENT)
+                *requested_size -= HEAP_ALIGNMENT - HEADER_WORD_SIZE;
+        }
+    } else if (requested_size != NULL) {
+        /* This is STANDARD_HEAP_ALIGNMENT-aligned with no header shift. */
+        *requested_size =
+            size - (HEADER_WORD_SIZE + STANDARD_HEAP_ALIGNMENT - HEAP_ALIGNMENT);
+        if (HEADER_WORD_SIZE < HEAP_ALIGNMENT)
+            *requested_size -= HEAP_ALIGNMENT - HEADER_WORD_SIZE;
     }
     if (start_out != NULL)
         *start_out = start;
@@ -1002,14 +1052,9 @@ redirect_malloc_requested_size(void *mem)
 {
     if (mem == NULL)
         return 0;
-    void *start;
-    size_t size = redirect_malloc_size_and_start(mem, &start);
-    size -= sizeof(size_t);
-    if (start != mem) {
-        /* Subtract the extra size for alignment. */
-        size -= sizeof(size_t);
-    }
-    return size;
+    size_t requested_size;
+    redirect_malloc_size_and_start(mem, NULL, &requested_size);
+    return requested_size;
 }
 
 /* This routine allocates memory from DR's global memory pool. Unlike
@@ -1065,7 +1110,7 @@ redirect_free(void *mem)
     if (mem == NULL)
         return;
     void *start;
-    size_t size = redirect_malloc_size_and_start(mem, &start);
+    size_t size = redirect_malloc_size_and_start(mem, &start, NULL);
     global_heap_free(start, size HEAPACCT(ACCT_LIBDUP));
 }
 
@@ -1123,5 +1168,77 @@ redirect_strdup_initonly(const char *str)
     CLIENT_ASSERT(!disallow_unsafe_static_calls || !dynamo_initialized || dynamo_exited,
                   "strdup invoked mid-run when disallowed by DR_DISALLOW_UNSAFE_STATIC");
     return redirect_strdup(str);
+}
+#endif
+
+#ifdef STANDALONE_UNIT_TEST
+void
+unit_test_redirect_heap(void)
+{
+    print_file(STDERR, "testing heap redirection routines\n");
+
+    ASSERT(STANDARD_HEAP_ALIGNMENT % HEAP_ALIGNMENT == 0);
+
+    void *p = redirect_malloc(HEAP_ALIGNMENT - 2);
+    ASSERT(ALIGNED(p, STANDARD_HEAP_ALIGNMENT));
+    ASSERT(redirect_malloc_requested_size(p) == HEAP_ALIGNMENT - 2);
+    p = redirect_realloc(p, HEAP_ALIGNMENT * 2 + 1);
+    ASSERT(ALIGNED(p, STANDARD_HEAP_ALIGNMENT));
+    ASSERT(redirect_malloc_requested_size(p) == HEAP_ALIGNMENT * 2 + 1);
+    redirect_free(p);
+
+    p = redirect_malloc(HEAP_ALIGNMENT);
+    ASSERT(ALIGNED(p, STANDARD_HEAP_ALIGNMENT));
+    ASSERT(redirect_malloc_requested_size(p) == HEAP_ALIGNMENT);
+    redirect_free(p);
+
+    p = redirect_malloc(STANDARD_HEAP_ALIGNMENT);
+    ASSERT(ALIGNED(p, STANDARD_HEAP_ALIGNMENT));
+    ASSERT(redirect_malloc_requested_size(p) == STANDARD_HEAP_ALIGNMENT);
+    redirect_free(p);
+
+    p = redirect_malloc(STANDARD_HEAP_ALIGNMENT * 2);
+    ASSERT(ALIGNED(p, STANDARD_HEAP_ALIGNMENT));
+    ASSERT(redirect_malloc_requested_size(p) == STANDARD_HEAP_ALIGNMENT * 2);
+    redirect_free(p);
+
+    p = redirect_aligned_alloc(1, 5);
+    ASSERT(redirect_malloc_requested_size(p) == 5);
+    redirect_free(p);
+
+    p = redirect_aligned_alloc(2, 3);
+    ASSERT(ALIGNED(p, 2));
+    ASSERT(redirect_malloc_requested_size(p) == 3);
+    redirect_free(p);
+
+    p = redirect_aligned_alloc(HEAP_ALIGNMENT, 3);
+    ASSERT(ALIGNED(p, HEAP_ALIGNMENT));
+    ASSERT(redirect_malloc_requested_size(p) == 3);
+    redirect_free(p);
+
+    p = redirect_aligned_alloc(STANDARD_HEAP_ALIGNMENT, 3);
+    ASSERT(ALIGNED(p, STANDARD_HEAP_ALIGNMENT));
+    ASSERT(redirect_malloc_requested_size(p) == 3);
+    redirect_free(p);
+
+    p = redirect_aligned_alloc(STANDARD_HEAP_ALIGNMENT * 2, HEAP_ALIGNMENT - 2);
+    ASSERT(ALIGNED(p, STANDARD_HEAP_ALIGNMENT * 2));
+    ASSERT(redirect_malloc_requested_size(p) == HEAP_ALIGNMENT - 2);
+    redirect_free(p);
+
+    p = redirect_aligned_alloc(STANDARD_HEAP_ALIGNMENT * 2, HEAP_ALIGNMENT);
+    ASSERT(ALIGNED(p, STANDARD_HEAP_ALIGNMENT * 2));
+    ASSERT(redirect_malloc_requested_size(p) == HEAP_ALIGNMENT);
+    redirect_free(p);
+
+    p = redirect_aligned_alloc(STANDARD_HEAP_ALIGNMENT * 2, STANDARD_HEAP_ALIGNMENT);
+    ASSERT(ALIGNED(p, STANDARD_HEAP_ALIGNMENT * 2));
+    ASSERT(redirect_malloc_requested_size(p) == STANDARD_HEAP_ALIGNMENT);
+    redirect_free(p);
+
+    p = redirect_aligned_alloc(STANDARD_HEAP_ALIGNMENT * 4, STANDARD_HEAP_ALIGNMENT + 2);
+    ASSERT(ALIGNED(p, STANDARD_HEAP_ALIGNMENT * 4));
+    ASSERT(redirect_malloc_requested_size(p) == STANDARD_HEAP_ALIGNMENT + 2);
+    redirect_free(p);
 }
 #endif
