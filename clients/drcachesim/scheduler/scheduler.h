@@ -952,6 +952,13 @@ public:
         bool canonicalize_addresses =
             scheduler_tmpl_t<RecordType,
                              ReaderType>::record_type_canonicalization_supported();
+        /**
+         * Sets whether an output whose ready queue holds only blocked inputs attempts
+         * to steal from other outputs (subject to #steal_attempt_period) rather than
+         * idling until one of its inputs unblocks.  If false, an output only attempts
+         * to steal when its ready queue is empty.
+         */
+        bool steal_when_only_blocked = true;
         // When adding new options, also add to print_configuration().
     };
 

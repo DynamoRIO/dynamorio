@@ -864,6 +864,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::print_configuration()
            options_.steal_attempt_period);
     VPRINT(this, 1, "  %-25s : %d\n", "canonicalize_addresses",
            options_.canonicalize_addresses);
+    VPRINT(this, 1, "  %-25s : %d\n", "steal_when_only_blocked",
+           options_.steal_when_only_blocked);
 }
 
 template <typename RecordType, typename ReaderType>
