@@ -297,6 +297,30 @@ os_wait_thread_terminated(dcontext_t *dcontext)
     ASSERT_NOT_PORTED(false);
 }
 
+/* We can avoid having a lock here by ensuring that
+ * 1. The signaled field is the only field that changes after creation.
+ * 2. Each operation is a single atomic access to signaled.
+ */
+typedef struct linux_event_t {
+    volatile int signaled;
+    bool broadcast;
+} linux_event_t;
+
+event_t
+create_event(void)
+{
+    event_t e = (event_t)global_heap_alloc(sizeof(linux_event_t) HEAPACCT(ACCT_OTHER));
+    e->signaled = 0;
+    e->broadcast = false;
+    return e;
+}
+
+void
+destroy_event(event_t e)
+{
+    global_heap_free(e, sizeof(linux_event_t) HEAPACCT(ACCT_OTHER));
+}
+
 void
 os_terminate(dcontext_t *dcontext, terminate_flags_t flags)
 {
