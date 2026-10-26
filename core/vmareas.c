@@ -7654,10 +7654,10 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
          * individual pages are executable. Native replacements can execute from
          * those pages with -code_api, so query their actual protection from the OS.
          */
-        if (is_vmm_reserved_address(pc, 1, NULL, NULL))
+        if (is_vmm_reserved_address(pc, 1, NULL, NULL)) {
             is_allocated_mem =
                 query_memory_ex_from_os(pc, &info) && info.type != DR_MEMTYPE_FREE;
-        else
+        } else
 #endif
             is_allocated_mem = query_memory_ex(pc, &info) && info.type != DR_MEMTYPE_FREE;
         base_pc = info.base_pc;
