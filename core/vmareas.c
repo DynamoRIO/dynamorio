@@ -7649,7 +7649,17 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
                                                 self_owns_write_lock(hotp_get_lock())))));
         ASSERT(!ok || area != NULL);
         dr_mem_info_t info = { 0 };
-        is_allocated_mem = query_memory_ex(pc, &info) && info.type != DR_MEMTYPE_FREE;
+#ifdef UNIX
+        /* The cache records the entire VMM reservation as inaccessible, even when
+         * individual pages are executable. Native replacements can execute from
+         * those pages with -code_api, so query their actual protection from the OS.
+         */
+        if (is_vmm_reserved_address(pc, 1, NULL, NULL))
+            is_allocated_mem =
+                query_memory_ex_from_os(pc, &info) && info.type != DR_MEMTYPE_FREE;
+        else
+#endif
+            is_allocated_mem = query_memory_ex(pc, &info) && info.type != DR_MEMTYPE_FREE;
         base_pc = info.base_pc;
         size = info.size;
         prot = info.prot;
