@@ -36,8 +36,11 @@
  *  sigwait syscalls. Two threads are created:
  * - sig_thread: all signals are masked and blocked and thread waits in
  *               sigwaitinfo().
- * - busy_thread: no signals are masked and the thread just runs without being
- *                 blocked in any sigwait syscall.
+ * - busy_thread: uses a distinctive signal mask which does not include SIGILL
+ *                and runs without being blocked in any sigwait syscall.
+ *
+ * The test also checks the threads' original signal masks are restored after
+ * attach.
  */
 
 #include "configure.h"
@@ -53,21 +56,67 @@
 #    include <unistd.h>
 #endif
 
+/* Synchronisation variables. */
 static void *signals_blocked;
 static void *busy_started;
-static volatile bool busy_stop;
+static void *sigusr1_received;
+static void *dr_stopped;
+static void *busy_mask_checked;
+
+/* The main() thread writes to busy_check_mask while busy_thread() reads it. We
+ * cannot use a condition variable to synchronize because it would make the
+ * busy_thread() block instead of remaining busy, so use atomic release/store
+ * and acquire/load.
+ */
+static bool busy_check_mask;
 static pid_t busy_tid;
+
+/* Test threads' signal mask flags to indicate if they have been restored
+ * correctly after attach. Although busy_thread() uses the normal signal based
+ * attach (rather than ptrace assisted attach), we should still check that
+ * enabling -attach_unmask_suspend_signal does not corrupt its mask.
+ */
+static bool sig_mask_attached_equal;
+static bool sig_mask_detached_equal;
+static bool busy_mask_attached_equal;
+static bool busy_mask_detached_equal;
+
+static bool
+are_signal_masks_equal(const sigset_t *orig, const sigset_t *curr, int line)
+{
+    bool equal = true;
+
+    for (int sig = 1; sig <= SIGRTMAX; ++sig) {
+        int orig_member = sigismember(orig, sig);
+        int curr_member = sigismember(curr, sig);
+        assert(orig_member != -1);
+        assert(curr_member != -1);
+        if (orig_member != curr_member) {
+            print("signal mask mismatch at line %d for signal %d: original=%s, "
+                  "current=%s\n",
+                  line, sig, orig_member ? "blocked" : "unblocked",
+                  curr_member ? "blocked" : "unblocked");
+            equal = false;
+        }
+    }
+    return equal;
+}
 
 static THREAD_FUNC_RETURN_TYPE
 sig_thread(void *arg)
 {
     sigset_t set;
+    sigset_t original_mask;
+    sigset_t current_mask;
     siginfo_t info;
     int res;
 
     sigfillset(&set);
     res = pthread_sigmask(SIG_BLOCK, &set, NULL);
     assert(res == 0);
+    res = pthread_sigmask(SIG_SETMASK, NULL, &original_mask);
+    assert(res == 0);
+    assert(sigismember(&original_mask, SIGILL) == 1);
 
     print("sig_thread blocked signals\n");
     signal_cond_var(signals_blocked);
@@ -81,15 +130,42 @@ sig_thread(void *arg)
         assert(res != -1);
         if (res == SIGUSR1) {
             print("sig_thread received SIGUSR1\n");
+            res = pthread_sigmask(SIG_SETMASK, NULL, &current_mask);
+            assert(res == 0);
+            sig_mask_attached_equal =
+                are_signal_masks_equal(&original_mask, &current_mask, __LINE__);
+            signal_cond_var(sigusr1_received);
             break;
         }
     }
+
+    /* Wait until detach is complete, then verify that attach and detach
+     * preserved the thread's original signal mask.
+     */
+    wait_cond_var(dr_stopped);
+    res = pthread_sigmask(SIG_SETMASK, NULL, &current_mask);
+    assert(res == 0);
+    sig_mask_detached_equal =
+        are_signal_masks_equal(&original_mask, &current_mask, __LINE__);
     return NULL;
 }
 
 static THREAD_FUNC_RETURN_TYPE
 busy_thread(void *arg)
 {
+    sigset_t set;
+    sigset_t original_mask;
+    sigset_t current_mask;
+    int res;
+
+    sigemptyset(&set);
+    sigaddset(&set, SIGUSR2);
+    res = pthread_sigmask(SIG_SETMASK, &set, NULL);
+    assert(res == 0);
+    res = pthread_sigmask(SIG_SETMASK, NULL, &original_mask);
+    assert(res == 0);
+    assert(sigismember(&original_mask, SIGUSR2) == 1);
+    assert(sigismember(&original_mask, SIGILL) == 0);
 #ifdef LINUX
     busy_tid = (pid_t)syscall(SYS_gettid);
     print("busy_thread starting (tid=%d)\n", busy_tid);
@@ -97,9 +173,20 @@ busy_thread(void *arg)
     print("busy_thread starting\n");
 #endif
     signal_cond_var(busy_started);
-    while (!busy_stop) {
+    while (!__atomic_load_n(&busy_check_mask, __ATOMIC_ACQUIRE)) {
         thread_yield();
     }
+    res = pthread_sigmask(SIG_SETMASK, NULL, &current_mask);
+    assert(res == 0);
+    busy_mask_attached_equal =
+        are_signal_masks_equal(&original_mask, &current_mask, __LINE__);
+    signal_cond_var(busy_mask_checked);
+
+    wait_cond_var(dr_stopped);
+    res = pthread_sigmask(SIG_SETMASK, NULL, &current_mask);
+    assert(res == 0);
+    busy_mask_detached_equal =
+        are_signal_masks_equal(&original_mask, &current_mask, __LINE__);
     print("busy_thread exiting\n");
     return NULL;
 }
@@ -115,6 +202,9 @@ main(int argc, const char *argv[])
 {
     signals_blocked = create_cond_var();
     busy_started = create_cond_var();
+    busy_mask_checked = create_cond_var();
+    sigusr1_received = create_cond_var();
+    dr_stopped = create_cond_var();
 
     print("starting busy_thread\n");
     thread_t busy = create_thread(busy_thread, NULL);
@@ -133,20 +223,31 @@ main(int argc, const char *argv[])
     dr_app_setup_and_start();
     assert(dr_app_running_under_dynamorio());
 
-    print("stopping busy_thread\n");
-    busy_stop = true;
-    join_thread(busy);
+    print("checking busy_thread signal mask\n");
+    __atomic_store_n(&busy_check_mask, true, __ATOMIC_RELEASE);
+    wait_cond_var(busy_mask_checked);
 
     print("sending SIGUSR1 to sig_thread\n");
     pthread_kill(thread, SIGUSR1);
-    join_thread(thread);
+    wait_cond_var(sigusr1_received);
 
     print("pre-DR stop\n");
     dr_app_stop_and_cleanup();
     assert(!dr_app_running_under_dynamorio());
+    signal_cond_var(dr_stopped);
+    join_thread(busy);
+    join_thread(thread);
+
+    assert(busy_mask_attached_equal);
+    assert(busy_mask_detached_equal);
+    assert(sig_mask_attached_equal);
+    assert(sig_mask_detached_equal);
 
     destroy_cond_var(signals_blocked);
     destroy_cond_var(busy_started);
+    destroy_cond_var(busy_mask_checked);
+    destroy_cond_var(sigusr1_received);
+    destroy_cond_var(dr_stopped);
 
     print("all done\n");
     return 0;

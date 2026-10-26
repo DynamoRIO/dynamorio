@@ -202,8 +202,9 @@ ptrace_set_sigmask(thread_id_t tid, const kernel_sigset_t *mask)
     return dynamorio_syscall(SYS_ptrace, 4, PTRACE_SETSIGMASK, tid, (void *)sz, buf) == 0;
 }
 
+/* If original_mask is not NULL, return the mask from before sig was cleared. */
 bool
-ptrace_unmask_signal(thread_id_t tid, int sig)
+ptrace_unmask_signal(thread_id_t tid, int sig, kernel_sigset_t *original_mask)
 {
     kernel_sigset_t mask;
 
@@ -211,6 +212,8 @@ ptrace_unmask_signal(thread_id_t tid, int sig)
         return false;
     if (!ptrace_get_sigmask(tid, &mask))
         return false;
+    if (original_mask != NULL)
+        *original_mask = mask;
     if (kernel_sigismember(&mask, sig)) {
         kernel_sigdelset(&mask, sig);
         if (!ptrace_set_sigmask(tid, &mask))
