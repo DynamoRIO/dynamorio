@@ -7649,8 +7649,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
                                                 self_owns_write_lock(hotp_get_lock())))));
         ASSERT(!ok || area != NULL);
         dr_mem_info_t info = { 0 };
-        is_allocated_mem =
-            query_memory_ex_from_os(pc, &info) && info.type != DR_MEMTYPE_FREE;
+        is_allocated_mem = query_memory_ex(pc, &info) && info.type != DR_MEMTYPE_FREE;
         base_pc = info.base_pc;
         size = info.size;
         prot = info.prot;
