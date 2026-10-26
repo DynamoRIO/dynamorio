@@ -175,6 +175,14 @@ os_loader_init_prologue(void)
      */
 }
 
+void
+os_loader_init_epilogue(void)
+{
+    /* No-op in kernel mode: there are no private libraries, so there are no gdb
+     * add-symbol-file commands to print, unlike core/unix/loader.c.
+     */
+}
+
 /* This is CPU-local active execution state, not persistent application-thread state.
  * Callers must keep preemption disabled for the entire use of the pointer.
  * Takeover must separately handle persistent thread state and nested execution.
@@ -247,6 +255,33 @@ void
 set_thread_private_dcontext(dcontext_t *dcontext)
 {
     get_local_state()->spill_space.dcontext = dcontext;
+}
+
+void
+os_tls_init(void)
+{
+    /* Nothing to do here.  TLS in the kernel is static per-CPU storage, allocated
+     * and zeroed on module load and verified in d_r_os_init().
+     * TODO i#8021: Clear it in os_tls_exit() once sessions can restart without a
+     * module reload, so is_thread_initialized() won't see a stale dcontext.
+     */
+}
+
+void
+os_thread_init(dcontext_t *dcontext, void *os_data)
+{
+    /* The kernel build passes no OS-specific data. */
+    ASSERT(os_data == NULL);
+    /* dcontext->os_field stays NULL: no shared code in the module dereferences it.
+     * TODO i#8021: Takeover will save this CPU's native entry points (the IDT, and
+     * MSR_LSTAR on x86-64) before redirecting them.
+     */
+}
+
+void
+os_thread_init_finalize(dcontext_t *dcontext, void *os_data)
+{
+    /* No-op in kernel mode: there are no signals to inherit, unlike core/unix/os.c. */
 }
 
 bool
