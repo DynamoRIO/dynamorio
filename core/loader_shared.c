@@ -956,13 +956,11 @@ redirect_aligned_alloc(size_t alignment, size_t size)
         header_size += 2 * HEADER_WORD_SIZE;
     /* We always need extra space to store the size and to ensure the returned pointer is
      * aligned. We try to avoid needing the other two headers.
+     * For AArch32 HEAP_ALIGNMENT > HEADER_WORD_SIZE so we could end up without enough
+     * space for the header: ALIGN_FORWARD to add padding.
      */
-    size_t alloc_size = size + header_size + alignment - HEAP_ALIGNMENT;
-    /* For Arm we have HEAP_ALIGNMENT larger than HEADER_WORD_SIZE so we could
-     * end up without enough space for the header: ensure we have enough.
-     */
-    if (header_size < HEAP_ALIGNMENT)
-        alloc_size += HEAP_ALIGNMENT - header_size;
+    size_t alloc_size =
+        size + ALIGN_FORWARD(header_size, HEAP_ALIGNMENT) + alignment - HEAP_ALIGNMENT;
     /* Our header is the size itself, with the top bits stolen. */
     if (TESTANY(REDIRECT_HEADER_SHIFTED | REDIRECT_EXTRA_HEADERS, alloc_size)) {
         /* We do not support the top bits being set as that conflicts with the bits in
