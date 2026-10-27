@@ -79,9 +79,17 @@ foreach (file ${dynamorio_module_tree_files})
     SYMBOLIC)
 endforeach ()
 
-foreach (header configure.h configure_defines.h event_strings.h)
-  file(CREATE_LINK "${PROJECT_BINARY_DIR}/${header}"
-    "${CMAKE_CURRENT_BINARY_DIR}/${header}" SYMBOLIC)
+set(dynamorio_module_generated_headers
+  "${PROJECT_BINARY_DIR}/configure.h"
+  "${PROJECT_BINARY_DIR}/configure_defines.h"
+  "${PROJECT_BINARY_DIR}/event_strings.h")
+if (AARCH64)
+  list(APPEND dynamorio_module_generated_headers ${AARCH64_CODEC_GEN_SRCS})
+endif ()
+foreach (header ${dynamorio_module_generated_headers})
+  get_filename_component(header_name "${header}" NAME)
+  file(CREATE_LINK "${header}"
+    "${CMAKE_CURRENT_BINARY_DIR}/${header_name}" SYMBOLIC)
 endforeach ()
 
 # Kbuild adds the generated core/kernel_linux/stubs.o, which is derived from
@@ -119,6 +127,9 @@ KERNEL_DIR=${KERNEL_DIR}"
   VERBATIM
 )
 add_dependencies(dynamorio_module drkernel_ctl)
+if (AARCH64)
+  add_dependencies(dynamorio_module gen_aarch64_codec)
+endif ()
 
 # Standard `make clean` cannot remove Kbuild bookkeeping files.
 # Run `make clean_dynamorio_module` to invoke Kbuild's clean target.
