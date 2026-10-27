@@ -44,8 +44,9 @@
 obj-m += dynamorio_module.o
 
 # The caller supplies DR architecture names (dr_arch and dr_arch_shared, e.g.
-# aarch64 and aarchxx) and object paths (dr_objs) relative to this tree's root.
-# The object list excludes the generated core/kernel_linux/stubs.o.
+# aarch64 and aarchxx), assembly source paths (dr_asm_sources), and object paths
+# (dr_objs). All paths are relative to this tree's root. The object list excludes
+# the generated core/kernel_linux/stubs.o.
 include $(src)/Kbuild.sources
 
 # stubs.c is generated from the other objects; see below.
@@ -53,7 +54,7 @@ dynamorio_module-y := $(dr_objs) core/kernel_linux/stubs.o
 
 dr_arch_dirs := $(sort $(dr_arch) $(dr_arch_shared))
 
-# Flags shared by C and assembly sources, including the x86.asm preprocessing below.
+# Flags shared by C and assembly sources, including the .asm preprocessing below.
 dr_flags := \
   -I$(src) \
   -I$(src)/common \
@@ -71,7 +72,7 @@ dr_flags := \
   -DDYNAMORIO_INTERNAL \
   -DDR_DO_NOT_DEFINE_MAX_MIN
 
-# Disable objtool checks for all objects in this directory. DynamoRIO assembly (x86.asm)
+# Disable objtool checks for all objects in this directory. DynamoRIO assembly
 # and low-level code contain custom return sequences, stack switches, and trampolines
 # that do not adhere to kernel objtool/SLS conventions.
 OBJECT_FILES_NON_STANDARD := y
@@ -85,6 +86,7 @@ ccflags-y += -mfunction-return=keep
 endif
 
 asflags-y += $(dr_flags) -Xassembler --noexecstack
+ifdef CONFIG_X86
 ifdef CONFIG_AS_IS_LLVM
 # LLVM's integrated assembler (used for kernels built with LLVM=1) does not
 # accept the GNU as options below. -masm=intel selects Intel syntax, which it
@@ -97,19 +99,23 @@ asflags-y += \
   -Xassembler -mnaked-reg \
   -Xassembler --64
 endif
+endif
 
-# Preprocess x86.asm into x86.S. This replicates the preprocessing logic from
+# Preprocess each .asm source into .S, including shared architecture sources.
+# This replicates the preprocessing logic from
 # make/cpp2asm_support.cmake and make/CMake_asm.cmake, which cannot be used with Kbuild.
 quiet_cmd_dr_cpp2asm = CPP2ASM $@
       cmd_dr_cpp2asm = \
   $(CPP) -Wp,-MMD,$(depfile) -P -x c $(dr_flags) -DCPP2ASM -o $@ $< && \
   sed -i -e 's/@N@/\n/g' -e 's/@P@/\#/g' -e 's/\#\#//g' $@
 
-$(obj)/core/arch/x86/x86.S: $(src)/core/arch/x86/x86.asm FORCE \
+dr_asm_targets := $(dr_asm_sources:.asm=.S)
+
+$(addprefix $(obj)/,$(dr_asm_targets)): $(obj)/%.S: $(src)/%.asm FORCE \
   ; $(call if_changed_dep,dr_cpp2asm)
 
-targets += core/arch/x86/x86.S
-clean-files += core/arch/x86/x86.S
+targets += $(dr_asm_targets)
+clean-files += $(dr_asm_targets)
 
 # Since the kernel module is still in development, many DynamoRIO symbols
 # haven't been ported to the kernel build yet. To be able to load and test
