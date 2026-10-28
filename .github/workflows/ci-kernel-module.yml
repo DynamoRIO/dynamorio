@@ -69,7 +69,7 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: |
           sudo apt update
-          sudo apt install -y cmake doxygen g++ g++-multilib libelf-dev make vera++ \
+          sudo apt install -y cmake doxygen g++ libelf-dev make vera++ \
             linux-headers-$(uname -r)
 
       - name: Build DynamoRIO kernel module and controller against running kernel
