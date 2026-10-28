@@ -1,3 +1,1 @@
-[drcachesim](http://dynamorio.org/page_drcachesim.html) is a DynamoRIO client
-tool that gathers memory reference information from multiple processes
-simultaneously and feeds it to an online cache simulator.
+The `drcachesim` directory contains both the `drcachesim` functional cache simulator tool as well as the full [drmemtrace address tracing and analysis framework](http://dynamorio.org/page_drcachesim.html) and a number of other analysis tools.
