@@ -10,8 +10,14 @@ on:
   merge_group:
 
 jobs:
-  x86-64:
-    runs-on: ubuntu-24.04
+  build-only:
+    name: build-only (${{ matrix.runner }}, debug=${{ matrix.debug }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+        debug: ['ON', 'OFF']
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -40,7 +46,10 @@ jobs:
 
       - name: Build DynamoRIO kernel module and controller
         run: |
-          cmake -B build -DBUILD_KERNEL_MODULE=ON -DKERNEL_DIR=$GITHUB_WORKSPACE/$KERNEL_DIR
+          cmake -B build \
+            -DBUILD_KERNEL_MODULE=ON \
+            -DKERNEL_DIR=$GITHUB_WORKSPACE/$KERNEL_DIR \
+            -DDEBUG=${{ matrix.debug }}
           cmake --build build --parallel $(nproc) --target dynamorio_module
 
   x86-64-insmod:
