@@ -107,6 +107,14 @@ add_custom_target(dynamorio_module ALL
 KERNEL_DIR=${KERNEL_DIR}"
   VERBATIM
 )
+if (AARCH64)
+  add_dependencies(dynamorio_module gen_aarch64_codec)
+  foreach (header IN LISTS AARCH64_CODEC_GEN_SRCS)
+    get_filename_component(header_name "${header}" NAME)
+    file(CREATE_LINK "${header}"
+      "${CMAKE_CURRENT_BINARY_DIR}/${header_name}" SYMBOLIC)
+  endforeach ()
+endif ()
 add_dependencies(dynamorio_module drkernel_ctl)
 
 # Standard `make clean` cannot remove Kbuild bookkeeping files.
