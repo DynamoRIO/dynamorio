@@ -759,6 +759,33 @@ multistruct_regcount(uint enc)
     return 0;
 }
 
+#ifdef LINUX_KERNEL
+/* The arm64 kernel's -mgeneral-regs-only rejects float/double types, so FP
+ * immediates (fmov #imm, fcmp #0.0, SVE fadd #0.5, ...) are unsupported in the kernel,
+ * whose code doesn't use them.
+ * XXX i#8021: Handling FP immediates as raw bits would lift this.
+ */
+static bool
+decode_fpimm_unsupported(void)
+{
+    /* Only reached for an instruction that has an FP immediate, which kernel code
+     * shouldn't contain.
+     */
+    SYSLOG_INTERNAL_WARNING_ONCE("AArch64 FP immediate operands are not supported "
+                                 "in the kernel");
+    return false;
+}
+
+static bool
+encode_fpimm_unsupported(opnd_t opnd)
+{
+    /* Also reached for other forms of the same opcode (e.g., fmov between registers),
+     * as the encoder tries each encoding in turn.
+     */
+    ASSERT(!opnd_is_immed_float(opnd) && !opnd_is_immed_double(opnd));
+    return false;
+}
+#else
 static bool
 decode_fpimm8_single(uint a, uint b, uint c, uint defgh, OUT opnd_t *opnd);
 
@@ -773,7 +800,7 @@ decode_fpimm8_half(uint a, uint b, uint c, uint defgh, OUT opnd_t *opnd)
      * imm16 = imm8<7>:NOT(imm8<6>):Replicate(imm8<6>,2):imm8<5:0>:Zeros(6);
      *         a:~b:bb:cdefgh:000000
      */
-#ifdef HAVE_HALF_FLOAT
+#    ifdef HAVE_HALF_FLOAT
     union {
         __fp16 f;
         uint16_t i;
@@ -789,11 +816,11 @@ decode_fpimm8_half(uint a, uint b, uint c, uint defgh, OUT opnd_t *opnd)
     *opnd = opnd_create_immed_float(fpv.f);
 
     return true;
-#else
+#    else
     /* For off-line encode on platforms which do not support 16 bit (half-precision) FP.
      */
     return decode_fpimm8_single(a, b, c, defgh, opnd);
-#endif
+#    endif
 }
 
 static inline bool
@@ -868,11 +895,11 @@ encode_fpimm8_half(opnd_t opnd, uint abc_offset, uint defgh_offset, OUT uint *en
      *    _
      *   abbb cdef gh00 0000
      */
-#ifdef HAVE_HALF_FLOAT
-#    if !defined(DR_HOST_NOT_TARGET) && !defined(STANDALONE_DECODER)
+#    ifdef HAVE_HALF_FLOAT
+#        if !defined(DR_HOST_NOT_TARGET) && !defined(STANDALONE_DECODER)
     CLIENT_ASSERT(proc_has_feature(FEATURE_FP16),
                   "half-precision floating-point not supported on this host");
-#    endif
+#        endif
     if (!opnd_is_immed_float(opnd))
         return false;
 
@@ -901,11 +928,11 @@ encode_fpimm8_half(opnd_t opnd, uint abc_offset, uint defgh_offset, OUT uint *en
 
     *enc_out = (abc << abc_offset) | (defgh << defgh_offset);
     return true;
-#else
+#    else
     /* For off-line encode on platforms which do not support 16 bit (half-precision) FP.
      */
     return encode_fpimm8_single(opnd, abc_offset, defgh_offset, enc_out);
-#endif
+#    endif
 }
 
 static inline bool
@@ -989,6 +1016,7 @@ encode_fpimm8_double(opnd_t opnd, uint64_t abc_offset, uint64_t defgh_offset,
     *enc_out = (abc << abc_offset) | (defgh << defgh_offset);
     return true;
 }
+#endif /* !LINUX_KERNEL */
 
 /* Extracts the size from an imm13 field.  Returns NOT_A_REG if the read value is invalid.
  */
@@ -2056,19 +2084,27 @@ encode_opnd_vindex_D1(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc
 static inline bool
 decode_opnd_zero_fp_const(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
+#ifdef LINUX_KERNEL
+    return decode_fpimm_unsupported();
+#else
     *opnd = opnd_create_immed_float(0);
     return true;
+#endif
 }
 
 static inline bool
 encode_opnd_zero_fp_const(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
+#ifdef LINUX_KERNEL
+    return encode_fpimm_unsupported(opnd);
+#else
     if (!opnd_is_immed_float(opnd))
         return false;
 
     if (opnd_get_immed_float(opnd) == 0)
         return true;
     return false;
+#endif
 }
 
 /* nzcv: flag bit specifier for conditional compare */
@@ -2538,6 +2574,7 @@ encode_opnd_prfop(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
     return encode_opnd_int(0, 5, false, 0, 0, opnd, enc_out);
 }
 
+#ifndef LINUX_KERNEL
 static inline bool
 decode_float_const_pair(uint pos, float first, float second, uint enc, OUT opnd_t *opnd)
 {
@@ -2560,20 +2597,29 @@ encode_float_const_pair(uint pos, float first, float second, opnd_t opnd,
     *enc_out = (value == first ? 0 : 1) << pos;
     return true;
 }
+#endif /* !LINUX_KERNEL */
 
 /* half_one_size_hsd_5: 1 bit floating-point index, 0.5 or 1.0 */
 
 static inline bool
 decode_opnd_fpimm1_half_one_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
+#ifdef LINUX_KERNEL
+    return decode_fpimm_unsupported();
+#else
     return decode_float_const_pair(5, 0.5f, 1.0f, enc, opnd);
+#endif
 }
 
 static inline bool
 encode_opnd_fpimm1_half_one_5(uint enc, int opcode, byte *pc, opnd_t opnd,
                               OUT uint *enc_out)
 {
+#ifdef LINUX_KERNEL
+    return encode_fpimm_unsupported(opnd);
+#else
     return encode_float_const_pair(5, 0.5f, 1.0f, opnd, enc_out);
+#endif
 }
 
 /* zero_one_size_hsd_5: 1 bit floating-point index, 0.0 or 1.0 */
@@ -2581,14 +2627,22 @@ encode_opnd_fpimm1_half_one_5(uint enc, int opcode, byte *pc, opnd_t opnd,
 static inline bool
 decode_opnd_fpimm1_zero_one_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
+#ifdef LINUX_KERNEL
+    return decode_fpimm_unsupported();
+#else
     return decode_float_const_pair(5, 0.0f, 1.0f, enc, opnd);
+#endif
 }
 
 static inline bool
 encode_opnd_fpimm1_zero_one_5(uint enc, int opcode, byte *pc, opnd_t opnd,
                               OUT uint *enc_out)
 {
+#ifdef LINUX_KERNEL
+    return encode_fpimm_unsupported(opnd);
+#else
     return encode_float_const_pair(5, 0.0f, 1.0f, opnd, enc_out);
+#endif
 }
 
 /* half_two_size_hsd_5: 1 bit floating-point index, 0.5 or 2.0 */
@@ -2596,14 +2650,22 @@ encode_opnd_fpimm1_zero_one_5(uint enc, int opcode, byte *pc, opnd_t opnd,
 static inline bool
 decode_opnd_fpimm1_half_two_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
+#ifdef LINUX_KERNEL
+    return decode_fpimm_unsupported();
+#else
     return decode_float_const_pair(5, 0.5f, 2.0f, enc, opnd);
+#endif
 }
 
 static inline bool
 encode_opnd_fpimm1_half_two_5(uint enc, int opcode, byte *pc, opnd_t opnd,
                               OUT uint *enc_out)
 {
+#ifdef LINUX_KERNEL
+    return encode_fpimm_unsupported(opnd);
+#else
     return encode_float_const_pair(5, 0.5f, 2.0f, opnd, enc_out);
+#endif
 }
 
 /* imm2_6: 2-bit immediate from bits 6-7 */
@@ -3895,18 +3957,26 @@ encode_opnd_pstate(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
 static inline bool
 decode_opnd_fpimm8(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
+#ifdef LINUX_KERNEL
+    return decode_fpimm_unsupported();
+#else
     const uint a = extract_uint(enc, 18, 1);
     const uint b = extract_uint(enc, 17, 1);
     const uint c = extract_uint(enc, 16, 1);
     const uint defgh = extract_uint(enc, 5, 5);
 
     return decode_fpimm8_half(a, b, c, defgh, opnd);
+#endif
 }
 
 static inline bool
 encode_opnd_fpimm8(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
+#ifdef LINUX_KERNEL
+    return encode_fpimm_unsupported(opnd);
+#else
     return encode_fpimm8_half(opnd, 16, 5, enc_out);
+#endif
 }
 
 /* imm8: an 8 bit uint stitched together from 2 parts of bits 16-18 and 5-9*/
@@ -6643,6 +6713,9 @@ encode_opnd_mem9post_tag(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *
 static inline bool
 decode_opnd_fpimm8_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
+#ifdef LINUX_KERNEL
+    return decode_fpimm_unsupported();
+#else
     const uint size = extract_uint(enc, 22, 2);
     const uint a = extract_uint(enc, 12, 1);
     const uint b = extract_uint(enc, 11, 1);
@@ -6655,11 +6728,15 @@ decode_opnd_fpimm8_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
     }
 
     return false;
+#endif
 }
 
 static inline bool
 encode_opnd_fpimm8_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
+#ifdef LINUX_KERNEL
+    return encode_fpimm_unsupported(opnd);
+#else
     const uint size = extract_uint(enc, 22, 2);
     switch (size) {
     case 0b01: return encode_fpimm8_half(opnd, 10, 5, enc_out);
@@ -6668,6 +6745,7 @@ encode_opnd_fpimm8_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
     }
 
     return false;
+#endif
 }
 
 static inline bool
@@ -6883,6 +6961,9 @@ encode_opnd_svemem_vec_vec_idx(uint enc, int opcode, byte *pc, opnd_t opnd,
 static inline bool
 decode_opnd_fpimm8_13(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
+#ifdef LINUX_KERNEL
+    return decode_fpimm_unsupported();
+#else
     const uint size = extract_uint(enc, 22, 2);
     const uint a = extract_uint(enc, 20, 1);
     const uint b = extract_uint(enc, 19, 1);
@@ -6896,11 +6977,15 @@ decode_opnd_fpimm8_13(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
     }
 
     return false;
+#endif
 }
 
 static inline bool
 encode_opnd_fpimm8_13(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
+#ifdef LINUX_KERNEL
+    return encode_fpimm_unsupported(opnd);
+#else
     const uint size = extract_uint(enc, 22, 2);
     switch (size) {
     case 0b00: return encode_fpimm8_single(opnd, 18, 13, enc_out);
@@ -6909,6 +6994,7 @@ encode_opnd_fpimm8_13(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc
     }
 
     return false;
+#endif
 }
 
 static inline bool
