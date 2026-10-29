@@ -184,6 +184,13 @@ physaddr_t::init()
 #endif
 }
 
+void
+physaddr_t::clear_cache(void *drcontext)
+{
+    memset(last_vpage_, static_cast<char>(PAGE_INVALID), sizeof(last_vpage_));
+    dr_hashtable_clear(drcontext, v2p_);
+}
+
 bool
 physaddr_t::virtual2physical(void *drcontext, addr_t virt, DR_PARAM_OUT addr_t *phys,
                              DR_PARAM_OUT bool *from_cache)
