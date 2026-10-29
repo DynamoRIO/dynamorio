@@ -1,0 +1,6 @@
+Call to test_func
+Call to test_func
+#ifdef X64
+Call to test_func
+Call to test_func
+#endif
