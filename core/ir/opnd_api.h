@@ -2523,6 +2523,7 @@ DR_API
 opnd_t
 opnd_invert_immed_int(opnd_t opnd);
 
+#ifndef LINUX_KERNEL
 DR_API
 /**
  * Returns an immediate float operand with value \p f.
@@ -2537,7 +2538,7 @@ DR_API
 opnd_t
 opnd_create_immed_float(float f);
 
-#ifndef WINDOWS
+#    ifndef WINDOWS
 /* XXX i#4488: x87 floating point immediates should be double precision.
  * Type double currently not included for Windows because sizeof(opnd_t) does
  * not equal EXPECTED_SIZEOF_OPND, triggering the ASSERT in d_r_arch_init().
@@ -2555,7 +2556,8 @@ DR_API
  */
 opnd_t
 opnd_create_immed_double(double d);
-#endif
+#    endif
+#endif /* !LINUX_KERNEL */
 
 #ifdef AARCH64
 DR_API
@@ -3266,6 +3268,7 @@ DR_API
 int64
 opnd_get_immed_int64(opnd_t opnd);
 
+#ifndef LINUX_KERNEL
 DR_API
 /**
  * Assumes \p opnd is an immediate float and returns its value.
@@ -3275,7 +3278,7 @@ DR_API
 float
 opnd_get_immed_float(opnd_t opnd);
 
-#ifndef WINDOWS
+#    ifndef WINDOWS
 /* XXX i#4488: x87 floating point immediates should be double precision.
  * Type double currently not included for Windows because sizeof(opnd_t) does
  * not equal EXPECTED_SIZEOF_OPND, triggering the ASSERT in d_r_arch_init().
@@ -3288,7 +3291,8 @@ DR_API
  */
 double
 opnd_get_immed_double(opnd_t opnd);
-#endif
+#    endif
+#endif /* !LINUX_KERNEL */
 
 DR_API
 /** Assumes \p opnd is a (near or far) program address and returns its value. */
