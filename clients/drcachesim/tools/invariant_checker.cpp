@@ -688,6 +688,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             "Chunks do not increase monotonically");
         }
         shard->last_chunk_ordinal_ = memref.marker.marker_value;
+        // Clear the v2p cache to check that records are repeated in a new chunk.
+        shard->v2p_.clear();
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT_RAW) {

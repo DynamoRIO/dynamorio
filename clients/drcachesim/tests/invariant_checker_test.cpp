@@ -5995,6 +5995,7 @@ check_v2p(void)
 {
     std::cerr << "Testing virtual-to-physical markers\n";
     constexpr addr_t kPc = 0xabcde123;
+    constexpr addr_t kLoad = 0x99333;
     // Correct: paired records with matching page offsets.
     {
         std::vector<memref_t> memrefs = {
@@ -6113,6 +6114,70 @@ check_v2p(void)
                            /*tid=*/TID_A,
                            /*ref_ordinal=*/7, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/1 },
+                         "Failed to catch missing physical address"))
+            return false;
+    }
+    // Correct: v2p records repeat in a new chunk.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, 3),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS, 0x456123),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, kPc),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS, 0x2333),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, kLoad),
+            gen_instr_type(TRACE_TYPE_INSTR, TID_A, kPc),
+            gen_instr_type(TRACE_TYPE_READ, TID_A, kLoad),
+            gen_instr_type(TRACE_TYPE_INSTR, TID_A, kPc + 1),
+            gen_instr_type(TRACE_TYPE_INSTR, TID_A, kPc + 2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 0),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_RECORD_ORDINAL, 11),
+            // The new markers appear lazily before each new page reference.
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS, 0x456123),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, kPc),
+            gen_instr_type(TRACE_TYPE_INSTR, TID_A, kPc + 3),
+            // We expect no 2nd record for the kPc page.
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS, 0x2333),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, kLoad),
+            gen_instr_type(TRACE_TYPE_INSTR, TID_A, kPc + 4),
+            gen_instr_type(TRACE_TYPE_READ, TID_A, kLoad),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Incorrect: v2p records not all repeated in a new chunk.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, 3),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS, 0x456123),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, kPc),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS, 0x2333),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, kLoad),
+            gen_instr_type(TRACE_TYPE_INSTR, TID_A, kPc),
+            gen_instr_type(TRACE_TYPE_READ, TID_A, kLoad),
+            gen_instr_type(TRACE_TYPE_INSTR, TID_A, kPc + 1),
+            gen_instr_type(TRACE_TYPE_INSTR, TID_A, kPc + 2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 0),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_RECORD_ORDINAL, 11),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS, 0x456123),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, kPc),
+            gen_instr_type(TRACE_TYPE_INSTR, TID_A, kPc + 3),
+            // Markers for kLoad are missing.
+            gen_instr_type(TRACE_TYPE_INSTR, TID_A, kPc + 4),
+            gen_instr_type(TRACE_TYPE_READ, TID_A, kLoad),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "Missing physical address",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/19, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/5 },
                          "Failed to catch missing physical address"))
             return false;
     }
