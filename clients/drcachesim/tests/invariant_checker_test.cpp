@@ -5991,7 +5991,7 @@ bool
 check_v2p(void)
 {
     std::cerr << "Testing virtual-to-physical markers\n";
-    constexpr addr_t kPc = 0xabcdef123;
+    constexpr addr_t kPc = 0xabcde123;
     // Correct: paired records with matching page offsets.
     {
         std::vector<memref_t> memrefs = {
