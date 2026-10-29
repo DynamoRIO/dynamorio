@@ -686,7 +686,8 @@ void
 check_wait_at_safe_spot(dcontext_t *dcontext, thread_synch_permission_t cur_state)
 {
     thread_synch_data_t *tsd = (thread_synch_data_t *)dcontext->synch_field;
-    byte cxt[MAX(CONTEXT_HEAP_SIZE_OPAQUE, sizeof(priv_mcontext_t))];
+    /* NtContinue requires a 16-byte-aligned CONTEXT on x64. */
+    ALIGN_VAR(16) byte cxt[MAX(CONTEXT_HEAP_SIZE_OPAQUE, sizeof(priv_mcontext_t))];
     bool set_context = false;
     bool set_mcontext = false;
     if (tsd->pending_synch_count == 0 || cur_state == THREAD_SYNCH_NONE)
@@ -761,7 +762,9 @@ check_wait_at_safe_spot(dcontext_t *dcontext, thread_synch_permission_t cur_stat
             memcpy(cxt, tsd->set_mcontext, sizeof(*tsd->set_mcontext));
         } else {
             set_context = true;
-            memcpy(cxt, tsd->set_context, tsd->set_context_size);
+            /* set_context_size may include alignment padding beyond the CONTEXT. */
+            memcpy(cxt, tsd->set_context,
+                   IF_WINDOWS_ELSE(sizeof(CONTEXT), tsd->set_context_size));
         }
         synch_thread_free_setcontext(tsd); /* sets to NULL for us */
     }
