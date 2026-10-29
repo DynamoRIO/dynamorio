@@ -122,15 +122,15 @@ quiet_cmd_dr_cpp2asm = CPP2ASM $@
 
 # The .S files for each SRCARCH, one per .asm source in ARCH_SRCS (see
 # core/CMakeLists.txt).
-dr_asm_srcs_arm64 := core/arch/aarch64/aarch64.S core/arch/aarchxx/aarchxx.S
-dr_asm_srcs_x86 := core/arch/x86/x86.S
-dr_asm_srcs := $(dr_asm_srcs_$(SRCARCH))
+dr_asm_targets_arm64 := core/arch/aarch64/aarch64.S core/arch/aarchxx/aarchxx.S
+dr_asm_targets_x86 := core/arch/x86/x86.S
+dr_asm_targets := $(dr_asm_targets_$(SRCARCH))
 
-$(addprefix $(obj)/,$(dr_asm_srcs)): $(obj)/%.S: $(src)/%.asm FORCE \
+$(addprefix $(obj)/,$(dr_asm_targets)): $(obj)/%.S: $(src)/%.asm FORCE \
   ; $(call if_changed_dep,dr_cpp2asm)
 
-targets += $(dr_asm_srcs)
-clean-files += $(dr_asm_srcs)
+targets += $(dr_asm_targets)
+clean-files += $(dr_asm_targets)
 
 # Since the kernel module is still in development, many DynamoRIO symbols
 # haven't been ported to the kernel build yet. To be able to load and test
