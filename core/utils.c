@@ -883,7 +883,7 @@ d_r_mutex_lock_app(mutex_t *lock, priv_mcontext_t *mc)
     }
 
     /* we have strong intentions to grab this lock, increment requests */
-    acquired = atomic_inc_and_test(&lock->lock_requests);
+    acquired = d_r_atomic_inc_and_test(&lock->lock_requests);
     DEADLOCK_AVOIDANCE_LOCK(lock, acquired, ownable);
 
     if (!acquired) {
@@ -934,7 +934,7 @@ d_r_mutex_unlock(mutex_t *lock)
     ASSERT(lock->lock_requests > LOCK_FREE_STATE && "lock not owned");
     DEADLOCK_AVOIDANCE_UNLOCK(lock, ownable);
 
-    if (atomic_dec_and_test(&lock->lock_requests))
+    if (d_r_atomic_dec_and_test(&lock->lock_requests))
         return;
     /* if we were not the last one to hold the lock,
        (i.e. final value is not LOCK_FREE_STATE)
