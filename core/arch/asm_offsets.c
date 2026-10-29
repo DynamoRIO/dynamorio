@@ -43,7 +43,7 @@
 #    endif
 #    include "mangle_aarch64.h"
 #endif
-#include <stddef.h> /* for offsetof */
+#include "stddef_wrapper.h" /* for offsetof */
 
 #include "asm_offsets.h"
 
