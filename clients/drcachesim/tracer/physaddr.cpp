@@ -187,8 +187,10 @@ physaddr_t::init()
 void
 physaddr_t::clear_cache(void *drcontext)
 {
+#ifdef LINUX
     memset(last_vpage_, static_cast<char>(PAGE_INVALID), sizeof(last_vpage_));
     dr_hashtable_clear(drcontext, v2p_);
+#endif
 }
 
 bool
