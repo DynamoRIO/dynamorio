@@ -43,7 +43,7 @@
 #ifdef CONFIG_X86
 #    include <asm/tsc.h> /* For tsc_khz. */
 #elif defined(CONFIG_ARM64)
-#    include <clocksource/arm_arch_timer.h> /* For arch_timer_get_rate(). */
+#    include <asm/arch_timer.h> /* For arch_timer_get_cntfrq(). */
 #endif
 #include <linux/cpumask.h>
 #include <linux/kprobes.h>
@@ -280,7 +280,7 @@ kernel_get_timestamp_counter_khz(void)
 #ifdef CONFIG_X86
     return tsc_khz;
 #elif defined(CONFIG_ARM64)
-    return arch_timer_get_rate() / 1000;
+    return arch_timer_get_cntfrq() / 1000;
 #else
 #    error "Unsupported architecture"
 #endif
