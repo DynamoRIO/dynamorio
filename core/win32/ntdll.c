@@ -1331,7 +1331,6 @@ mcontext_to_context(CONTEXT *cxt, priv_mcontext_t *mcontext, bool set_cur_seg)
         byte *ymmh_area = context_ymmh_saved_area(cxt);
         if (ymmh_area != NULL) {
             uint64 *header_bv = (uint64 *)(ymmh_area - XSTATE_HEADER_SIZE);
-            uint bv_high, bv_low;
             int i;
 #        ifndef X64
             /* In 32-bit Windows mcontext, we do not preserve xmm/ymm 6 and 7,
@@ -1359,11 +1358,8 @@ mcontext_to_context(CONTEXT *cxt, priv_mcontext_t *mcontext, bool set_cur_seg)
                        YMMH_REG_SIZE);
             }
             /* XXX i#1312: AVX-512 extended register copies missing yet. */
-            /* The only un-reserved part of the AVX header saved by OP_xsave is
-             * the XSTATE_BV byte.
-             */
-            dr_xgetbv(&bv_high, &bv_low);
-            *header_bv = (((uint64)bv_high) << 32) | bv_low;
+            /* Mark the YMM state copied here without advertising other CPU features. */
+            *header_bv |= XCR0_AVX;
         }
     }
     /* XXX i#1312: AVX-512 extended register copies missing yet. */

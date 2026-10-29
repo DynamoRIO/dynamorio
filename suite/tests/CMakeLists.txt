@@ -624,8 +624,9 @@ function(add_exe test source)
     # we rely on the asm rule doing preprocessing for us, so we just make
     # a copy and set the ASM_CODE_ONLY define
     get_filename_component(source_abs "${source}" ABSOLUTE)
+    # Keep each executable's generated assembly independent in parallel builds.
     add_split_asm_target("${source_abs}" asm_source gen_asm_tgt
-      "_asm" "${asm_defs}" "${asm_deps}")
+      "_asm_${test}" "${asm_defs}" "${asm_deps}")
     set(test_srcs ${test_srcs} ${asm_source})
   endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
 
@@ -3305,6 +3306,10 @@ if (X86 OR AARCH64)
       append_pure_asm_app_link_flags(allasm_dfilter)
     endif ()
   endif ()
+endif ()
+
+if (WIN32 AND NOT X64 AND X86)
+  tobuild_ci(client.wow64-teb-syscall client-interface/wow64-teb-syscall.c "" "" "")
 endif ()
 
 if (NOT RISCV64)
@@ -7384,4 +7389,9 @@ if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64)
     code_api|tool.drcov.eintr
     code_api|tool.histogram.offline
     code_api|tool.record_filter_bycore_multi)
+endif ()
+
+if (TEST "code_api|client.wow64-teb-syscall")
+  set_tests_properties("code_api|client.wow64-teb-syscall" PROPERTIES
+    SKIP_REGULAR_EXPRESSION "WOW64 unavailable")
 endif ()
