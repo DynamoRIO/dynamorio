@@ -38,7 +38,9 @@
 #    error This is only implemented for AArch64 and ARM.
 #endif
 #ifdef AARCH64
-#    include "../../unix/module_private.h"
+#    ifndef LINUX_KERNEL
+#        include "../../unix/module_private.h"  /* For struct tlsdesc_t. */
+#    endif
 #    include "mangle_aarch64.h"
 #endif
 #include <stddef.h> /* for offsetof */
