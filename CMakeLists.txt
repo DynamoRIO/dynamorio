@@ -1728,7 +1728,7 @@ if (BUILD_KERNEL_MODULE)
 
   if (NOT (AARCH64 OR (X86 AND X64)))
     message(FATAL_ERROR
-      "BUILD_KERNEL_MODULE is currently only supported on X86_64 architecture")
+      "BUILD_KERNEL_MODULE is currently only supported on X86_64 and AARCH64")
   endif()
 
   if (NOT BUILD_CORE)
