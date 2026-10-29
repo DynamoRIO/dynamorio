@@ -1726,7 +1726,6 @@ if (BUILD_KERNEL_MODULE)
     message(FATAL_ERROR "BUILD_KERNEL_MODULE is only supported on Linux")
   endif()
 
-  # TODO i#8021: support AARCH64.
   if (NOT (AARCH64 OR (X86 AND X64)))
     message(FATAL_ERROR
       "BUILD_KERNEL_MODULE is currently only supported on X86_64 architecture")
