@@ -38,7 +38,9 @@
  * functions next to each other.
  */
 
-#include <stdint.h>
+#ifndef LINUX_KERNEL
+#    include <stdint.h>
+#endif
 #include "../globals.h"
 #include "../isa_regdeps/decode.h"
 #include "arch.h"
