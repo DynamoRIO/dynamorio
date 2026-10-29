@@ -551,11 +551,7 @@ get_num_processors(void)
 timestamp_t
 get_timer_frequency(void)
 {
-#ifdef X86
-    return kernel_get_tsc_khz();
-#else
-#    error "Unsupported platform"
-#endif
+    return kernel_get_timestamp_counter_khz();
 }
 
 uint
