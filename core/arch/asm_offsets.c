@@ -39,7 +39,7 @@
 #endif
 #ifdef AARCH64
 #    ifndef LINUX_KERNEL
-#        include "../../unix/module_private.h"  /* For struct tlsdesc_t. */
+#        include "../../unix/module_private.h" /* For struct tlsdesc_t. */
 #    endif
 #    include "mangle_aarch64.h"
 #endif
