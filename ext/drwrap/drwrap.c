@@ -301,6 +301,7 @@ typedef struct _post_call_entry_t {
      */
 #define POST_CALL_PRIOR_BYTES_STORED 6 /* max normal call size */
     byte prior[POST_CALL_PRIOR_BYTES_STORED];
+    byte prior_size;
 } post_call_entry_t;
 
 /* Support for external post-call caching */
@@ -334,10 +335,15 @@ post_call_entry_add(app_pc postcall, bool external)
     post_call_entry_t *e = (post_call_entry_t *)dr_global_alloc(sizeof(*e));
     ASSERT(dr_rwlock_self_owns_write_lock(post_call_rwlock), "must hold write lock");
     e->existing_instrumented = false;
-    if (!fast_safe_read(postcall - POST_CALL_PRIOR_BYTES_STORED,
-                        POST_CALL_PRIOR_BYTES_STORED, e->prior)) {
-        /* notify client somehow?  we'll carry on and invalidate on next bb */
-        memset(e->prior, 0, sizeof(e->prior));
+    e->prior_size = POST_CALL_PRIOR_BYTES_STORED;
+    if (!fast_safe_read(postcall - e->prior_size, e->prior_size, e->prior)) {
+        /* Avoid reading an inaccessible page before a short call. */
+        size_t page_offset = (ptr_uint_t)postcall % dr_page_size();
+        if (page_offset < e->prior_size)
+            e->prior_size = (byte)page_offset;
+        if (e->prior_size == 0 ||
+            !fast_safe_read(postcall - e->prior_size, e->prior_size, e->prior))
+            e->prior_size = 0;
     }
     if (!hashtable_add(&post_call_table, (void *)postcall, (void *)e)) {
         NOTIFY(2, "%s: failed to add %p external=%d\n", __FUNCTION__, postcall, external);
@@ -362,17 +368,17 @@ post_call_consistent(app_pc postcall, post_call_entry_t *e)
     byte cur[POST_CALL_PRIOR_BYTES_STORED];
     ASSERT(e != NULL, "invalid param");
     /* i#673: to avoid all the problems w/ invalidating on delete, we instead
-     * invalidate on lookup.  We store the prior 6 bytes which is the call
-     * instruction, which is what we care about.  Note that it's ok for us
+     * invalidate on lookup.  We store up to 6 bytes preceding the post-call pc,
+     * normally including the complete call instruction.  Note that it's ok for us
      * to not be 100% accurate b/c we now use stored-esp on
      * post-call and so make no assumptions about post-call sites.
      */
-    if (!fast_safe_read(postcall - POST_CALL_PRIOR_BYTES_STORED,
-                        POST_CALL_PRIOR_BYTES_STORED, cur)) {
+    if (e->prior_size == 0 ||
+        !fast_safe_read(postcall - e->prior_size, e->prior_size, cur)) {
         /* notify client somehow? */
         return false;
     }
-    return (memcmp(e->prior, cur, POST_CALL_PRIOR_BYTES_STORED) == 0);
+    return (memcmp(e->prior, cur, e->prior_size) == 0);
 }
 
 #ifdef X86
