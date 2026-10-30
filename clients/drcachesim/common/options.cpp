@@ -298,6 +298,25 @@ droption_t<bool> op_use_physical(
     "For -offline, this option must be passed to both the tracer (to insert the "
     "markers) and the simulator (to use the markers).");
 
+droption_t<bool> op_enable_v2p_tracefs(
+    DROPTION_SCOPE_CLIENT, "enable_v2p_tracefs", false,
+    "Capture virtual-to-physical mappings via Linux tracefs in -offline mode",
+    "When enabled in -offline mode, snapshots /proc/self/pagemap at startup "
+    "and "
+    "streams kernel page-table tracepoints from tracefs into raw/v2p.bin so "
+    "raw2trace "
+    "can emit physical address markers during post-processing without inline "
+    "/proc/self/pagemap polling during tracing. Cannot be combined with "
+    "-use_physical "
+    "during tracing; pass -use_physical to the simulator during offline "
+    "analysis.");
+
+droption_t<unsigned int> op_v2p_buffer_size_kb(
+    DROPTION_SCOPE_CLIENT, "v2p_buffer_size_kb", 16384,
+    "Per-CPU tracefs buffer size in KB for -enable_v2p_tracefs",
+    "Specifies the per-CPU kernel tracefs ring buffer size in kilobytes when "
+    "-enable_v2p_tracefs is enabled.");
+
 droption_t<unsigned int> op_virt2phys_freq(
     DROPTION_SCOPE_CLIENT, "virt2phys_freq", 0, "Frequency of physical mapping refresh",
     "This option only applies if -use_physical is enabled.  The virtual to physical "

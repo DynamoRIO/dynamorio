@@ -616,6 +616,12 @@ public:
     virtual std::string
     do_conversion();
 
+    void
+    set_v2p_file(const std::string &v2p_file)
+    {
+        v2p_file_ = v2p_file;
+    }
+
     static std::string
     check_thread_file(std::istream *f);
 
@@ -659,6 +665,25 @@ protected:
      * entries. With a 512-bit vector length that is (512 / 8) * 4 = 256 memref entries.
      */
     static const uint WRITE_BUFFER_SIZE = 260;
+
+    static constexpr addr_t V2P_PAGE_INVALID = static_cast<addr_t>(-1);
+    static constexpr addr_t V2P_PAGE_BITS = 12;
+    static constexpr addr_t V2P_PAGE_SIZE = static_cast<addr_t>(1) << V2P_PAGE_BITS;
+    static constexpr addr_t V2P_PAGE_MASK = V2P_PAGE_SIZE - 1;
+
+    // A single timestamped mapping or unmapping (pfn == V2P_PAGE_INVALID)
+    // transition for a 4 KB virtual page number (VPN).
+    struct v2p_entry_t {
+        uint64_t timestamp_us;
+        addr_t pfn;
+    };
+
+    // Per-thread, per-chunk cached physical translation and the timestamp at
+    // which the mapping changes to a different PFN (or is unmapped).
+    struct v2p_cached_t {
+        addr_t pfn = V2P_PAGE_INVALID;
+        uint64_t valid_until_us = 0;
+    };
 
     struct block_summary_t {
         block_summary_t(app_pc start, int instr_count)
@@ -792,6 +817,9 @@ protected:
 
         bitset_hash_table_t<app_pc> encoding_emitted;
         app_pc last_encoding_emitted = nullptr;
+
+        uint64_t v2p_current_time_us = 0;
+        std::unordered_map<addr_t, v2p_cached_t> v2p_emitted;
 
         schedule_file_t::per_shard_t sched_data;
 
@@ -1455,6 +1483,40 @@ private:
     // some syscall traces completely from the final trace where the PT trace could
     // not be converted.
     bool pt2ir_best_effort_ = false;
+
+    // Reads the binary v2p.bin log (if present) into v2p_map_, sorting per-VPN
+    // transition histories by timestamp_us.
+    std::string
+    read_v2p_file();
+
+    // Resolves the physical frame number (PFN) for `vpn` as of `timestamp_us`,
+    // setting `valid_until_out` to the timestamp of the next transition that
+    // changes `pfn`. If `vpn` is not yet mapped at `timestamp_us` (e.g., a
+    // first-touch page fault occurring later within the same offline buffer),
+    // falls back to the next mapped event in `vpn`'s timeline.
+    bool
+    lookup_v2p(addr_t vpn, uint64_t timestamp_us, DR_PARAM_OUT addr_t *pfn_out,
+               DR_PARAM_OUT uint64_t *valid_until_out) const;
+
+    // Emits a TRACE_MARKER_TYPE_PHYSICAL_ADDRESS / VIRTUAL_ADDRESS pair (or
+    // TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE) before `it` if
+    // `vaddr`'s 4 KB virtual page has not yet been emitted in the current chunk
+    // or its prior mapping was invalidated by `tdata->v2p_current_time_us`.
+    bool
+    emit_v2p_for_addr(raw2trace_thread_data_t *tdata, addr_t vaddr,
+                      const trace_entry_t *it, const trace_entry_t *&start);
+
+    // Scans the contiguous instruction group `[ENCODING*, INSTR, MEMREF*]`
+    // starting at `it` and emits any needed physical/virtual address markers
+    // prior to `it` so all translation markers for an instruction and its
+    // memory operands appear together before the instruction.
+    bool
+    insert_v2p_markers(raw2trace_thread_data_t *tdata, const trace_entry_t *it,
+                       const trace_entry_t *end, const trace_entry_t *&start,
+                       const trace_entry_t *&checked_up_to);
+
+    std::string v2p_file_;
+    std::unordered_map<addr_t, std::vector<v2p_entry_t>> v2p_map_;
 };
 
 } // namespace drmemtrace

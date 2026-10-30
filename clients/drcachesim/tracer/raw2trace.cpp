@@ -1326,6 +1326,9 @@ raw2trace_t::do_conversion()
     error = read_syscall_template_file();
     if (!error.empty())
         return error;
+    error = read_v2p_file();
+    if (!error.empty())
+        return error;
     // XXX i#3286: Add a %-completed progress message by looking at the file sizes.
     if (worker_count_ == 0) {
         for (size_t i = 0; i < thread_data_.size(); ++i) {
@@ -3795,6 +3798,7 @@ raw2trace_t::open_new_chunk(raw2trace_thread_data_t *tdata)
     // and repeats all encodings used inside it.
     tdata->encoding_emitted.clear();
     tdata->last_encoding_emitted = nullptr;
+    tdata->v2p_emitted.clear();
 
     // TODO i#6654,i#5538: Add a virtual-to-physical cache and clear it here.
     // We'll need to add a routine for trace_converter_t to call to query our cache --
@@ -3866,6 +3870,199 @@ raw2trace_t::observe_entry_output(raw2trace_thread_data_t *tls,
     // Nothing to do for us: this is for subclasses.
 }
 
+std::string
+raw2trace_t::read_v2p_file()
+{
+    if (v2p_file_.empty())
+        return "";
+    std::ifstream in(v2p_file_, std::ios::binary);
+    if (!in.good())
+        return "Failed to open v2p file " + v2p_file_;
+
+    v2p_map_.clear();
+    uint64 overflow_events = 0;
+    bool saw_end = false;
+    v2p_record_t rec = {};
+    while (in.read(reinterpret_cast<char *>(&rec), sizeof(rec))) {
+        if (rec.type == V2P_RECORD_MAP) {
+            addr_t base_vpn = static_cast<addr_t>(rec.vaddr >> V2P_PAGE_BITS);
+            addr_t base_pfn = static_cast<addr_t>(rec.paddr >> V2P_PAGE_BITS);
+            for (uint32_t i = 0; i < rec.page_count; ++i) {
+                v2p_map_[base_vpn + i].push_back({ rec.timestamp_us, base_pfn + i });
+            }
+        } else if (rec.type == V2P_RECORD_UNMAP) {
+            addr_t base_vpn = static_cast<addr_t>(rec.vaddr >> V2P_PAGE_BITS);
+            for (uint32_t i = 0; i < rec.page_count; ++i) {
+                v2p_map_[base_vpn + i].push_back({ rec.timestamp_us, V2P_PAGE_INVALID });
+            }
+        } else if (rec.type == V2P_RECORD_OVERFLOW) {
+            overflow_events += rec.page_count;
+        } else if (rec.type == V2P_RECORD_END) {
+            saw_end = true;
+        }
+    }
+    for (auto &kv : v2p_map_) {
+        std::stable_sort(kv.second.begin(), kv.second.end(),
+                         [](const v2p_entry_t &a, const v2p_entry_t &b) {
+                             return a.timestamp_us < b.timestamp_us;
+                         });
+    }
+    if (overflow_events > 0) {
+        WARN("v2p file %s reported " UINT64_FORMAT_STRING
+             " dropped tracefs events; physical addresses may be incomplete",
+             v2p_file_.c_str(), overflow_events);
+    }
+    if (!saw_end) {
+        WARN("v2p file %s is missing its END sentinel (truncated log)",
+             v2p_file_.c_str());
+    }
+    return "";
+}
+
+bool
+raw2trace_t::lookup_v2p(addr_t vpn, uint64_t timestamp_us, DR_PARAM_OUT addr_t *pfn_out,
+                        DR_PARAM_OUT uint64_t *valid_until_out) const
+{
+    auto it = v2p_map_.find(vpn);
+    if (it == v2p_map_.end() || it->second.empty()) {
+        *pfn_out = V2P_PAGE_INVALID;
+        *valid_until_out = (std::numeric_limits<uint64_t>::max)();
+        return false;
+    }
+    const std::vector<v2p_entry_t> &vec = it->second;
+    auto upper = std::upper_bound(
+        vec.begin(), vec.end(), timestamp_us,
+        [](uint64_t ts, const v2p_entry_t &e) { return ts < e.timestamp_us; });
+    // Start at the latest entry with timestamp <= timestamp_us; if none exists
+    // (or that entry was an unmap prior to a page fault inside the current
+    // buffer), advance to the next mapped event in the page's timeline.
+    size_t start_idx =
+        (upper == vec.begin()) ? 0 : static_cast<size_t>((upper - 1) - vec.begin());
+    for (size_t k = start_idx; k < vec.size(); ++k) {
+        if (vec[k].pfn != V2P_PAGE_INVALID) {
+            addr_t pfn = vec[k].pfn;
+            uint64_t valid_until = (std::numeric_limits<uint64_t>::max)();
+            for (size_t m = k + 1; m < vec.size(); ++m) {
+                if (vec[m].pfn != pfn) {
+                    valid_until = vec[m].timestamp_us;
+                    break;
+                }
+            }
+            *pfn_out = pfn;
+            *valid_until_out = valid_until;
+            return true;
+        }
+    }
+    *pfn_out = V2P_PAGE_INVALID;
+    *valid_until_out = (std::numeric_limits<uint64_t>::max)();
+    return false;
+}
+
+bool
+raw2trace_t::emit_v2p_for_addr(raw2trace_thread_data_t *tdata, addr_t vaddr,
+                               const trace_entry_t *it, const trace_entry_t *&start)
+{
+    addr_t vpn = vaddr >> V2P_PAGE_BITS;
+    auto cached = tdata->v2p_emitted.find(vpn);
+    if (cached != tdata->v2p_emitted.end() &&
+        tdata->v2p_current_time_us < cached->second.valid_until_us) {
+        return true;
+    }
+    if (it > start) {
+        if (!tdata->out_file->write(reinterpret_cast<const char *>(start),
+                                    reinterpret_cast<const char *>(it) -
+                                        reinterpret_cast<const char *>(start))) {
+            tdata->error = "Failed to write to output file";
+            return false;
+        }
+        start = it;
+    }
+    addr_t pfn = V2P_PAGE_INVALID;
+    uint64_t valid_until_us = 0;
+    bool found = lookup_v2p(vpn, tdata->v2p_current_time_us, &pfn, &valid_until_us);
+    tdata->v2p_emitted[vpn] = { pfn, valid_until_us };
+    trace_entry_t markers[2];
+    size_t count = 0;
+    if (found) {
+        addr_t phys_addr = (pfn << V2P_PAGE_BITS) | (vaddr & V2P_PAGE_MASK);
+        markers[0] = { TRACE_TYPE_MARKER,
+                       TRACE_MARKER_TYPE_PHYSICAL_ADDRESS,
+                       { phys_addr } };
+        markers[1] = { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, { vaddr } };
+        count = 2;
+    } else {
+        markers[0] = { TRACE_TYPE_MARKER,
+                       TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE,
+                       { vaddr } };
+        count = 1;
+    }
+    for (size_t i = 0; i < count; ++i) {
+        observe_entry_output(tdata, &markers[i]);
+        if (tdata->out_archive != nullptr) {
+            tdata->cur_chunk_ref_count +=
+                tdata->memref_counter.entry_memref_count(&markers[i]);
+        }
+    }
+    if (!tdata->out_file->write(reinterpret_cast<const char *>(markers),
+                                count * sizeof(markers[0]))) {
+        tdata->error = "Failed to write to output file";
+        return false;
+    }
+    return true;
+}
+
+bool
+raw2trace_t::insert_v2p_markers(raw2trace_thread_data_t *tdata, const trace_entry_t *it,
+                                const trace_entry_t *end, const trace_entry_t *&start,
+                                const trace_entry_t *&checked_up_to)
+{
+    // Scan the contiguous instruction group `[ENCODING*, INSTR, MEMREF*]` so all
+    // translation markers for both the instruction fetch and its memory operands
+    // are emitted together prior to `it`, rather than interleaved between an
+    // encoding and its instruction or between an instruction and its memory
+    // references.
+    const trace_entry_t *scan = it;
+    while (scan < end && scan->type == TRACE_TYPE_ENCODING)
+        ++scan;
+    if (scan < end &&
+        (type_is_instr(static_cast<trace_type_t>(scan->type)) ||
+         scan->type == TRACE_TYPE_INSTR_NO_FETCH ||
+         scan->type == TRACE_TYPE_PREFETCH_INSTR)) {
+        ++scan;
+    }
+    while (scan < end &&
+           (scan->type == TRACE_TYPE_READ || scan->type == TRACE_TYPE_WRITE ||
+            type_is_prefetch(static_cast<trace_type_t>(scan->type)))) {
+        ++scan;
+    }
+    if (scan == it) {
+        checked_up_to = it + 1;
+        return true;
+    }
+    for (const trace_entry_t *entry = it; entry < scan; ++entry) {
+        trace_type_t type = static_cast<trace_type_t>(entry->type);
+        if (type == TRACE_TYPE_ENCODING || type == TRACE_TYPE_INSTR_NO_FETCH)
+            continue;
+        if (type_is_instr(type) && entry->size == 0)
+            continue;
+        if (!type_has_address(type))
+            continue;
+        if (!emit_v2p_for_addr(tdata, entry->addr, it, start))
+            return false;
+        // If an instruction fetch or memory reference straddles a 4 KB page
+        // boundary, also emit the translation for the second touched page.
+        if (entry->size > 1 &&
+            ((entry->addr & V2P_PAGE_MASK) + entry->size > V2P_PAGE_SIZE)) {
+            addr_t next_vpage = (entry->addr & ~static_cast<addr_t>(V2P_PAGE_MASK)) +
+                static_cast<addr_t>(V2P_PAGE_SIZE);
+            if (!emit_v2p_for_addr(tdata, next_vpage, it, start))
+                return false;
+        }
+    }
+    checked_up_to = scan;
+    return true;
+}
+
 // All writes to out_file go through this function, except new chunk headers
 // and footers (to do so would cause recursion; we assume those do not need
 // extra processing here).
@@ -3894,8 +4091,13 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
     if (tdata->out_archive != nullptr) {
         bool prev_was_encoding = false;
         int instr_ordinal = -1;
+        const trace_entry_t *v2p_checked_up_to = start;
         for (const trace_entry_t *it = start; it < end; ++it) {
-            observe_entry_output(tdata, it);
+            if (!v2p_map_.empty() && it->type == TRACE_TYPE_MARKER &&
+                it->size == TRACE_MARKER_TYPE_TIMESTAMP &&
+                it->addr > tdata->v2p_current_time_us) {
+                tdata->v2p_current_time_us = it->addr;
+            }
             tdata->cur_chunk_ref_count += tdata->memref_counter.entry_memref_count(it);
             // We wait until we're past the final instr to write, to ensure we
             // get all its memrefs, by not stopping until we hit an instr or an
@@ -3916,8 +4118,14 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                 if (!open_new_chunk(tdata))
                     return false;
                 start = it;
+                v2p_checked_up_to = it;
                 DEBUG_ASSERT(tdata->cur_chunk_instr_count == 0);
             }
+            if (!v2p_map_.empty() && it >= v2p_checked_up_to) {
+                if (!insert_v2p_markers(tdata, it, end, start, v2p_checked_up_to))
+                    return false;
+            }
+            observe_entry_output(tdata, it);
             if (type_is_instr(static_cast<trace_type_t>(it->type))) {
                 ++instr_ordinal;
                 // Do not count PC-only i-filtered instrs.
@@ -4009,7 +4217,19 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
             }
         }
     } else {
+        const trace_entry_t *v2p_checked_up_to = start;
         for (const trace_entry_t *it = start; it < end; ++it) {
+            if (!v2p_map_.empty()) {
+                if (it->type == TRACE_TYPE_MARKER &&
+                    it->size == TRACE_MARKER_TYPE_TIMESTAMP &&
+                    it->addr > tdata->v2p_current_time_us) {
+                    tdata->v2p_current_time_us = it->addr;
+                }
+                if (it >= v2p_checked_up_to) {
+                    if (!insert_v2p_markers(tdata, it, end, start, v2p_checked_up_to))
+                        return false;
+                }
+            }
             observe_entry_output(tdata, it);
             if (type_is_instr(static_cast<trace_type_t>(it->type))) {
                 accumulate_to_statistic(tdata,
