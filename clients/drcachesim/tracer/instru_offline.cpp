@@ -51,6 +51,7 @@
 #include "trace_entry.h"
 #include "utils.h"
 #include "instru.h"
+#include "hashtable.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -112,7 +113,7 @@ offline_instru_t::offline_instru_t(
              MAX_BB_INSTRS_NAME, MAX_BB_INSTRS);
     }
     max_block_encoding_size_ = static_cast<int>(max_bb_instrs) * MAX_INSTR_LENGTH;
-    encoding_lock_ = dr_mutex_create();
+    encoding_lock_ = dr_rwlock_create();
     encoding_buf_sz_ = ALIGN_FORWARD(max_block_encoding_size_ * 10, dr_page_size());
     encoding_buf_start_ = reinterpret_cast<byte *>(
         dr_raw_mem_alloc(encoding_buf_sz_, DR_MEMPROT_READ | DR_MEMPROT_WRITE, nullptr));
@@ -130,6 +131,9 @@ offline_instru_t::offline_instru_t(
     }
     *reinterpret_cast<uint64_t *>(encoding_buf_ptr_) = encoding_file_type;
     encoding_buf_ptr_ += sizeof(uint64_t);
+    hashtable_init_ex(&id2pc_, /*bits=*/6, HASH_INTPTR, /*str_dup=*/false,
+                      /*synch=*/false, /*free_payload_func=*/nullptr,
+                      /*hash_key_func=*/nullptr, /*cmp_key_func=*/nullptr);
 }
 
 offline_instru_t::~offline_instru_t()
@@ -137,11 +141,13 @@ offline_instru_t::~offline_instru_t()
     if (standalone_)
         return;
 
-    dr_mutex_lock(encoding_lock_);
+    hashtable_delete(&id2pc_);
+
+    dr_rwlock_write_lock(encoding_lock_);
     flush_instr_encodings();
     dr_raw_mem_free(encoding_buf_start_, encoding_buf_sz_);
-    dr_mutex_unlock(encoding_lock_);
-    dr_mutex_destroy(encoding_lock_);
+    dr_rwlock_write_unlock(encoding_lock_);
+    dr_rwlock_destroy(encoding_lock_);
     log_(1, "Wrote " UINT64_FORMAT_STRING " bytes to encoding file\n",
          encoding_bytes_written_);
 
@@ -275,17 +281,28 @@ offline_instru_t::get_instr_count(byte *buf_ptr) const
 }
 
 addr_t
-offline_instru_t::get_entry_addr(void *drcontext, byte *buf_ptr) const
+offline_instru_t::get_entry_addr(void *drcontext, byte *buf_ptr)
 {
     offline_entry_t *entry = (offline_entry_t *)buf_ptr;
     if (entry->addr.type ==
         OFFLINE_TYPE_PC IF_X64(|| entry->addr.type == OFFLINE_TYPE_PC_TOP_BIT)) {
-        // XXX i#4014: Use caching to avoid lookup for last queried modbase.
-        app_pc modbase;
-        if (drmodtrack_lookup_pc_from_index(drcontext, entry->pc.modidx, &modbase) !=
-            DRCOVLIB_SUCCESS)
-            return 0;
-        return reinterpret_cast<addr_t>(modbase) + static_cast<addr_t>(entry->pc.modoffs);
+        if (entry->pc.modidx == PC_MODIDX_INVALID) {
+            // If this read lock becomes a bottleneck we can provide a lock
+            // routine a caller can use to hoist outside a loop.
+            dr_rwlock_read_lock(encoding_lock_);
+            addr_t pc = reinterpret_cast<addr_t>(
+                hashtable_lookup(&id2pc_, reinterpret_cast<void *>(entry->pc.modoffs)));
+            dr_rwlock_read_unlock(encoding_lock_);
+            return pc;
+        } else {
+            // XXX i#4014: Use caching to avoid lookup for last queried modbase.
+            app_pc modbase;
+            if (drmodtrack_lookup_pc_from_index(drcontext, entry->pc.modidx, &modbase) !=
+                DRCOVLIB_SUCCESS)
+                return 0;
+            return reinterpret_cast<addr_t>(modbase) +
+                static_cast<addr_t>(entry->pc.modoffs);
+        }
     }
     return entry->addr.addr;
 }
@@ -485,11 +502,11 @@ offline_instru_t::insert_save_entry(void *drcontext, instrlist_t *ilist, instr_t
     return sizeof(offline_entry_t);
 }
 
-// Caller must hold the encoding_lock.
+// Caller must hold the encoding_lock write lock.
 void
 offline_instru_t::flush_instr_encodings()
 {
-    DR_ASSERT(dr_mutex_self_owns(encoding_lock_));
+    DR_ASSERT(dr_rwlock_self_owns_write_lock(encoding_lock_));
     size_t size = encoding_buf_ptr_ - encoding_buf_start_;
     if (size == 0)
         return;
@@ -507,7 +524,7 @@ void
 offline_instru_t::record_instr_encodings(void *drcontext, app_pc tag_pc,
                                          per_block_t *per_block, instrlist_t *ilist)
 {
-    dr_mutex_lock(encoding_lock_);
+    dr_rwlock_write_lock(encoding_lock_);
     log_(3, "%s: new block id " UINT64_FORMAT_STRING " for %p\n", __FUNCTION__,
          encoding_id_, tag_pc);
     per_block->id = encoding_id_++;
@@ -554,7 +571,7 @@ offline_instru_t::record_instr_encodings(void *drcontext, app_pc tag_pc,
     if (buf == buf_start + sizeof(encoding_entry_t)) {
         // If the given ilist has no app instr, we skip writing anything to the
         // encoding file.
-        dr_mutex_unlock(encoding_lock_);
+        dr_rwlock_write_unlock(encoding_lock_);
         return;
     }
     encoding_entry_t *enc = reinterpret_cast<encoding_entry_t *>(buf_start);
@@ -567,7 +584,9 @@ offline_instru_t::record_instr_encodings(void *drcontext, app_pc tag_pc,
          enc->length, enc->id, tag_pc);
     encoding_length_ += (enc->length - sizeof(encoding_entry_t));
     encoding_buf_ptr_ += enc->length;
-    dr_mutex_unlock(encoding_lock_);
+    hashtable_add(&id2pc_, reinterpret_cast<void *>(enc->id),
+                  reinterpret_cast<void *>(enc->start_pc));
+    dr_rwlock_write_unlock(encoding_lock_);
 }
 
 bool
