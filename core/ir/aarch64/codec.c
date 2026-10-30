@@ -762,16 +762,16 @@ multistruct_regcount(uint enc)
 }
 
 #ifdef LINUX_KERNEL
-/* The arm64 kernel's -mgeneral-regs-only rejects float/double types, so FP
- * immediates (fmov #imm, fcmp #0.0, SVE fadd #0.5, ...) are unsupported in the kernel,
- * whose code doesn't use them.
+/* The arm64 kernel's -mgeneral-regs-only disables FP register usage, so our current
+ * implementation cannot encode or decode FP immediates (fmov #imm, fcmp #0.0,
+ * SVE fadd #0.5, ...) in the kernel build.
  * XXX i#8021: Handling FP immediates as raw bits would lift this.
  */
 static bool
-decode_fpimm_unsupported(void)
+decode_fpimm_kernel(void)
 {
-    /* Only reached for an instruction that has an FP immediate, which kernel code
-     * shouldn't contain.
+    /* The decoder calls this after matching an instruction encoding with an FP
+     * immediate operand.
      */
     SYSLOG_INTERNAL_WARNING_ONCE("AArch64 FP immediate operands are not supported "
                                  "in the kernel");
@@ -779,10 +779,11 @@ decode_fpimm_unsupported(void)
 }
 
 static bool
-encode_fpimm_unsupported(opnd_t opnd)
+encode_fpimm_kernel(opnd_t opnd)
 {
-    /* Also reached for other forms of the same opcode (e.g., fmov between registers),
-     * as the encoder tries each encoding in turn.
+    /* Diagnose actual FP immediate operands, which this kernel implementation cannot
+     * encode.  Allow register operands: the encoder tries each encoding for an opcode,
+     * so it may try an immediate encoding for a register form (e.g., fmov).
      */
     ASSERT(!opnd_is_immed_float(opnd) && !opnd_is_immed_double(opnd));
     return false;
@@ -2087,7 +2088,7 @@ static inline bool
 decode_opnd_zero_fp_const(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
 #ifdef LINUX_KERNEL
-    return decode_fpimm_unsupported();
+    return decode_fpimm_kernel();
 #else
     *opnd = opnd_create_immed_float(0);
     return true;
@@ -2098,7 +2099,7 @@ static inline bool
 encode_opnd_zero_fp_const(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
 #ifdef LINUX_KERNEL
-    return encode_fpimm_unsupported(opnd);
+    return encode_fpimm_kernel(opnd);
 #else
     if (!opnd_is_immed_float(opnd))
         return false;
@@ -2607,7 +2608,7 @@ static inline bool
 decode_opnd_fpimm1_half_one_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
 #ifdef LINUX_KERNEL
-    return decode_fpimm_unsupported();
+    return decode_fpimm_kernel();
 #else
     return decode_float_const_pair(5, 0.5f, 1.0f, enc, opnd);
 #endif
@@ -2618,7 +2619,7 @@ encode_opnd_fpimm1_half_one_5(uint enc, int opcode, byte *pc, opnd_t opnd,
                               OUT uint *enc_out)
 {
 #ifdef LINUX_KERNEL
-    return encode_fpimm_unsupported(opnd);
+    return encode_fpimm_kernel(opnd);
 #else
     return encode_float_const_pair(5, 0.5f, 1.0f, opnd, enc_out);
 #endif
@@ -2630,7 +2631,7 @@ static inline bool
 decode_opnd_fpimm1_zero_one_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
 #ifdef LINUX_KERNEL
-    return decode_fpimm_unsupported();
+    return decode_fpimm_kernel();
 #else
     return decode_float_const_pair(5, 0.0f, 1.0f, enc, opnd);
 #endif
@@ -2641,7 +2642,7 @@ encode_opnd_fpimm1_zero_one_5(uint enc, int opcode, byte *pc, opnd_t opnd,
                               OUT uint *enc_out)
 {
 #ifdef LINUX_KERNEL
-    return encode_fpimm_unsupported(opnd);
+    return encode_fpimm_kernel(opnd);
 #else
     return encode_float_const_pair(5, 0.0f, 1.0f, opnd, enc_out);
 #endif
@@ -2653,7 +2654,7 @@ static inline bool
 decode_opnd_fpimm1_half_two_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
 #ifdef LINUX_KERNEL
-    return decode_fpimm_unsupported();
+    return decode_fpimm_kernel();
 #else
     return decode_float_const_pair(5, 0.5f, 2.0f, enc, opnd);
 #endif
@@ -2664,7 +2665,7 @@ encode_opnd_fpimm1_half_two_5(uint enc, int opcode, byte *pc, opnd_t opnd,
                               OUT uint *enc_out)
 {
 #ifdef LINUX_KERNEL
-    return encode_fpimm_unsupported(opnd);
+    return encode_fpimm_kernel(opnd);
 #else
     return encode_float_const_pair(5, 0.5f, 2.0f, opnd, enc_out);
 #endif
@@ -3960,7 +3961,7 @@ static inline bool
 decode_opnd_fpimm8(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
 #ifdef LINUX_KERNEL
-    return decode_fpimm_unsupported();
+    return decode_fpimm_kernel();
 #else
     const uint a = extract_uint(enc, 18, 1);
     const uint b = extract_uint(enc, 17, 1);
@@ -3975,7 +3976,7 @@ static inline bool
 encode_opnd_fpimm8(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
 #ifdef LINUX_KERNEL
-    return encode_fpimm_unsupported(opnd);
+    return encode_fpimm_kernel(opnd);
 #else
     return encode_fpimm8_half(opnd, 16, 5, enc_out);
 #endif
@@ -6716,7 +6717,7 @@ static inline bool
 decode_opnd_fpimm8_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
 #ifdef LINUX_KERNEL
-    return decode_fpimm_unsupported();
+    return decode_fpimm_kernel();
 #else
     const uint size = extract_uint(enc, 22, 2);
     const uint a = extract_uint(enc, 12, 1);
@@ -6737,7 +6738,7 @@ static inline bool
 encode_opnd_fpimm8_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
 #ifdef LINUX_KERNEL
-    return encode_fpimm_unsupported(opnd);
+    return encode_fpimm_kernel(opnd);
 #else
     const uint size = extract_uint(enc, 22, 2);
     switch (size) {
@@ -6964,7 +6965,7 @@ static inline bool
 decode_opnd_fpimm8_13(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
 #ifdef LINUX_KERNEL
-    return decode_fpimm_unsupported();
+    return decode_fpimm_kernel();
 #else
     const uint size = extract_uint(enc, 22, 2);
     const uint a = extract_uint(enc, 20, 1);
@@ -6986,7 +6987,7 @@ static inline bool
 encode_opnd_fpimm8_13(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
 #ifdef LINUX_KERNEL
-    return encode_fpimm_unsupported(opnd);
+    return encode_fpimm_kernel(opnd);
 #else
     const uint size = extract_uint(enc, 22, 2);
     switch (size) {
