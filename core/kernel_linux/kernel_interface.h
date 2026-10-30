@@ -36,9 +36,9 @@
 
 #include <linux/types.h>
 
-#define KERNEL_MEMPROT_READ  0x1
+#define KERNEL_MEMPROT_READ 0x1
 #define KERNEL_MEMPROT_WRITE 0x2
-#define KERNEL_MEMPROT_EXEC  0x4
+#define KERNEL_MEMPROT_EXEC 0x4
 
 typedef struct {
     unsigned char *base;
