@@ -751,9 +751,9 @@ void
 all_memory_areas_lock(void);
 void
 all_memory_areas_unlock(void);
-/* pass -1 if type is unchanged */
+/* pass type=-1 if type and is_shared are unchanged */
 void
-update_all_memory_areas(app_pc start, app_pc end, uint prot, int type);
+update_all_memory_areas(app_pc start, app_pc end, uint prot, int type, bool is_shared);
 bool
 remove_from_all_memory_areas(app_pc start, app_pc end);
 

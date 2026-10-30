@@ -1531,6 +1531,9 @@ OPTION_COMMAND(
     },
     "always sandbox non-text writable regions", STATIC, OP_PCACHE_GLOBAL)
 
+OPTION_COMMAND(bool, sandbox_shared, IF_AARCH64_ELSE(true, false), "sandbox_shared", {},
+               "always sandbox shared regions (Linux only)", STATIC, OP_PCACHE_GLOBAL)
+
 /* XXX: separate for bb and trace shared caches? */
 OPTION_DEFAULT(bool, cache_shared_free_list, true,
                "use size-separated free lists to manage empty shared cache slots")

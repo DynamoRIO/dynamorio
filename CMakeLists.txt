@@ -1483,7 +1483,7 @@ math(EXPR VERSION_NUMBER_INTEGER
   "${VERSION_NUMBER_MAJOR}*100 + ${VERSION_NUMBER_MINOR}")
 
 # Every release since has had minor compat breakages: see api/docs/release.dox.
-set(OLDEST_COMPATIBLE_VERSION_DEFAULT "1100")
+set(OLDEST_COMPATIBLE_VERSION_DEFAULT "1192")
 set(OLDEST_COMPATIBLE_VERSION "" CACHE STRING
   "Oldest compatible version: leave empty for default")
 if ("${OLDEST_COMPATIBLE_VERSION}" STREQUAL "")

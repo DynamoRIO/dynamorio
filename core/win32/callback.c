@@ -7731,11 +7731,10 @@ callback_interception_init_finish(void)
         !is_dynamo_address(interception_code + INTERCEPTION_CODE_SIZE -
                            1)) { /* check endpoints */
         /* probably was already added but just to make sure */
-        add_dynamo_vm_area(interception_code,
-                           interception_code + INTERCEPTION_CODE_SIZE - 1,
-                           MEMPROT_READ | MEMPROT_WRITE,
-                           true /* from image since static */
-                           _IF_DEBUG("intercept_call"));
+        add_dynamo_vm_area(
+            interception_code, interception_code + INTERCEPTION_CODE_SIZE - 1,
+            MEMPROT_READ | MEMPROT_WRITE, true, /* from image since static */
+            /*is_shared=*/false _IF_DEBUG("intercept_call"));
     }
 #endif
 
