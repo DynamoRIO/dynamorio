@@ -60,6 +60,10 @@ unit_test_opnd_shared(void);
 #ifdef WINDOWS
 void
 unit_test_drwinapi(void);
+#    ifdef DEBUG
+void
+unit_test_extended_image_unload(void);
+#    endif
 #endif
 void
 unit_test_asm(dcontext_t *dc);
@@ -85,6 +89,13 @@ main(int argc, char **argv, char **envp)
      * 0 for success.  If we want to be able to call each test independently, it
      * might be worth looking into gtest, which already does this.
      */
+#if defined(WINDOWS) && defined(DEBUG)
+    if (argc == 2 && strcmp(argv[1], "extended-image-unload") == 0) {
+        unit_test_extended_image_unload();
+        standalone_exit();
+        return 0;
+    }
+#endif
     unit_test_io();
     unit_test_native_exec();
 #ifdef UNIX
@@ -102,6 +113,9 @@ main(int argc, char **argv, char **envp)
     unit_test_vmareas();
 #ifdef WINDOWS
     unit_test_drwinapi();
+#    ifdef DEBUG
+    unit_test_extended_image_unload();
+#    endif
 #endif
     unit_test_asm(dc);
     unit_test_atomic_ops();

@@ -624,8 +624,9 @@ function(add_exe test source)
     # we rely on the asm rule doing preprocessing for us, so we just make
     # a copy and set the ASM_CODE_ONLY define
     get_filename_component(source_abs "${source}" ABSOLUTE)
+    # Keep each executable's generated assembly independent in parallel builds.
     add_split_asm_target("${source_abs}" asm_source gen_asm_tgt
-      "_asm" "${asm_defs}" "${asm_deps}")
+      "_asm_${test}" "${asm_defs}" "${asm_deps}")
     set(test_srcs ${test_srcs} ${asm_source})
   endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
 
