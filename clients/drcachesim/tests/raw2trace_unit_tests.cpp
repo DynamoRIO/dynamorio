@@ -359,7 +359,7 @@ bool
 run_raw2trace(void *drcontext, const std::vector<offline_entry_t> raw, instrlist_t *ilist,
               std::vector<trace_entry_t> &entries, std::vector<uint64_t> *stats = nullptr,
               int chunk_instr_count = 0,
-              const std::vector<test_multi_module_mapper_t::bounds_t> &modules = { },
+              const std::vector<test_multi_module_mapper_t::bounds_t> &modules = {},
               std::unique_ptr<record_reader_t> syscall_tmpl = nullptr,
               bool verbose = false, const std::string &v2p_file = "")
 {
@@ -6290,7 +6290,7 @@ test_v2p_tracefs_markers(void *drcontext)
 
     std::vector<trace_entry_t> entries;
     if (!run_raw2trace(drcontext, raw, ilist, entries, nullptr,
-                       /*chunk_instr_count=*/2, { }, nullptr, /*verbose=*/false,
+                       /*chunk_instr_count=*/2, {}, nullptr, /*verbose=*/false,
                        v2p_path)) {
         std::remove(v2p_path.c_str());
         return false;
@@ -6311,10 +6311,13 @@ test_v2p_tracefs_markers(void *drcontext)
             // rule).
             if ((entries[i].addr & 0xfff) != (entries[i + 1].addr & 0xfff))
                 return false;
-            phys_virt_pairs.push_back({ entries[i].addr, entries[i + 1].addr });
+            addr_t phys_addr = entries[i].addr;
+            addr_t virt_addr = entries[i + 1].addr;
+            phys_virt_pairs.push_back(std::make_pair(phys_addr, virt_addr));
         } else if (entries[i].type == TRACE_TYPE_MARKER &&
                    entries[i].size == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE) {
-            not_avail_addrs.push_back(entries[i].addr);
+            addr_t unmapped_addr = entries[i].addr;
+            not_avail_addrs.push_back(unmapped_addr);
         }
     }
 

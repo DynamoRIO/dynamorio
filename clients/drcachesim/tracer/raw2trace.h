@@ -667,9 +667,9 @@ protected:
     static const uint WRITE_BUFFER_SIZE = 260;
 
     static constexpr addr_t V2P_PAGE_INVALID = static_cast<addr_t>(-1);
-    static constexpr uint64_t V2P_PAGE_BITS = 12;
-    static constexpr uint64_t V2P_PAGE_SIZE = 1ULL << V2P_PAGE_BITS;
-    static constexpr uint64_t V2P_PAGE_MASK = V2P_PAGE_SIZE - 1;
+    static constexpr addr_t V2P_PAGE_BITS = 12;
+    static constexpr addr_t V2P_PAGE_SIZE = static_cast<addr_t>(1) << V2P_PAGE_BITS;
+    static constexpr addr_t V2P_PAGE_MASK = V2P_PAGE_SIZE - 1;
 
     // A single timestamped mapping or unmapping (pfn == V2P_PAGE_INVALID)
     // transition for a 4 KB virtual page number (VPN).

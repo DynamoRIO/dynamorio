@@ -71,7 +71,7 @@
 #include "reader.h"
 #include "trace_entry.h"
 #include "utils.h"
-#ifdef LINUX
+#if defined(LINUX) && defined(X64)
 #    include "v2p_tracker.h"
 #endif
 
@@ -120,7 +120,7 @@ char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
 static file_t module_file;
 static file_t funclist_file = INVALID_FILE;
 static file_t encoding_file = INVALID_FILE;
-#ifdef LINUX
+#if defined(LINUX) && defined(X64)
 static v2p_tracker_t v2p_tracker;
 #endif
 
@@ -2561,7 +2561,7 @@ event_exit(void)
     dr_global_free(instru, MAX_INSTRU_SIZE);
 
     if (op_offline.get_value()) {
-#ifdef LINUX
+#if defined(LINUX) && defined(X64)
         if (op_enable_v2p_tracefs.get_value())
             v2p_tracker.stop();
 #endif
@@ -2721,7 +2721,7 @@ init_offline_dir(void)
     encoding_file = file_ops_func.open_process_file(
         encoding_path, DR_FILE_WRITE_REQUIRE_NEW IF_UNIX(| DR_FILE_CLOSE_ON_FORK));
 
-#ifdef LINUX
+#if defined(LINUX) && defined(X64)
     if (op_enable_v2p_tracefs.get_value()) {
         char v2p_path[MAXIMUM_PATH];
         dr_snprintf(v2p_path, BUFFER_SIZE_ELEMENTS(v2p_path), "%s%s%s", logsubdir, DIRSEP,

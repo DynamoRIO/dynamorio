@@ -3882,7 +3882,7 @@ raw2trace_t::read_v2p_file()
     v2p_map_.clear();
     uint64_t overflow_events = 0;
     bool saw_end = false;
-    v2p_record_t rec = { };
+    v2p_record_t rec = {};
     while (in.read(reinterpret_cast<char *>(&rec), sizeof(rec))) {
         if (rec.type == V2P_RECORD_MAP) {
             addr_t base_vpn = static_cast<addr_t>(rec.vaddr >> V2P_PAGE_BITS);

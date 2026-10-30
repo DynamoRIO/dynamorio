@@ -98,16 +98,18 @@
 #ifndef _V2P_TRACKER_H_
 #define _V2P_TRACKER_H_
 
-#include <sys/types.h>
+#if defined(LINUX) && defined(X64)
 
-#include <atomic>
-#include <cstdint>
-#include <string>
-#include <unordered_map>
-#include <vector>
+#    include <sys/types.h>
 
-#include "dr_api.h"
-#include "trace_entry.h"
+#    include <atomic>
+#    include <cstdint>
+#    include <string>
+#    include <unordered_map>
+#    include <vector>
+
+#    include "dr_api.h"
+#    include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -262,5 +264,7 @@ private:
 
 } // namespace drmemtrace
 } // namespace dynamorio
+
+#endif /* LINUX */
 
 #endif /* _V2P_TRACKER_H_ */

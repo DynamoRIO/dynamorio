@@ -32,7 +32,7 @@
 
 #include "v2p_tracker.h"
 
-#ifdef LINUX
+#if defined(LINUX) && defined(X64)
 #    include <dirent.h>
 #    include <errno.h>
 #    include <fcntl.h>
@@ -53,7 +53,7 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-#ifdef LINUX
+#if defined(LINUX) && defined(X64)
 namespace {
 
 constexpr uint64_t kPageSize4K = 4096;
@@ -115,7 +115,6 @@ bool
 extract_dec_field(const std::string &line, const char *key, uint64_t &out);
 
 } // namespace
-#endif // LINUX
 
 /***************************************************************************
  * 1. Tracker Lifecycle (start / stop)
@@ -129,7 +128,6 @@ v2p_tracker_t::~v2p_tracker_t()
 bool
 v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_size_kb)
 {
-#ifdef LINUX
     if (running_.load(std::memory_order_acquire)) {
         if (pid != target_pid_) {
             // We are in a forked child process. Exclude this child (and via
@@ -194,15 +192,11 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
         return false;
     }
     return true;
-#else
-    return false;
-#endif
 }
 
 void
 v2p_tracker_t::stop()
 {
-#ifdef LINUX
     if (!running_.exchange(false, std::memory_order_acq_rel))
         return;
 
@@ -237,7 +231,7 @@ v2p_tracker_t::stop()
 
     if (out_fd_ >= 0) {
         if (dropped_events_ > 0) {
-            v2p_record_t overflow_rec = { };
+            v2p_record_t overflow_rec = {};
             overflow_rec.timestamp_us = 0;
             overflow_rec.vaddr = 0;
             overflow_rec.paddr = 0;
@@ -245,7 +239,7 @@ v2p_tracker_t::stop()
             overflow_rec.type = V2P_RECORD_OVERFLOW;
             write_record(overflow_rec);
         }
-        v2p_record_t end_rec = { };
+        v2p_record_t end_rec = {};
         end_rec.timestamp_us = 0;
         end_rec.vaddr = 0;
         end_rec.paddr = 0;
@@ -255,7 +249,6 @@ v2p_tracker_t::stop()
         close(out_fd_);
         out_fd_ = -1;
     }
-#endif
 }
 
 /***************************************************************************
@@ -265,7 +258,6 @@ v2p_tracker_t::stop()
 bool
 v2p_tracker_t::setup_kernel_tracing()
 {
-#ifdef LINUX
     tracefs_root_ = find_tracefs_root();
     if (tracefs_root_.empty())
         return false;
@@ -344,15 +336,11 @@ v2p_tracker_t::setup_kernel_tracing()
         return false;
 
     return write_trace_file(instance_dir_ + "/tracing_on", "1");
-#else
-    return false;
-#endif
 }
 
 void
 v2p_tracker_t::snapshot_initial_pagemap()
 {
-#ifdef LINUX
     char maps_path[64];
     char pagemap_path[64];
     snprintf(maps_path, sizeof(maps_path), "/proc/%d/maps", target_pid_);
@@ -373,7 +361,7 @@ v2p_tracker_t::snapshot_initial_pagemap()
 
     auto flush_run = [&]() {
         if (run_pages > 0) {
-            v2p_record_t rec = { };
+            v2p_record_t rec = {};
             rec.timestamp_us = 0;
             rec.vaddr = run_vaddr;
             rec.paddr = run_paddr;
@@ -436,13 +424,11 @@ v2p_tracker_t::snapshot_initial_pagemap()
 
     close(pagemap_fd);
     fclose(maps_file);
-#endif
 }
 
 void
 v2p_tracker_t::cleanup_kernel_tracing()
 {
-#ifdef LINUX
     if (trace_pipe_fd_ >= 0) {
         close(trace_pipe_fd_);
         trace_pipe_fd_ = -1;
@@ -464,7 +450,6 @@ v2p_tracker_t::cleanup_kernel_tracing()
         }
     }
     kernel_tracing_active_ = false;
-#endif
 }
 
 /***************************************************************************
@@ -474,7 +459,6 @@ v2p_tracker_t::cleanup_kernel_tracing()
 void
 v2p_tracker_t::process_trace_line(const std::string &line)
 {
-#ifdef LINUX
     // Expected format: "<comm>-<tid> [<cpu>] <flags> <sec>.<usec>: <event>: ..."
     size_t bracket = line.find('[');
     if (bracket == std::string::npos)
@@ -602,7 +586,7 @@ v2p_tracker_t::process_trace_line(const std::string &line)
             uint64_t aligned_new = new_addr & ~(kPageSize4K - 1);
             uint32_t num_pages = static_cast<uint32_t>(len / kPageSize4K);
 
-            v2p_record_t unmap_rec = { };
+            v2p_record_t unmap_rec = {};
             unmap_rec.timestamp_us = timestamp_us;
             unmap_rec.vaddr = aligned_old;
             unmap_rec.paddr = 0;
@@ -677,7 +661,7 @@ v2p_tracker_t::process_trace_line(const std::string &line)
                     ++it;
                 }
             }
-            v2p_record_t unmap_rec = { };
+            v2p_record_t unmap_rec = {};
             unmap_rec.timestamp_us = timestamp_us;
             unmap_rec.vaddr = aligned_start;
             unmap_rec.paddr = 0;
@@ -724,13 +708,11 @@ v2p_tracker_t::process_trace_line(const std::string &line)
                             kPagesPer2M);
         }
     }
-#endif
 }
 
 bool
 v2p_tracker_t::is_tracked_mm(uint64_t mm, pid_t tid)
 {
-#ifdef LINUX
     if (mm == 0)
         return false;
     if (tracked_mm_ == 0) {
@@ -743,34 +725,28 @@ v2p_tracker_t::is_tracked_mm(uint64_t mm, pid_t tid)
         tracked_mm_ = mm;
     }
     return mm == tracked_mm_;
-#else
-    return false;
-#endif
 }
 
 void
 v2p_tracker_t::record_page_map(uint64_t timestamp_us, uint64_t vaddr, uint64_t paddr,
                                uint32_t page_count)
 {
-#ifdef LINUX
     for (uint32_t i = 0; i < page_count; ++i) {
         active_paddr_by_vpage_[vaddr + static_cast<uint64_t>(i) * kPageSize4K] =
             paddr + static_cast<uint64_t>(i) * kPageSize4K;
     }
-    v2p_record_t rec = { };
+    v2p_record_t rec = {};
     rec.timestamp_us = timestamp_us;
     rec.vaddr = vaddr;
     rec.paddr = paddr;
     rec.page_count = page_count;
     rec.type = V2P_RECORD_MAP;
     write_record(rec);
-#endif
 }
 
 void
 v2p_tracker_t::flush_deferred_pte_ranges()
 {
-#ifdef LINUX
     if (vmemmap_base_ == 0 || deferred_pte_ranges_.empty())
         return;
     for (const deferred_pte_range_t &def : deferred_pte_ranges_) {
@@ -781,13 +757,11 @@ v2p_tracker_t::flush_deferred_pte_ranges()
         }
     }
     deferred_pte_ranges_.clear();
-#endif
 }
 
 void
 v2p_tracker_t::write_record(const v2p_record_t &rec)
 {
-#ifdef LINUX
     if (out_fd_ < 0)
         return;
     const char *ptr = reinterpret_cast<const char *>(&rec);
@@ -802,7 +776,6 @@ v2p_tracker_t::write_record(const v2p_record_t &rec)
         ptr += n;
         remaining -= static_cast<size_t>(n);
     }
-#endif
 }
 
 /***************************************************************************
@@ -818,7 +791,6 @@ v2p_tracker_t::reader_thread_entry(void *arg)
 void
 v2p_tracker_t::reader_loop()
 {
-#ifdef LINUX
     dr_client_thread_set_suspendable(false);
     reader_tid_ = static_cast<pid_t>(syscall(SYS_gettid));
     thread_running_.store(true, std::memory_order_release);
@@ -832,13 +804,11 @@ v2p_tracker_t::reader_loop()
     // Drain any final events written before tracing_on was set to 0.
     drain_pipe();
     thread_exited_.store(true, std::memory_order_release);
-#endif
 }
 
 void
 v2p_tracker_t::drain_pipe()
 {
-#ifdef LINUX
     if (trace_pipe_fd_ < 0)
         return;
     char chunk[16384];
@@ -858,13 +828,11 @@ v2p_tracker_t::drain_pipe()
         if (line_start > 0)
             pipe_remainder_.erase(0, line_start);
     }
-#endif
 }
 
 uint64_t
 v2p_tracker_t::read_total_overflows() const
 {
-#ifdef LINUX
     std::string per_cpu_dir = instance_dir_ + "/per_cpu";
     DIR *dir = opendir(per_cpu_dir.c_str());
     if (dir == nullptr)
@@ -892,16 +860,12 @@ v2p_tracker_t::read_total_overflows() const
     }
     closedir(dir);
     return total_overflow;
-#else
-    return 0;
-#endif
 }
 
 /***************************************************************************
  * 5. Low-Level Utilities
  */
 
-#ifdef LINUX
 namespace {
 
 // Verifies the running kernel is at least 6.12 (where the kprobe struct
@@ -911,7 +875,7 @@ namespace {
 bool
 check_kernel_version(bool *use_pmc_out)
 {
-    struct utsname uts = { };
+    struct utsname uts = {};
     if (uname(&uts) != 0)
         return false;
     int major = 0;
@@ -949,7 +913,7 @@ find_mm_helper_pids()
         FILE *f = fopen(comm_path, "r");
         if (f == nullptr)
             continue;
-        char buf[64] = { };
+        char buf[64] = {};
         if (fgets(buf, sizeof(buf), f) != nullptr &&
             (strncmp(buf, "khugepaged", 10) == 0 || strncmp(buf, "kcompactd", 9) == 0)) {
             pids.push_back(candidate);
@@ -967,8 +931,8 @@ find_mm_helper_pids()
 uint64_t
 compute_clock_to_dr_offset_us(clockid_t clk_id)
 {
-    struct timespec clk_ts = { };
-    struct timeval real_tv = { };
+    struct timespec clk_ts = {};
+    struct timeval real_tv = {};
     clock_gettime(clk_id, &clk_ts);
     gettimeofday(&real_tv, nullptr);
 
@@ -984,7 +948,7 @@ compute_clock_to_dr_offset_us(clockid_t clk_id)
 std::string
 find_tracefs_root()
 {
-    struct stat st = { };
+    struct stat st = {};
     if (stat("/sys/kernel/tracing/instances", &st) == 0)
         return "/sys/kernel/tracing";
     if (stat("/sys/kernel/debug/tracing/instances", &st) == 0)
