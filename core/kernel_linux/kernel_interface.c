@@ -337,7 +337,8 @@ kernel_get_module_regions(kernel_module_region_t *regions, size_t capacity)
 {
     size_t count = 0;
 
-    for_class_mod_mem_type(type, core) {
+    for_class_mod_mem_type(type, core)
+    {
         if (THIS_MODULE->mem[type].size == 0) {
             continue;
         }
@@ -351,17 +352,11 @@ kernel_get_module_regions(kernel_module_region_t *regions, size_t capacity)
 
         unsigned int prot = KERNEL_MEMPROT_READ;
         switch (type) {
-        case MOD_TEXT:
-            prot |= KERNEL_MEMPROT_EXEC;
-            break;
-        case MOD_DATA:
-            prot |= KERNEL_MEMPROT_WRITE;
-            break;
+        case MOD_TEXT: prot |= KERNEL_MEMPROT_EXEC; break;
+        case MOD_DATA: prot |= KERNEL_MEMPROT_WRITE; break;
         case MOD_RODATA:
-        case MOD_RO_AFTER_INIT:
-            break;
-        default:
-            return -EOPNOTSUPP;
+        case MOD_RO_AFTER_INIT: break;
+        default: return -EOPNOTSUPP;
         }
         regions[count].prot = prot;
 
