@@ -605,12 +605,6 @@ dynamorio_app_init_part_two_finalize(void)
         moduledb_init();    /* before vm_areas_init, after heap_init */
         perscache_init();   /* before vm_areas_init */
         native_exec_init(); /* before vm_areas_init, after arch_init */
-#ifdef LINUX_KERNEL
-        /* TODO i#8021: Remove this early return as the remainder of part two is ported.
-         * Move it further down for each incremental step.
-         */
-        return SUCCESS;
-#endif
 
         if (!DYNAMO_OPTION(thin_client)) {
 #ifdef HOT_PATCHING_INTERFACE
@@ -686,6 +680,12 @@ dynamorio_app_init_part_two_finalize(void)
         dynamo_thread_init(NULL, NULL, NULL, false);
         /* i#2751: we need TLS to be set up to relocate and call init funcs. */
         loader_init_epilogue(get_thread_private_dcontext());
+#ifdef LINUX_KERNEL
+        /* TODO i#8021: Remove this early return as the remainder of part two is ported.
+         * Move it further down for each incremental step.
+         */
+        return SUCCESS;
+#endif
 
         /* We move vm_areas_init() below dynamo_thread_init() so we can have
          * two things: 1) a dcontext and 2) a SIGSEGV handler, for TRY/EXCEPT

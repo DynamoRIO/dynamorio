@@ -10752,7 +10752,7 @@ mutex_wait_contended_lock(mutex_t *lock, priv_mcontext_t *mc)
         }
     } else {
         /* we now have to undo our earlier request */
-        atomic_dec_and_test(&lock->lock_requests);
+        d_r_atomic_dec_and_test(&lock->lock_requests);
 
         while (!d_r_mutex_trylock(lock)) {
             if (set_client_safe_for_synch)
