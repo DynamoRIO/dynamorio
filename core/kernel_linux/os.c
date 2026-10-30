@@ -830,3 +830,21 @@ diagnost_exit(void)
 {
     /* No-op in kernel mode. */
 }
+
+int
+find_dynamo_library_vm_areas(void)
+{
+    kernel_module_region_t regions[KERNEL_MODULE_MAX_REGIONS];
+    int count = kernel_get_module_regions(regions, KERNEL_MODULE_MAX_REGIONS);
+
+    if (count < 0) {
+        return count;
+    }
+
+    for (size_t i = 0; i < count; i++) {
+        add_dynamo_vm_area(regions[i].base, regions[i].base + regions[i].size,
+                           regions[i].prot, true _IF_DEBUG(get_dynamorio_library_path()));
+    }
+
+    return count;
+}

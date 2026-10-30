@@ -687,13 +687,9 @@ dynamorio_app_init_part_two_finalize(void)
          * This means vm_areas_thread_init() runs before vm_areas_init().
          */
         if (!DYNAMO_OPTION(thin_client)) {
-            vm_areas_init();
-#ifdef LINUX_KERNEL
-        /* TODO i#8021: Remove this early return as the remainder of part two is ported.
-         * Move it further down for each incremental step.
-         */
-        return SUCCESS;
-#endif
+            int areas = vm_areas_init();
+            if (areas < 0)
+                return FAILURE;
 #ifdef RCT_IND_BRANCH
             /* relies on is_in_dynamo_dll() which needs vm_areas_init */
             rct_init();
@@ -702,9 +698,17 @@ dynamorio_app_init_part_two_finalize(void)
             /* This is needed to handle exceptions in thin_client mode, mostly
              * internal ones, but can be app ones too. */
             dynamo_vm_areas_lock();
-            find_dynamo_library_vm_areas();
+            int areas = find_dynamo_library_vm_areas();
             dynamo_vm_areas_unlock();
+            if (areas < 0)
+                return FAILURE;
         }
+#ifdef LINUX_KERNEL
+        /* TODO i#8021: Remove this early return as the remainder of part two is ported.
+         * Move it further down for each incremental step.
+         */
+        return SUCCESS;
+#endif
 
 #ifdef ANNOTATIONS
         annotation_init();
