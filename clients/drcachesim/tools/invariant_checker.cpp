@@ -632,6 +632,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.marker.marker_type == TRACE_MARKER_TYPE_PAGE_SIZE) {
         shard->found_page_size_marker_ = true;
         shard->page_size_ = memref.marker.marker_value;
+        report_if_false(shard, shard->page_size_ != 0, "Page size is 0");
         report_if_false(shard,
                         is_a_unit_test(shard) || is_a_unit_test(shard) ||
                             memref.marker.marker_value == shard->stream->get_page_size(),
@@ -1101,9 +1102,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         }
     } else if (memref.marker.type == TRACE_TYPE_MARKER &&
                memref.marker.marker_type == TRACE_MARKER_TYPE_VIRTUAL_ADDRESS) {
-        report_if_false(
-            shard, false,
-            "Physical address marker not immediately prior to virtual marker");
+        report_if_false(shard, false,
+                        "Virtual address marker without prior physical marker");
         // Avoid a further error "Missing physical address".
         shard->v2p_.insert(ALIGN_BACKWARD(memref.marker.marker_value, shard->page_size_));
     }
@@ -1111,6 +1111,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.marker.marker_type == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE) {
         shard->v2p_.insert(ALIGN_BACKWARD(memref.marker.marker_value, shard->page_size_));
     }
+    // We use the presence of any v2p markers to indicate they should all be present.
+    // We could try to add a new OFFLINE_FILE_TYPE_PHYSICAL_ADDR type: which would
+    // require a version bump.
     if (!shard->v2p_.empty() && type_has_address(memref.instr.type)) {
         addr_t addr = 0;
         if (type_is_instr(memref.instr.type))

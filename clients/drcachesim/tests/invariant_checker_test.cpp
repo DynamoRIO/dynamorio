@@ -122,8 +122,7 @@ protected:
     bool serial_ = false;
 };
 
-/* Assumes there are at most 3 threads with tids 1, 2, and 3 in memrefs. */
-// Allows more than one error, but the first must match expected_error_info.
+// Assumes there are at most 3 threads with tids 1, 2, and 3 in memrefs.
 static constexpr memref_tid_t TID_BASE = 1;
 static constexpr memref_tid_t TID_A = TID_BASE;
 static constexpr memref_tid_t TID_B = TID_BASE + 1;
@@ -135,7 +134,9 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
             std::istream *serial_schedule_file = nullptr,
             // If set_skipped is true we only test parallel as it's more
             // complex to set skipped for serial.
-            bool set_skipped = false, bool core_sharded_on_disk = false)
+            bool set_skipped = false, bool core_sharded_on_disk = false,
+            // If "allow_multiple_errors", the first must match expected_error_info.
+            bool allow_multiple_errors = false)
 {
     // Serial.
     if (!set_skipped) {
@@ -155,7 +156,8 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
         }
         checker.print_results();
         if (expect_error) {
-            if (checker.errors_.size() < 1 || expected_error_info != checker.errors_[0]) {
+            if (checker.errors_.empty() || expected_error_info != checker.errors_[0] ||
+                (!allow_multiple_errors && checker.errors_.size() != 1)) {
                 std::cerr << toprint_if_fail << "\n";
                 return false;
             }
@@ -234,7 +236,8 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
             checker.parallel_shard_exit(shardC);
         checker.print_results();
         if (expect_error) {
-            if (checker.errors_.size() < 1 || checker.errors_[0] != expected_error_info) {
+            if (checker.errors_.empty() || expected_error_info != checker.errors_[0] ||
+                (!allow_multiple_errors && checker.errors_.size() != 1)) {
                 std::cerr << toprint_if_fail << "\n";
                 return false;
             }
@@ -5998,11 +6001,28 @@ check_v2p(void)
             gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            // Test the presence of an error marker not messing up the paired
+            // parsing.
             gen_marker(TID_A, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE,
                        0xabcab041),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS, 0x456123),
             gen_marker(TID_A, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, kPc),
             gen_instr_type(TRACE_TYPE_INSTR, TID_A, kPc),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Correct: no 2nd record pair for same page address.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS, 0x456123),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, kPc),
+            gen_instr_type(TRACE_TYPE_INSTR, TID_A, kPc),
+            gen_instr_type(TRACE_TYPE_READ, TID_A, kPc + 8),
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, false))
@@ -6028,7 +6048,12 @@ check_v2p(void)
                   /*tid=*/TID_A,
                   /*ref_ordinal=*/6, /*last_timestamp=*/0,
                   /*instrs_since_last_timestamp=*/0 },
-                "Failed to catch non-adjacent v2p"))
+                "Failed to catch non-adjacent v2p",
+
+                /*serial_schedule_file=*/nullptr,
+                /*set_skipped=*/false, /*core_sharded_on_disk=*/false,
+                // We get 2 errors, the pre and post checks.
+                /*allow_multiple_errors=*/true))
             return false;
     }
     // Incorrect: marker missing.
@@ -6037,19 +6062,16 @@ check_v2p(void)
             gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE,
-                       0xabcab041),
             gen_marker(TID_A, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, kPc),
             gen_instr_type(TRACE_TYPE_INSTR, TID_A, kPc),
             gen_exit(TID_A),
         };
-        if (!run_checker(
-                memrefs, true,
-                { "Physical address marker not immediately prior to virtual marker",
-                  /*tid=*/TID_A,
-                  /*ref_ordinal=*/5, /*last_timestamp=*/0,
-                  /*instrs_since_last_timestamp=*/0 },
-                "Failed to catch missing physical address marker"))
+        if (!run_checker(memrefs, true,
+                         { "Virtual address marker without prior physical marker",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/4, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/0 },
+                         "Failed to catch missing physical address marker"))
             return false;
     }
     // Incorrect: page offsets do not match.
@@ -6082,8 +6104,8 @@ check_v2p(void)
             gen_marker(TID_A, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE,
                        0xabcab041),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS, 0x456123),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, kPc),
-            gen_instr_type(TRACE_TYPE_INSTR, TID_A, 0x999),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, 0x9123),
+            gen_instr_type(TRACE_TYPE_INSTR, TID_A, kPc),
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, true,
