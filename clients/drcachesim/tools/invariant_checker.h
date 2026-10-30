@@ -276,6 +276,10 @@ protected:
         bool reported_maybe_fetch_ = false;
         bool reported_no_fetch_ = false;
 
+        uint64_t page_size_ = 0;
+        // For now we only track whether a translation exists.
+        std::set<addr_t> v2p_;
+
         // Resets specific state on context switch to a different thread.
         void
         reset_at_context_switch(const memref_t &memref, bool core_sharded_on_disk);
