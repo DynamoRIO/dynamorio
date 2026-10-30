@@ -688,17 +688,17 @@ virtual2physical_cache_t::process_record(const trace_entry_t &record,
     phys.type = TRACE_TYPE_MARKER;
     if (it->second == NO_PHYS_SENTINEL) {
         phys.size = TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE;
-        phys.addr = address;
+        phys.addr = static_cast<addr_t>(address);
     } else {
         phys.size = TRACE_MARKER_TYPE_PHYSICAL_ADDRESS;
-        phys.addr = it->second + page_offs;
+        phys.addr = static_cast<addr_t>(it->second + page_offs);
     }
     toadd.push_back(phys);
     if (it->second != NO_PHYS_SENTINEL) {
         trace_entry_t virt;
         virt.type = TRACE_TYPE_MARKER;
         virt.size = TRACE_MARKER_TYPE_VIRTUAL_ADDRESS;
-        virt.addr = address;
+        virt.addr = static_cast<addr_t>(address);
         toadd.push_back(virt);
     }
     return "";
