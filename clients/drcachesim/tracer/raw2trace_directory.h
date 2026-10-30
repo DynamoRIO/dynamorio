@@ -96,6 +96,7 @@ public:
 
     char *modfile_bytes_;
     file_t encoding_file_;
+    std::string v2p_file_;
     std::vector<std::istream *> in_files_;
     std::vector<std::ostream *> out_files_;
     std::vector<archive_ostream_t *> out_archives_;

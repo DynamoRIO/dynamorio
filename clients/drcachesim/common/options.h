@@ -126,6 +126,8 @@ extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
 extern dynamorio::droption::droption_t<bool> op_instr_only_trace;
 extern dynamorio::droption::droption_t<bool> op_coherence;
 extern dynamorio::droption::droption_t<bool> op_use_physical;
+extern dynamorio::droption::droption_t<bool> op_enable_v2p_tracefs;
+extern dynamorio::droption::droption_t<unsigned int> op_v2p_buffer_size_kb;
 extern dynamorio::droption::droption_t<unsigned int> op_virt2phys_freq;
 extern dynamorio::droption::droption_t<std::string> op_v2p_file;
 extern dynamorio::droption::droption_t<bool> op_cpu_scheduling;

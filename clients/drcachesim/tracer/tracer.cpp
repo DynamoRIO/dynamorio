@@ -71,6 +71,9 @@
 #include "reader.h"
 #include "trace_entry.h"
 #include "utils.h"
+#ifdef LINUX
+#    include "v2p_tracker.h"
+#endif
 
 #ifdef ARM
 #    include "../../../core/unix/include/syscall_linux_arm.h" // for SYS_cacheflush
@@ -117,6 +120,9 @@ char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
 static file_t module_file;
 static file_t funclist_file = INVALID_FILE;
 static file_t encoding_file = INVALID_FILE;
+#ifdef LINUX
+static v2p_tracker_t v2p_tracker;
+#endif
 
 /* The redzone is allocated right after the trace buffer.
  * We fill the redzone with a sentinel value to detect when the redzone
@@ -2555,6 +2561,10 @@ event_exit(void)
     dr_global_free(instru, MAX_INSTRU_SIZE);
 
     if (op_offline.get_value()) {
+#ifdef LINUX
+        if (op_enable_v2p_tracefs.get_value())
+            v2p_tracker.stop();
+#endif
         if (module_file != INVALID_FILE)
             file_ops_func.close_file(module_file);
         if (funclist_file != INVALID_FILE)
@@ -2710,6 +2720,19 @@ init_offline_dir(void)
     NULL_TERMINATE_BUFFER(encoding_path);
     encoding_file = file_ops_func.open_process_file(
         encoding_path, DR_FILE_WRITE_REQUIRE_NEW IF_UNIX(| DR_FILE_CLOSE_ON_FORK));
+
+#ifdef LINUX
+    if (op_enable_v2p_tracefs.get_value()) {
+        char v2p_path[MAXIMUM_PATH];
+        dr_snprintf(v2p_path, BUFFER_SIZE_ELEMENTS(v2p_path), "%s%s%s", logsubdir, DIRSEP,
+                    DRMEMTRACE_V2P_LOG_FILENAME);
+        NULL_TERMINATE_BUFFER(v2p_path);
+        if (!v2p_tracker.start(dr_get_process_id(), v2p_path,
+                               op_v2p_buffer_size_kb.get_value())) {
+            NOTIFY(0, "WARNING: Failed to start tracefs v2p tracker at %s\n", v2p_path);
+        }
+    }
+#endif
 
     return (module_file != INVALID_FILE && funclist_file != INVALID_FILE &&
             encoding_file != INVALID_FILE);
@@ -2990,6 +3013,15 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     if (op_use_physical.get_value() || op_L0I_filter.get_value() ||
         op_L0D_filter.get_value() || op_L0_filter_until_instrs.get_value())
         op_disable_optimizations.set_value(true);
+    if (op_enable_v2p_tracefs.get_value()) {
+        if (!op_offline.get_value())
+            FATAL("Usage error: -enable_v2p_tracefs is only supported with "
+                  "-offline.\n");
+        if (op_use_physical.get_value()) {
+            FATAL("Usage error: -enable_v2p_tracefs cannot be combined with "
+                  "-use_physical during tracing.\n");
+        }
+    }
 
     init_record_syscall();
     event_inscount_init(id);

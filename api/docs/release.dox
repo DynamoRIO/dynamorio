@@ -314,6 +314,10 @@ Further non-compatibility-affecting changes include:
  - Raised the maximum -vm_size on AArch64 from 2GB to 64GB.  A value larger
    than 2GB removes the code cache reachability guarantees described in
    \ref sec_64bit_reach.
+ - Added the -enable_v2p_tracefs and -v2p_buffer_size_kb options to drmemtrace
+   on Linux to capture dynamic virtual-to-physical page mapping changes via
+   kernel tracefs during offline tracing and emit physical address, virtual
+   address, and page size markers during raw2trace post-processing.
 
 **************************************************
 <hr>

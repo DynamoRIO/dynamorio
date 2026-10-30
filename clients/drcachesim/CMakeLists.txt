@@ -544,6 +544,7 @@ macro(add_drmemtrace name type static_DR no_main)
     tracer/instru_offline.cpp
     tracer/instru_online.cpp
     tracer/physaddr.cpp
+    tracer/v2p_tracker.cpp
     tracer/func_trace.cpp
     tracer/raw2trace_shared.cpp
     ${client_and_sim_srcs}
