@@ -19135,4 +19135,15 @@ INSTR_CREATE_lsl(void *dc, opnd_t rd, opnd_t rn, opnd_t shift)
         opnd_inc_reg(Rt0, 2), opnd_inc_reg(Rt0, 3), opnd_inc_reg(Rt0, 4), \
         opnd_inc_reg(Rt0, 5), opnd_inc_reg(Rt0, 6), opnd_inc_reg(Rt0, 7))
 
+/**
+ * Creates an SB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SB
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_sb(dc) instr_create_0dst_0src(dc, OP_sb)
+
 #endif /* DR_IR_MACROS_AARCH64_H */

@@ -55,6 +55,7 @@
 10011010110xxxxx000100xxxxxxxxxx  n   1204 MTE       irg           x0sp : x5sp x16
 11011001011xxxxxxxxx00xxxxxxxxxx  n   1201 MTE       ldg             x0 : x0 mem9_tag
 1101100111100000000000xxxxxxxxxx  n   1218 MTE2     ldgm             x0 : mem9_tag
+11010101000000110011000011111111  n   1227 SB         sb                :
 11011001101xxxxxxxxx01xxxxxxxxxx  n   1197 MTE      st2g  mem9post_tag x5sp : x0sp x5sp mem9off_tag
 11011001101xxxxxxxxx11xxxxxxxxxx  n   1197 MTE      st2g  mem9_tag x5sp : x0sp x5sp mem9off_tag
 11011001101xxxxxxxxx10xxxxxxxxxx  n   1197 MTE      st2g       mem9_tag : x0sp
