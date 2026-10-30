@@ -815,6 +815,12 @@ set_local_window(void *drcontext, ptr_int_t value)
             // The initial file is opened at thread init.
             if (data->file != INVALID_FILE && value > 0 && op_split_windows.get_value())
                 close_thread_file(drcontext);
+            if (value > 0 && op_use_physical.get_value() &&
+                op_split_windows.get_value()) {
+                // Ensure we get new physaddr markers in each separate window after
+                // the first one.
+                data->physaddr.clear_cache(drcontext);
+            }
         }
     }
     *(ptr_int_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_WINDOW) = value;

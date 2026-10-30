@@ -68,6 +68,9 @@ public:
     virtual2physical(void *drcontext, addr_t virt, DR_PARAM_OUT addr_t *phys,
                      DR_PARAM_OUT bool *from_cache = nullptr);
 
+    void
+    clear_cache(void *drcontext);
+
     // This must be called once prior to any instance variables.
     // (If this class weren't used in a DR client context we could use a C++
     // mutex or pthread do-once but those are not safe here.)
