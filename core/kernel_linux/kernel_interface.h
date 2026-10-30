@@ -36,6 +36,18 @@
 
 #include <linux/types.h>
 
+#define KERNEL_MEMPROT_READ 0x1
+#define KERNEL_MEMPROT_WRITE 0x2
+#define KERNEL_MEMPROT_EXEC 0x4
+
+typedef struct {
+    unsigned char *base;
+    size_t size;
+    unsigned int prot;
+} kernel_module_region_t;
+
+#define KERNEL_MODULE_MAX_REGIONS 4
+
 int
 kernel_module_init(size_t dr_heap_size);
 
@@ -93,6 +105,12 @@ kernel_get_image_end(void);
 
 char *
 kernel_get_module_name(void);
+
+/* Returns the number of regions populated. or a negative errono on failure.
+ * Returne -NOSPC if capacity is too small.
+ */
+int
+kernel_get_module_regions(kernel_module_region_t *regions, size_t capacity);
 
 void *
 kernel_get_module_text_start(void);

@@ -1670,6 +1670,10 @@ vm_areas_init(void)
     areas = find_dynamo_library_vm_areas();
     dynamo_vm_areas_unlock();
 
+    if (areas < 0) {
+        return areas;
+    }
+
     /* initialize executable list
      * this routine calls app_memory_allocation() w/ dcontext==NULL and so we
      * won't go adding rwx regions, like the linux stack, to our list, even w/
