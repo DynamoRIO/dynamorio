@@ -643,5 +643,73 @@ ir_utils_t::instr_to_instr_type(instr_t *instr, bool repstr_expanded)
     return TRACE_TYPE_INSTR;
 }
 
+std::string
+virtual2physical_cache_t::process_record(const trace_entry_t &record,
+                                         std::vector<trace_entry_t> &toadd)
+{
+    // First, update our permanent information.
+    if (record.type == TRACE_TYPE_MARKER) {
+        if (record.size == TRACE_MARKER_TYPE_PAGE_SIZE) {
+            page_size_ = record.addr;
+        } else if (record.size == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS) {
+            last_physical_page_ = ALIGN_BACKWARD(record.addr, page_size_);
+        } else if (record.size == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE) {
+            v2p_[ALIGN_BACKWARD(record.addr, page_size_)] = NO_PHYS_SENTINEL;
+        } else if (record.size == TRACE_MARKER_TYPE_VIRTUAL_ADDRESS) {
+            if (last_physical_page_ == INVALID_PHYSICAL_PAGE) {
+                return "Missing physical address marker for " +
+                    std::to_string(record.addr);
+            }
+            v2p_[ALIGN_BACKWARD(record.addr, page_size_)] = last_physical_page_;
+            last_physical_page_ = INVALID_PHYSICAL_PAGE;
+        }
+    }
+    if (!add_new_)
+        return "";
+    // Repeat v2p info locally.
+    if (!type_has_address(static_cast<trace_type_t>(record.type)))
+        return "";
+    uint64_t address = record.addr;
+    if (page_size_ == 0)
+        return "No page size marker found";
+    uint64_t page_start = ALIGN_BACKWARD(address, page_size_);
+    uint64_t page_offs = address % page_size_;
+    if (v2p_cache_.find(page_start) != v2p_cache_.end()) {
+        // Already locally added.
+        return "";
+    }
+    auto it = v2p_.find(page_start);
+    if (it == v2p_.end()) {
+        return "Missing physical address for " + std::to_string(page_start) + " type " +
+            std::to_string(record.type) + " size " + std::to_string(record.size);
+    }
+    v2p_cache_[it->first] = it->second;
+    trace_entry_t phys;
+    phys.type = TRACE_TYPE_MARKER;
+    if (it->second == NO_PHYS_SENTINEL) {
+        phys.size = TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE;
+        phys.addr = static_cast<addr_t>(address);
+    } else {
+        phys.size = TRACE_MARKER_TYPE_PHYSICAL_ADDRESS;
+        phys.addr = static_cast<addr_t>(it->second + page_offs);
+    }
+    toadd.push_back(phys);
+    if (it->second != NO_PHYS_SENTINEL) {
+        trace_entry_t virt;
+        virt.type = TRACE_TYPE_MARKER;
+        virt.size = TRACE_MARKER_TYPE_VIRTUAL_ADDRESS;
+        virt.addr = static_cast<addr_t>(address);
+        toadd.push_back(virt);
+    }
+    return "";
+}
+
+void
+virtual2physical_cache_t::clear_cache()
+{
+    v2p_cache_.clear();
+    add_new_ = true;
+}
+
 } // namespace drmemtrace
 } // namespace dynamorio

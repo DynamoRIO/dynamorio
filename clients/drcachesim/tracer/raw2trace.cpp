@@ -505,6 +505,26 @@ raw2trace_t::process_marker(raw2trace_thread_data_t *tdata,
         // Consumed by raw2trace and not made visible in final trace.
         return true;
     }
+    if (!tdata->has_v2p &&
+        (marker_type == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS ||
+         marker_type == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE))
+        tdata->has_v2p = true;
+    if (marker_type == TRACE_MARKER_TYPE_PAGE_SIZE) {
+        trace_entry_t marker;
+        marker.type = TRACE_TYPE_MARKER;
+        marker.size = static_cast<unsigned short>(marker_type);
+        marker.addr = marker_val;
+        std::vector<trace_entry_t> toadd;
+        std::string error = tdata->v2p.process_record(marker, toadd);
+        if (!error.empty()) {
+            tdata->error = "Failed to handle v2p: " + error;
+            return false;
+        }
+        if (!toadd.empty()) {
+            tdata->error = "Unexpected v2p records to add at page size marker";
+            return false;
+        }
+    }
     if (marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
         uint64 stamp = static_cast<uint64>(marker_val);
         VPRINT(2, "Thread %u timestamp 0x" ZHEX64_FORMAT_STRING "\n",
@@ -3795,14 +3815,8 @@ raw2trace_t::open_new_chunk(raw2trace_thread_data_t *tdata)
     // and repeats all encodings used inside it.
     tdata->encoding_emitted.clear();
     tdata->last_encoding_emitted = nullptr;
-
-    // TODO i#6654,i#5538: Add a virtual-to-physical cache and clear it here.
-    // We'll need to add a routine for trace_converter_t to call to query our cache --
-    // or we can put the cache in trace_converter_t and have it clear the cache via
-    // a new new-chunk return value from write() and append_delayed_branch().
-    // Insertion of v2p markers in all but the first chunk will need to prepend
-    // them to the instr after observing its memref: we may want to reserve the
-    // first out_buf slot to avoid a memmove.
+    // Similarly, clear the v2p cache.
+    tdata->v2p.clear_cache();
 
     return true;
 }
@@ -3890,6 +3904,29 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
         tdata->rseq_decode_pcs_.insert(tdata->rseq_decode_pcs_.end(), decode_pcs,
                                        decode_pcs + decode_pcs_size);
         return true;
+    }
+    if (tdata->has_v2p) {
+        // Process and repeat v2p markers.
+        // It is easier here than to try to insert at every point we add
+        // an address-carrying record.
+        std::vector<trace_entry_t> toadd;
+        for (const trace_entry_t *it = start; it < end; ++it) {
+            std::string error = tdata->v2p.process_record(*it, toadd);
+            if (!error.empty()) {
+                tdata->error = "Failed to handle v2p: " + error;
+                return false;
+            }
+        }
+        if (!toadd.empty()) {
+            // This should only happen on non-initial chunks so we should be
+            // fine writing this first and don't have to worry about it being
+            // before up front headers.
+            if (!tdata->out_file->write(reinterpret_cast<const char *>(toadd.data()),
+                                        toadd.size() * sizeof(trace_entry_t))) {
+                tdata->error = "Failed to write to output file";
+                return false;
+            }
+        }
     }
     if (tdata->out_archive != nullptr) {
         bool prev_was_encoding = false;

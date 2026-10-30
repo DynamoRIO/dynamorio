@@ -817,6 +817,9 @@ protected:
         pt2ir_t pt2ir;
 #endif
 
+        bool has_v2p = false;
+        virtual2physical_cache_t v2p;
+
         // Sentinel value for to_inject_syscall.
         static constexpr int INJECT_NONE = -1;
     };
