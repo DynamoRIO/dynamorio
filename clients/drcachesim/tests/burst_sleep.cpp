@@ -30,23 +30,18 @@
  * DAMAGE.
  */
 
-// Tests -time_syscall_scale during tracing.
+// Tests timeout scaling during tracing.
 
 // Enable asserts in release build testing too.
 #undef NDEBUG
 
 #include <assert.h>
-#include <math.h>
-#include <pthread.h>
-#include <stdio.h>
-#include <string.h>
-#include <signal.h>
 #include <stdlib.h>
-#include <string.h>
+#include <time.h>
 
-#include <atomic>
+#include <chrono>
 #include <iostream>
-#include <thread>
+#include <string>
 
 #include "dr_api.h"
 #include "drmemtrace/drmemtrace.h"
@@ -74,126 +69,24 @@ my_setenv(const char *var, const char *value)
  * Code that gets traced.
  */
 
-static pthread_cond_t condvar;
-static bool child_ready;
-static pthread_mutex_t lock;
-static std::atomic<bool> child_should_exit;
-static std::atomic<bool> saw_eintr;
-static std::atomic<int> sleep_count;
+static constexpr int NUM_SLEEPS = 5;
 
-static void
-handler(int sig)
+static int64
+measure_sleep_time()
 {
-    // Nothing; just interrupt the sleep.
-}
+    struct timespec sleeptime = { 0, 10000000 };
+    auto start = std::chrono::steady_clock::now();
 
-static void *
-thread_routine(void *arg)
-{
-    signal(SIGUSR1, handler);
-
-    pthread_mutex_lock(&lock);
-    child_ready = true;
-    pthread_cond_signal(&condvar);
-    pthread_mutex_unlock(&lock);
-
-    struct timespec sleeptime;
-    sleeptime.tv_sec = 0;
-    sleeptime.tv_nsec = 100000;
-    struct timespec remaining;
-    while (!child_should_exit.load(std::memory_order_acquire)) {
-        sleep_count.fetch_add(1, std::memory_order_release);
-        int res = nanosleep(&sleeptime, &remaining);
-        if (res != 0) {
-            assert(errno == EINTR);
-            // Ensure the remaining time was deflated.
-            assert(remaining.tv_sec <= sleeptime.tv_sec);
-            saw_eintr.store(true, std::memory_order_release);
-        }
+    // Warm the clock and sleep paths before measuring a fixed sleep workload.
+    for (int i = 0; i <= NUM_SLEEPS; ++i) {
+        if (i == 1)
+            start = std::chrono::steady_clock::now();
+        int res = nanosleep(&sleeptime, nullptr);
+        assert(res == 0);
     }
-    return nullptr;
-}
-
-static double
-do_some_work()
-{
-    // It is difficult to use a constant iter count in our work loop and still
-    // produce a good sleep count across varying test machines: too few and we don't
-    // have enough to see a scale effect; too many and the test takes too long on
-    // slower machines.  We solve this by figuring out an iter count experimentally.
-    // The first time we're called, we run until we see MIN_SLEEPS sleeps and 1 EINTR
-    // in the other thread.  We record that iter count and use it next time.
-    constexpr int MIN_SLEEPS = 50;
-    static int computed_iters;
-
-    pthread_t thread;
-    void *retval;
-    pthread_mutex_init(&lock, NULL);
-    pthread_cond_init(&condvar, NULL);
-
-    pthread_mutex_lock(&lock);
-    child_ready = false;
-    pthread_mutex_unlock(&lock);
-    child_should_exit.store(false, std::memory_order_release);
-    saw_eintr.store(true /*false*/, std::memory_order_release);
-    sleep_count.store(0, std::memory_order_release);
-    child_should_exit.store(false, std::memory_order_release);
-
-    int res = pthread_create(&thread, NULL, thread_routine, nullptr);
-    assert(res == 0);
-    // Wait for the child to start running.
-    pthread_mutex_lock(&lock);
-    while (!child_ready)
-        pthread_cond_wait(&condvar, &lock);
-    pthread_mutex_unlock(&lock);
-    // Now take some time doing work so we can measure how many sleeps the child
-    // accomplishes in this time period.
-#ifdef DEBUG
-    constexpr int EINTR_PERIOD = 30;
-#else
-    // Signal delivery is much faster, and we only want a few interruptions to test
-    // that path: too many results in too many sleep syscalls in the count.
-    constexpr int EINTR_PERIOD = 600;
-#endif
-    double val = static_cast<double>(MIN_SLEEPS);
-    int i = 0;
-    while (true) {
-        if (computed_iters == 0) {
-            if (sleep_count.load(std::memory_order_acquire) >= MIN_SLEEPS) {
-                computed_iters = i;
-                std::cerr << "iters for >= " << MIN_SLEEPS
-                          << " sleeps: " << computed_iters << "\n";
-                break;
-            }
-        } else if (i >= computed_iters &&
-                   // We want to test the scaled (2nd run) EINTR path.
-                   // We don't require on the 1st as that slows down
-                   // debug test times (from 1.5s up to >10s if we require an
-                   // EINTR: because there's so much other work being done it
-                   // dwarfs the short app sleep) for no benefit.
-                   // But in the inflated sleep run we hit EINTR pretty easily,
-                   // so we're comfortable requiring it without worrying it
-                   // will skew the results and make it seem there are more
-                   // sleeps because we have more requirements (that would
-                   // cause the test to move toward failure in any case and
-                   // we would be more likely to notice).
-                   saw_eintr.load(std::memory_order_acquire)) {
-            break;
-        }
-        ++i;
-        val += sin(val);
-        // Test interrupting the thread's sleeps.
-        if (!saw_eintr.load(std::memory_order_acquire) && i % EINTR_PERIOD == 0) {
-            pthread_kill(thread, SIGUSR1);
-        }
-    }
-    // Clean up.
-    child_should_exit.store(true, std::memory_order_release);
-    res = pthread_join(thread, &retval);
-    assert(res == 0);
-    pthread_cond_destroy(&condvar);
-    pthread_mutex_destroy(&lock);
-    return val;
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(
+               std::chrono::steady_clock::now() - start)
+        .count();
 }
 
 /****************************************************************************
@@ -236,7 +129,7 @@ post_process(const std::string &out_subdir)
 }
 
 static std::string
-gather_trace(const std::string &tracer_ops, const std::string &out_subdir)
+gather_trace(const std::string &tracer_ops, const std::string &out_subdir, int64 *elapsed)
 {
     std::string dr_ops("-stderr_mask 0xc -client_lib ';;-offline " + tracer_ops + "'");
     if (!my_setenv("DYNAMORIO_OPTIONS", dr_ops.c_str()))
@@ -245,8 +138,8 @@ gather_trace(const std::string &tracer_ops, const std::string &out_subdir)
     assert(!dr_app_running_under_dynamorio());
     dr_app_start();
     assert(dr_app_running_under_dynamorio());
-    double res = do_some_work();
-    assert(res > 0.);
+    *elapsed = measure_sleep_time();
+    assert(*elapsed > 0);
     dr_app_stop_and_cleanup();
     assert(!dr_app_running_under_dynamorio());
 
@@ -286,19 +179,21 @@ count_sleeps(const std::string &dir)
 int
 test_main(int argc, const char *argv[])
 {
-    // The first gather_trace call must be the default as computed_iters
-    // is determined in the first call.
-    std::string dir_default = gather_trace("", "default");
-    std::string dir_scale = gather_trace("-scale_timeouts 20", "scale");
+    int64 elapsed_default, elapsed_scale;
+    std::string dir_default = gather_trace("", "default", &elapsed_default);
+    std::string dir_scale = gather_trace("-scale_timeouts 20", "scale", &elapsed_scale);
 
     void *dr_context = dr_standalone_init();
 
     int sleeps_default = count_sleeps(dir_default);
     int sleeps_scale = count_sleeps(dir_scale);
     std::cerr << "sleeps default=" << sleeps_default << " scale=" << sleeps_scale << "\n";
-    // With a 10x scale, require at least a 2x difference (no higher, to allow
-    // for variation on loaded test machines).
-    assert(sleeps_default > 2 * sleeps_scale);
+    assert(sleeps_default == NUM_SLEEPS + 1);
+    assert(sleeps_scale == NUM_SLEEPS + 1);
+    std::cerr << "sleep time (ns) default=" << elapsed_default
+              << " scale=" << elapsed_scale << "\n";
+    // A 20x timeout scale must yield at least a 2x duration despite scheduler noise.
+    assert(elapsed_scale > 2 * elapsed_default);
 
     dr_standalone_exit();
     std::cerr << "all done\n";
