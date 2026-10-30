@@ -512,7 +512,7 @@ raw2trace_t::process_marker(raw2trace_thread_data_t *tdata,
     if (marker_type == TRACE_MARKER_TYPE_PAGE_SIZE) {
         trace_entry_t marker;
         marker.type = TRACE_TYPE_MARKER;
-        marker.size = marker_type;
+        marker.size = static_cast<unsigned short>(marker_type);
         marker.addr = marker_val;
         std::vector<trace_entry_t> toadd;
         std::string error = tdata->v2p.process_record(marker, toadd);
