@@ -631,6 +631,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_PAGE_SIZE) {
         shard->found_page_size_marker_ = true;
+        shard->page_size_ = memref.marker.marker_value;
+        report_if_false(shard, shard->page_size_ != 0, "Page size is 0");
         report_if_false(shard,
                         is_a_unit_test(shard) || is_a_unit_test(shard) ||
                             memref.marker.marker_value == shard->stream->get_page_size(),
@@ -1084,17 +1086,44 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
         shard->prev_entry_.marker.marker_type == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS) {
         // A physical address marker must be immediately prior to its virtual marker.
+        if (!(memref.marker.type == TRACE_TYPE_MARKER &&
+              memref.marker.marker_type == TRACE_MARKER_TYPE_VIRTUAL_ADDRESS)) {
+            report_if_false(
+                shard, false,
+                "Physical address marker not immediately prior to virtual marker");
+        } else {
+            report_if_false(
+                shard,
+                (memref.marker.marker_value % shard->page_size_) ==
+                    (shard->prev_entry_.marker.marker_value % shard->page_size_),
+                "Physical address page offset does not match virtual");
+            shard->v2p_.insert(
+                ALIGN_BACKWARD(memref.marker.marker_value, shard->page_size_));
+        }
+    } else if (memref.marker.type == TRACE_TYPE_MARKER &&
+               memref.marker.marker_type == TRACE_MARKER_TYPE_VIRTUAL_ADDRESS) {
+        report_if_false(shard, false,
+                        "Virtual address marker without prior physical marker");
+        // Avoid a further error "Missing physical address".
+        shard->v2p_.insert(ALIGN_BACKWARD(memref.marker.marker_value, shard->page_size_));
+    }
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE) {
+        shard->v2p_.insert(ALIGN_BACKWARD(memref.marker.marker_value, shard->page_size_));
+    }
+    // We use the presence of any v2p markers to indicate they should all be present.
+    // XXX i#8245: Add a new OFFLINE_FILE_TYPE_PHYSICAL_ADDR type, which would
+    // require a version bump.
+    if (!shard->v2p_.empty() && type_has_address(memref.instr.type)) {
+        addr_t addr = 0;
+        if (type_is_instr(memref.instr.type))
+            addr = memref.instr.addr;
+        else
+            addr = memref.data.addr;
         report_if_false(shard,
-                        memref.marker.type == TRACE_TYPE_MARKER &&
-                            memref.marker.marker_type ==
-                                TRACE_MARKER_TYPE_VIRTUAL_ADDRESS,
-                        "Physical addr marker not immediately prior to virtual marker");
-        // We don't have the actual page size, but it is always at least 4K, so
-        // make sure the bottom 12 bits are the same.
-        report_if_false(shard,
-                        (memref.marker.marker_value & 0xfff) ==
-                            (shard->prev_entry_.marker.marker_value & 0xfff),
-                        "Physical addr bottom 12 bits do not match virtual");
+                        shard->v2p_.find(ALIGN_BACKWARD(addr, shard->page_size_)) !=
+                            shard->v2p_.end(),
+                        "Missing physical address");
     }
 
     if (type_is_instr(memref.instr.type) ||
