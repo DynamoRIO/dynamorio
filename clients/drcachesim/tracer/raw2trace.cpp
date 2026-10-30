@@ -3880,7 +3880,7 @@ raw2trace_t::read_v2p_file()
         return "Failed to open v2p file " + v2p_file_;
 
     v2p_map_.clear();
-    uint64_t overflow_events = 0;
+    uint64 overflow_events = 0;
     bool saw_end = false;
     v2p_record_t rec = {};
     while (in.read(reinterpret_cast<char *>(&rec), sizeof(rec))) {
@@ -3909,11 +3909,11 @@ raw2trace_t::read_v2p_file()
     }
     if (overflow_events > 0) {
         WARN("v2p file %s reported " UINT64_FORMAT_STRING
-             " dropped tracefs events; physical addresses may be incomplete\n",
+             " dropped tracefs events; physical addresses may be incomplete",
              v2p_file_.c_str(), overflow_events);
     }
     if (!saw_end) {
-        WARN("v2p file %s is missing its END sentinel (truncated log)\n",
+        WARN("v2p file %s is missing its END sentinel (truncated log)",
              v2p_file_.c_str());
     }
     return "";
