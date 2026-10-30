@@ -41,7 +41,9 @@
 
 #include <asm/page.h>
 #ifdef CONFIG_X86
-#    include <asm/tsc.h>
+#    include <asm/tsc.h> /* For tsc_khz. */
+#elif defined(CONFIG_ARM64)
+#    include <asm/arch_timer.h> /* For arch_timer_get_cntfrq(). */
 #endif
 #include <linux/cpumask.h>
 #include <linux/kprobes.h>
@@ -210,10 +212,12 @@ kernel_module_init(size_t dr_heap_size)
         return ret;
     }
 
-#if defined(KSTATS) && defined(CONFIG_X86)
-    /* kstats use tsc_khz as their tick rate and divide by it when reporting. */
-    if (tsc_khz == 0) {
-        pr_err("TSC frequency is unavailable (required by kstats)\n");
+#ifdef KSTATS
+    /* kstats use the timestamp counter frequency as their tick rate and divide by it
+     * when reporting.
+     */
+    if (kernel_get_timestamp_counter_khz() == 0) {
+        pr_err("Timestamp counter frequency is unavailable (required by kstats)\n");
         return -ENODEV;
     }
 #endif
@@ -270,13 +274,17 @@ kernel_get_online_processor_count(void)
     return num_online_cpus();
 }
 
-#ifdef CONFIG_X86
 unsigned int
-kernel_get_tsc_khz(void)
+kernel_get_timestamp_counter_khz(void)
 {
+#ifdef CONFIG_X86
     return tsc_khz;
-}
+#elif defined(CONFIG_ARM64)
+    return arch_timer_get_cntfrq() / 1000;
+#else
+#    error "Unsupported architecture"
 #endif
+}
 
 void
 kernel_get_cpu_local_state_layout(size_t *size, size_t *alignment)
