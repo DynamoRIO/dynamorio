@@ -1142,17 +1142,17 @@ test_chunk_v2p(void *drcontext)
     size_t offs_nop = 0;
     size_t offs_move = offs_nop + instr_length(drcontext, nop);
 
-    constexpr uintptr_t PAGE_SIZE = 4096;
+    constexpr uintptr_t PAGE_SZ = 4096;
     const uintptr_t VA_PC = offs_move;
-    const uintptr_t PA_PC = 0xa000 + (VA_PC % PAGE_SIZE);
+    const uintptr_t PA_PC = 0xa000 + (VA_PC % PAGE_SZ);
     constexpr uintptr_t VA_LOAD = 0x789456;
-    constexpr uintptr_t PA_LOAD = 0xb000 + (VA_LOAD % PAGE_SIZE);
+    constexpr uintptr_t PA_LOAD = 0xb000 + (VA_LOAD % PAGE_SZ);
     std::vector<offline_entry_t> raw;
     raw.push_back(make_header());
     raw.push_back(make_tid());
     raw.push_back(make_pid());
     raw.push_back(make_line_size());
-    raw.push_back(make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, PAGE_SIZE));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, PAGE_SZ));
     raw.push_back(make_marker(TRACE_MARKER_TYPE_PHYSICAL_ADDRESS, PA_PC));
     raw.push_back(make_marker(TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, VA_PC));
     raw.push_back(make_marker(TRACE_MARKER_TYPE_PHYSICAL_ADDRESS, PA_LOAD));
