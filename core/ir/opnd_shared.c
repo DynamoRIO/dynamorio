@@ -443,6 +443,9 @@ opnd_is_immed_int64(opnd_t opnd)
     return (opnd_is_immed_int(opnd) && TESTANY(DR_OPND_MULTI_PART, opnd_get_flags(opnd)));
 }
 
+/* These APIs accept floating-point arguments, which can require FP registers
+ * disabled by the kernel build's compiler flags (-mgeneral-regs-only) on AArch64.
+ */
 #ifndef LINUX_KERNEL
 /* NOTE: requires caller to be under PRESERVE_FLOATING_POINT_STATE */
 opnd_t
@@ -534,6 +537,9 @@ opnd_get_immed_int64(opnd_t opnd)
         (uint64)(uint)opnd.value.immed_int_multi_part.low;
 }
 
+/* These APIs return floating-point values, which can require FP registers
+ * disabled by the kernel build's compiler flags (-mgeneral-regs-only) on AArch64.
+ */
 #ifndef LINUX_KERNEL
 /* NOTE: requires caller to be under PRESERVE_FLOATING_POINT_STATE */
 float

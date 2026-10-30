@@ -2523,6 +2523,9 @@ DR_API
 opnd_t
 opnd_invert_immed_int(opnd_t opnd);
 
+/* These APIs accept floating-point arguments, which can require FP registers
+ * disabled by the kernel build's compiler flags (-mgeneral-regs-only) on AArch64.
+ */
 #ifndef LINUX_KERNEL
 DR_API
 /**
@@ -3268,6 +3271,9 @@ DR_API
 int64
 opnd_get_immed_int64(opnd_t opnd);
 
+/* These APIs return floating-point values, which can require FP registers
+ * disabled by the kernel build's compiler flags (-mgeneral-regs-only) on AArch64.
+ */
 #ifndef LINUX_KERNEL
 DR_API
 /**
