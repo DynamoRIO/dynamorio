@@ -3014,9 +3014,10 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         op_L0D_filter.get_value() || op_L0_filter_until_instrs.get_value())
         op_disable_optimizations.set_value(true);
     if (op_enable_v2p_tracefs.get_value()) {
-        if (!op_offline.get_value())
+        if (!op_offline.get_value()) {
             FATAL("Usage error: -enable_v2p_tracefs is only supported with "
                   "-offline.\n");
+        }
         if (op_use_physical.get_value()) {
             FATAL("Usage error: -enable_v2p_tracefs cannot be combined with "
                   "-use_physical during tracing.\n");
