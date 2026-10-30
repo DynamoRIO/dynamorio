@@ -209,10 +209,9 @@ physaddr_t::virtual2physical(void *drcontext, addr_t virt, DR_PARAM_OUT addr_t *
         // XXX i#4014: Provide a similar option that doesn't flush and just checks
         // whether mappings have changed?
         use_cache = false;
-        memset(last_vpage_, static_cast<char>(PAGE_INVALID), sizeof(last_vpage_));
+        clear_cache(drcontext);
         // We do not bother to clear last_ppage_ as it is only used when
         // last_vpage_ holds legitimate values.
-        dr_hashtable_clear(drcontext, v2p_);
         count_ = 0;
     }
     if (use_cache) {

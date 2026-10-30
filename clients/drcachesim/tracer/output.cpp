@@ -817,7 +817,8 @@ set_local_window(void *drcontext, ptr_int_t value)
                 close_thread_file(drcontext);
             if (value > 0 && op_use_physical.get_value() &&
                 op_split_windows.get_value()) {
-                // Ensure we get new physaddr markers in each separate window.
+                // Ensure we get new physaddr markers in each separate window after
+                // the first one.
                 data->physaddr.clear_cache(drcontext);
             }
         }

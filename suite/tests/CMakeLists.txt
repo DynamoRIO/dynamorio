@@ -4701,6 +4701,8 @@ if (BUILD_CLIENTS)
       "@-tool@invariant_checker" "")
     if (X86 AND X64 AND UNIX)
       torunonly_drcacheoff(windows-asm allasm_repstr
+        # These numbers are not perfectly precise: the triggers will be at the
+        # next block boundary.
         "-no_split_windows -trace_after_instrs 3 -trace_for_instrs 4 -retrace_every_instrs 4"
         "@-tool@basic_counts" "")
     endif ()
@@ -4927,6 +4929,8 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.phys_windows_SUDO_sudo ON)
       set(tool.drcacheoff.phys_windows_SUDO_expectbase "offline-phys_windows")
       torunonly_drcacheoff(phys_windows_SUDO allasm_repstr
+        # These numbers are not perfectly precise: the triggers will be at the
+        # next block boundary.
         "-use_physical -trace_after_instrs 3 -trace_for_instrs 4 -retrace_every_instrs 4"
         "@-tool@basic_counts" "")
       # The first postcmd did window #0.  There should be at least 2 more windows.
