@@ -1294,6 +1294,10 @@ test_chunk_v2p(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
         check_entry(entries, idx, TRACE_TYPE_INSTR_DIRECT_JUMP, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER) &&
         // Chunk #4, triggered mid-block to ensure we dup v2p in that code path.
@@ -1307,6 +1311,10 @@ test_chunk_v2p(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS,
                     VA_PC_JMP_MOVE3) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
         check_entry(entries, idx, TRACE_TYPE_INSTR_DIRECT_JUMP, -1) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
