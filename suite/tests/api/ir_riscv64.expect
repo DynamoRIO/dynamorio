@@ -332,4 +332,41 @@ th.sync.s
 th.sync.i
 th.sync.is
 test_decode_xtheadsync complete
+czero.eqz a1 a2 -> a0
+czero.nez a1 a2 -> a0
+test_decode_zicond complete
+fli.s  16 -> ft0
+fli.d  16 -> ft0
+fminm.s ft1 ft2 -> ft0
+fminm.d ft1 ft2 -> ft0
+fmaxm.s ft1 ft2 -> ft0
+fmaxm.d ft1 ft2 -> ft0
+fround.s 0x0 ft1 -> ft0
+fround.d 0x0 ft1 -> ft0
+froundnx.s 0x0 ft1 -> ft0
+froundnx.d 0x0 ft1 -> ft0
+fcvtmod.w.d 0x1 ft0 -> a0
+fleq.s ft1 ft2 -> a0
+fleq.d ft1 ft2 -> a0
+fltq.s ft1 ft2 -> a0
+fltq.d ft1 ft2 -> a0
+fli.h  16 -> ft0
+fminm.h ft1 ft2 -> ft0
+fmaxm.h ft1 ft2 -> ft0
+fround.h 0x0 ft1 -> ft0
+froundnx.h 0x0 ft1 -> ft0
+fleq.h ft1 ft2 -> a0
+fltq.h ft1 ft2 -> a0
+test_decode_zfa complete
+wrs.nto
+wrs.sto
+test_decode_zawrs complete
+mop.r.0 a1 -> a0
+mop.r.1 a1 -> a0
+mop.r.15 a1 -> a0
+mop.r.16 a1 -> a0
+mop.r.31 a1 -> a0
+mop.rr.0 a1 a2 -> a0
+mop.rr.7 a1 a2 -> a0
+test_decode_zimop complete
 All tests complete

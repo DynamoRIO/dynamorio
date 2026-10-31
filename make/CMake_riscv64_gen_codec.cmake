@@ -71,11 +71,15 @@ add_custom_command(
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/v.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/xtheadcmo.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/xtheadsync.txt
+          ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/zawrs.txt
+          ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/zfa.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/zicbom.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/zicbop.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/zicboz.txt
+          ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/zicond.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/zicsr.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/zifencei.txt
+          ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/zimop.txt
   COMMAND ${Python3_EXECUTABLE}
   ARGS ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec.py
        ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl
