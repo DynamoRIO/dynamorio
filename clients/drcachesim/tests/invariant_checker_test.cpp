@@ -6181,6 +6181,35 @@ check_v2p(void)
                          "Failed to catch missing physical address"))
             return false;
     }
+    // Incorrect: v2p records not repeated at start of a new chunk.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, 3),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS, 0x456123),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, kPc),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS, 0x2333),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, kLoad),
+            gen_instr_type(TRACE_TYPE_INSTR, TID_A, kPc),
+            gen_instr_type(TRACE_TYPE_READ, TID_A, kLoad),
+            gen_instr_type(TRACE_TYPE_INSTR, TID_A, kPc + 1),
+            gen_instr_type(TRACE_TYPE_INSTR, TID_A, kPc + 2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 0),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_RECORD_ORDINAL, 11),
+            // Markers for kPc+3 are missing.
+            gen_instr_type(TRACE_TYPE_INSTR, TID_A, kPc + 3),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "Missing physical address",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/15, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/4 },
+                         "Failed to catch missing physical address"))
+            return false;
+    }
     return true;
 }
 

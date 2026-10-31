@@ -644,8 +644,8 @@ ir_utils_t::instr_to_instr_type(instr_t *instr, bool repstr_expanded)
 }
 
 std::string
-virtual2physical_cache_t::process_record(const trace_entry_t &record,
-                                         std::vector<trace_entry_t> &toadd)
+virtual2physical_repeater_t::process_record(const trace_entry_t &record,
+                                            std::vector<trace_entry_t> &toadd)
 {
     // First, update our permanent information.
     if (record.type == TRACE_TYPE_MARKER) {
@@ -660,11 +660,13 @@ virtual2physical_cache_t::process_record(const trace_entry_t &record,
                 return "Missing physical address marker for " +
                     std::to_string(record.addr);
             }
-            v2p_[ALIGN_BACKWARD(record.addr, page_size_)] = last_physical_page_;
+            uint64_t page_start = ALIGN_BACKWARD(record.addr, page_size_);
+            v2p_[page_start] = last_physical_page_;
+            v2p_repeated_.insert(page_start);
             last_physical_page_ = INVALID_PHYSICAL_PAGE;
         }
     }
-    if (!add_new_)
+    if (!repeat_markers_)
         return "";
     // Repeat v2p info locally.
     if (!type_has_address(static_cast<trace_type_t>(record.type)))
@@ -674,7 +676,7 @@ virtual2physical_cache_t::process_record(const trace_entry_t &record,
         return "No page size marker found";
     uint64_t page_start = ALIGN_BACKWARD(address, page_size_);
     uint64_t page_offs = address % page_size_;
-    if (v2p_cache_.find(page_start) != v2p_cache_.end()) {
+    if (v2p_repeated_.find(page_start) != v2p_repeated_.end()) {
         // Already locally added.
         return "";
     }
@@ -683,7 +685,7 @@ virtual2physical_cache_t::process_record(const trace_entry_t &record,
         return "Missing physical address for " + std::to_string(page_start) + " type " +
             std::to_string(record.type) + " size " + std::to_string(record.size);
     }
-    v2p_cache_[it->first] = it->second;
+    v2p_repeated_.insert(it->first);
     trace_entry_t phys;
     phys.type = TRACE_TYPE_MARKER;
     if (it->second == NO_PHYS_SENTINEL) {
@@ -705,10 +707,10 @@ virtual2physical_cache_t::process_record(const trace_entry_t &record,
 }
 
 void
-virtual2physical_cache_t::clear_cache()
+virtual2physical_repeater_t::start_repeating()
 {
-    v2p_cache_.clear();
-    add_new_ = true;
+    v2p_repeated_.clear();
+    repeat_markers_ = true;
 }
 
 } // namespace drmemtrace

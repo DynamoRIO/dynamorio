@@ -45,6 +45,7 @@
 
 #include <list>
 #include <map>
+#include <set>
 #include <unordered_map>
 
 #include "dr_api.h"
@@ -528,12 +529,12 @@ public:
     instr_to_instr_type(instr_t *instr, bool repstr_expanded = false);
 };
 
-class virtual2physical_cache_t {
+class virtual2physical_repeater_t {
 public:
-    virtual2physical_cache_t() = default;
+    virtual2physical_repeater_t() = default;
 
-    // If no error, returns an emptry string with entries to insert *before* "record"
-    // appended to "toadd" (will only append to "toadd" after clear_cache() has been
+    // If no error, returns an empty string with entries to insert *before* "record"
+    // appended to "toadd" (will only append to "toadd" after start_repeating() has been
     // called).
     // Must be passed the TRACE_MARKER_TYPE_PAGE_SIZE record in addition to all
     // TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS*,
@@ -541,21 +542,20 @@ public:
     std::string
     process_record(const trace_entry_t &record, std::vector<trace_entry_t> &toadd);
 
-    // Clears the cache. This must be called to trigger addition of new records.
+    // Commences repeating by adding markers before address-containing records.
     void
-    clear_cache();
+    start_repeating();
 
 private:
-    // We need to permanently remember the markers the tracer added, and
-    // remember per chunk the ones we've locally repeated.
+    // We need to permanently remember the markers the tracer added.
     std::unordered_map<uint64_t, uint64_t> v2p_;
-    std::unordered_map<uint64_t, uint64_t> v2p_cache_;
+    // Remember the v2p_ tags (virtual addresses) of the ones we've locally repeated.
+    std::set<uint64_t> v2p_repeated_;
     uint64_t page_size_ = 0;
     // We page-align, so 1 is a sentinel that will never appear otherwise.
     static constexpr uint64_t INVALID_PHYSICAL_PAGE = 1;
     uint64_t last_physical_page_ = INVALID_PHYSICAL_PAGE;
-    // Whether to start adding new records.
-    bool add_new_ = false;
+    bool repeat_markers_ = false;
 
     // Addresses in our tables are all page-aligned so a non-aligned address
     // works as a sentinel.

@@ -1136,11 +1136,26 @@ test_chunk_v2p(void *drcontext)
         XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
     instr_t *load =
         XINST_CREATE_load(drcontext, opnd_create_reg(REG1), OPND_CREATE_MEMPTR(REG2, 0));
+    instr_t *move2 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *move3 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *jmp_move3 = XINST_CREATE_jump(drcontext, opnd_create_instr(move3));
+    instr_t *jmp_jmp = XINST_CREATE_jump(drcontext, opnd_create_instr(jmp_move3));
     instrlist_append(ilist, nop);
     instrlist_append(ilist, move);
     instrlist_append(ilist, load);
+    instrlist_append(ilist, move2);
+    instrlist_append(ilist, jmp_jmp);
+    instrlist_append(ilist, jmp_move3);
+    instrlist_append(ilist, move3);
     size_t offs_nop = 0;
     size_t offs_move = offs_nop + instr_length(drcontext, nop);
+    size_t offs_load = offs_move + instr_length(drcontext, move);
+    size_t offs_move2 = offs_load + instr_length(drcontext, load);
+    size_t offs_jmp_jmp = offs_move2 + instr_length(drcontext, move2);
+    size_t offs_jmp_move3 = offs_jmp_jmp + instr_length(drcontext, jmp_jmp);
+    size_t offs_move3 = offs_jmp_move3 + instr_length(drcontext, jmp_move3);
 
     constexpr uintptr_t PAGE_SZ = 4096;
     const uintptr_t VA_PC = offs_move;
@@ -1161,12 +1176,26 @@ test_chunk_v2p(void *drcontext)
     raw.push_back(make_core());
     raw.push_back(make_block(offs_move, 2));
     raw.push_back(make_memref(VA_LOAD));
-    // This will become a new chunk.
+    // This will become a 2nd chunk. We test dup v2p being added here.
     raw.push_back(make_block(offs_move, 2));
     raw.push_back(make_memref(VA_LOAD));
-    // This will become a new chunk.
+    // This will become a 3rd chunk.
+    // Test new markers in a later chunk: ensure not repeated in that same chunk.
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_PHYSICAL_ADDRESS, PA_LOAD + PAGE_SZ));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, VA_LOAD + PAGE_SZ));
     raw.push_back(make_block(offs_move, 2));
-    raw.push_back(make_memref(VA_LOAD));
+    raw.push_back(make_memref(VA_LOAD + PAGE_SZ));
+    // 4th chunk.
+    // We have a block with back-to-back jumps at the chunk boundary
+    // to test a new chunk being triggered in the middle of the output
+    // buffer (we need 2 delayed branches in the same delay buffer).
+    const uintptr_t VA_PC_MOVE2 = VA_PC + (offs_move2 - offs_move);
+    const uintptr_t PA_PC_MOVE2 = PA_PC + (offs_move2 - offs_move);
+    const uintptr_t VA_PC_JMP_MOVE3 = VA_PC + (offs_jmp_move3 - offs_move);
+    const uintptr_t PA_PC_JMP_MOVE3 = PA_PC + (offs_jmp_move3 - offs_move);
+    raw.push_back(make_block(offs_move2, 2));
+    raw.push_back(make_block(offs_jmp_move3, 1));
+    raw.push_back(make_block(offs_move3, 1));
     raw.push_back(make_exit());
 
     std::vector<trace_entry_t> entries;
@@ -1203,7 +1232,11 @@ test_chunk_v2p(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_READ, sizeof(void *), VA_LOAD) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER) &&
         // Chunk #1.
-        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL,
+                    // Check the ordinal, which invariant_checker can't see.
+                    // The header, thread, pid, and encodings are not visible, so we
+                    // have 11 markers + 2 instrs + 1 read + 1 marker = 15.
+                    15) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS,
@@ -1223,25 +1256,65 @@ test_chunk_v2p(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_READ, sizeof(void *), VA_LOAD) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER) &&
         // Chunk #2.
-        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL,
+                    // The repeat time+cpu are invisible, so we have 2 v2p markers +
+                    // 2 instrs + 2 more v2p markers + 1 read + 1 marker = 8 more.
+                    // This is our test that the added duplicate markers are in fact
+                    // counted here.
+                    23) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // There should not be a separate copy of new-in-raw-trace markers.
+        // These pre-existing markers occur before markers added for the block.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS,
+                    PA_LOAD + PAGE_SZ) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS,
+                    VA_LOAD + PAGE_SZ) &&
+        // Added repeated markers for PC.
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS,
                     PA_PC) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS,
                     VA_PC) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
-        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS,
-                    PA_LOAD) &&
-        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS,
-                    VA_LOAD) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
-        check_entry(entries, idx, TRACE_TYPE_READ, sizeof(void *), VA_LOAD) &&
+        check_entry(entries, idx, TRACE_TYPE_READ, sizeof(void *), VA_LOAD + PAGE_SZ) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER) &&
-        // Empty chunk #3.
-        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL) &&
+        // Chunk #3.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL,
+                    // We expect another 8.
+                    31) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS,
+                    PA_PC_MOVE2) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS,
+                    VA_PC_MOVE2) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR_DIRECT_JUMP, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER) &&
+        // Chunk #4, triggered mid-block to ensure we dup v2p in that code path.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL,
+                    // We expect 5 (just 2 v2p and no read).
+                    36) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS,
+                    PA_PC_JMP_MOVE3) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS,
+                    VA_PC_JMP_MOVE3) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR_DIRECT_JUMP, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER) &&
+        // Empty chunk #5.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL,
+                    // We expect 5 again.
+                    41) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
         // Footer.

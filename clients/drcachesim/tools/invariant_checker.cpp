@@ -1101,6 +1101,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 "Physical address page offset does not match virtual");
             shard->v2p_.insert(
                 ALIGN_BACKWARD(memref.marker.marker_value, shard->page_size_));
+            // We use the presence of any v2p markers to indicate they should all be
+            // present.
+            // XXX i#8245: Add a new OFFLINE_FILE_TYPE_PHYSICAL_ADDR type, which would
+            // require a version bump.
+            shard->has_v2p_ = true;
         }
     } else if (memref.marker.type == TRACE_TYPE_MARKER &&
                memref.marker.marker_type == TRACE_MARKER_TYPE_VIRTUAL_ADDRESS) {
@@ -1113,10 +1118,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.marker.marker_type == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE) {
         shard->v2p_.insert(ALIGN_BACKWARD(memref.marker.marker_value, shard->page_size_));
     }
-    // We use the presence of any v2p markers to indicate they should all be present.
-    // XXX i#8245: Add a new OFFLINE_FILE_TYPE_PHYSICAL_ADDR type, which would
-    // require a version bump.
-    if (!shard->v2p_.empty() && type_has_address(memref.instr.type)) {
+    if (shard->has_v2p_ && type_has_address(memref.instr.type)) {
         addr_t addr = 0;
         if (type_is_instr(memref.instr.type))
             addr = memref.instr.addr;
