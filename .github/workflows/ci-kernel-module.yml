@@ -84,11 +84,13 @@ jobs:
             -DDEBUG=${{ matrix.debug }}
           cmake --build build --parallel $(nproc) --target dynamorio_module
 
-  x86-64-insmod:
-    runs-on: ubuntu-24.04
+  insmod:
+    name: insmod (${{ matrix.runner }}, debug=${{ matrix.debug }})
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
         debug: ['ON', 'OFF']
     steps:
       - name: Checkout repository
