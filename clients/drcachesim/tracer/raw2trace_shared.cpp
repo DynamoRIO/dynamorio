@@ -654,7 +654,9 @@ virtual2physical_repeater_t::process_record(const trace_entry_t &record,
         } else if (record.size == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS) {
             last_physical_page_ = ALIGN_BACKWARD(record.addr, page_size_);
         } else if (record.size == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE) {
-            v2p_[ALIGN_BACKWARD(record.addr, page_size_)] = NO_PHYS_SENTINEL;
+            uint64_t page_start = ALIGN_BACKWARD(record.addr, page_size_);
+            v2p_[page_start] = NO_PHYS_SENTINEL;
+            v2p_repeated_.insert(page_start);
         } else if (record.size == TRACE_MARKER_TYPE_VIRTUAL_ADDRESS) {
             if (last_physical_page_ == INVALID_PHYSICAL_PAGE) {
                 return "Missing physical address marker for " +
