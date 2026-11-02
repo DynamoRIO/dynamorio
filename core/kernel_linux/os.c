@@ -613,6 +613,16 @@ get_timer_frequency(void)
     return kernel_get_timestamp_counter_khz();
 }
 
+#ifdef AARCH64
+bool
+get_cache_line_size(DR_PARAM_OUT size_t *dcache_line_size,
+                    DR_PARAM_OUT size_t *icache_line_size)
+{
+    kernel_get_cache_line_sizes(dcache_line_size, icache_line_size);
+    return true;
+}
+#endif
+
 uint
 query_time_seconds(void)
 {

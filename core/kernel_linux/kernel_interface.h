@@ -63,6 +63,14 @@ kernel_get_online_processor_count(void);
 unsigned int
 kernel_get_timestamp_counter_khz(void);
 
+#ifdef CONFIG_ARM64
+/* Reports the smallest dcache and icache line sizes in bytes across all CPUs
+ * from the kernel's sanitized CTR_EL0.
+ */
+void
+kernel_get_cache_line_sizes(size_t *dcache_line_size, size_t *icache_line_size);
+#endif
+
 /* Reports the per-CPU buffer capacity and alignment in bytes. Both output pointers
  * must be non-NULL. Does not require preemption to be disabled.
  */

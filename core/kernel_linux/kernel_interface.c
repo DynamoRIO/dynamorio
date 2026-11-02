@@ -44,6 +44,7 @@
 #    include <asm/tsc.h> /* For tsc_khz. */
 #elif defined(CONFIG_ARM64)
 #    include <asm/arch_timer.h> /* For arch_timer_get_cntfrq(). */
+#    include <asm/cpufeature.h> /* For read_sanitised_ftr_reg(). */
 #endif
 #include <linux/cpumask.h>
 #include <linux/kprobes.h>
@@ -319,6 +320,21 @@ kernel_get_timestamp_counter_khz(void)
 #    error "Unsupported architecture"
 #endif
 }
+
+#ifdef CONFIG_ARM64
+void
+kernel_get_cache_line_sizes(size_t *dcache_line_size, size_t *icache_line_size)
+{
+    u64 ctr = read_sanitised_ftr_reg(SYS_CTR_EL0);
+    /* Cache line size is represented as Log2(words) in CTR_EL0. */
+    if (dcache_line_size != NULL) {
+        *dcache_line_size = 4 << SYS_FIELD_GET(CTR_EL0, DminLine, ctr);
+    }
+    if (icache_line_size != NULL) {
+        *icache_line_size = 4 << SYS_FIELD_GET(CTR_EL0, IminLine, ctr);
+    }
+}
+#endif
 
 void
 kernel_get_cpu_local_state_layout(size_t *size, size_t *alignment)
