@@ -1622,7 +1622,14 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
     if (NOT DEFINED ${key}_postcmd)
       set(${key}_postcmd "")
     endif ()
-    add_test(${test} ${CMAKE_COMMAND}
+    if (DEFINED ${key}_sudo)
+      # We need to run cmake itself as sudo to ensure glob expansion can
+      # traverse sudo-created directories.
+      set(cmd_pfx "sudo;")
+    else ()
+      set(cmd_pfx "")
+    endif ()
+    add_test(${test} ${cmd_pfx}${CMAKE_COMMAND}
       -D precmd=${${key}_precmd}
       -D cmd=${cmd_with_at}
       -D postcmd=${${key}_postcmd}
@@ -4694,6 +4701,8 @@ if (BUILD_CLIENTS)
       "@-tool@invariant_checker" "")
     if (X86 AND X64 AND UNIX)
       torunonly_drcacheoff(windows-asm allasm_repstr
+        # These numbers are not perfectly precise: the triggers will be at the
+        # next block boundary.
         "-no_split_windows -trace_after_instrs 3 -trace_for_instrs 4 -retrace_every_instrs 4"
         "@-tool@basic_counts" "")
     endif ()
@@ -4916,6 +4925,19 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.phys_nopriv_nopost ON)
       torunonly_drcacheoff(phys_nopriv allasm_x86_64
         "-use_physical" "@${test_mode_flag}@-tool@view" "")
+
+      set(tool.drcacheoff.phys_windows_SUDO_sudo ON)
+      set(tool.drcacheoff.phys_windows_SUDO_expectbase "offline-phys_windows")
+      torunonly_drcacheoff(phys_windows_SUDO allasm_repstr
+        # These numbers are not perfectly precise: the triggers will be at the
+        # next block boundary.
+        "-use_physical -trace_after_instrs 3 -trace_for_instrs 4 -retrace_every_instrs 4"
+        "@-tool@basic_counts" "")
+      # The first postcmd did window #0.  There should be at least 2 more windows.
+      set(tool.drcacheoff.phys_windows_SUDO_postcmd2
+        "firstglob@sudo@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0001@-tool@basic_counts")
+      set(tool.drcacheoff.phys_windows_SUDO_postcmd3
+        "firstglob@sudo@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-tool@basic_counts")
     endif ()
 
     # The checked-in file is for x86_64 so we have to limit the test to that.
