@@ -157,6 +157,7 @@ changes:
  - Added #drvector_t.config field which contains additional configuration parameters for
    a #drvector_t. It currently contains #drvector_config_t.zero_alloc that when set to
    true sets every entry pointer of the drvector's storage to 0 using memset().
+ - Added #dr_mem_info_t.is_shared on Linux to identify shared mappings.
 
 The changes between version \DR_VERSION and 11.3.0 include the following minor
 compatibility changes:
@@ -314,6 +315,9 @@ Further non-compatibility-affecting changes include:
  - Raised the maximum -vm_size on AArch64 from 2GB to 64GB.  A value larger
    than 2GB removes the code cache reachability guarantees described in
    \ref sec_64bit_reach.
+ - Added -sandbox_shared option to handle JIT applications that use dual mapping.
+   -sandbox_shared is enabled by default on AArch64 but should be treated as experimental
+   on x86.
 
 **************************************************
 <hr>

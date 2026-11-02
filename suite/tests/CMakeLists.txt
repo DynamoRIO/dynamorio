@@ -6789,6 +6789,10 @@ if (NOT ARM) # XXX i#1551: fix bugs on ARM
   endif ()
 endif (NOT ARM)
 
+if (LINUX AND AARCH64)
+  tobuild(security-common.codemod-dual-mapping security-common/codemod-dual-mapping.c)
+endif ()
+
 # XXX i#1551: port asm to ARM
 # XXX i#5383: selfmod tests fail to build on macOS + ARM64
 if (X86 OR AARCH64 AND NOT (APPLE AND AARCH64))

@@ -65,6 +65,9 @@
 #ifndef MAP_FIXED_NOREPLACE
 #    define MAP_FIXED_NOREPLACE 0x100000
 #endif
+#ifndef MREMAP_FIXED
+#    define MREMAP_FIXED 2
+#endif
 /* for open */
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -291,7 +294,10 @@ os_set_dr_tls_base(dcontext_t *dcontext, os_local_state_t *tls, byte *base);
 #ifdef LINUX
 static bool
 handle_app_mremap(dcontext_t *dcontext, byte *base, size_t size, byte *old_base,
-                  size_t old_size, uint old_prot, uint old_type);
+                  size_t old_size, uint old_prot, uint old_type, bool is_shared);
+static void
+pre_mapping_handle_sharedness_change(dcontext_t *dcontext, app_pc base, size_t size,
+                                     bool is_fixed, bool is_shared);
 static void
 handle_app_brk(dcontext_t *dcontext, byte *lowest_brk /*if known*/, byte *old_brk,
                byte *new_brk);
@@ -3489,11 +3495,13 @@ dr_raw_mremap(void *old_address, size_t old_size, size_t new_size, int flags,
     ASSERT(ok);
     if (is_pretend_or_executable_writable(old_address))
         info.prot |= DR_MEMPROT_WRITE;
+    pre_mapping_handle_sharedness_change(dcontext, (app_pc)new_address, new_size,
+                                         TESTANY(MREMAP_FIXED, flags), info.is_shared);
     /* we just unconditionally send the 5th param */
     res = (byte *)dynamorio_syscall(SYS_mremap, 5, old_address, old_size, new_size, flags,
                                     new_address);
     handle_app_mremap(dcontext, res, new_size, old_address, old_size, info.prot,
-                      info.size);
+                      info.type, info.is_shared);
     return res;
 }
 
@@ -5209,7 +5217,7 @@ set_protection(byte *pc, size_t length, uint prot /*MEMPROT_*/)
         app_pc start_page = (app_pc)PAGE_START(pc);
         uint num_bytes = ALIGN_FORWARD(length + (pc - start_page), PAGE_SIZE);
         memcache_update_locked(start_page, start_page + num_bytes, prot,
-                               -1 /*type unchanged*/, true /*exists*/);
+                               -1 /*type unchanged*/, true /*exists*/, false);
     }
 #endif
     return true;
@@ -5263,7 +5271,7 @@ make_writable(byte *pc, size_t size)
     if (memcache_initialized()) {
         memcache_update_locked(start_page, start_page + prot_size,
                                osprot_to_memprot(prot), -1 /*type unchanged*/,
-                               true /*exists*/);
+                               true /*exists*/, false);
     }
 #endif
     return true;
@@ -5323,7 +5331,7 @@ make_unwritable(byte *pc, size_t size)
     if (memcache_initialized()) {
         memcache_update_locked(start_page, start_page + prot_size,
                                osprot_to_memprot(prot), -1 /*type unchanged*/,
-                               false /*!exists*/);
+                               false /*!exists*/, false);
     }
 #endif
 }
@@ -7375,6 +7383,38 @@ handle_clone_pre(dcontext_t *dcontext)
 }
 #endif
 
+/* Check for an mmap/mremap sharedness change which requires fragments to be rebuilt. */
+static void
+pre_mapping_handle_sharedness_change(dcontext_t *dcontext, app_pc base, size_t size,
+                                     bool is_fixed, bool is_shared)
+{
+    size_t rounded_size = ALIGN_FORWARD(size, PAGE_SIZE);
+    if (!DYNAMO_OPTION(sandbox_shared) || !is_fixed || !ALIGNED(base, PAGE_SIZE) ||
+        rounded_size == 0 || POINTER_OVERFLOW_ON_ADD(base, rounded_size))
+        return;
+    app_pc pc = base;
+    while (pc < base + rounded_size) {
+        dr_mem_info_t info;
+        if (!query_memory_ex(pc, &info))
+            break;
+        if (info.type != DR_MEMTYPE_FREE && info.type != DR_MEMTYPE_RESERVED &&
+            info.is_shared != is_shared) {
+            /* A sharing change requires new executable-area flags even when the
+             * protections stay the same. If the operation fails, the old mapping
+             * will be rediscovered on its next execution.
+             */
+            app_memory_deallocation(dcontext, base, rounded_size,
+                                    false /*don't own thread_initexit_lock*/,
+                                    true /*image, as for munmap: not necessarily*/);
+            return;
+        }
+        if (POINTER_OVERFLOW_ON_ADD(info.base_pc, info.size) ||
+            info.base_pc + info.size <= pc)
+            break;
+        pc = info.base_pc + info.size;
+    }
+}
+
 /* System call interception: put any special handling here
  * Arguments come from the pusha right before the call
  */
@@ -7491,6 +7531,9 @@ pre_system_call(dcontext_t *dcontext)
                 DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
                 break;
             }
+            pre_mapping_handle_sharedness_change(dcontext, addr, len,
+                                                 TESTANY(MAP_FIXED, arg->flags),
+                                                 TESTANY(MAP_SHARED, arg->flags));
         }
         /* post_system_call does the work */
         dcontext->sys_param0 = (reg_t)arg;
@@ -7533,6 +7576,8 @@ pre_system_call(dcontext_t *dcontext)
                 break;
             }
         }
+        pre_mapping_handle_sharedness_change(
+            dcontext, addr, len, TESTANY(MAP_FIXED, flags), TESTANY(MAP_SHARED, flags));
         /* post_system_call does the work */
         dcontext->sys_param0 = (reg_t)addr;
         dcontext->sys_param1 = len;
@@ -7607,6 +7652,8 @@ pre_system_call(dcontext_t *dcontext)
         app_pc addr = (app_pc)STRIP_MEMORY_TAG(sys_param(dcontext, 0));
         size_t old_len = (size_t)sys_param(dcontext, 1);
         size_t new_len = (size_t)sys_param(dcontext, 2);
+        uint flags = (uint)sys_param(dcontext, 3);
+        app_pc new_addr = (app_pc)STRIP_MEMORY_TAG(sys_param(dcontext, 4));
         DEBUG_DECLARE(bool ok;)
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: mremap addr=" PFX " size=" PFX "\n", addr,
             old_len);
@@ -7623,6 +7670,8 @@ pre_system_call(dcontext_t *dcontext)
         ASSERT(ok);
         dcontext->sys_param3 = info.prot;
         dcontext->sys_param4 = info.type;
+        pre_mapping_handle_sharedness_change(
+            dcontext, new_addr, new_len, TESTANY(MREMAP_FIXED, flags), info.is_shared);
         DOCHECK(1, {
             /* we don't expect to see remappings of modules */
             os_get_module_info_lock();
@@ -7686,7 +7735,7 @@ pre_system_call(dcontext_t *dcontext)
         } else {
             /* XXX Store state for undo if the syscall fails. */
             IF_NO_MEMQUERY(memcache_update_locked(addr, addr + len, new_memprot,
-                                                  -1 /*type unchanged*/, exists));
+                                                  -1 /*type unchanged*/, exists, false));
         }
         break;
     }
@@ -8679,9 +8728,9 @@ all_memory_areas_unlock(void)
 }
 
 void
-update_all_memory_areas(app_pc start, app_pc end, uint prot, int type)
+update_all_memory_areas(app_pc start, app_pc end, uint prot, int type, bool is_shared)
 {
-    IF_NO_MEMQUERY(memcache_update(start, end, prot, type));
+    IF_NO_MEMQUERY(memcache_update(start, end, prot, type, is_shared));
 }
 
 bool
@@ -8913,6 +8962,7 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
     if (size == 0)
         return;
     bool image = false;
+    bool is_shared = IF_LINUX_ELSE(TESTANY(MAP_SHARED, flags), false);
     uint memprot = osprot_to_memprot(prot);
 #ifdef ANDROID
     /* i#1861: avoid merging file-backed w/ anon regions */
@@ -8940,7 +8990,8 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
      *   processing. They are also "naturally" added to the all-mems list.
      *   We do a little extra processing when mapping into a previously
      *   mapped region and the prot bits mismatch; if the new mapping is
-     *   not +x, flushing needs to occur.
+     *   not +x, flushing needs to occur.  With sandbox_shared, MAP_FIXED also
+     *   flushes before the syscall if the sharing attribute changes.
      */
     /* process_mmap can be called with PROT_NONE, so we need to check if we
      * can read the memory to see if it is a elf_header
@@ -8993,8 +9044,9 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
     }
 
     LOG(THREAD, LOG_SYSCALLS, 4, "\t try app_mem_alloc\n");
-    IF_NO_MEMQUERY(memcache_handle_mmap(dcontext, base, size, memprot, image));
-    if (app_memory_allocation(dcontext, base, size, memprot, image _IF_DEBUG(map_type)))
+    IF_NO_MEMQUERY(memcache_handle_mmap(dcontext, base, size, memprot, image, is_shared));
+    if (app_memory_allocation(dcontext, base, size, memprot, image,
+                              is_shared _IF_DEBUG(map_type)))
         STATS_INC(num_app_code_modules);
     LOG(THREAD, LOG_SYSCALLS, 4, "\t app_mem_alloc -- DONE\n");
 }
@@ -9005,7 +9057,7 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
  */
 static bool
 handle_app_mremap(dcontext_t *dcontext, byte *base, size_t size, byte *old_base,
-                  size_t old_size, uint old_prot, uint old_type)
+                  size_t old_size, uint old_prot, uint old_type, bool is_shared)
 {
     if (!mmap_syscall_succeeded(base))
         return false;
@@ -9035,10 +9087,14 @@ handle_app_mremap(dcontext_t *dcontext, byte *base, size_t size, byte *old_base,
             ASSERT(ok &&
                    (memprot == old_prot || (memprot & (~MEMPROT_EXEC)) == old_prot));
         });
-        app_memory_allocation(dcontext, base, size, old_prot,
-                              old_type == DR_MEMTYPE_IMAGE _IF_DEBUG("mremap"));
+        /* Publish the replacement before app_memory_allocation() queries its
+         * sharedness while recreating executable areas.
+         */
         IF_NO_MEMQUERY(memcache_handle_mremap(dcontext, base, size, old_base, old_size,
-                                              old_prot, old_type));
+                                              old_prot, old_type, is_shared));
+        app_memory_allocation(dcontext, base, size, old_prot,
+                              old_type == DR_MEMTYPE_IMAGE,
+                              is_shared _IF_DEBUG("mremap"));
     }
     return true;
 }
@@ -9254,13 +9310,13 @@ post_system_call(dcontext_t *dcontext)
             DEBUG_DECLARE(ok =)
             query_memory_ex_from_os(addr, &info);
             ASSERT(ok);
-            app_memory_allocation(dcontext, addr, len, info.prot,
-                                  info.type ==
-                                      DR_MEMTYPE_IMAGE _IF_DEBUG("failed munmap"));
-            IF_NO_MEMQUERY(
-                memcache_update_locked((app_pc)ALIGN_BACKWARD(addr, PAGE_SIZE),
-                                       (app_pc)ALIGN_FORWARD(addr + len, PAGE_SIZE),
-                                       info.prot, info.type, false /*add back*/));
+            app_memory_allocation(
+                dcontext, addr, len, info.prot, info.type == DR_MEMTYPE_IMAGE,
+                IF_LINUX_ELSE(info.is_shared, false) _IF_DEBUG("failed munmap"));
+            IF_NO_MEMQUERY(memcache_update_locked(
+                (app_pc)ALIGN_BACKWARD(addr, PAGE_SIZE),
+                (app_pc)ALIGN_FORWARD(addr + len, PAGE_SIZE), info.prot, info.type,
+                false /*add back*/, IF_LINUX_ELSE(info.is_shared, false)));
         }
         break;
     }
@@ -9273,12 +9329,21 @@ post_system_call(dcontext_t *dcontext)
         /* even if no shift, count as munmap plus mmap */
         RSTATS_INC(num_app_munmaps);
         RSTATS_INC(num_app_mmaps);
-        success =
-            handle_app_mremap(dcontext, base, size, old_base, old_size,
-                              /* i#173: use memory prot and type
-                               * obtained from pre_system_call
-                               */
-                              (uint)dcontext->sys_param3, (uint)dcontext->sys_param4);
+
+        bool is_shared = false;
+        if (mmap_syscall_succeeded(base)) {
+            dr_mem_info_t info;
+            DEBUG_DECLARE(ok =)
+            query_memory_ex_from_os(base, &info);
+            ASSERT(ok);
+            is_shared = info.is_shared;
+        }
+        success = handle_app_mremap(dcontext, base, size, old_base, old_size,
+                                    /* i#173: use memory prot and type
+                                     * obtained from pre_system_call
+                                     */
+                                    (uint)dcontext->sys_param3,
+                                    (uint)dcontext->sys_param4, is_shared);
         /* The syscall either failed OR the retcode is less than the
          * largest uint value of any errno and the addr returned is
          * is page-aligned.
@@ -9345,8 +9410,9 @@ post_system_call(dcontext_t *dcontext)
                  * each mprotect syscall to guard against a rare theoretical bug.
                  */
                 ASSERT_CURIOSITY(!dcontext->mprot_multi_areas);
-                IF_NO_MEMQUERY(memcache_update_locked(
-                    base, base + size, memprot, -1 /*type unchanged*/, true /*exists*/));
+                IF_NO_MEMQUERY(memcache_update_locked(base, base + size, memprot,
+                                                      -1 /*type unchanged*/,
+                                                      true /*exists*/, false));
             }
         }
         break;
@@ -9369,8 +9435,9 @@ post_system_call(dcontext_t *dcontext)
                 "syscall: prctl PR_SET_VMA_ANON_NAME base=" PFX " size=" PFX
                 " comment=%s\n",
                 addr, len, comment == NULL ? "<null>" : comment);
-            IF_NO_MEMQUERY(memcache_update_locked(
-                addr, addr + len, memprot, -1 /*type unchanged*/, true /*exists*/));
+            IF_NO_MEMQUERY(memcache_update_locked(addr, addr + len, memprot,
+                                                  -1 /*type unchanged*/, true /*exists*/,
+                                                  false));
         }
         break;
     }
@@ -10193,7 +10260,7 @@ static void
 add_to_memcache(byte *region_start, byte *region_end, void *user_data)
 {
     memcache_update_locked(region_start, region_end, MEMPROT_NONE, DR_MEMTYPE_DATA,
-                           false /*!exists*/);
+                           false /*!exists*/, false);
 }
 #endif
 
@@ -10446,7 +10513,8 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
                 iter->vm_start, iter->vm_end, iter->prot);
             memcache_update_locked(iter->vm_start, iter->vm_end, iter->prot,
                                    image ? DR_MEMTYPE_IMAGE : DR_MEMTYPE_DATA,
-                                   false /*!exists*/);
+                                   false /*!exists*/,
+                                   IF_LINUX_ELSE(iter->is_shared, false));
         }
 #    endif
 
@@ -10456,8 +10524,9 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
          */
         if (!skip /* i#479, hide private module and match Windows's behavior */ &&
             add_modules &&
-            app_memory_allocation(NULL, iter->vm_start, (iter->vm_end - iter->vm_start),
-                                  iter->prot, image _IF_DEBUG(map_type))) {
+            app_memory_allocation(
+                NULL, iter->vm_start, (iter->vm_end - iter->vm_start), iter->prot, image,
+                IF_LINUX_ELSE(iter->is_shared, false) _IF_DEBUG(map_type))) {
             count++;
         }
     }
@@ -10516,8 +10585,8 @@ find_dynamo_library_vm_areas(void)
      * to be a DR area.
      */
     add_dynamo_vm_area(get_dynamorio_dll_start(), get_dynamorio_dll_end(),
-                       MEMPROT_READ | MEMPROT_WRITE | MEMPROT_EXEC,
-                       true /* from image */ _IF_DEBUG(dynamorio_library_filepath));
+                       MEMPROT_READ | MEMPROT_WRITE | MEMPROT_EXEC, true /* from image */,
+                       /*is_shared=*/false _IF_DEBUG(dynamorio_library_filepath));
 #endif
 #ifdef VMX86_SERVER
     if (os_in_vmkernel_userworld())
@@ -10640,6 +10709,7 @@ bool
 query_memory_ex_from_os(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info)
 {
     bool have_type = false;
+    info->is_shared = false;
     bool res = memquery_from_os(pc, info, &have_type);
     if (!res) {
         /* No other failure types for now */

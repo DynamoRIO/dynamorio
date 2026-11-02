@@ -70,7 +70,8 @@ IF_DEBUG_ELSE(, static) vm_area_vector_t *all_memory_areas;
 typedef struct _allmem_info_t {
     uint prot;
     dr_mem_type_t type;
-    bool shareable;
+    bool is_shared;
+    bool cow_shareable_backing;
     bool vdso;
     bool dr_vmm;
 } allmem_info_t;
@@ -185,7 +186,8 @@ allmem_should_merge(bool adjacent, void *data1, void *data2)
      * fragmenting our list
      */
     return (i1->prot == i2->prot && i1->type == i2->type &&
-            i1->shareable == i2->shareable &&
+            i1->is_shared == i2->is_shared &&
+            i1->cow_shareable_backing == i2->cow_shareable_backing &&
             /* i#1583: kernel doesn't merge 2-page vdso after we hook vsyscall */
             !i1->vdso && !i2->vdso &&
             /* kernel doesn't merge app anon region with vmheap */
@@ -219,26 +221,28 @@ sync_all_memory_areas(void)
 
 /* caller should call sync_all_memory_areas first */
 static void
-add_all_memory_area(app_pc start, app_pc end, uint prot, int type, bool shareable)
+add_all_memory_area(app_pc start, app_pc end, uint prot, int type,
+                    bool cow_shareable_backing, bool is_shared)
 {
     allmem_info_t *info;
     ASSERT(ALIGNED(start, PAGE_SIZE));
     ASSERT_OWN_WRITE_LOCK(true, &all_memory_areas->lock);
     LOG(GLOBAL, LOG_VMAREAS | LOG_SYSCALLS, 3,
         "update_all_memory_areas: adding: " PFX "-" PFX " prot=%d type=%d share=%d\n",
-        start, end, prot, type, shareable);
+        start, end, prot, type, cow_shareable_backing);
     info = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, allmem_info_t, ACCT_MEM_MGT, PROTECTED);
     info->prot = prot;
     ASSERT(type >= 0);
     info->type = type;
-    info->shareable = shareable;
+    info->is_shared = is_shared;
+    info->cow_shareable_backing = cow_shareable_backing;
     info->vdso = (start == vsyscall_page_start);
     info->dr_vmm = is_vmm_reserved_address(start, 1, NULL, NULL);
     vmvector_add(all_memory_areas, start, end, (void *)info);
 }
 
 void
-memcache_update(app_pc start, app_pc end_in, uint prot, int type)
+memcache_update(app_pc start, app_pc end_in, uint prot, int type, bool is_shared)
 {
     allmem_info_t *info;
     app_pc end = (app_pc)ALIGN_FORWARD(end_in, PAGE_SIZE);
@@ -253,8 +257,8 @@ memcache_update(app_pc start, app_pc end_in, uint prot, int type)
     DOLOG(5, LOG_VMAREAS, memcache_print(GLOBAL, ""););
 
     if (type == -1) {
-        /* to preserve existing types we must iterate b/c we cannot
-         * merge images into data
+        /* Preserve both type and sharing for each existing region.  A protection
+         * change can span adjacent private and shared data mappings.
          */
         app_pc pc, sub_start, sub_end, next_add = start;
         pc = start;
@@ -267,13 +271,23 @@ memcache_update(app_pc start, app_pc end_in, uint prot, int type)
                vmvector_lookup_data(all_memory_areas, pc, &sub_start, &sub_end,
                                     (void **)&info)) {
             if (info->type == DR_MEMTYPE_IMAGE) {
-                bool shareable = false;
+                bool cow_shareable_backing = false;
                 app_pc overlap_end;
                 dr_mem_type_t info_type = info->type;
+                bool info_is_shared = info->is_shared;
                 /* process prior to image */
-                if (next_add < sub_start) {
-                    vmvector_remove(all_memory_areas, next_add, pc);
-                    add_all_memory_area(next_add, pc, prot, DR_MEMTYPE_DATA, false);
+                while (next_add < sub_start) {
+                    dr_mem_info_t info;
+                    IF_DEBUG(bool ok =) query_memory_ex_from_os(next_add, &info);
+                    ASSERT(ok);
+                    app_pc data_end = info.base_pc + info.size;
+                    data_end = data_end > sub_start ? sub_start : data_end;
+
+                    vmvector_remove(all_memory_areas, next_add, data_end);
+                    add_all_memory_area(next_add, data_end, prot, DR_MEMTYPE_DATA, false,
+                                        info.is_shared);
+                    ASSERT(data_end > next_add);
+                    next_add = data_end;
                 }
                 next_add = sub_end;
                 /* change image prot */
@@ -281,31 +295,40 @@ memcache_update(app_pc start, app_pc end_in, uint prot, int type)
                 if (sub_start == pc && sub_end == overlap_end) {
                     /* XXX: we should read maps to fully handle COW but for
                      * now we do some simple checks to prevent merging
-                     * private with shareable regions
+                     * private with cow_shareable_backing regions
                      */
                     /* We assume a writable transition is accompanied by an actual
-                     * write => COW => no longer shareable (i#669)
+                     * write => COW => no longer cow_shareable_backing (i#669)
                      */
-                    shareable = info->shareable;
+                    cow_shareable_backing = info->cow_shareable_backing;
                     if (TESTANY(MEMPROT_WRITE, prot) !=
                         TESTANY(MEMPROT_WRITE, info->prot))
-                        shareable = false;
-                    /* re-add so we can merge w/ adjacent non-shareable */
+                        cow_shareable_backing = false;
+                    /* re-add so we can merge w/ adjacent non-cow_shareable_backing */
                 } else {
                     /* assume we're here b/c was written and now marked +rx or sthg
                      * so no sharing
                      */
-                    shareable = false;
+                    cow_shareable_backing = false;
                 }
                 vmvector_remove(all_memory_areas, pc, overlap_end);
-                add_all_memory_area(pc, overlap_end, prot, info_type, shareable);
+                add_all_memory_area(pc, overlap_end, prot, info_type,
+                                    cow_shareable_backing, info_is_shared);
             }
             pc = sub_end;
         }
         /* process after last image */
-        if (next_add < end) {
-            vmvector_remove(all_memory_areas, next_add, end);
-            add_all_memory_area(next_add, end, prot, DR_MEMTYPE_DATA, false);
+        while (next_add < end) {
+            dr_mem_info_t info;
+            IF_DEBUG(bool ok =) query_memory_ex_from_os(next_add, &info);
+            ASSERT(ok);
+            sub_end = info.base_pc + info.size;
+            sub_end = sub_end > end ? end : sub_end;
+            vmvector_remove(all_memory_areas, next_add, sub_end);
+            add_all_memory_area(next_add, sub_end, prot, DR_MEMTYPE_DATA, false,
+                                info.is_shared);
+            ASSERT(sub_end > next_add);
+            next_add = sub_end;
         }
     } else {
         if (vmvector_overlap(all_memory_areas, start, end)) {
@@ -319,7 +342,7 @@ memcache_update(app_pc start, app_pc end_in, uint prot, int type)
             removed = vmvector_remove(all_memory_areas, start, end);
             ASSERT(removed);
         }
-        add_all_memory_area(start, end, prot, type, type == DR_MEMTYPE_IMAGE);
+        add_all_memory_area(start, end, prot, type, type == DR_MEMTYPE_IMAGE, is_shared);
     }
     LOG(GLOBAL, LOG_VMAREAS, 5, "update_all_memory_areas " PFX "-" PFX " %d %d: post:\n",
         start, end_in, prot, type);
@@ -327,7 +350,8 @@ memcache_update(app_pc start, app_pc end_in, uint prot, int type)
 }
 
 void
-memcache_update_locked(app_pc start, app_pc end, uint prot, int type, bool exists)
+memcache_update_locked(app_pc start, app_pc end, uint prot, int type, bool exists,
+                       bool is_shared)
 {
     memcache_lock();
     /* A curiosity as it can happen when attaching to a many-threaded
@@ -341,7 +365,7 @@ memcache_update_locked(app_pc start, app_pc end, uint prot, int type, bool exist
                      are_dynamo_vm_areas_stale() || !dynamo_initialized);
     LOG(GLOBAL, LOG_VMAREAS, 3, "\tupdating all_memory_areas " PFX "-" PFX " prot->%d\n",
         start, end, prot);
-    memcache_update(start, end, prot, type);
+    memcache_update(start, end, prot, type, is_shared);
     memcache_unlock();
 }
 
@@ -373,6 +397,7 @@ memcache_query_memory(const byte *pc, DR_PARAM_OUT dr_mem_info_t *out_info)
         out_info->size = (end - start);
         out_info->prot = info->prot;
         out_info->type = info->type;
+        out_info->is_shared = info->is_shared;
 #ifdef HAVE_MEMINFO
         DOCHECK(2, {
             byte *from_os_base_pc;
@@ -436,6 +461,7 @@ memcache_query_memory(const byte *pc, DR_PARAM_OUT dr_mem_info_t *out_info)
         out_info->size = (next - out_info->base_pc);
         out_info->prot = MEMPROT_NONE;
         out_info->type = DR_MEMTYPE_FREE;
+        out_info->is_shared = false;
         /* It's possible there is memory here that was, say, added by
          * a client without our knowledge.  We can end up in an
          * infinite loop trying to forge a SIGSEGV in that situation
@@ -443,26 +469,26 @@ memcache_query_memory(const byte *pc, DR_PARAM_OUT dr_mem_info_t *out_info)
          * best to check with the OS (xref PR 363811).
          */
 #ifdef HAVE_MEMINFO
-        byte *from_os_base_pc;
-        size_t from_os_size;
-        uint from_os_prot;
-        if (get_memory_info_from_os(pc, &from_os_base_pc, &from_os_size, &from_os_prot) &&
+        dr_mem_info_t from_os;
+        if (query_memory_ex_from_os(pc, &from_os) && from_os.type != DR_MEMTYPE_FREE &&
             /* maps file shows our reserved-but-not-committed regions, which
              * are holes in all_memory_areas
              */
-            from_os_prot != MEMPROT_NONE) {
+            from_os.prot != MEMPROT_NONE) {
             SYSLOG_INTERNAL_WARNING_ONCE(
                 "all_memory_areas is missing regions including " PFX "-" PFX,
-                from_os_base_pc, from_os_base_pc + from_os_size);
+                from_os.base_pc, from_os.base_pc + from_os.size);
             DOLOG(4, LOG_VMAREAS, memcache_print(THREAD_GET, ""););
             /* be paranoid */
-            out_info->base_pc = from_os_base_pc;
-            out_info->size = from_os_size;
-            out_info->prot = from_os_prot;
+            out_info->base_pc = from_os.base_pc;
+            out_info->size = from_os.size;
+            out_info->prot = from_os.prot;
             out_info->type = DR_MEMTYPE_DATA; /* hopefully we won't miss an image */
+            out_info->is_shared = from_os.is_shared;
             /* Update our list to avoid coming back here again (i#2037). */
-            memcache_update_locked(from_os_base_pc, from_os_base_pc + from_os_size,
-                                   from_os_prot, -1, false /*!exists*/);
+            memcache_update_locked(from_os.base_pc, from_os.base_pc + from_os.size,
+                                   from_os.prot, -1, false /*!exists*/,
+                                   from_os.is_shared);
         }
 #else
         /* We now have nested probes, but currently probing sometimes calls
@@ -502,42 +528,45 @@ memcache_print(file_t outf, const char *prefix)
 
 void
 memcache_handle_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint memprot,
-                     bool image)
+                     bool image, bool is_shared)
 {
     app_pc area_start;
     app_pc area_end;
     allmem_info_t *info;
+    bool prot_changed = false;
 
     memcache_lock();
     sync_all_memory_areas();
     if (vmvector_lookup_data(all_memory_areas, base, &area_start, &area_end,
                              (void **)&info)) {
-        uint new_memprot;
         LOG(THREAD, LOG_SYSCALLS, 4, "\tprocess overlap w/" PFX "-" PFX " prot=%d\n",
             area_start, area_end, info->prot);
-        /* can't hold lock across call to app_memory_protection_change */
-        memcache_unlock();
-        if (info->prot != memprot) {
-            /* We detect some alloc-based prot changes here.  app_memory_pre_alloc()
-             * should have already processed these (i#1175) but no harm calling
-             * app_memory_protection_change() again just in case.
-             */
-            DEBUG_DECLARE(uint res =)
-            app_memory_protection_change(dcontext, base, size, memprot, &new_memprot,
-                                         NULL, image);
-            ASSERT_NOT_IMPLEMENTED(res != PRETEND_APP_MEM_PROT_CHANGE &&
-                                   res != SUBSET_APP_MEM_PROT_CHANGE);
-        }
-        memcache_lock();
+        prot_changed = info->prot != memprot;
     }
-    update_all_memory_areas(base, base + size, memprot,
-                            image ? DR_MEMTYPE_IMAGE : DR_MEMTYPE_DATA);
+    /* Publish the replacement before the protection-change handler queries its
+     * sharedness to recreate executable areas.
+     */
+    memcache_update(base, base + size, memprot,
+                    image ? DR_MEMTYPE_IMAGE : DR_MEMTYPE_DATA, is_shared);
     memcache_unlock();
+
+    if (prot_changed) {
+        uint new_memprot;
+        /* We detect some alloc-based prot changes here.  app_memory_pre_alloc()
+         * should have already processed these (i#1175) but no harm calling
+         * app_memory_protection_change() again just in case.
+         */
+        DEBUG_DECLARE(uint res =)
+        app_memory_protection_change(dcontext, base, size, memprot, &new_memprot, NULL,
+                                     image);
+        ASSERT_NOT_IMPLEMENTED(res != PRETEND_APP_MEM_PROT_CHANGE &&
+                               res != SUBSET_APP_MEM_PROT_CHANGE);
+    }
 }
 
 void
 memcache_handle_mremap(dcontext_t *dcontext, byte *base, size_t size, byte *old_base,
-                       size_t old_size, uint old_prot, uint old_type)
+                       size_t old_size, uint old_prot, uint old_type, bool is_shared)
 {
     DEBUG_DECLARE(bool ok;)
     memcache_lock();
@@ -548,7 +577,7 @@ memcache_handle_mremap(dcontext_t *dcontext, byte *base, size_t size, byte *old_
     DEBUG_DECLARE(ok =)
     remove_from_all_memory_areas(old_base, old_base + old_size);
     ASSERT(ok);
-    memcache_update(base, base + size, old_prot, old_type);
+    memcache_update(base, base + size, old_prot, old_type, is_shared);
     memcache_unlock();
 }
 
@@ -578,7 +607,8 @@ memcache_handle_app_brk(byte *lowest_brk /*if known*/, byte *old_brk, byte *new_
             info = vmvector_lookup(all_memory_areas, old_brk - 1);
             prot = ((info != NULL) ? info->prot : MEMPROT_READ | MEMPROT_WRITE);
         }
-        update_all_memory_areas(old_brk, new_brk, prot, DR_MEMTYPE_DATA);
+        update_all_memory_areas(old_brk, new_brk, prot, DR_MEMTYPE_DATA,
+                                /*is_shared=*/false);
         memcache_unlock();
     }
 }
