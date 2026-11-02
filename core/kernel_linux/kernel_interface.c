@@ -333,22 +333,14 @@ kernel_get_module_name(void)
 }
 
 int
-kernel_get_module_regions(kernel_module_region_t *regions, size_t capacity)
+kernel_walk_module_regions(kernel_memory_region_callback_t callback, void *arg)
 {
-    size_t count = 0;
-
     for_class_mod_mem_type(type, core)
     {
-        if (THIS_MODULE->mem[type].size == 0) {
+        const struct module_memory *mem = &THIS_MODULE->mem[type];
+        if (mem->size == 0) {
             continue;
         }
-
-        if (count >= capacity) {
-            return -ENOSPC;
-        }
-
-        regions[count].base = THIS_MODULE->mem[type].base;
-        regions[count].size = THIS_MODULE->mem[type].size;
 
         unsigned int prot = KERNEL_MEMPROT_READ;
         switch (type) {
@@ -358,12 +350,17 @@ kernel_get_module_regions(kernel_module_region_t *regions, size_t capacity)
         case MOD_RO_AFTER_INIT: break;
         default: return -EOPNOTSUPP;
         }
-        regions[count].prot = prot;
 
-        count++;
+        const kernel_memory_region_t region = {
+            .base = mem->base,
+            .size = mem->size,
+            .prot = prot,
+        };
+
+        callback(&region, arg);
     }
 
-    return count;
+    return 0;
 }
 
 void *

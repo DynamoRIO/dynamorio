@@ -44,9 +44,10 @@ typedef struct {
     unsigned char *base;
     size_t size;
     unsigned int prot;
-} kernel_module_region_t;
+} kernel_memory_region_t;
 
-#define KERNEL_MODULE_MAX_REGIONS 4
+typedef void (*kernel_memory_region_callback_t)(const kernel_memory_region_t *region,
+                                                void *arg);
 
 int
 kernel_module_init(size_t dr_heap_size);
@@ -106,11 +107,13 @@ kernel_get_image_end(void);
 char *
 kernel_get_module_name(void);
 
-/* Returns the number of regions populated. or a negative errono on failure.
- * Returne -NOSPC if capacity is too small.
+/* Calls |callback| for each non-empty core memory region of this module (text, data,
+ * rodata, ro_after_init). Returns 0 on success or a negative errno on failure, e.g.,
+ * -EOPNOTSUPP for an unknown region type, in which case |callback| may already have been
+ * called for some regions.
  */
 int
-kernel_get_module_regions(kernel_module_region_t *regions, size_t capacity);
+kernel_walk_module_regions(kernel_memory_region_callback_t callback, void *arg);
 
 void *
 kernel_get_module_text_start(void);

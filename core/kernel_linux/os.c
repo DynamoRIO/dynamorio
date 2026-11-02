@@ -831,20 +831,23 @@ diagnost_exit(void)
     /* No-op in kernel mode. */
 }
 
+static void
+find_dynamo_library_vm_areas_callback(const kernel_memory_region_t *region, void *arg)
+{
+    int *count = (int *)arg;
+    add_dynamo_vm_area(region->base, region->base + region->size, region->prot,
+                       true /*image*/ _IF_DEBUG(get_dynamorio_library_path()));
+    (*count)++;
+}
+
 int
 find_dynamo_library_vm_areas(void)
 {
-    kernel_module_region_t regions[KERNEL_MODULE_MAX_REGIONS];
-    int count = kernel_get_module_regions(regions, KERNEL_MODULE_MAX_REGIONS);
+    int count = 0;
 
-    if (count < 0) {
-        return count;
+    int res = kernel_walk_module_regions(find_dynamo_library_vm_areas_callback, &count);
+    if (res < 0) {
+        return res;
     }
-
-    for (size_t i = 0; i < count; i++) {
-        add_dynamo_vm_area(regions[i].base, regions[i].base + regions[i].size,
-                           regions[i].prot, true _IF_DEBUG(get_dynamorio_library_path()));
-    }
-
     return count;
 }
