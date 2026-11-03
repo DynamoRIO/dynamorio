@@ -391,6 +391,12 @@ get_dynamorio_dll_end(void)
     return (app_pc)kernel_get_module_text_end();
 }
 
+bool
+is_in_dynamo_dll(app_pc pc)
+{
+    return pc >= get_dynamorio_dll_start() && pc < get_dynamorio_dll_end();
+}
+
 /* The kernel port has no OS-specific module-list state, matching core/unix/module.c. */
 void
 os_modules_init(void)
@@ -402,6 +408,19 @@ void
 os_modules_exit(void)
 {
     /* Nothing. */
+}
+
+app_pc
+get_module_base(app_pc pc)
+{
+    app_pc base = NULL;
+    module_area_t *ma;
+    os_get_module_info_lock();
+    ma = module_pc_lookup(pc);
+    if (ma != NULL)
+        base = ma->start;
+    os_get_module_info_unlock();
+    return base;
 }
 
 /* Native module retakeover relies on ELF PLT/GOT and ld.so hooking,
@@ -595,6 +614,48 @@ remove_from_all_memory_areas(app_pc start, app_pc end)
 {
     /* No-op in kernel mode. */
     return true;
+}
+
+static void
+find_dynamo_library_vm_areas_callback(const kernel_memory_region_t *region, void *arg)
+{
+    int *count = (int *)arg;
+    add_dynamo_vm_area(region->base, region->base + region->size, region->prot,
+                       true /*image*/ _IF_DEBUG(get_dynamorio_library_path()));
+    (*count)++;
+}
+
+int
+find_dynamo_library_vm_areas(void)
+{
+    int count = 0;
+
+    int res = kernel_walk_module_regions(find_dynamo_library_vm_areas_callback, &count);
+    if (res < 0) {
+        return res;
+    }
+    return count;
+}
+
+static void
+find_executable_vm_areas_callback(const kernel_memory_region_t *region, void *arg)
+{
+    int *count = (int *)arg;
+    if (app_memory_allocation(NULL, region->base, region->size, region->prot,
+                              false /*!image*/ _IF_DEBUG("find_executable_vm_areas"))) {
+        (*count)++;
+    }
+}
+
+int
+find_executable_vm_areas(void)
+{
+    int count = 0;
+    int res = kernel_walk_code_regions(find_executable_vm_areas_callback, &count);
+    if (res < 0) {
+        return res;
+    }
+    return count;
 }
 
 int
@@ -829,65 +890,4 @@ void
 diagnost_exit(void)
 {
     /* No-op in kernel mode. */
-}
-
-static void
-find_dynamo_library_vm_areas_callback(const kernel_memory_region_t *region, void *arg)
-{
-    int *count = (int *)arg;
-    add_dynamo_vm_area(region->base, region->base + region->size, region->prot,
-                       true /*image*/ _IF_DEBUG(get_dynamorio_library_path()));
-    (*count)++;
-}
-
-int
-find_dynamo_library_vm_areas(void)
-{
-    int count = 0;
-
-    int res = kernel_walk_module_regions(find_dynamo_library_vm_areas_callback, &count);
-    if (res < 0) {
-        return res;
-    }
-    return count;
-}
-
-static void
-find_executable_vm_areas_callback(const kernel_memory_region_t *region, void *arg)
-{
-    int *count = (int *)arg;
-    if (app_memory_allocation(NULL, region->base, region->size, region->prot,
-                              false /*!image*/ _IF_DEBUG("find_executable_vm_areas"))) {
-        (*count)++;
-    }
-}
-
-int
-find_executable_vm_areas(void)
-{
-    int count = 0;
-    int res = kernel_walk_code_regions(find_executable_vm_areas_callback, &count);
-    if (res < 0) {
-        return res;
-    }
-    return count;
-}
-
-bool
-is_in_dynamo_dll(app_pc pc)
-{
-    return pc >= get_dynamorio_dll_start() && pc < get_dynamorio_dll_end();
-}
-
-app_pc
-get_module_base(app_pc pc)
-{
-    app_pc base = NULL;
-    module_area_t *ma;
-    os_get_module_info_lock();
-    ma = module_pc_lookup(pc);
-    if (ma != NULL)
-        base = ma->start;
-    os_get_module_info_unlock();
-    return base;
 }
