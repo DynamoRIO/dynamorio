@@ -137,6 +137,8 @@ test_unique_processes()
         gen_instr(TID_A, PC + 1, /*size=*/1, PID_X),
         // A thread whose process is not known is not counted as a process.
         gen_instr(TID_D, PC, /*size=*/1, INVALID_PID),
+        // An idle core is not counted as a thread or a process.
+        gen_instr(IDLE_THREAD_ID, PC, /*size=*/1, IDLE_PROCESS_ID),
         gen_exit(TID_A),
     };
     basic_counts_t::counters_t counts = run_basic_counts(memrefs);
