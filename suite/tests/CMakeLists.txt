@@ -4921,6 +4921,7 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.phys_SUDO_expectbase "offline-phys")
       torunonly_drcacheoff(phys_SUDO allasm_repstr
         "-use_physical" "@${test_mode_flag}@-tool@view" "")
+
       set(tool.drcacheoff.phys_nopriv_failok ON)
       set(tool.drcacheoff.phys_nopriv_nopost ON)
       torunonly_drcacheoff(phys_nopriv allasm_x86_64
@@ -4938,6 +4939,18 @@ if (BUILD_CLIENTS)
         "firstglob@sudo@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0001@-tool@basic_counts")
       set(tool.drcacheoff.phys_windows_SUDO_postcmd3
         "firstglob@sudo@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-tool@basic_counts")
+
+      # Run a larger app that has VDSO code to test v2p of "generated" code.
+      set(tool.drcacheoff.phys_vdso_SUDO_sudo ON)
+      set(tool.drcacheoff.phys_vdso_SUDO_expectbase "offline-phys_vdso")
+      torunonly_drcacheoff(phys_vdso_SUDO ${ci_shared_app}
+        "-use_physical" "@${test_mode_flag}@-tool@basic_counts" "")
+
+      # Also test filtering, which uses a different pc lookup scheme.
+      set(tool.drcacheoff.phys_vdso_filter_SUDO_sudo ON)
+      set(tool.drcacheoff.phys_vdso_filter_SUDO_expectbase "offline-phys_vdso")
+      torunonly_drcacheoff(phys_vdso_filter_SUDO ${ci_shared_app}
+        "-use_physical -L0_filter" "@${test_mode_flag}@-tool@basic_counts" "")
     endif ()
 
     # The checked-in file is for x86_64 so we have to limit the test to that.
