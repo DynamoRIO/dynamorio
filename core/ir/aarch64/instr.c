@@ -39,7 +39,7 @@
 #include "isa_feature_names.h"
 #include "codec.h"
 
-#include <stddef.h>
+#include "stddef_wrapper.h"
 
 /* XXX i#6690: currently only A64 is supported for instruction encoding.
  * We want to add support for A64 decoding and synthetic ISA encoding as well.

@@ -155,6 +155,7 @@ analyzer_t::create_idle_marker()
     record.marker.type = TRACE_TYPE_MARKER;
     record.marker.marker_type = TRACE_MARKER_TYPE_CORE_IDLE;
     record.marker.tid = IDLE_THREAD_ID;
+    record.marker.pid = IDLE_PROCESS_ID;
     return record;
 }
 
