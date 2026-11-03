@@ -126,6 +126,8 @@ public:
                                        rhs.unique_pc_addrs.end());
             }
             unique_threads.insert(rhs.unique_threads.begin(), rhs.unique_threads.end());
+            unique_processes.insert(rhs.unique_processes.begin(),
+                                    rhs.unique_processes.end());
             return *this;
         }
         counters_t &
@@ -164,6 +166,9 @@ public:
             for (const memref_tid_t tid : rhs.unique_threads) {
                 unique_threads.erase(tid);
             }
+            for (const memref_pid_t pid : rhs.unique_processes) {
+                unique_processes.erase(pid);
+            }
             return *this;
         }
         bool
@@ -195,7 +200,8 @@ public:
                 icache_flushes == rhs.icache_flushes &&
                 dcache_flushes == rhs.dcache_flushes && encodings == rhs.encodings &&
                 unique_pc_addrs == rhs.unique_pc_addrs &&
-                unique_threads == rhs.unique_threads;
+                unique_threads == rhs.unique_threads &&
+                unique_processes == rhs.unique_processes;
         }
         int64_t instrs = 0;
         int64_t user_instrs = 0;
@@ -228,6 +234,7 @@ public:
         int64_t encodings = 0;
         std::unordered_set<uint64_t> unique_pc_addrs;
         std::unordered_set<memref_tid_t> unique_threads;
+        std::unordered_set<memref_pid_t> unique_processes;
 
         // Metadata for the counts. These are not used for the equality, increment,
         // or decrement operation, and must be set explicitly.
@@ -270,6 +277,7 @@ protected:
         intptr_t last_window = -1;
         intptr_t filetype_ = -1;
         memref_tid_t last_tid_ = INVALID_THREAD_ID;
+        memref_pid_t last_pid_ = INVALID_PID;
         // Indicates whether we're currently in the kernel region of the trace.
         kernel_tracker_t kernel_tracker_;
     };
