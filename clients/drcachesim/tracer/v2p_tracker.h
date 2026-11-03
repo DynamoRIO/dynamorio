@@ -87,7 +87,11 @@ private:
     void
     drain_pipe();
     void
+    snapshot_initial_pagemap();
+    void
     process_trace_line(const std::string &line);
+    uint64_t
+    read_total_overflows() const;
 
     pid_t target_pid_ = 0;
     pid_t reader_tid_ = 0;

@@ -33,6 +33,7 @@
 #include "v2p_tracker.h"
 
 #if defined(LINUX) && defined(X64)
+#    include <dirent.h>
 #    include <errno.h>
 #    include <fcntl.h>
 #    include <inttypes.h>
@@ -40,21 +41,56 @@
 #    include <stdio.h>
 #    include <stdlib.h>
 #    include <string.h>
+#    include <sys/ioctl.h>
 #    include <sys/stat.h>
 #    include <sys/syscall.h>
 #    include <sys/time.h>
 #    include <sys/utsname.h>
 #    include <time.h>
 #    include <unistd.h>
+#    include <utility>
+#    include <vector>
 
 namespace dynamorio {
 namespace drmemtrace {
 namespace {
 
 constexpr uint64_t kPageSize4K = 4096;
+constexpr uint64_t kPageSize2M = 2 * 1024 * 1024;
+constexpr uint32_t kPagesPer2M = 512;
 constexpr uint64_t kPagemapPresentBit = 1ULL << 63;
 constexpr uint64_t kPagemapPfnMask = (1ULL << 55) - 1;
 constexpr uint64_t kDrUtcToEpochMicros = 11644473600ULL * 1000000ULL;
+
+// Linux 6.7+ PAGEMAP_SCAN ioctl definitions (for sysroots with older headers)
+// and /proc/kpageflags bit masks for hugepage page-table verification.
+struct v2p_page_region_t {
+    uint64_t start;
+    uint64_t end;
+    uint64_t categories;
+};
+
+struct v2p_pm_scan_arg_t {
+    uint64_t size;
+    uint64_t flags;
+    uint64_t start;
+    uint64_t end;
+    uint64_t walk_end;
+    uint64_t vec;
+    uint64_t vec_len;
+    uint64_t max_pages;
+    uint64_t category_inverted;
+    uint64_t category_mask;
+    uint64_t category_anyof_mask;
+    uint64_t return_mask;
+};
+
+constexpr unsigned long kPagemapScanIoctl = _IOWR('f', 16, v2p_pm_scan_arg_t);
+constexpr uint64_t kPageIsPresent = 1ULL << 3;
+constexpr uint64_t kPageIsHuge = 1ULL << 6;
+constexpr uint64_t kKpfHuge = 1ULL << 17;
+constexpr uint64_t kKpfThp = 1ULL << 22;
+constexpr uint64_t kKpfZeroPage = 1ULL << 24;
 
 // Writes `content` to a tracefs control file at `path`.
 bool
@@ -182,12 +218,15 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
         (real_tv.tv_sec * 1000000ULL + real_tv.tv_usec + kDrUtcToEpochMicros) -
         (clk_ts.tv_sec * 1000000ULL + clk_ts.tv_nsec / 1000ULL);
 
-    // Register entry/return kprobes on handle_mm_fault in tracefs.
+    // Register kprobes on handle_mm_fault and unmap_page_range in tracefs.
     const std::string sfx = "_" + std::to_string(pid);
     std::string probes = "p:kprobes/fault_in" + sfx +
         " handle_mm_fault vaddr=$arg2:x64\n"
         "r:kprobes/fault_out" +
-        sfx + " handle_mm_fault ret=$retval:x64\n";
+        sfx +
+        " handle_mm_fault ret=$retval:x64\n"
+        "p:kprobes/unmap" +
+        sfx + " unmap_page_range start=$arg3:x64 end=$arg4:x64\n";
     if (!write_trace_file(tracefs_root_ + "/kprobe_events", probes, /*append=*/true))
         return fail();
 
@@ -197,43 +236,20 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
     if (trace_pipe_fd_ < 0)
         return fail();
 
-    // Enable the tracefs instance events (mm_page_alloc, fault_in, fault_out).
+    // Enable the tracefs instance events (mm_page_alloc, fault_in, fault_out, unmap).
     if (!write_trace_file(instance_dir_ + "/events/kmem/mm_page_alloc/enable", "1") ||
         !write_trace_file(instance_dir_ + "/events/kprobes/fault_in" + sfx + "/enable",
                           "1") ||
         !write_trace_file(instance_dir_ + "/events/kprobes/fault_out" + sfx + "/enable",
+                          "1") ||
+        !write_trace_file(instance_dir_ + "/events/kprobes/unmap" + sfx + "/enable",
                           "1") ||
         !write_trace_file(instance_dir_ + "/tracing_on", "1")) {
         return fail();
     }
 
     // Snapshot already-resident pages from /proc/<pid>/pagemap at timestamp 0.
-    char maps_path[64], pagemap_path[64], line[512];
-    snprintf(maps_path, sizeof(maps_path), "/proc/%d/maps", pid);
-    snprintf(pagemap_path, sizeof(pagemap_path), "/proc/%d/pagemap", pid);
-    FILE *maps_file = fopen(maps_path, "r");
-    int pagemap_fd = open(pagemap_path, O_RDONLY | O_CLOEXEC);
-    if (maps_file != nullptr && pagemap_fd >= 0) {
-        while (fgets(line, sizeof(line), maps_file) != nullptr) {
-            uint64_t start_va = 0, end_va = 0, entry = 0;
-            if (sscanf(line, "%" SCNx64 "-%" SCNx64, &start_va, &end_va) != 2 ||
-                start_va >= 0xffff800000000000ULL) {
-                continue;
-            }
-            for (uint64_t va = start_va; va < end_va; va += kPageSize4K) {
-                off_t off = static_cast<off_t>((va / kPageSize4K) * sizeof(uint64_t));
-                if (pread(pagemap_fd, &entry, sizeof(entry), off) == sizeof(entry) &&
-                    (entry & kPagemapPresentBit) != 0 && (entry & kPagemapPfnMask) != 0) {
-                    write_record(out_fd_, 0, va, (entry & kPagemapPfnMask) * kPageSize4K,
-                                 1, V2P_RECORD_MAP);
-                }
-            }
-        }
-    }
-    if (pagemap_fd >= 0)
-        close(pagemap_fd);
-    if (maps_file != nullptr)
-        fclose(maps_file);
+    snapshot_initial_pagemap();
 
     // Spawn the background client thread to drain trace_pipe.
     stop_requested_.store(false, std::memory_order_relaxed);
@@ -262,10 +278,11 @@ v2p_tracker_t::cleanup_kernel_tracing()
     write_trace_file(instance_dir_ + "/events/kmem/mm_page_alloc/enable", "0");
     write_trace_file(instance_dir_ + "/events/kprobes/fault_in" + sfx + "/enable", "0");
     write_trace_file(instance_dir_ + "/events/kprobes/fault_out" + sfx + "/enable", "0");
+    write_trace_file(instance_dir_ + "/events/kprobes/unmap" + sfx + "/enable", "0");
     rmdir(instance_dir_.c_str());
 
     // Unregister each kprobe individually so one error cannot skip the rest.
-    for (const char *name : { "fault_in", "fault_out" }) {
+    for (const char *name : { "fault_in", "fault_out", "unmap" }) {
         write_trace_file(tracefs_root_ + "/kprobe_events",
                          std::string("-:kprobes/") + name + sfx + "\n",
                          /*append=*/true);
@@ -293,14 +310,210 @@ v2p_tracker_t::stop()
         drain_pipe();
     }
 
+    // Check per-CPU tracefs stats for any events dropped due to ring-buffer overflow.
+    uint64_t overflow_events = kernel_tracing_active_ ? read_total_overflows() : 0;
+    if (overflow_events > 0) {
+        dr_fprintf(STDERR,
+                   "WARNING: drmemtrace v2p_tracker detected %" PRIu64
+                   " dropped tracefs events due to buffer overflow (increase "
+                   "-v2p_buffer_size_kb)\n",
+                   overflow_events);
+    }
+
     cleanup_kernel_tracing();
 
-    // Write the end-of-stream sentinel before closing the output file.
+    // Record any overflow summary and the end-of-stream sentinel before closing.
     if (out_fd_ >= 0) {
+        if (overflow_events > 0) {
+            write_record(out_fd_, 0, 0, 0, static_cast<uint32_t>(overflow_events),
+                         V2P_RECORD_OVERFLOW);
+        }
         write_record(out_fd_, 0, 0, 0, 0, V2P_RECORD_END);
         close(out_fd_);
         out_fd_ = -1;
     }
+}
+
+// Scans `/proc/<pid>/maps` and `/proc/<pid>/pagemap` in 2 MB-aligned batches,
+// coalescing a 2 MB chunk into a single 512-page `V2P_RECORD_MAP` entry only when
+// the page table actually maps that virtual range as a hugepage.
+void
+v2p_tracker_t::snapshot_initial_pagemap()
+{
+    char maps_path[64], pagemap_path[64], line[512];
+    snprintf(maps_path, sizeof(maps_path), "/proc/%d/maps", target_pid_);
+    snprintf(pagemap_path, sizeof(pagemap_path), "/proc/%d/pagemap", target_pid_);
+    FILE *maps_file = fopen(maps_path, "r");
+    int pagemap_fd = open(pagemap_path, O_RDONLY | O_CLOEXEC);
+    if (maps_file == nullptr || pagemap_fd < 0) {
+        if (pagemap_fd >= 0)
+            close(pagemap_fd);
+        if (maps_file != nullptr)
+            fclose(maps_file);
+        return;
+    }
+
+    int kpageflags_fd = -2;
+    bool smaps_loaded = false;
+    std::vector<std::pair<uint64_t, uint64_t>> smaps_huge_vmas;
+
+    auto is_hugepage_in_pagetable = [&](uint64_t va, uint64_t base_pfn) {
+        if (kernel_at_least(6, 7)) {
+            // On Linux 6.7+, query the page table directly via PAGEMAP_SCAN.
+            v2p_page_region_t region = {};
+            v2p_pm_scan_arg_t arg = {};
+            arg.size = sizeof(arg);
+            arg.start = va;
+            arg.end = va + kPageSize2M;
+            arg.vec = reinterpret_cast<uintptr_t>(&region);
+            arg.vec_len = 1;
+            arg.category_mask = kPageIsPresent | kPageIsHuge;
+            arg.return_mask = kPageIsPresent | kPageIsHuge;
+            int rc = ioctl(pagemap_fd, kPagemapScanIoctl, &arg);
+            return rc == 1 && region.start == va && region.end == va + kPageSize2M;
+        } else {
+            // On Linux 5.11-6.6, check /proc/kpageflags for a compound THP or hugetlb
+            // page.
+            if (kpageflags_fd == -2)
+                kpageflags_fd = open("/proc/kpageflags", O_RDONLY | O_CLOEXEC);
+            uint64_t kpf = 0;
+            off_t kpf_off = static_cast<off_t>(base_pfn * sizeof(uint64_t));
+            if (kpageflags_fd < 0 ||
+                pread(kpageflags_fd, &kpf, sizeof(kpf), kpf_off) != sizeof(kpf) ||
+                (kpf & (kKpfThp | kKpfHuge)) == 0) {
+                return false;
+            }
+            if ((kpf & kKpfZeroPage) != 0)
+                return true;
+
+            // Cross-check /proc/<pid>/smaps to confirm the VMA maps PMD/hugetlb entries.
+            if (!smaps_loaded) {
+                smaps_loaded = true;
+                char smaps_path[64], sline[512];
+                snprintf(smaps_path, sizeof(smaps_path), "/proc/%d/smaps", target_pid_);
+                FILE *sf = fopen(smaps_path, "r");
+                if (sf != nullptr) {
+                    uint64_t v_start = 0, v_end = 0;
+                    bool v_recorded = false;
+                    while (fgets(sline, sizeof(sline), sf) != nullptr) {
+                        if (strchr(sline, '\n') == nullptr) {
+                            for (int c = fgetc(sf); c != EOF && c != '\n'; c = fgetc(sf))
+                                ;
+                        }
+                        uint64_t s = 0, e = 0, kb = 0;
+                        if (strchr(sline, '-') != nullptr &&
+                            sscanf(sline, "%" SCNx64 "-%" SCNx64, &s, &e) == 2) {
+                            v_start = s;
+                            v_end = e;
+                            v_recorded = false;
+                        } else if (!v_recorded &&
+                                   (strncmp(sline, "AnonHugePages:", 14) == 0 ||
+                                    strncmp(sline, "ShmemPmdMapped:", 15) == 0 ||
+                                    strncmp(sline, "FilePmdMapped:", 14) == 0 ||
+                                    strncmp(sline, "Shared_Hugetlb:", 15) == 0 ||
+                                    strncmp(sline, "Private_Hugetlb:", 16) == 0) &&
+                                   extract_u64_field(sline, ":", kb, 10) && kb > 0) {
+                            smaps_huge_vmas.push_back({ v_start, v_end });
+                            v_recorded = true;
+                        }
+                    }
+                    fclose(sf);
+                }
+            }
+            for (const auto &vma : smaps_huge_vmas) {
+                if (vma.first <= va && va + kPageSize2M <= vma.second)
+                    return true;
+            }
+            return false;
+        }
+    };
+
+    // Read pagemap entries aligned to 2 MB boundaries within each VMA.
+    uint64_t entries[kPagesPer2M];
+    while (fgets(line, sizeof(line), maps_file) != nullptr) {
+        if (strchr(line, '\n') == nullptr) {
+            for (int c = fgetc(maps_file); c != EOF && c != '\n'; c = fgetc(maps_file))
+                ;
+        }
+        uint64_t start_va = 0, end_va = 0;
+        if (sscanf(line, "%" SCNx64 "-%" SCNx64, &start_va, &end_va) != 2 ||
+            start_va >= 0xffff800000000000ULL || end_va <= start_va) {
+            continue;
+        }
+        for (uint64_t va = start_va; va < end_va;) {
+            uint64_t next_2m = (va + kPageSize2M) & ~(kPageSize2M - 1);
+            uint64_t batch_end = next_2m < end_va ? next_2m : end_va;
+            uint64_t batch_pages = (batch_end - va) / kPageSize4K;
+            off_t off = static_cast<off_t>((va / kPageSize4K) * sizeof(uint64_t));
+            ssize_t bytes =
+                pread(pagemap_fd, entries, batch_pages * sizeof(uint64_t), off);
+            if (bytes <= 0)
+                break;
+            size_t read_pages = static_cast<size_t>(bytes) / sizeof(uint64_t);
+
+            // Check whether this batch is a contiguous 2 MB-aligned hugepage.
+            uint64_t base_pfn = entries[0] & kPagemapPfnMask;
+            bool is_2m_contig = read_pages == kPagesPer2M &&
+                (va & (kPageSize2M - 1)) == 0 && (entries[0] & kPagemapPresentBit) != 0 &&
+                base_pfn != 0 && (base_pfn & (kPagesPer2M - 1)) == 0;
+            for (size_t i = 1; is_2m_contig && i < kPagesPer2M; ++i) {
+                is_2m_contig = (entries[i] & kPagemapPresentBit) != 0 &&
+                    (entries[i] & kPagemapPfnMask) == base_pfn + i;
+            }
+            if (is_2m_contig && is_hugepage_in_pagetable(va, base_pfn)) {
+                write_record(out_fd_, 0, va, base_pfn * kPageSize4K, kPagesPer2M,
+                             V2P_RECORD_MAP);
+                va += kPageSize2M;
+                continue;
+            }
+
+            // Otherwise, emit individual 4 KB records for each resident page.
+            for (size_t i = 0; i < read_pages; ++i) {
+                uint64_t pfn = entries[i] & kPagemapPfnMask;
+                if ((entries[i] & kPagemapPresentBit) != 0 && pfn != 0) {
+                    write_record(out_fd_, 0, va + i * kPageSize4K, pfn * kPageSize4K, 1,
+                                 V2P_RECORD_MAP);
+                }
+            }
+            va += read_pages * kPageSize4K;
+        }
+    }
+
+    if (kpageflags_fd >= 0)
+        close(kpageflags_fd);
+    close(pagemap_fd);
+    fclose(maps_file);
+}
+
+// Sums dropped event counts across `per_cpu/cpu*/stats` in the tracefs instance.
+uint64_t
+v2p_tracker_t::read_total_overflows() const
+{
+    std::string per_cpu_dir = instance_dir_ + "/per_cpu";
+    DIR *dir = opendir(per_cpu_dir.c_str());
+    if (dir == nullptr)
+        return 0;
+    uint64_t total_overflow = 0;
+    for (struct dirent *ent = nullptr; (ent = readdir(dir)) != nullptr;) {
+        if (strncmp(ent->d_name, "cpu", 3) != 0)
+            continue;
+        std::string stats_path = per_cpu_dir + "/" + ent->d_name + "/stats";
+        FILE *f = fopen(stats_path.c_str(), "r");
+        if (f == nullptr)
+            continue;
+        char line[256];
+        while (fgets(line, sizeof(line), f) != nullptr) {
+            uint64_t val = 0;
+            if (strncmp(line, "overrun:", 8) == 0 &&
+                extract_u64_field(line, "overrun:", val, 10)) {
+                total_overflow += val;
+                break;
+            }
+        }
+        fclose(f);
+    }
+    closedir(dir);
+    return total_overflow;
 }
 
 // Reads all currently available bytes from non-blocking `trace_pipe_fd_` and
@@ -341,8 +554,8 @@ v2p_tracker_t::reader_thread_entry(void *arg)
     self->thread_exited_.store(true, std::memory_order_release);
 }
 
-// Parses a single trace_pipe event line and emits a V2P_RECORD_MAP entry when a
-// page fault (`fault_in` -> `mm_page_alloc` -> `fault_out`) completes.
+// Parses a single trace_pipe event line and emits V2P_RECORD_MAP / V2P_RECORD_UNMAP
+// entries when page faults or page-table unmaps complete.
 void
 v2p_tracker_t::process_trace_line(const std::string &line)
 {
@@ -408,6 +621,21 @@ v2p_tracker_t::process_trace_line(const std::string &line)
                 write_record(out_fd_, timestamp_us, aligned_vaddr, op.pfn * kPageSize4K,
                              page_count, V2P_RECORD_MAP);
             }
+        }
+        return;
+    }
+
+    // Page-table unmap: emit V2P_RECORD_UNMAP for the torn-down virtual range.
+    if (line.find("unmap_", event_pos) != std::string::npos) {
+        uint64_t start = 0, end = 0;
+        if (extract_u64_field(line, "start=", start, 0, event_pos) &&
+            extract_u64_field(line, "end=", end, 0, event_pos) && end > start) {
+            uint64_t aligned_start = start & ~(kPageSize4K - 1);
+            uint64_t aligned_end = (end + kPageSize4K - 1) & ~(kPageSize4K - 1);
+            uint32_t pages =
+                static_cast<uint32_t>((aligned_end - aligned_start) / kPageSize4K);
+            write_record(out_fd_, timestamp_us, aligned_start, 0, pages,
+                         V2P_RECORD_UNMAP);
         }
     }
 }

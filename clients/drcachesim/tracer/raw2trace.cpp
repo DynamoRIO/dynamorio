@@ -3928,8 +3928,8 @@ raw2trace_t::write_with_repeats(raw2trace_thread_data_t *tdata,
     return true;
 }
 
-// Loads `v2p.bin` into a per-page timeline of mapping events, sorted by
-// timestamp so `emit_v2p_for_addr()` can binary-search any page's history.
+// Loads `v2p.bin` into a per-page timeline of map and unmap events, sorted by
+// timestamp so `lookup_v2p()` can binary-search any page's history.
 std::string
 raw2trace_t::read_v2p_file()
 {
@@ -3941,6 +3941,7 @@ raw2trace_t::read_v2p_file()
 
     // Read each record from the file, expanding multi-page spans into 4 KB pages.
     v2p_events_by_vpn_.clear();
+    uint64 overflow_events = 0;
     bool saw_end = false;
     v2p_record_t rec = {};
     while (in.read(reinterpret_cast<char *>(&rec), sizeof(rec))) {
@@ -3951,6 +3952,14 @@ raw2trace_t::read_v2p_file()
                 v2p_events_by_vpn_[base_vpn + i].push_back(
                     { rec.timestamp_us, base_pfn + i });
             }
+        } else if (rec.type == V2P_RECORD_UNMAP) {
+            addr_t base_vpn = static_cast<addr_t>(rec.vaddr >> V2P_PAGE_BITS);
+            for (uint32_t i = 0; i < rec.page_count; ++i) {
+                v2p_events_by_vpn_[base_vpn + i].push_back(
+                    { rec.timestamp_us, V2P_PAGE_INVALID });
+            }
+        } else if (rec.type == V2P_RECORD_OVERFLOW) {
+            overflow_events += rec.page_count;
         } else if (rec.type == V2P_RECORD_END) {
             saw_end = true;
         }
@@ -3963,11 +3972,68 @@ raw2trace_t::read_v2p_file()
                              return a.timestamp_us < b.timestamp_us;
                          });
     }
+
+    // Warn if the kernel tracefs ring buffer overflowed or if the file was truncated.
+    if (overflow_events > 0) {
+        WARN("v2p file %s reported " UINT64_FORMAT_STRING
+             " dropped tracefs events; physical addresses may be incomplete",
+             v2p_file_.c_str(), overflow_events);
+    }
     if (!saw_end) {
         WARN("v2p file %s is missing its END sentinel (truncated log)",
              v2p_file_.c_str());
     }
     return "";
+}
+
+// Looks up the physical frame (`pfn_out`) for virtual page `vpn` at
+// `timestamp_us`, and sets `expiration_time_out` to the timestamp when that
+// mapping next changes (or UINT64_MAX if it never changes).
+bool
+raw2trace_t::lookup_v2p(addr_t vpn, uint64_t timestamp_us, DR_PARAM_OUT addr_t *pfn_out,
+                        DR_PARAM_OUT uint64_t *expiration_time_out) const
+{
+    auto it = v2p_events_by_vpn_.find(vpn);
+    if (it == v2p_events_by_vpn_.end() || it->second.empty()) {
+        *pfn_out = V2P_PAGE_INVALID;
+        *expiration_time_out = (std::numeric_limits<uint64_t>::max)();
+        return false;
+    }
+
+    // Binary-search for the latest event at or before `timestamp_us`.
+    const std::vector<v2p_event_t> &vpn_events = it->second;
+    auto upper = std::upper_bound(
+        vpn_events.begin(), vpn_events.end(), timestamp_us,
+        [](uint64_t ts, const v2p_event_t &e) { return ts < e.timestamp_us; });
+    size_t start_idx = (upper == vpn_events.begin())
+        ? 0
+        : static_cast<size_t>((upper - 1) - vpn_events.begin());
+
+    // Scan forward from `start_idx` for the active physical frame (covering mid-buffer
+    // faults after an unmap).
+    for (size_t k = start_idx; k < vpn_events.size(); ++k) {
+        if (vpn_events[k].pfn != V2P_PAGE_INVALID) {
+            addr_t pfn = vpn_events[k].pfn;
+            uint64_t expiration_time_us = (std::numeric_limits<uint64_t>::max)();
+
+            // Find the next timestamp where this page transitions to another frame or
+            // unmaps.
+            for (size_t m = k + 1; m < vpn_events.size(); ++m) {
+                if (vpn_events[m].pfn != pfn) {
+                    expiration_time_us = vpn_events[m].timestamp_us;
+                    break;
+                }
+            }
+            *pfn_out = pfn;
+            *expiration_time_out = expiration_time_us;
+            return true;
+        }
+    }
+
+    // No mapping exists for this page (e.g., unmapped and never faulted in again).
+    *pfn_out = V2P_PAGE_INVALID;
+    *expiration_time_out = (std::numeric_limits<uint64_t>::max)();
+    return false;
 }
 
 // Emits a physical/virtual address marker pair (or a not-available marker)
@@ -3996,23 +4062,10 @@ raw2trace_t::emit_v2p_for_addr(raw2trace_thread_data_t *tdata, addr_t vaddr,
         start = it;
     }
 
-    // Binary-search `v2p_events_by_vpn_` for `vpn`'s physical frame at the current time.
+    // Look up the page's physical frame and cache it for this chunk.
     addr_t pfn = V2P_PAGE_INVALID;
-    uint64_t expiration_time_us = (std::numeric_limits<uint64_t>::max)();
-    auto map_it = v2p_events_by_vpn_.find(vpn);
-    bool found = (map_it != v2p_events_by_vpn_.end() && !map_it->second.empty());
-    if (found) {
-        const std::vector<v2p_event_t> &vpn_events = map_it->second;
-        auto upper = std::upper_bound(
-            vpn_events.begin(), vpn_events.end(), tdata->v2p_current_time_us,
-            [](uint64_t ts, const v2p_event_t &e) { return ts < e.timestamp_us; });
-        size_t idx = (upper == vpn_events.begin())
-            ? 0
-            : static_cast<size_t>((upper - 1) - vpn_events.begin());
-        pfn = vpn_events[idx].pfn;
-        if (idx + 1 < vpn_events.size())
-            expiration_time_us = vpn_events[idx + 1].timestamp_us;
-    }
+    uint64_t expiration_time_us = 0;
+    bool found = lookup_v2p(vpn, tdata->v2p_current_time_us, &pfn, &expiration_time_us);
     tdata->v2p_emitted[vpn] = { pfn, expiration_time_us };
 
     // Build the (physical, virtual) marker pair, or a not-available marker.

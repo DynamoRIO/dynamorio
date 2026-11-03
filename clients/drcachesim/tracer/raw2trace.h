@@ -1492,6 +1492,9 @@ private:
     std::string
     read_v2p_file();
     bool
+    lookup_v2p(addr_t vpn, uint64_t timestamp_us, DR_PARAM_OUT addr_t *pfn_out,
+               DR_PARAM_OUT uint64_t *expiration_time_out) const;
+    bool
     emit_v2p_for_addr(raw2trace_thread_data_t *tdata, addr_t vaddr,
                       const trace_entry_t *it, const trace_entry_t *&start);
     bool
