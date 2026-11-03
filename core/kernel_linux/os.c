@@ -878,3 +878,16 @@ is_in_dynamo_dll(app_pc pc)
 {
     return pc >= get_dynamorio_dll_start() && pc < get_dynamorio_dll_end();
 }
+
+app_pc
+get_module_base(app_pc pc)
+{
+    app_pc base = NULL;
+    module_area_t *ma;
+    os_get_module_info_lock();
+    ma = module_pc_lookup(pc);
+    if (ma != NULL)
+        base = ma->start;
+    os_get_module_info_unlock();
+    return base;
+}
