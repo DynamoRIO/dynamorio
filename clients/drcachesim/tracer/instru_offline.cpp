@@ -131,7 +131,7 @@ offline_instru_t::offline_instru_t(
     }
     *reinterpret_cast<uint64_t *>(encoding_buf_ptr_) = encoding_file_type;
     encoding_buf_ptr_ += sizeof(uint64_t);
-    hashtable_init_ex(&id2pc_, /*bits=*/6, HASH_INTPTR, /*str_dup=*/false,
+    hashtable_init_ex(&modoffs2pc_, /*bits=*/6, HASH_INTPTR, /*str_dup=*/false,
                       /*synch=*/false, /*free_payload_func=*/nullptr,
                       /*hash_key_func=*/nullptr, /*cmp_key_func=*/nullptr);
 }
@@ -141,7 +141,7 @@ offline_instru_t::~offline_instru_t()
     if (standalone_)
         return;
 
-    hashtable_delete(&id2pc_);
+    hashtable_delete(&modoffs2pc_);
 
     dr_rwlock_write_lock(encoding_lock_);
     flush_instr_encodings();
@@ -290,16 +290,19 @@ offline_instru_t::get_entry_addr(void *drcontext, byte *buf_ptr)
             // If this read lock becomes a bottleneck we can provide a lock
             // routine a caller can use to hoist outside a loop.
             dr_rwlock_read_lock(encoding_lock_);
-            addr_t pc = reinterpret_cast<addr_t>(
-                hashtable_lookup(&id2pc_, reinterpret_cast<void *>(entry->pc.modoffs)));
+            addr_t pc = reinterpret_cast<addr_t>(hashtable_lookup(
+                &modoffs2pc_, reinterpret_cast<void *>(entry->pc.modoffs)));
             dr_rwlock_read_unlock(encoding_lock_);
+            DR_ASSERT(pc != 0);
             return pc;
         } else {
             // XXX i#4014: Use caching to avoid lookup for last queried modbase.
             app_pc modbase;
             if (drmodtrack_lookup_pc_from_index(drcontext, entry->pc.modidx, &modbase) !=
-                DRCOVLIB_SUCCESS)
+                DRCOVLIB_SUCCESS) {
+                DR_ASSERT(false);
                 return 0;
+            }
             return reinterpret_cast<addr_t>(modbase) +
                 static_cast<addr_t>(entry->pc.modoffs);
         }
@@ -584,8 +587,13 @@ offline_instru_t::record_instr_encodings(void *drcontext, app_pc tag_pc,
          enc->length, enc->id, tag_pc);
     encoding_length_ += (enc->length - sizeof(encoding_entry_t));
     encoding_buf_ptr_ += enc->length;
-    hashtable_add(&id2pc_, reinterpret_cast<void *>(enc->id),
-                  reinterpret_cast<void *>(enc->start_pc));
+    if (!instrs_are_separate_) {
+        // For instrs_are_separate_ we have to store each instr's offset into the
+        // table, which we do in insert_save_pc(). Otherwise, we store the block id
+        // here, as that's what's used for the modoffs.
+        hashtable_add(&modoffs2pc_, reinterpret_cast<void *>(enc->id),
+                      reinterpret_cast<void *>(enc->start_pc));
+    }
     dr_rwlock_write_unlock(encoding_lock_);
 }
 
@@ -631,6 +639,10 @@ offline_instru_t::insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *w
         if (instrs_are_separate_) {
             DR_ASSERT(pc >= per_block->start_pc);
             modoffs = pc - per_block->start_pc + per_block->encoding_length_start;
+            dr_rwlock_write_lock(encoding_lock_);
+            hashtable_add(&modoffs2pc_, reinterpret_cast<void *>(modoffs),
+                          reinterpret_cast<void *>(pc));
+            dr_rwlock_write_unlock(encoding_lock_);
         } else {
             modoffs = per_block->id;
         }

@@ -4945,6 +4945,12 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.phys_vdso_SUDO_expectbase "offline-phys_vdso")
       torunonly_drcacheoff(phys_vdso_SUDO ${ci_shared_app}
         "-use_physical" "@${test_mode_flag}@-tool@basic_counts" "")
+
+      # Also test filtering, which uses a different pc lookup scheme.
+      set(tool.drcacheoff.phys_vdso_filter_SUDO_sudo ON)
+      set(tool.drcacheoff.phys_vdso_filter_SUDO_expectbase "offline-phys_vdso")
+      torunonly_drcacheoff(phys_vdso_filter_SUDO ${ci_shared_app}
+        "-use_physical -L0_filter" "@${test_mode_flag}@-tool@basic_counts" "")
     endif ()
 
     # The checked-in file is for x86_64 so we have to limit the test to that.

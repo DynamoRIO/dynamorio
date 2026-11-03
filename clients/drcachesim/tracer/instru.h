@@ -637,7 +637,10 @@ private:
     uint64_t encoding_id_ = 0;
     uint64_t encoding_length_ = 0;
     uint64_t encoding_bytes_written_ = 0;
-    hashtable_t id2pc_;
+    // Track the PC for virtual-to-physical translation.
+    // XXX i#8239: Use the fragment delete event to avoid this from growing too
+    // large with JIT churn.
+    hashtable_t modoffs2pc_;
     bool instrs_are_separate_ = false;
 };
 
