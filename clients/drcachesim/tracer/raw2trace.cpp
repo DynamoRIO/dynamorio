@@ -4310,7 +4310,22 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
             }
         }
     } else {
+        const trace_entry_t *v2p_checked_up_to = start;
         for (const trace_entry_t *it = start; it < end; ++it) {
+            if (!v2p_events_by_vpn_.empty()) {
+                // Advance the thread's v2p lookup clock on timestamp markers.
+                if (it->type == TRACE_TYPE_MARKER &&
+                    it->size == TRACE_MARKER_TYPE_TIMESTAMP &&
+                    it->addr > tdata->v2p_current_time_us) {
+                    tdata->v2p_current_time_us = it->addr;
+                }
+
+                // Emit any needed v2p markers before the current instruction packet.
+                if (it >= v2p_checked_up_to) {
+                    if (!insert_v2p_markers(tdata, it, end, start, v2p_checked_up_to))
+                        return false;
+                }
+            }
             observe_entry_output(tdata, it);
             if (type_is_instr(static_cast<trace_type_t>(it->type))) {
                 accumulate_to_statistic(tdata,

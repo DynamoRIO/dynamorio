@@ -184,8 +184,32 @@ find_mm_helper_pids()
 bool
 v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_size_kb)
 {
-    if (running_.load(std::memory_order_acquire))
-        stop();
+    if (running_.load(std::memory_order_acquire)) {
+        if (pid != target_pid_) {
+            // In a forked child process, exclude this child (and any descendants)
+            // from the parent's tracefs instance.
+            if (!instance_dir_.empty()) {
+                write_trace_file(instance_dir_ + "/set_event_notrace_pid",
+                                 std::to_string(pid) + "\n", /*append=*/true);
+            }
+
+            // Drop inherited descriptors without stopping the parent's session.
+            if (trace_pipe_fd_ >= 0) {
+                close(trace_pipe_fd_);
+                trace_pipe_fd_ = -1;
+            }
+            if (out_fd_ >= 0) {
+                close(out_fd_);
+                out_fd_ = -1;
+            }
+            kernel_tracing_active_ = false;
+            thread_running_.store(false, std::memory_order_release);
+            running_.store(false, std::memory_order_release);
+        } else {
+            stop();
+        }
+    }
+
     target_pid_ = pid;
     reader_tid_ = 0;
     vmemmap_base_ = 0;
@@ -193,6 +217,7 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
     pipe_remainder_.clear();
     pending_by_tid_.clear();
     active_paddr_by_vpage_.clear();
+    deferred_pte_ranges_.clear();
     auto fail = [this]() {
         cleanup_kernel_tracing();
         if (out_fd_ >= 0) {
@@ -259,12 +284,25 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
         (real_tv.tv_sec * 1000000ULL + real_tv.tv_usec + kDrUtcToEpochMicros) -
         (clk_ts.tv_sec * 1000000ULL + clk_ts.tv_nsec / 1000ULL);
 
-    // Select the `vma->vm_mm` offset explicitly by kernel version (+16 on Linux 6.1+
-    // with maple_tree VMAs; +64 on Linux 5.11-6.0 with rb_tree VMAs).
-    const std::string vm_mm_off = kernel_at_least(6, 1) ? "+16" : "+64";
-
-    // Register kprobes for page faults, unmaps, and page migrations in tracefs.
+    // Select kernel-version-dependent kprobe symbols and struct offsets explicitly:
+    // - Linux 6.1+: `vma->vm_mm` moved from +64 (rb_tree) to +16 (maple_tree).
+    // - Linux 6.6+: `do_set_pte(vmf, page, addr)` became
+    //   `set_pte_range(vmf, folio, page, nr, addr)`.
+    // - Linux 6.15+: `move_page_tables` takes `struct pagetable_move_control *pmc`.
     const std::string sfx = "_" + std::to_string(pid);
+    const std::string vm_mm_off = kernel_at_least(6, 1) ? "+16" : "+64";
+    const std::string pte_probe = kernel_at_least(6, 6)
+        ? ("p:kprobes/pte_range" + sfx +
+           " set_pte_range page=$arg3:x64 nr=$arg4:u32 addr=$arg5:x64\n")
+        : ("p:kprobes/pte_range" + sfx + " do_set_pte page=$arg2:x64 addr=$arg3:x64\n");
+    const std::string move_pt_probe = kernel_at_least(6, 15)
+        ? ("p:kprobes/move_pt" + sfx + " move_page_tables mm=" + vm_mm_off +
+           "(+0($arg1)):x64 old_addr=+16($arg1):x64 new_addr=+32($arg1):x64 "
+           "len=+40($arg1):u64\n")
+        : ("p:kprobes/move_pt" + sfx + " move_page_tables mm=" + vm_mm_off +
+           "($arg1):x64 old_addr=$arg2:x64 new_addr=$arg4:x64 len=$arg5:u64\n");
+
+    // Register all per-process kprobes in tracefs.
     std::string probes = "p:kprobes/fault_in" + sfx + " handle_mm_fault mm=" + vm_mm_off +
         "($arg1):x64 vaddr=$arg2:x64\n"
         "r:kprobes/fault_out" +
@@ -274,7 +312,8 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
         sfx +
         " unmap_page_range mm=+0($arg1):x64 start=$arg3:x64 end=$arg4:x64\n"
         "p:kprobes/mig_ptes" +
-        sfx + " remove_migration_ptes src=$arg1:x64 dst=$arg2:x64\n";
+        sfx + " remove_migration_ptes src=$arg1:x64 dst=$arg2:x64\n" + pte_probe +
+        move_pt_probe;
     if (!write_trace_file(tracefs_root_ + "/kprobe_events", probes, /*append=*/true))
         return fail();
 
@@ -295,6 +334,10 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
         !write_trace_file(instance_dir_ + "/events/kprobes/unmap" + sfx + "/enable",
                           "1") ||
         !write_trace_file(instance_dir_ + "/events/kprobes/mig_ptes" + sfx + "/enable",
+                          "1") ||
+        !write_trace_file(instance_dir_ + "/events/kprobes/pte_range" + sfx + "/enable",
+                          "1") ||
+        !write_trace_file(instance_dir_ + "/events/kprobes/move_pt" + sfx + "/enable",
                           "1") ||
         !write_trace_file(instance_dir_ + "/tracing_on", "1")) {
         return fail();
@@ -334,10 +377,13 @@ v2p_tracker_t::cleanup_kernel_tracing()
     write_trace_file(instance_dir_ + "/events/kprobes/fault_out" + sfx + "/enable", "0");
     write_trace_file(instance_dir_ + "/events/kprobes/unmap" + sfx + "/enable", "0");
     write_trace_file(instance_dir_ + "/events/kprobes/mig_ptes" + sfx + "/enable", "0");
+    write_trace_file(instance_dir_ + "/events/kprobes/pte_range" + sfx + "/enable", "0");
+    write_trace_file(instance_dir_ + "/events/kprobes/move_pt" + sfx + "/enable", "0");
     rmdir(instance_dir_.c_str());
 
     // Unregister each kprobe individually so one error cannot skip the rest.
-    for (const char *name : { "fault_in", "fault_out", "unmap", "mig_ptes" }) {
+    for (const char *name :
+         { "fault_in", "fault_out", "unmap", "mig_ptes", "pte_range", "move_pt" }) {
         write_trace_file(tracefs_root_ + "/kprobe_events",
                          std::string("-:kprobes/") + name + sfx + "\n",
                          /*append=*/true);
@@ -376,6 +422,10 @@ v2p_tracker_t::stop()
     }
 
     cleanup_kernel_tracing();
+
+    // Flush any buffered events for file-backed memory in the page cache if
+    // `vmemmap_base_` is known.
+    flush_deferred_pte_ranges();
 
     // Record any overflow summary and the end-of-stream sentinel before closing.
     if (out_fd_ >= 0) {
@@ -569,6 +619,23 @@ v2p_tracker_t::record_page_map(uint64_t timestamp_us, uint64_t vaddr, uint64_t p
     write_record(out_fd_, timestamp_us, vaddr, paddr, page_count, V2P_RECORD_MAP);
 }
 
+// Emits any `pte_range` events (for file-backed memory in the page cache)
+// that were buffered before `vmemmap_base_` was calibrated by `mm_page_alloc`.
+void
+v2p_tracker_t::flush_deferred_pte_ranges()
+{
+    if (vmemmap_base_ == 0 || deferred_pte_ranges_.empty())
+        return;
+    for (const deferred_pte_range_t &def : deferred_pte_ranges_) {
+        if (def.page_ptr > vmemmap_base_) {
+            uint64_t pfn = (def.page_ptr - vmemmap_base_) >> kStructPageShift;
+            record_page_map(def.timestamp_us, def.aligned_vaddr, pfn * kPageSize4K,
+                            def.nr);
+        }
+    }
+    deferred_pte_ranges_.clear();
+}
+
 // Sums dropped event counts across `per_cpu/cpu*/stats` in the tracefs instance.
 uint64_t
 v2p_tracker_t::read_total_overflows() const
@@ -639,7 +706,8 @@ v2p_tracker_t::reader_thread_entry(void *arg)
 }
 
 // Parses a single trace_pipe event line and emits `v2p_record_t` updates for
-// page faults, unmaps, background THP collapses, and page migrations.
+// page faults, file-backed memory in the page cache, unmaps, mremap
+// relocations, background THP collapses, and page migrations.
 void
 v2p_tracker_t::process_trace_line(const std::string &line)
 {
@@ -674,7 +742,7 @@ v2p_tracker_t::process_trace_line(const std::string &line)
         if (!extract_u64_field(line, "mm=", mm, 16, event_pos) || !is_tracked_mm(mm, tid))
             return;
         if (extract_u64_field(line, "vaddr=", vaddr, 0, event_pos))
-            pending_by_tid_[tid] = { vaddr, 0, 0, false };
+            pending_by_tid_[tid] = { vaddr, 0, 0, false, false };
         return;
     }
 
@@ -686,6 +754,7 @@ v2p_tracker_t::process_trace_line(const std::string &line)
             extract_u64_field(line, "page=", page_ptr, 16, event_pos) &&
             page_ptr > (pfn << kStructPageShift)) {
             vmemmap_base_ = page_ptr - (pfn << kStructPageShift);
+            flush_deferred_pte_ranges();
         }
         auto it = pending_by_tid_.find(tid);
         if (it != pending_by_tid_.end() && has_pfn &&
@@ -700,24 +769,97 @@ v2p_tracker_t::process_trace_line(const std::string &line)
         } else if (has_pfn && extract_u64_field(line, "order=", order, 10, event_pos) &&
                    order == 9) {
             // Stash `khugepaged`'s order-9 allocation until `mm_khugepaged_scan_pmd`.
-            pending_by_tid_[tid] = { 0, pfn, order, true };
+            pending_by_tid_[tid] = { 0, pfn, order, true, false };
         }
         return;
     }
 
-    // Fault exit: emit V2P_RECORD_MAP for the newly mapped page or hugepage.
+    // File-backed memory in the page cache (`set_pte_range` on Linux 6.6+,
+    // `do_set_pte` with implicit `nr = 1` on Linux 5.11-6.5): captures PTE
+    // installations (including fault-around batches) that bypass `mm_page_alloc`
+    // and are not faulted again once mapped.
+    if (line.find("pte_range_", event_pos) != std::string::npos) {
+        auto it = pending_by_tid_.find(tid);
+        if (it == pending_by_tid_.end())
+            return;
+        uint64_t page_ptr = 0, nr = 1, addr = 0;
+        if (kernel_at_least(6, 6) && !extract_u64_field(line, "nr=", nr, 10, event_pos)) {
+            return;
+        }
+        if (nr > 0 && extract_u64_field(line, "page=", page_ptr, 16, event_pos) &&
+            extract_u64_field(line, "addr=", addr, 16, event_pos)) {
+            uint64_t aligned_vaddr = addr & ~(kPageSize4K - 1);
+            if (vmemmap_base_ != 0 && page_ptr > vmemmap_base_) {
+                uint64_t pfn = (page_ptr - vmemmap_base_) >> kStructPageShift;
+                record_page_map(timestamp_us, aligned_vaddr, pfn * kPageSize4K,
+                                static_cast<uint32_t>(nr));
+            } else if (vmemmap_base_ == 0) {
+                deferred_pte_ranges_.push_back(
+                    { timestamp_us, page_ptr, static_cast<uint32_t>(nr), aligned_vaddr });
+            }
+            it->second.handled_by_pte_range = true;
+        }
+        return;
+    }
+
+    // Fault exit: emit V2P_RECORD_MAP if the fault was not already handled by
+    // `pte_range_`.
     if (line.find("fault_out_", event_pos) != std::string::npos) {
         auto it = pending_by_tid_.find(tid);
         if (it != pending_by_tid_.end()) {
             pending_op_t op = it->second;
             pending_by_tid_.erase(it);
-            if (op.has_alloc && op.pfn != 0 && op.pfn != ~0ULL) {
+            if (!op.handled_by_pte_range && op.has_alloc && op.pfn != 0 &&
+                op.pfn != ~0ULL) {
                 uint32_t page_count = 1U << op.order;
                 uint64_t length = static_cast<uint64_t>(page_count) * kPageSize4K;
                 uint64_t aligned_vaddr = op.vaddr & ~(length - 1);
                 record_page_map(timestamp_us, aligned_vaddr, op.pfn * kPageSize4K,
                                 page_count);
             }
+        }
+        return;
+    }
+
+    // Virtual address relocation (`mremap` or `execve` initial stack shift): unmap
+    // the source range and remap any active physical pages at the destination range.
+    if (line.find("move_pt_", event_pos) != std::string::npos) {
+        uint64_t mm = 0, old_addr = 0, new_addr = 0, len = 0;
+        if (!extract_u64_field(line, "mm=", mm, 16, event_pos) || !is_tracked_mm(mm, tid))
+            return;
+        if (extract_u64_field(line, "old_addr=", old_addr, 16, event_pos) &&
+            extract_u64_field(line, "new_addr=", new_addr, 16, event_pos) &&
+            extract_u64_field(line, "len=", len, 10, event_pos) && len >= kPageSize4K) {
+            uint64_t aligned_old = old_addr & ~(kPageSize4K - 1);
+            uint64_t aligned_new = new_addr & ~(kPageSize4K - 1);
+            uint32_t num_pages = static_cast<uint32_t>(len / kPageSize4K);
+            write_record(out_fd_, timestamp_us, aligned_old, 0, num_pages,
+                         V2P_RECORD_UNMAP);
+
+            std::vector<std::pair<uint64_t, uint64_t>> moved;
+            if (num_pages <= active_paddr_by_vpage_.size()) {
+                for (uint64_t off = 0; off < len; off += kPageSize4K) {
+                    auto it = active_paddr_by_vpage_.find(aligned_old + off);
+                    if (it != active_paddr_by_vpage_.end()) {
+                        moved.push_back({ aligned_new + off, it->second });
+                        active_paddr_by_vpage_.erase(it);
+                    }
+                }
+            } else {
+                const uint64_t old_end = aligned_old + len;
+                for (auto it = active_paddr_by_vpage_.begin();
+                     it != active_paddr_by_vpage_.end();) {
+                    if (it->first >= aligned_old && it->first < old_end) {
+                        moved.push_back(
+                            { aligned_new + (it->first - aligned_old), it->second });
+                        it = active_paddr_by_vpage_.erase(it);
+                    } else {
+                        ++it;
+                    }
+                }
+            }
+            for (const auto &mp : moved)
+                record_page_map(timestamp_us, mp.first, mp.second, 1);
         }
         return;
     }
