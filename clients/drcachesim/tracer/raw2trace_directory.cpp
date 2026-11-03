@@ -563,6 +563,12 @@ raw2trace_directory_t::initialize(const std::string &indir, const std::string &o
             return "Failed to open encoding file " + encoding_filename;
     }
 
+    std::string v2p_filename =
+        modfile_dir + std::string(DIRSEP) + DRMEMTRACE_V2P_LOG_FILENAME;
+    if (dr_file_exists(v2p_filename.c_str())) {
+        v2p_file_ = v2p_filename;
+    }
+
     // Open the schedule output files.
     err = open_serial_schedule_file();
     if (!err.empty())

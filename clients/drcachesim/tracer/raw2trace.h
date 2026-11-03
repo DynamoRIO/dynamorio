@@ -616,6 +616,12 @@ public:
     virtual std::string
     do_conversion();
 
+    void
+    set_v2p_file(const std::string &v2p_file)
+    {
+        v2p_file_ = v2p_file;
+    }
+
     static std::string
     check_thread_file(std::istream *f);
 
@@ -659,6 +665,21 @@ protected:
      * entries. With a 512-bit vector length that is (512 / 8) * 4 = 256 memref entries.
      */
     static const uint WRITE_BUFFER_SIZE = 260;
+
+    static constexpr addr_t V2P_PAGE_INVALID = static_cast<addr_t>(-1);
+    static constexpr addr_t V2P_PAGE_BITS = 12;
+    static constexpr addr_t V2P_PAGE_SIZE = static_cast<addr_t>(1) << V2P_PAGE_BITS;
+    static constexpr addr_t V2P_PAGE_MASK = V2P_PAGE_SIZE - 1;
+
+    struct v2p_event_t {
+        uint64_t timestamp_us;
+        addr_t pfn;
+    };
+
+    struct v2p_cached_t {
+        addr_t pfn = V2P_PAGE_INVALID;
+        uint64_t expiration_time_us = 0;
+    };
 
     struct block_summary_t {
         block_summary_t(app_pc start, int instr_count)
@@ -792,6 +813,9 @@ protected:
 
         bitset_hash_table_t<app_pc> encoding_emitted;
         app_pc last_encoding_emitted = nullptr;
+
+        uint64_t v2p_current_time_us = 0;
+        std::unordered_map<addr_t, v2p_cached_t> v2p_emitted;
 
         schedule_file_t::per_shard_t sched_data;
 
@@ -1464,6 +1488,19 @@ private:
     // some syscall traces completely from the final trace where the PT trace could
     // not be converted.
     bool pt2ir_best_effort_ = false;
+
+    std::string
+    read_v2p_file();
+    bool
+    emit_v2p_for_addr(raw2trace_thread_data_t *tdata, addr_t vaddr,
+                      const trace_entry_t *it, const trace_entry_t *&start);
+    bool
+    insert_v2p_markers(raw2trace_thread_data_t *tdata, const trace_entry_t *it,
+                       const trace_entry_t *end, const trace_entry_t *&start,
+                       const trace_entry_t *&checked_up_to);
+
+    std::string v2p_file_;
+    std::unordered_map<addr_t, std::vector<v2p_event_t>> v2p_events_by_vpn_;
 };
 
 } // namespace drmemtrace
