@@ -616,6 +616,13 @@ remove_from_all_memory_areas(app_pc start, app_pc end)
     return true;
 }
 
+/* kernel_interface.h cannot include DR headers, so it defines its own protection bits.
+ * They match DR's, so kernel_memory_region_t.prot can be used as a MEMPROT_* value.
+ */
+_Static_assert(KERNEL_MEMPROT_READ == MEMPROT_READ, "KERNEL_MEMPROT_READ mismatch");
+_Static_assert(KERNEL_MEMPROT_WRITE == MEMPROT_WRITE, "KERNEL_MEMPROT_WRITE mismatch");
+_Static_assert(KERNEL_MEMPROT_EXEC == MEMPROT_EXEC, "KERNEL_MEMPROT_EXEC mismatch");
+
 static void
 find_dynamo_library_vm_areas_callback(const kernel_memory_region_t *region, void *arg)
 {
