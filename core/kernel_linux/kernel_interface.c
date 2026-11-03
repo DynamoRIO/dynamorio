@@ -385,12 +385,7 @@ query_kernel_page(unsigned long addr, unsigned int *prot)
 
     *prot = 0;
     if (ptep == NULL) {
-        switch (level) {
-        case PG_LEVEL_NONE: size = P4D_SIZE; break;
-        case PG_LEVEL_512G: size = PUD_SIZE; break;
-        case PG_LEVEL_1G: size = PMD_SIZE; break;
-        default: KERNEL_ASSERT(false); size = PAGE_SIZE;
-        }
+        size = PMD_SIZE;
     } else {
         pte_t pte = ptep_get(ptep);
         size = page_level_size(level);
