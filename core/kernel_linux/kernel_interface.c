@@ -422,6 +422,30 @@ query_kernel_run(unsigned long addr, unsigned long end, unsigned int *prot)
         return next;
     }
 }
+
+static void
+walk_code_range(unsigned long start, unsigned long end,
+                kernel_memory_region_callback_t callback, void *arg)
+{
+    unsigned long addr = start;
+
+    while (addr < end) {
+        unsigned int prot;
+        unsigned long next = query_kernel_run(addr, end, &prot);
+
+        if (prot != 0) {
+            const kernel_memory_region_t region = {
+                .base = (unsigned char *)addr,
+                .size = next - addr,
+                .prot = prot,
+            };
+            callback(&region, arg);
+        }
+
+        addr = next;
+    }
+}
+
 #endif /* CONFIG_X86 */
 
 int
@@ -430,25 +454,12 @@ kernel_walk_code_regions(kernel_memory_region_callback_t callback, void *arg)
 #ifdef CONFIG_X86
     const unsigned long start = __START_KERNEL_map;
     const unsigned long end = MODULES_END;
-    unsigned long addr = start;
+    const unsigned long heap_start = (unsigned long)heap;
+    const unsigned long heap_end = heap_start + heap_size;
+    KERNEL_ASSERT(heap != NULL && start <= heap_start && heap_end <= end);
 
-    while (addr < end) {
-        unsigned int prot;
-        unsigned long next = query_kernel_run(addr, end, &prot);
-
-        const kernel_memory_region_t region = {
-            .base = (unsigned char *)addr,
-            .size = next - addr,
-            .prot = prot,
-        };
-
-        if (region.prot != 0) {
-            callback(&region, arg);
-        }
-
-        addr = next;
-    }
-
+    walk_code_range(start, heap_start, callback, arg);
+    walk_code_range(heap_end, end, callback, arg);
     return 0;
 #else
     /* TODO i#8021: Implement page table walk for AArch64. */
