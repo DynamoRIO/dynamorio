@@ -2553,6 +2553,7 @@ event_exit(void)
     /* we use placement new for better isolation */
     instru->~instru_t();
     dr_global_free(instru, MAX_INSTRU_SIZE);
+    instru = nullptr;
 
     if (op_offline.get_value()) {
         if (module_file != INVALID_FILE)
