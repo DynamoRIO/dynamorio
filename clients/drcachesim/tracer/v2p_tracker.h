@@ -67,7 +67,7 @@ public:
     }
 
 private:
-    struct pending_fault_t {
+    struct pending_op_t {
         uint64_t vaddr = 0;
         uint64_t pfn = 0;
         uint64_t order = 0;
@@ -90,6 +90,11 @@ private:
     snapshot_initial_pagemap();
     void
     process_trace_line(const std::string &line);
+    bool
+    is_tracked_mm(uint64_t mm, pid_t tid);
+    void
+    record_page_map(uint64_t timestamp_us, uint64_t vaddr, uint64_t paddr,
+                    uint32_t page_count);
     uint64_t
     read_total_overflows() const;
 
@@ -101,6 +106,8 @@ private:
     std::string instance_dir_;
     std::string pipe_remainder_;
     uint64_t clock_offset_us_ = 0;
+    uint64_t vmemmap_base_ = 0;
+    uint64_t tracked_mm_ = 0;
     int out_fd_ = -1;
     int trace_pipe_fd_ = -1;
     bool kernel_tracing_active_ = false;
@@ -108,7 +115,8 @@ private:
     std::atomic<bool> stop_requested_ { false };
     std::atomic<bool> thread_running_ { false };
     std::atomic<bool> thread_exited_ { false };
-    std::unordered_map<pid_t, pending_fault_t> pending_by_tid_;
+    std::unordered_map<pid_t, pending_op_t> pending_by_tid_;
+    std::unordered_map<uint64_t, uint64_t> active_paddr_by_vpage_;
 };
 
 } // namespace drmemtrace

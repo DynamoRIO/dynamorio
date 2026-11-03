@@ -58,6 +58,7 @@ namespace {
 constexpr uint64_t kPageSize4K = 4096;
 constexpr uint64_t kPageSize2M = 2 * 1024 * 1024;
 constexpr uint32_t kPagesPer2M = 512;
+constexpr uint64_t kStructPageShift = 6;
 constexpr uint64_t kPagemapPresentBit = 1ULL << 63;
 constexpr uint64_t kPagemapPfnMask = (1ULL << 55) - 1;
 constexpr uint64_t kDrUtcToEpochMicros = 11644473600ULL * 1000000ULL;
@@ -146,6 +147,36 @@ extract_u64_field(const std::string &line, const char *key, uint64_t &out, int b
     return true;
 }
 
+// Finds background kernel threads (`khugepaged` and `kcompactd*`) that
+// asynchronously collapse or migrate pages on behalf of user `mm_struct`s.
+std::vector<pid_t>
+find_mm_helper_pids()
+{
+    std::vector<pid_t> pids;
+    DIR *proc = opendir("/proc");
+    if (proc == nullptr)
+        return pids;
+    for (struct dirent *ent = nullptr; (ent = readdir(proc)) != nullptr;) {
+        char *endptr = nullptr;
+        long val = strtol(ent->d_name, &endptr, 10);
+        if (endptr == ent->d_name || *endptr != '\0' || val <= 0)
+            continue;
+        pid_t candidate = static_cast<pid_t>(val);
+        char comm_path[64], buf[64] = {};
+        snprintf(comm_path, sizeof(comm_path), "/proc/%d/comm", candidate);
+        FILE *f = fopen(comm_path, "r");
+        if (f == nullptr)
+            continue;
+        if (fgets(buf, sizeof(buf), f) != nullptr &&
+            (strncmp(buf, "khugepaged", 10) == 0 || strncmp(buf, "kcompactd", 9) == 0)) {
+            pids.push_back(candidate);
+        }
+        fclose(f);
+    }
+    closedir(proc);
+    return pids;
+}
+
 } // namespace
 
 // Enables an isolated tracefs instance for `pid`, snapshots pre-existing page
@@ -157,8 +188,11 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
         stop();
     target_pid_ = pid;
     reader_tid_ = 0;
+    vmemmap_base_ = 0;
+    tracked_mm_ = 0;
     pipe_remainder_.clear();
     pending_by_tid_.clear();
+    active_paddr_by_vpage_.clear();
     auto fail = [this]() {
         cleanup_kernel_tracing();
         if (out_fd_ >= 0) {
@@ -200,14 +234,21 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
     if (!write_trace_file(instance_dir_ + "/trace_clock", use_tai ? "tai" : "mono"))
         return fail();
 
-    // Configure the tracefs instance buffer size and PID filter.
+    // Include `khugepaged` and `kcompactd*` in the instance PID filter so
+    // asynchronous THP collapses and physical page migrations are captured.
+    std::string pid_list = std::to_string(pid);
+    for (pid_t helper_pid : find_mm_helper_pids())
+        pid_list += " " + std::to_string(helper_pid);
+
+    // Configure the tracefs instance buffer size, PID filter, and raw pointer printing.
     if ((buffer_size_kb > 0 &&
          !write_trace_file(instance_dir_ + "/buffer_size_kb",
                            std::to_string(buffer_size_kb))) ||
-        !write_trace_file(instance_dir_ + "/set_event_pid", std::to_string(pid)) ||
+        !write_trace_file(instance_dir_ + "/set_event_pid", pid_list) ||
         !write_trace_file(instance_dir_ + "/options/event-fork", "1")) {
         return fail();
     }
+    write_trace_file(instance_dir_ + "/options/hash-ptr", "0");
 
     // Compute the offset from the selected kernel clock to DynamoRIO UTC microseconds.
     struct timespec clk_ts = {};
@@ -218,15 +259,22 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
         (real_tv.tv_sec * 1000000ULL + real_tv.tv_usec + kDrUtcToEpochMicros) -
         (clk_ts.tv_sec * 1000000ULL + clk_ts.tv_nsec / 1000ULL);
 
-    // Register kprobes on handle_mm_fault and unmap_page_range in tracefs.
+    // Select the `vma->vm_mm` offset explicitly by kernel version (+16 on Linux 6.1+
+    // with maple_tree VMAs; +64 on Linux 5.11-6.0 with rb_tree VMAs).
+    const std::string vm_mm_off = kernel_at_least(6, 1) ? "+16" : "+64";
+
+    // Register kprobes for page faults, unmaps, and page migrations in tracefs.
     const std::string sfx = "_" + std::to_string(pid);
-    std::string probes = "p:kprobes/fault_in" + sfx +
-        " handle_mm_fault vaddr=$arg2:x64\n"
+    std::string probes = "p:kprobes/fault_in" + sfx + " handle_mm_fault mm=" + vm_mm_off +
+        "($arg1):x64 vaddr=$arg2:x64\n"
         "r:kprobes/fault_out" +
         sfx +
         " handle_mm_fault ret=$retval:x64\n"
         "p:kprobes/unmap" +
-        sfx + " unmap_page_range start=$arg3:x64 end=$arg4:x64\n";
+        sfx +
+        " unmap_page_range mm=+0($arg1):x64 start=$arg3:x64 end=$arg4:x64\n"
+        "p:kprobes/mig_ptes" +
+        sfx + " remove_migration_ptes src=$arg1:x64 dst=$arg2:x64\n";
     if (!write_trace_file(tracefs_root_ + "/kprobe_events", probes, /*append=*/true))
         return fail();
 
@@ -236,13 +284,17 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
     if (trace_pipe_fd_ < 0)
         return fail();
 
-    // Enable the tracefs instance events (mm_page_alloc, fault_in, fault_out, unmap).
+    // Enable the tracefs instance tracepoints and kprobes.
     if (!write_trace_file(instance_dir_ + "/events/kmem/mm_page_alloc/enable", "1") ||
+        !write_trace_file(
+            instance_dir_ + "/events/huge_memory/mm_khugepaged_scan_pmd/enable", "1") ||
         !write_trace_file(instance_dir_ + "/events/kprobes/fault_in" + sfx + "/enable",
                           "1") ||
         !write_trace_file(instance_dir_ + "/events/kprobes/fault_out" + sfx + "/enable",
                           "1") ||
         !write_trace_file(instance_dir_ + "/events/kprobes/unmap" + sfx + "/enable",
+                          "1") ||
+        !write_trace_file(instance_dir_ + "/events/kprobes/mig_ptes" + sfx + "/enable",
                           "1") ||
         !write_trace_file(instance_dir_ + "/tracing_on", "1")) {
         return fail();
@@ -276,13 +328,16 @@ v2p_tracker_t::cleanup_kernel_tracing()
         return;
     const std::string sfx = "_" + std::to_string(target_pid_);
     write_trace_file(instance_dir_ + "/events/kmem/mm_page_alloc/enable", "0");
+    write_trace_file(instance_dir_ + "/events/huge_memory/mm_khugepaged_scan_pmd/enable",
+                     "0");
     write_trace_file(instance_dir_ + "/events/kprobes/fault_in" + sfx + "/enable", "0");
     write_trace_file(instance_dir_ + "/events/kprobes/fault_out" + sfx + "/enable", "0");
     write_trace_file(instance_dir_ + "/events/kprobes/unmap" + sfx + "/enable", "0");
+    write_trace_file(instance_dir_ + "/events/kprobes/mig_ptes" + sfx + "/enable", "0");
     rmdir(instance_dir_.c_str());
 
     // Unregister each kprobe individually so one error cannot skip the rest.
-    for (const char *name : { "fault_in", "fault_out", "unmap" }) {
+    for (const char *name : { "fault_in", "fault_out", "unmap", "mig_ptes" }) {
         write_trace_file(tracefs_root_ + "/kprobe_events",
                          std::string("-:kprobes/") + name + sfx + "\n",
                          /*append=*/true);
@@ -461,8 +516,7 @@ v2p_tracker_t::snapshot_initial_pagemap()
                     (entries[i] & kPagemapPfnMask) == base_pfn + i;
             }
             if (is_2m_contig && is_hugepage_in_pagetable(va, base_pfn)) {
-                write_record(out_fd_, 0, va, base_pfn * kPageSize4K, kPagesPer2M,
-                             V2P_RECORD_MAP);
+                record_page_map(0, va, base_pfn * kPageSize4K, kPagesPer2M);
                 va += kPageSize2M;
                 continue;
             }
@@ -470,10 +524,8 @@ v2p_tracker_t::snapshot_initial_pagemap()
             // Otherwise, emit individual 4 KB records for each resident page.
             for (size_t i = 0; i < read_pages; ++i) {
                 uint64_t pfn = entries[i] & kPagemapPfnMask;
-                if ((entries[i] & kPagemapPresentBit) != 0 && pfn != 0) {
-                    write_record(out_fd_, 0, va + i * kPageSize4K, pfn * kPageSize4K, 1,
-                                 V2P_RECORD_MAP);
-                }
+                if ((entries[i] & kPagemapPresentBit) != 0 && pfn != 0)
+                    record_page_map(0, va + i * kPageSize4K, pfn * kPageSize4K, 1);
             }
             va += read_pages * kPageSize4K;
         }
@@ -483,6 +535,38 @@ v2p_tracker_t::snapshot_initial_pagemap()
         close(kpageflags_fd);
     close(pagemap_fd);
     fclose(maps_file);
+}
+
+// Returns whether `mm` belongs to `target_pid_`, seeding `tracked_mm_` on the
+// first event observed from a thread inside `target_pid_`'s thread group.
+bool
+v2p_tracker_t::is_tracked_mm(uint64_t mm, pid_t tid)
+{
+    if (mm == 0)
+        return false;
+    if (tracked_mm_ == 0) {
+        if (tid != target_pid_) {
+            char task_path[64];
+            snprintf(task_path, sizeof(task_path), "/proc/%d/task/%d", target_pid_, tid);
+            if (access(task_path, F_OK) != 0)
+                return false;
+        }
+        tracked_mm_ = mm;
+    }
+    return mm == tracked_mm_;
+}
+
+// Updates `active_paddr_by_vpage_` for `page_count` contiguous 4 KB pages and
+// writes a `V2P_RECORD_MAP` entry to `out_fd_`.
+void
+v2p_tracker_t::record_page_map(uint64_t timestamp_us, uint64_t vaddr, uint64_t paddr,
+                               uint32_t page_count)
+{
+    for (uint32_t i = 0; i < page_count; ++i) {
+        active_paddr_by_vpage_[vaddr + static_cast<uint64_t>(i) * kPageSize4K] =
+            paddr + static_cast<uint64_t>(i) * kPageSize4K;
+    }
+    write_record(out_fd_, timestamp_us, vaddr, paddr, page_count, V2P_RECORD_MAP);
 }
 
 // Sums dropped event counts across `per_cpu/cpu*/stats` in the tracefs instance.
@@ -554,8 +638,8 @@ v2p_tracker_t::reader_thread_entry(void *arg)
     self->thread_exited_.store(true, std::memory_order_release);
 }
 
-// Parses a single trace_pipe event line and emits V2P_RECORD_MAP / V2P_RECORD_UNMAP
-// entries when page faults or page-table unmaps complete.
+// Parses a single trace_pipe event line and emits `v2p_record_t` updates for
+// page faults, unmaps, background THP collapses, and page migrations.
 void
 v2p_tracker_t::process_trace_line(const std::string &line)
 {
@@ -584,26 +668,39 @@ v2p_tracker_t::process_trace_line(const std::string &line)
     uint64_t timestamp_us = secs * 1000000ULL + usecs + clock_offset_us_;
     const size_t event_pos = colon + 2;
 
-    // Fault entry: record the faulting virtual address for `tid`.
+    // Fault entry: filter to `tracked_mm_` and record the faulting virtual address.
     if (line.find("fault_in_", event_pos) != std::string::npos) {
-        uint64_t vaddr = 0;
+        uint64_t mm = 0, vaddr = 0;
+        if (!extract_u64_field(line, "mm=", mm, 16, event_pos) || !is_tracked_mm(mm, tid))
+            return;
         if (extract_u64_field(line, "vaddr=", vaddr, 0, event_pos))
             pending_by_tid_[tid] = { vaddr, 0, 0, false };
         return;
     }
 
-    // Page allocation inside fault: capture PFN and order (order=0 for 4 KB,
-    // order=9 for 2 MB THP; `order >= current` preserves order-9 THP folios).
+    // Page allocation: calibrate `vmemmap_base_` and record fault or khugepaged PFNs.
     if (line.find("mm_page_alloc:", event_pos) != std::string::npos) {
+        uint64_t page_ptr = 0, pfn = 0, order = 0;
+        bool has_pfn = extract_u64_field(line, "pfn=", pfn, 0, event_pos);
+        if (vmemmap_base_ == 0 && has_pfn && pfn != ~0ULL &&
+            extract_u64_field(line, "page=", page_ptr, 16, event_pos) &&
+            page_ptr > (pfn << kStructPageShift)) {
+            vmemmap_base_ = page_ptr - (pfn << kStructPageShift);
+        }
         auto it = pending_by_tid_.find(tid);
-        uint64_t pfn = 0, order = 0;
-        if (it != pending_by_tid_.end() &&
-            extract_u64_field(line, "pfn=", pfn, 0, event_pos) &&
-            extract_u64_field(line, "order=", order, 10, event_pos) &&
-            (!it->second.has_alloc || order >= it->second.order)) {
-            it->second.pfn = pfn;
-            it->second.order = order;
-            it->second.has_alloc = true;
+        if (it != pending_by_tid_.end() && has_pfn &&
+            extract_u64_field(line, "order=", order, 10, event_pos)) {
+            // Keep `order >= current` so a deposited order-0 PTE table page does not
+            // overwrite an order-9 THP folio allocated earlier in the same fault.
+            if (!it->second.has_alloc || order >= it->second.order) {
+                it->second.pfn = pfn;
+                it->second.order = order;
+                it->second.has_alloc = true;
+            }
+        } else if (has_pfn && extract_u64_field(line, "order=", order, 10, event_pos) &&
+                   order == 9) {
+            // Stash `khugepaged`'s order-9 allocation until `mm_khugepaged_scan_pmd`.
+            pending_by_tid_[tid] = { 0, pfn, order, true };
         }
         return;
     }
@@ -612,30 +709,102 @@ v2p_tracker_t::process_trace_line(const std::string &line)
     if (line.find("fault_out_", event_pos) != std::string::npos) {
         auto it = pending_by_tid_.find(tid);
         if (it != pending_by_tid_.end()) {
-            pending_fault_t op = it->second;
+            pending_op_t op = it->second;
             pending_by_tid_.erase(it);
             if (op.has_alloc && op.pfn != 0 && op.pfn != ~0ULL) {
                 uint32_t page_count = 1U << op.order;
                 uint64_t length = static_cast<uint64_t>(page_count) * kPageSize4K;
                 uint64_t aligned_vaddr = op.vaddr & ~(length - 1);
-                write_record(out_fd_, timestamp_us, aligned_vaddr, op.pfn * kPageSize4K,
-                             page_count, V2P_RECORD_MAP);
+                record_page_map(timestamp_us, aligned_vaddr, op.pfn * kPageSize4K,
+                                page_count);
             }
         }
         return;
     }
 
-    // Page-table unmap: emit V2P_RECORD_UNMAP for the torn-down virtual range.
+    // Page migration (`kcompactd*`, NUMA balancing, compaction): remap any active
+    // virtual pages backed by `src` to the destination physical frame `dst`.
+    if (line.find("mig_ptes_", event_pos) != std::string::npos) {
+        uint64_t src = 0, dst = 0;
+        if (vmemmap_base_ != 0 && extract_u64_field(line, "src=", src, 16, event_pos) &&
+            src > vmemmap_base_ && extract_u64_field(line, "dst=", dst, 16, event_pos) &&
+            dst > vmemmap_base_ && dst != src) {
+            uint64_t src_paddr =
+                ((src - vmemmap_base_) >> kStructPageShift) * kPageSize4K;
+            uint64_t dst_paddr =
+                ((dst - vmemmap_base_) >> kStructPageShift) * kPageSize4K;
+            std::vector<uint64_t> migrated_vpages;
+            for (const auto &kv : active_paddr_by_vpage_) {
+                if (kv.second == src_paddr)
+                    migrated_vpages.push_back(kv.first);
+            }
+            for (uint64_t vpage : migrated_vpages)
+                record_page_map(timestamp_us, vpage, dst_paddr, 1);
+        }
+        return;
+    }
+
+    // Page-table unmap: remove torn-down virtual pages from `active_paddr_by_vpage_`
+    // and emit V2P_RECORD_UNMAP.
     if (line.find("unmap_", event_pos) != std::string::npos) {
-        uint64_t start = 0, end = 0;
+        uint64_t mm = 0, start = 0, end = 0;
+        if (!extract_u64_field(line, "mm=", mm, 16, event_pos) || !is_tracked_mm(mm, tid))
+            return;
         if (extract_u64_field(line, "start=", start, 0, event_pos) &&
             extract_u64_field(line, "end=", end, 0, event_pos) && end > start) {
             uint64_t aligned_start = start & ~(kPageSize4K - 1);
             uint64_t aligned_end = (end + kPageSize4K - 1) & ~(kPageSize4K - 1);
+            for (auto it = active_paddr_by_vpage_.begin();
+                 it != active_paddr_by_vpage_.end();) {
+                if (it->first >= aligned_start && it->first < aligned_end)
+                    it = active_paddr_by_vpage_.erase(it);
+                else
+                    ++it;
+            }
             uint32_t pages =
                 static_cast<uint32_t>((aligned_end - aligned_start) / kPageSize4K);
             write_record(out_fd_, timestamp_us, aligned_start, 0, pages,
                          V2P_RECORD_UNMAP);
+        }
+        return;
+    }
+
+    // Asynchronous `khugepaged` 2 MB collapse: always clear any stashed order-9 PFN
+    // for `tid` (since `collapse_huge_page` either consumed or freed it before
+    // emitting `mm_khugepaged_scan_pmd`), then record the collapse if it succeeded
+    // on `tracked_mm_`.
+    if (line.find("mm_khugepaged_scan_pmd:", event_pos) != std::string::npos) {
+        auto it = pending_by_tid_.find(tid);
+        if (it == pending_by_tid_.end())
+            return;
+        pending_op_t op = it->second;
+        pending_by_tid_.erase(it);
+        uint64_t mm = 0, scan_pfn = 0, page_ptr = 0;
+        if (!extract_u64_field(line, "mm=", mm, 16, event_pos) || tracked_mm_ == 0 ||
+            mm != tracked_mm_ ||
+            line.find("status=succeeded", event_pos) == std::string::npos) {
+            return;
+        }
+        if (!op.has_alloc || op.order != 9 || op.pfn == 0 || op.pfn == ~0ULL)
+            return;
+        if (!extract_u64_field(line, "scan_pfn=", scan_pfn, 16, event_pos) ||
+            scan_pfn == 0 || scan_pfn == ~0ULL) {
+            if (vmemmap_base_ != 0 &&
+                extract_u64_field(line, "page=", page_ptr, 16, event_pos) &&
+                page_ptr > vmemmap_base_) {
+                scan_pfn = (page_ptr - vmemmap_base_) >> kStructPageShift;
+            }
+        }
+        if (scan_pfn == 0)
+            return;
+        uint64_t scan_paddr = scan_pfn * kPageSize4K;
+        for (const auto &kv : active_paddr_by_vpage_) {
+            if (kv.second == scan_paddr) {
+                uint64_t collapsed_vaddr = kv.first & ~(kPageSize2M - 1);
+                record_page_map(timestamp_us, collapsed_vaddr, op.pfn * kPageSize4K,
+                                kPagesPer2M);
+                break;
+            }
         }
     }
 }
