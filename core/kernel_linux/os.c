@@ -851,3 +851,30 @@ find_dynamo_library_vm_areas(void)
     }
     return count;
 }
+
+static void
+find_executable_vm_areas_callback(const kernel_memory_region_t *region, void *arg)
+{
+    int *count = (int *)arg;
+    if (app_memory_allocation(NULL, region->base, region->size, region->prot,
+                              false /*!image*/ _IF_DEBUG("find_executable_vm_areas"))) {
+        (*count)++;
+    }
+}
+
+int
+find_executable_vm_areas(void)
+{
+    int count = 0;
+    int res = kernel_walk_code_regions(find_executable_vm_areas_callback, &count);
+    if (res < 0) {
+        return res;
+    }
+    return count;
+}
+
+bool
+is_in_dynamo_dll(app_pc pc)
+{
+    return pc >= get_dynamorio_dll_start() && pc < get_dynamorio_dll_end();
+}

@@ -332,6 +332,18 @@ kernel_get_module_name(void)
     return THIS_MODULE->name;
 }
 
+void *
+kernel_get_module_text_start(void)
+{
+    return THIS_MODULE->mem[MOD_TEXT].base;
+}
+
+void *
+kernel_get_module_text_end(void)
+{
+    return THIS_MODULE->mem[MOD_TEXT].base + THIS_MODULE->mem[MOD_TEXT].size;
+}
+
 int
 kernel_walk_module_regions(kernel_memory_region_callback_t callback, void *arg)
 {
@@ -363,16 +375,90 @@ kernel_walk_module_regions(kernel_memory_region_callback_t callback, void *arg)
     return 0;
 }
 
-void *
-kernel_get_module_text_start(void)
+#ifdef CONFIG_X86
+static unsigned long
+query_kernel_page(unsigned long addr, unsigned int *prot)
 {
-    return THIS_MODULE->mem[MOD_TEXT].base;
+    unsigned int level;
+    pte_t *ptep = lookup_address(addr, &level);
+    unsigned long size;
+
+    *prot = 0;
+    if (ptep == NULL) {
+        switch (level) {
+        case PG_LEVEL_NONE: size = P4D_SIZE; break;
+        case PG_LEVEL_512G: size = PUD_SIZE; break;
+        case PG_LEVEL_1G: size = PMD_SIZE; break;
+        default: KERNEL_ASSERT(false); size = PAGE_SIZE;
+        }
+    } else {
+        pte_t pte = ptep_get(ptep);
+        size = page_level_size(level);
+
+        if ((pte_flags(pte) & _PAGE_PRESENT) != 0) {
+            *prot = KERNEL_MEMPROT_READ;
+            if (pte_write(pte)) {
+                *prot |= KERNEL_MEMPROT_WRITE;
+            }
+            if (pte_exec(pte)) {
+                *prot |= KERNEL_MEMPROT_EXEC;
+            }
+        }
+    }
+    return (addr & ~(size - 1)) + size;
 }
 
-void *
-kernel_get_module_text_end(void)
+static unsigned long
+query_kernel_run(unsigned long addr, unsigned long end, unsigned int *prot)
 {
-    return THIS_MODULE->mem[MOD_TEXT].base + THIS_MODULE->mem[MOD_TEXT].size;
+    unsigned long next = query_kernel_page(addr, prot);
+    while (next != 0 && next < end) {
+        unsigned int next_prot;
+        unsigned long after = query_kernel_page(next, &next_prot);
+        if (next_prot != *prot) {
+            break;
+        }
+        next = after;
+    }
+
+    if (next == 0 || next > end) {
+        return end;
+    } else {
+        return next;
+    }
+}
+#endif /* CONFIG_X86 */
+
+int
+kernel_walk_code_regions(kernel_memory_region_callback_t callback, void *arg)
+{
+#ifdef CONFIG_X86
+    const unsigned long start = __START_KERNEL_map;
+    const unsigned long end = MODULES_END;
+    unsigned long addr = start;
+
+    while (addr < end) {
+        unsigned int prot;
+        unsigned long next = query_kernel_run(addr, end, &prot);
+
+        const kernel_memory_region_t region = {
+            .base = (unsigned char *)addr,
+            .size = next - addr,
+            .prot = prot,
+        };
+
+        if (region.prot != 0) {
+            callback(&region, arg);
+        }
+
+        addr = next;
+    }
+
+    return 0;
+#else
+    /* TODO i#8021: Implement page table walk for AArch64. */
+    return -EOPNOTSUPP;
+#endif
 }
 
 /* Returns whether the |size| bytes at |addr| can be read without faulting.  Probes one
