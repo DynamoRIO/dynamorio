@@ -1179,8 +1179,8 @@ redirect_strdup_initonly(const char *str)
  * heap_alloc_address_override.
  * This is not thread safe but unit tests are assumed to be single-threaded.
  */
-bool enable_heap_alloc_address_override;
-void *heap_alloc_address_override;
+bool enable_heap_alloc_address_override = false;
+void *heap_alloc_address_override = NULL;
 
 static void *
 mock_global_heap_alloc(size_t size HEAPACCT(which_heap_t which))
