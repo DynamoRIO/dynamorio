@@ -109,6 +109,8 @@ using ::dynamorio::droption::DROPTION_SCOPE_ALL;
 using ::dynamorio::droption::DROPTION_SCOPE_CLIENT;
 
 char logsubdir[MAXIMUM_PATH];
+// Used for -split_windows.
+char winsubdir[MAXIMUM_PATH];
 #ifdef BUILD_PT_TRACER
 char kernel_trace_logsubdir[MAXIMUM_PATH];
 #endif
@@ -231,6 +233,9 @@ is_repstr_expansion_enabled()
 std::atomic<ptr_int_t> tracing_window;
 
 struct file_ops_func_t file_ops_func;
+drmemtrace_started_tracing_func_t started_tracing_func;
+drmemtrace_ended_tracing_func_t ended_tracing_func;
+void *tracing_func_arg;
 
 static char modlist_path[MAXIMUM_PATH];
 static char funclist_path[MAXIMUM_PATH];
@@ -688,9 +693,13 @@ event_post_attach()
         NOTIFY(1, "Switching to counting mode after attach\n");
         tracing_mode.store(BBDUP_MODE_COUNT, std::memory_order_release);
     } else if (op_L0_filter_until_instrs.get_value()) {
+        if (started_tracing_func != nullptr)
+            started_tracing_func(tracing_func_arg);
         NOTIFY(1, "Switching to filter mode after attach\n");
         tracing_mode.store(BBDUP_MODE_L0_FILTER, std::memory_order_release);
     } else {
+        if (started_tracing_func != nullptr)
+            started_tracing_func(tracing_func_arg);
         NOTIFY(1, "Switching to tracing mode after attach\n");
         tracing_mode.store(BBDUP_MODE_TRACE, std::memory_order_release);
     }
@@ -708,6 +717,9 @@ event_pre_detach()
         // possible post-detach timestamp by freezing.
         instru->set_frozen_timestamp(instru_t::get_timestamp());
         tracing_mode.store(BBDUP_MODE_NOP, std::memory_order_release);
+        if (ended_tracing_func != nullptr) {
+            ended_tracing_func(tracing_func_arg);
+        }
     }
 }
 
@@ -2843,11 +2855,22 @@ drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
 }
 
 drmemtrace_status_t
+drmemtrace_boundary_events(drmemtrace_started_tracing_func_t started_func,
+                           drmemtrace_ended_tracing_func_t ended_func, void *user_arg)
+{
+    started_tracing_func = started_func;
+    ended_tracing_func = ended_func;
+    tracing_func_arg = user_arg;
+    return DRMEMTRACE_SUCCESS;
+}
+
+drmemtrace_status_t
 drmemtrace_get_output_path(DR_PARAM_OUT const char **path)
 {
     if (path == NULL)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
-    *path = logsubdir;
+    *path =
+        (has_tracing_windows() && op_split_windows.get_value()) ? winsubdir : logsubdir;
     return DRMEMTRACE_SUCCESS;
 }
 
