@@ -48,7 +48,7 @@
 #include <linux/ktime.h>
 #include <linux/limits.h>
 #include <linux/module.h>
-#include <linux/pagetable.h>
+#include <linux/pgtable.h>
 #include <linux/panic.h>
 #include <linux/percpu.h>
 #include <linux/printk.h>
