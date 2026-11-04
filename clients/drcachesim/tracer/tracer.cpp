@@ -42,6 +42,7 @@
 #include <string.h>
 #include <sys/types.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cstdarg>
 #include <cstdint>
@@ -153,7 +154,9 @@ typedef struct {
 /* For online simulation, we write to a single global pipe */
 named_pipe_t ipc_pipe;
 
-#define MAX_INSTRU_SIZE 256 /* The max instance size of instru_t or its children. */
+// The max instance size of instru_t or its children.
+static constexpr size_t MAX_INSTRU_SIZE =
+    (std::max)(sizeof(offline_instru_t), sizeof(online_instru_t));
 instru_t *instru;
 
 static client_id_t client_id;
@@ -3023,7 +3026,6 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
             FATAL("Failed to create a subdir in %s\n", op_outdir.get_value().c_str());
         }
         /* we use placement new for better isolation */
-        DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(offline_instru_t));
         placement = dr_global_alloc(MAX_INSTRU_SIZE);
         // TODO i#6474, i#2062: Also handle op_L0_filter_until_instrs here when
         // i#6474 is resolved.
@@ -3034,7 +3036,6 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     } else {
         void *placement;
         /* we use placement new for better isolation */
-        DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(online_instru_t));
         placement = dr_global_alloc(MAX_INSTRU_SIZE);
         instru = new (placement) online_instru_t(
             insert_load_buf_ptr, insert_update_buf_ptr, &scratch_reserve_vec);
