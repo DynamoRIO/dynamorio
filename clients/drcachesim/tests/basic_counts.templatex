@@ -33,6 +33,9 @@ Total counts:
      .* total wait markers
 #if defined(WINDOWS) && !defined(X64)
           26 total kernel transfer markers
+#elif defined(WINDOWS)
+// On x64, each longjmp adds a transfer where longjmp unwinds through NtContinueEx.
+          (13|26) total kernel transfer markers
 #else
           13 total kernel transfer markers
 #endif
@@ -60,6 +63,8 @@ Thread .* counts:
      .* wait markers
 #if defined(WINDOWS) && !defined(X64)
           26 kernel transfer markers
+#elif defined(WINDOWS)
+          (13|26) kernel transfer markers
 #else
           13 kernel transfer markers
 #endif
