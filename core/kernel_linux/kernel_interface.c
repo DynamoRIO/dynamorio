@@ -376,7 +376,7 @@ kernel_walk_module_regions(kernel_memory_region_callback_t callback, void *arg)
     return 0;
 }
 
-#ifdef CONFIG_X86
+#ifdef CONFIG_X86_64
 static unsigned long
 query_kernel_page(unsigned long addr, unsigned int *prot)
 {
