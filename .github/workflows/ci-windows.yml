@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [sized]
+        variant: [original, mutex, sized]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -27,7 +27,7 @@ jobs:
         shell: cmd
         run: |
           call "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Auxiliary/Build/vcvars32.bat"
-          ctest -VV -S "suite/runsuite.cmake,automated_ci;use_ninja;64_only;debug_only;build_only"
+          perl suite/runsuite_wrapper.pl automated_ci use_ninja 64_only debug_only build_only
         env:
           CI_TRIGGER: workflow_dispatch
           CI_BRANCH: ${{ github.ref }}
