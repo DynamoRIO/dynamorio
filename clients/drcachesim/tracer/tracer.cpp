@@ -37,6 +37,7 @@
  * XXX i#1703, i#2001: add in more optimizations to improve performance.
  */
 
+#define NOMINMAX // Avoid windows.h messing up std::max.
 #include "tracer.h"
 
 #include <string.h>
@@ -156,7 +157,7 @@ named_pipe_t ipc_pipe;
 
 // The max instance size of instru_t or its children.
 static constexpr size_t MAX_INSTRU_SIZE =
-    (std::max)(sizeof(offline_instru_t), sizeof(online_instru_t));
+    std::max(sizeof(offline_instru_t), sizeof(online_instru_t));
 instru_t *instru;
 
 static client_id_t client_id;
