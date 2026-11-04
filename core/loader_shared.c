@@ -1031,19 +1031,17 @@ redirect_malloc_size_and_start(void *mem, DR_PARAM_OUT void **start_out,
         if (requested_size != NULL)
             *requested_size = *(size_t *)((ptr_uint_t)mem - 3 * HEADER_WORD_SIZE);
         size &= ~REDIRECT_EXTRA_HEADERS;
-    } else if (TESTANY(REDIRECT_HEADER_SHIFTED, size)) {
-        start = size_ptr - 1;
-        size &= ~REDIRECT_HEADER_SHIFTED;
+    } else {
+        if (TESTANY(REDIRECT_HEADER_SHIFTED, size)) {
+            start = size_ptr - 1;
+            size &= ~REDIRECT_HEADER_SHIFTED;
+        }
         if (requested_size != NULL) {
             /* Subtract the header and extra size for alignment. */
-            *requested_size = size - ALIGN_FORWARD(HEADER_WORD_SIZE, HEAP_ALIGNMENT) -
-                (STANDARD_HEAP_ALIGNMENT - HEAP_ALIGNMENT);
+            *requested_size = size -
+                (ALIGN_FORWARD(HEADER_WORD_SIZE, HEAP_ALIGNMENT) +
+                 STANDARD_HEAP_ALIGNMENT - HEAP_ALIGNMENT);
         }
-    } else if (requested_size != NULL) {
-        /* This is STANDARD_HEAP_ALIGNMENT-aligned with no header shift. */
-        *requested_size = size -
-            (ALIGN_FORWARD(HEADER_WORD_SIZE, HEAP_ALIGNMENT) + STANDARD_HEAP_ALIGNMENT -
-             HEAP_ALIGNMENT);
     }
     if (start_out != NULL)
         *start_out = start;
