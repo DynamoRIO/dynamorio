@@ -1263,7 +1263,7 @@ unit_test_redirect_heap(void)
      * offsets.
      */
     const size_t alignment = STANDARD_HEAP_ALIGNMENT * 2;
-    /* Allocate more backing memory than we need so there this room for the allocation's
+    /* Allocate more backing memory than we need so there is room for the allocation's
      * headers, alignment padding, and payload.
      */
     void *mem = redirect_malloc(8 * alignment);
