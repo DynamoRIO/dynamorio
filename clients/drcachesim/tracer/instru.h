@@ -549,6 +549,13 @@ public:
         disable_optimizations_ = disable_optimizations;
     }
 
+    void
+    set_write_file_func(ssize_t (*write_file)(file_t file, const void *data,
+                                              size_t count))
+    {
+        write_file_func_ = write_file;
+    }
+
 private:
     struct custom_module_data_t {
         custom_module_data_t(const char *base_in, size_t size_in, void *user_in)
