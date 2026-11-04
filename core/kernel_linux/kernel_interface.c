@@ -50,9 +50,9 @@
 #include <linux/ktime.h>
 #include <linux/limits.h>
 #include <linux/module.h>
-#include <linux/pgtable.h>
 #include <linux/panic.h>
 #include <linux/percpu.h>
+#include <linux/pgtable.h>
 #include <linux/printk.h>
 #include <linux/preempt.h>
 #include <linux/smp.h>
@@ -403,7 +403,9 @@ kernel_walk_module_regions(kernel_memory_region_callback_t callback, void *arg)
 
         unsigned int prot;
         if (!module_mem_type_prot(type, &prot)) {
-            /* Rejected by check_module_mem_types() at module load. */
+            /* Should be unreachable as unknown module memory type is rejected
+             * by check_module_mem_types() at module load.
+             */
             KERNEL_ASSERT(false);
             continue;
         }
@@ -452,6 +454,7 @@ query_kernel_page(unsigned long addr, unsigned int *prot)
     return (addr & ~(size - 1)) + size;
 }
 
+/* Returns the end of the run of pages starting at |addr| that share its protection. */
 static unsigned long
 query_kernel_run(unsigned long addr, unsigned long end, unsigned int *prot)
 {
@@ -491,7 +494,7 @@ walk_code_range(unsigned long start, unsigned long end,
     }
 }
 
-#endif /* CONFIG_X86 */
+#endif /* CONFIG_X86_64 */
 
 void
 kernel_walk_code_regions(kernel_memory_region_callback_t callback, void *arg)
@@ -499,7 +502,9 @@ kernel_walk_code_regions(kernel_memory_region_callback_t callback, void *arg)
 #ifdef CONFIG_X86_64
     /* On x86-64, kernel code lives in the top 2 GiB: the kernel image at
      * __START_KERNEL_map, followed by the module area up to MODULES_END.
-     * XXX i#8021: Executable memory mapped after this walk is not tracked.
+     * XXX i#8021: Executable memory mapped after this walk is not tracked. Neither is
+     * memory unmapped after it (e.g., module unload, freed BPF JIT images), which
+     * leaves stale regions behind.
      */
     const unsigned long start = __START_KERNEL_map;
     const unsigned long end = MODULES_END;
