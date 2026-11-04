@@ -48,6 +48,7 @@
 #include <linux/ktime.h>
 #include <linux/limits.h>
 #include <linux/module.h>
+#include <linux/pagetable.h>
 #include <linux/panic.h>
 #include <linux/percpu.h>
 #include <linux/printk.h>
@@ -385,6 +386,12 @@ query_kernel_page(unsigned long addr, unsigned int *prot)
 
     *prot = 0;
     if (ptep == NULL) {
+        /* Some entry at the PMD level or above is empty, so at least the PMD-sized block
+         * containing |addr| is unmapped. We could use |level| to determine the exact skip
+         * needed, but the meaning of |level| on a NULL return changed in Linux 6.11:
+         * https://github.com/torvalds/linux/commit/9d1dcdfa9091
+         * Skipping PMD_SIZE at a time is conservative but works across versions.
+         */
         size = PMD_SIZE;
     } else {
         pte_t pte = ptep_get(ptep);
@@ -416,11 +423,7 @@ query_kernel_run(unsigned long addr, unsigned long end, unsigned int *prot)
         next = after;
     }
 
-    if (next == 0 || next > end) {
-        return end;
-    } else {
-        return next;
-    }
+    return (next == 0 || next > end) ? end : next;
 }
 
 static void
@@ -451,15 +454,24 @@ walk_code_range(unsigned long start, unsigned long end,
 int
 kernel_walk_code_regions(kernel_memory_region_callback_t callback, void *arg)
 {
-#ifdef CONFIG_X86
+#ifdef CONFIG_X86_64
+    /* On x86-64, kernel code lives in the top 2 GiB: the kernel image at
+     * __START_KERNEL_map, followed by the module area up to MODULES_END.
+     * XXX i#8021: Executable memory mapped after this walk is not tracked.
+     */
     const unsigned long start = __START_KERNEL_map;
     const unsigned long end = MODULES_END;
+
+    /* DR's heap lies in the module area and is mapped executable, but it's not kernel
+     * code. It should be skipped here.
+     */
     const unsigned long heap_start = (unsigned long)heap;
     const unsigned long heap_end = heap_start + heap_size;
     KERNEL_ASSERT(heap != NULL && start <= heap_start && heap_end <= end);
 
     walk_code_range(start, heap_start, callback, arg);
     walk_code_range(heap_end, end, callback, arg);
+
     return 0;
 #else
     /* TODO i#8021: Implement page table walk for AArch64. */

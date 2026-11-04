@@ -739,10 +739,14 @@ get_dynamorio_dll_preferred_base(void);
 
 bool
 is_in_dynamo_dll(app_pc pc);
-/* Returns the number of separate regions added to the dynamo vm areas list. */
+/* Returns the number of separate regions added to the dynamo vm areas list,
+ * or a negative value on failure.
+ */
 int
 find_dynamo_library_vm_areas(void);
-/* Returns the number of executable regions found in the address space. */
+/* Returns the number of executable regions found in the address space,
+ * or a negative value on failure.
+ */
 int
 find_executable_vm_areas(void);
 

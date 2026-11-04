@@ -410,6 +410,10 @@ os_modules_exit(void)
     /* Nothing. */
 }
 
+/* Matches core/unix/module.c. The kernel module does not add vmlinux or loaded kernel
+ * modules to DR's module list yet, so this currently returns NULL.
+ * TODO i#8021: Register vmlinux and kernel modules with the module list.
+ */
 app_pc
 get_module_base(app_pc pc)
 {
@@ -662,6 +666,8 @@ find_executable_vm_areas(void)
     if (res < 0) {
         return res;
     }
+
+    STATS_ADD(num_app_code_modules, count);
     return count;
 }
 

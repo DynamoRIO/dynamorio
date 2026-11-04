@@ -43,7 +43,7 @@
 typedef struct {
     unsigned char *base;
     size_t size;
-    unsigned int prot;
+    unsigned int prot; /* KERNEL_MEMPROT_* */
 } kernel_memory_region_t;
 
 typedef void (*kernel_memory_region_callback_t)(const kernel_memory_region_t *region,
@@ -121,6 +121,10 @@ kernel_get_module_text_end(void);
 int
 kernel_walk_module_regions(kernel_memory_region_callback_t callback, void *arg);
 
+/* Calls |callback| for each run of present pages with the same protection between the
+ * kernel image base and the end of the modules area, excluding DR's own heap.
+ * Returns 0 on success.
+ */
 int
 kernel_walk_code_regions(kernel_memory_region_callback_t callback, void *arg);
 
