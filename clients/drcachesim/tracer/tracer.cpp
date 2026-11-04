@@ -109,6 +109,7 @@ using ::dynamorio::droption::DROPTION_SCOPE_ALL;
 using ::dynamorio::droption::DROPTION_SCOPE_CLIENT;
 
 char logsubdir[MAXIMUM_PATH];
+// Used for -split_windows.
 char winsubdir[MAXIMUM_PATH];
 #ifdef BUILD_PT_TRACER
 char kernel_trace_logsubdir[MAXIMUM_PATH];
@@ -2868,7 +2869,8 @@ drmemtrace_get_output_path(DR_PARAM_OUT const char **path)
 {
     if (path == NULL)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
-    *path = op_split_windows.get_value() ? winsubdir : logsubdir;
+    *path =
+        (has_tracing_windows() && op_split_windows.get_value()) ? winsubdir : logsubdir;
     return DRMEMTRACE_SUCCESS;
 }
 

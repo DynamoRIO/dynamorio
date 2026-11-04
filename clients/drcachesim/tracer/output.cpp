@@ -531,7 +531,8 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
         return false;
     }
 
-    const char *dir = has_tracing_windows() ? winsubdir : logsubdir;
+    const char *dir =
+        (has_tracing_windows() && op_split_windows.get_value()) ? winsubdir : logsubdir;
     if (has_tracing_windows() && !op_split_windows.get_value() &&
         data->file != INVALID_FILE) {
         return false;
