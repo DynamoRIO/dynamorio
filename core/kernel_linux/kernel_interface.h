@@ -114,18 +114,15 @@ void *
 kernel_get_module_text_end(void);
 
 /* Calls |callback| for each non-empty core memory region of this module (text, data,
- * rodata, ro_after_init). Returns 0 on success or a negative errno on failure, e.g.,
- * -EOPNOTSUPP for an unknown region type, in which case |callback| may already have been
- * called for some regions.
+ * rodata, ro_after_init).
  */
-int
+void
 kernel_walk_module_regions(kernel_memory_region_callback_t callback, void *arg);
 
 /* Calls |callback| for each run of present pages with the same protection between the
  * kernel image base and the end of the modules area, excluding DR's own heap.
- * Returns 0 on success.
  */
-int
+void
 kernel_walk_code_regions(kernel_memory_region_callback_t callback, void *arg);
 
 /* Returns whether the |size| bytes at |addr| can be read without faulting.  Handles both

@@ -198,6 +198,39 @@ resolve_kernel_symbols(void)
     return 0;
 }
 
+/* Sets |*prot| to the KERNEL_MEMPROT_* protection of a core module memory type.
+ * Returns false for an unknown type.
+ */
+static bool
+module_mem_type_prot(enum mod_mem_type type, unsigned int *prot)
+{
+    *prot = KERNEL_MEMPROT_READ;
+    switch (type) {
+    case MOD_TEXT: *prot |= KERNEL_MEMPROT_EXEC; return true;
+    case MOD_DATA: *prot |= KERNEL_MEMPROT_WRITE; return true;
+    case MOD_RODATA:
+    case MOD_RO_AFTER_INIT: return true;
+    default: return false;
+    }
+}
+
+/* Rejects a kernel whose module memory layout has a core type we do not know, so that
+ * kernel_walk_module_regions() cannot fail later.
+ */
+static int
+check_module_mem_types(void)
+{
+    for_class_mod_mem_type(type, core)
+    {
+        unsigned int prot;
+        if (THIS_MODULE->mem[type].size != 0 && !module_mem_type_prot(type, &prot)) {
+            pr_err("Unsupported module memory type %d\n", type);
+            return -EOPNOTSUPP;
+        }
+    }
+    return 0;
+}
+
 int
 kernel_module_init(size_t dr_heap_size)
 {
@@ -207,6 +240,11 @@ kernel_module_init(size_t dr_heap_size)
     }
 
     ret = resolve_kernel_symbols();
+    if (ret != 0) {
+        return ret;
+    }
+
+    ret = check_module_mem_types();
     if (ret != 0) {
         return ret;
     }
@@ -345,7 +383,7 @@ kernel_get_module_text_end(void)
     return THIS_MODULE->mem[MOD_TEXT].base + THIS_MODULE->mem[MOD_TEXT].size;
 }
 
-int
+void
 kernel_walk_module_regions(kernel_memory_region_callback_t callback, void *arg)
 {
     for_class_mod_mem_type(type, core)
@@ -355,13 +393,11 @@ kernel_walk_module_regions(kernel_memory_region_callback_t callback, void *arg)
             continue;
         }
 
-        unsigned int prot = KERNEL_MEMPROT_READ;
-        switch (type) {
-        case MOD_TEXT: prot |= KERNEL_MEMPROT_EXEC; break;
-        case MOD_DATA: prot |= KERNEL_MEMPROT_WRITE; break;
-        case MOD_RODATA:
-        case MOD_RO_AFTER_INIT: break;
-        default: return -EOPNOTSUPP;
+        unsigned int prot;
+        if (!module_mem_type_prot(type, &prot)) {
+            /* Rejected by check_module_mem_types() at module load. */
+            KERNEL_ASSERT(false);
+            continue;
         }
 
         const kernel_memory_region_t region = {
@@ -372,8 +408,6 @@ kernel_walk_module_regions(kernel_memory_region_callback_t callback, void *arg)
 
         callback(&region, arg);
     }
-
-    return 0;
 }
 
 #ifdef CONFIG_X86_64
@@ -451,7 +485,7 @@ walk_code_range(unsigned long start, unsigned long end,
 
 #endif /* CONFIG_X86 */
 
-int
+void
 kernel_walk_code_regions(kernel_memory_region_callback_t callback, void *arg)
 {
 #ifdef CONFIG_X86_64
@@ -471,11 +505,8 @@ kernel_walk_code_regions(kernel_memory_region_callback_t callback, void *arg)
 
     walk_code_range(start, heap_start, callback, arg);
     walk_code_range(heap_end, end, callback, arg);
-
-    return 0;
 #else
-    /* TODO i#8021: Implement page table walk for AArch64. */
-    return -EOPNOTSUPP;
+    /* TODO i#8021: Implement the page table walk for AArch64. */
 #endif
 }
 

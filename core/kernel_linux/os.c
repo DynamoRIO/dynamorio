@@ -640,11 +640,7 @@ int
 find_dynamo_library_vm_areas(void)
 {
     int count = 0;
-
-    int res = kernel_walk_module_regions(find_dynamo_library_vm_areas_callback, &count);
-    if (res < 0) {
-        return res;
-    }
+    kernel_walk_module_regions(find_dynamo_library_vm_areas_callback, &count);
     return count;
 }
 
@@ -662,11 +658,7 @@ int
 find_executable_vm_areas(void)
 {
     int count = 0;
-    int res = kernel_walk_code_regions(find_executable_vm_areas_callback, &count);
-    if (res < 0) {
-        return res;
-    }
-
+    kernel_walk_code_regions(find_executable_vm_areas_callback, &count);
     STATS_ADD(num_app_code_modules, count);
     return count;
 }
