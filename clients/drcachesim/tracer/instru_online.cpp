@@ -97,7 +97,7 @@ online_instru_t::get_instr_count(byte *buf_ptr) const
 }
 
 addr_t
-online_instru_t::get_entry_addr(void *drcontext, byte *buf_ptr)
+online_instru_t::get_entry_addr(void *drcontext, byte *buf_ptr) const
 {
     trace_entry_t *entry = (trace_entry_t *)buf_ptr;
     return entry->addr;

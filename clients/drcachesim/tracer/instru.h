@@ -49,7 +49,6 @@
 #include "drvector.h"
 #include "raw2trace_shared.h"
 #include "trace_entry.h"
-#include "hashtable.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -211,7 +210,7 @@ public:
     virtual int
     get_instr_count(byte *buf_ptr) const = 0;
     virtual addr_t
-    get_entry_addr(void *drcontext, byte *buf_ptr) = 0;
+    get_entry_addr(void *drcontext, byte *buf_ptr) const = 0;
     virtual void
     set_entry_addr(byte *buf_ptr, addr_t addr) = 0;
 
@@ -357,7 +356,7 @@ public:
     int
     get_instr_count(byte *buf_ptr) const override;
     addr_t
-    get_entry_addr(void *drcontext, byte *buf_ptr) override;
+    get_entry_addr(void *drcontext, byte *buf_ptr) const override;
     void
     set_entry_addr(byte *buf_ptr, addr_t addr) override;
 
@@ -451,7 +450,7 @@ public:
     int
     get_instr_count(byte *buf_ptr) const override;
     addr_t
-    get_entry_addr(void *drcontext, byte *buf_ptr) override;
+    get_entry_addr(void *drcontext, byte *buf_ptr) const override;
     void
     set_entry_addr(byte *buf_ptr, addr_t addr) override;
 
@@ -637,10 +636,6 @@ private:
     uint64_t encoding_id_ = 0;
     uint64_t encoding_length_ = 0;
     uint64_t encoding_bytes_written_ = 0;
-    // Track the PC for virtual-to-physical translation.
-    // XXX i#8239: Use the fragment delete event to avoid this from growing too
-    // large with JIT churn.
-    hashtable_t modoffs2pc_;
     bool instrs_are_separate_ = false;
 };
 
