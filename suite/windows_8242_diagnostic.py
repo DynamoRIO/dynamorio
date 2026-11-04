@@ -5,6 +5,25 @@ import sys
 
 
 def prepare(variant):
+    tracer = Path("clients/drcachesim/tracer/tracer.cpp")
+    tracer_text = tracer.read_text()
+    if variant == "sized":
+        tracer_text = tracer_text.replace(
+            "#define MAX_INSTRU_SIZE 256 /* The max instance size of instru_t or its children. */",
+            "static constexpr size_t MAX_INSTRU_SIZE =\n"
+            "    sizeof(offline_instru_t) > sizeof(online_instru_t)\n"
+            "    ? sizeof(offline_instru_t) : sizeof(online_instru_t);")
+    tracer_text = tracer_text.replace(
+        "        DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(offline_instru_t));",
+        """        file_t size_log = dr_open_file("8242-sizes.log", DR_FILE_WRITE_APPEND);
+        if (size_log != INVALID_FILE) {
+            dr_fprintf(size_log, "allocation=%zu offline=%zu online=%zu file_t=%zu table=%zu\\n",
+                       (size_t)MAX_INSTRU_SIZE, sizeof(offline_instru_t),
+                       sizeof(online_instru_t), sizeof(file_t), sizeof(hashtable_t));
+            dr_close_file(size_log);
+        }
+        DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(offline_instru_t));""", 1)
+    tracer.write_text(tracer_text)
     path = Path("clients/drcachesim/tracer/instru_offline.cpp")
     text = path.read_text()
     if variant == "mutex":
