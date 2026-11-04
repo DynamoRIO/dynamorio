@@ -11,7 +11,6 @@ pre-DR start.*
 window_start for .*/raw/window.0000
 open file .*
 0: writing [0-9]+ bytes .*
-1: writing [0-9]+ bytes .*
 restore the write file function
 Hit tracing window #0 limit: disabling tracing.
 window_end for .*/raw/window.0000

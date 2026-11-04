@@ -115,8 +115,10 @@ local_write_file(file_t file, const void *data, size_t size)
                count, size, data, file, res);
     /* Assuming it is a single-threaded app, we do not worry about
      * racy access on count.
+     * We replace after one call to avoid flakiness across platforms in how
+     * many writes occur in the first window.
      */
-    if (count++ == 1) {
+    if (count++ == 0) {
         dr_fprintf(STDERR, "restore the write file function\n");
         drmemtrace_replace_file_ops(NULL, NULL, dr_write_file, NULL, NULL);
     }
