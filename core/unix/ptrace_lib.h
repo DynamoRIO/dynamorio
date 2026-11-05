@@ -58,7 +58,8 @@ bool
 ptrace_set_sigmask(thread_id_t tid, const kernel_sigset_t *mask);
 
 bool
-ptrace_unmask_signal(thread_id_t tid, int sig);
+ptrace_unmask_signal(thread_id_t tid, int sig,
+                     DR_PARAM_OUT kernel_sigset_t *original_mask);
 
 #    if defined(AARCH64) && defined(DR_HOST_AARCH64)
 #        include <sys/uio.h>

@@ -78,6 +78,9 @@ thread_in_sigtimedwait(thread_id_t tid, int suspend_sig, bool *is_in_set);
 bool
 os_ptrace_takeover_threads(dcontext_t *dcontext, thread_id_t *tids, uint count);
 
+bool
+ptrace_get_pre_unmask_sigmask(thread_id_t tid, kernel_sigset_t *sigmask);
+
 void
 ptrace_takeover_cleanup(void *param);
 
