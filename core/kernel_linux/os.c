@@ -649,9 +649,7 @@ query_time_micros(void)
 uint
 os_random_seed(void)
 {
-    uint64 cycles;
-    RDTSC_LL(cycles);
-    return (uint)cycles;
+    return kernel_get_random_u32();
 }
 
 bool

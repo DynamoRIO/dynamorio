@@ -123,6 +123,10 @@ kernel_query_time_seconds(void);
 unsigned long long
 kernel_query_time_nanos(void);
 
+/* Returns a random value from the kernel's CRNG. */
+unsigned int
+kernel_get_random_u32(void);
+
 __attribute__((format(__printf__, 1, 2))) void
 kernel_printk(const char *fmt, ...);
 

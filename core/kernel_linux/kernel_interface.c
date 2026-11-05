@@ -55,6 +55,7 @@
 #include <linux/percpu.h>
 #include <linux/printk.h>
 #include <linux/preempt.h>
+#include <linux/random.h>
 #include <linux/smp.h>
 #include <linux/stdarg.h>
 #include <linux/string.h>
@@ -459,6 +460,12 @@ unsigned long long
 kernel_query_time_nanos(void)
 {
     return ktime_get_real_fast_ns();
+}
+
+unsigned int
+kernel_get_random_u32(void)
+{
+    return get_random_u32();
 }
 
 void
