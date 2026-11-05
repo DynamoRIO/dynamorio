@@ -6528,6 +6528,7 @@ else (UNIX)
     add_exe(win32.partial_map win32/partial_map.c)
     torunonly(win32.partial_map_FLAKY win32.partial_map win32/partial_map.c "" "")
   endif (TEST_SUITE)
+  tobuild(win32.placeholder win32/placeholder.c)
   tobuild(win32.protect-datasec win32/protect-datasec.c)
 
   tobuild_dll(win32.rebased win32/rebased.c "")
