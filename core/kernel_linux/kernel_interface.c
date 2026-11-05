@@ -44,6 +44,7 @@
 #    include <asm/tsc.h> /* For tsc_khz. */
 #elif defined(CONFIG_ARM64)
 #    include <asm/arch_timer.h> /* For arch_timer_get_cntfrq(). */
+#    include <asm/cpufeature.h> /* For read_sanitised_ftr_reg(). */
 #endif
 #include <linux/cpumask.h>
 #include <linux/kprobes.h>
@@ -54,6 +55,7 @@
 #include <linux/percpu.h>
 #include <linux/printk.h>
 #include <linux/preempt.h>
+#include <linux/random.h>
 #include <linux/smp.h>
 #include <linux/stdarg.h>
 #include <linux/string.h>
@@ -66,6 +68,15 @@
 
 static void *heap = NULL;
 static size_t heap_size;
+
+#define NEAR_KERNEL_VMAP_START MODULES_VADDR
+#ifdef CONFIG_X86
+#    define NEAR_KERNEL_VMAP_END MODULES_END
+#elif defined(CONFIG_ARM64)
+#    define NEAR_KERNEL_VMAP_END VMALLOC_END
+#else
+#    error "Unsupported architecture"
+#endif
 
 static unsigned long (*kallsyms_lookup_name_ptr)(const char *name) = NULL;
 static int (*kallsyms_lookup_size_offset_ptr)(unsigned long addr,
@@ -160,8 +171,8 @@ resolve_kernel_symbols(void)
     }
 
     /* Across 6.6+ LTS kernels, __vmalloc_node_range is the only reliable API to allocate
-     * writable memory within the 2GB reach of kernel text (MODULES_VADDR..MODULES_END).
-     * Alternatives:
+     * writable memory at a chosen VA range. We use this to allocate our heap within 2GB
+     * reach of the kernel image (see compute_heap_range()). Alternatives:
      * - module_alloc(): Removed in 6.10. Returns RW+NX.
      * - execmem_alloc(): Introduced in 6.10. Returns RW+NX in 6.10-6.12, but
      *   read-only-execute (ROX) in 6.13+.
@@ -199,6 +210,25 @@ resolve_kernel_symbols(void)
     return 0;
 }
 
+static int
+compute_heap_range(unsigned long *start, unsigned long *end)
+{
+    const unsigned long text = (unsigned long)kernel_image_start;
+    const unsigned long last = (unsigned long)kernel_image_end - 1;
+    const unsigned long reach_lo = last > INT_MAX ? last - INT_MAX : 0;
+    const unsigned long reach_hi =
+        text < ULONG_MAX - INT_MAX ? text + INT_MAX + 1 : ULONG_MAX;
+
+    *start = max(reach_lo, (unsigned long)NEAR_KERNEL_VMAP_START);
+    *end = min(reach_hi, (unsigned long)NEAR_KERNEL_VMAP_END);
+    if (*start >= *end) {
+        pr_err("No VA range within reach of the kernel image [%lx, %lx)\n", text,
+               last + 1);
+        return -ENOMEM;
+    }
+    return 0;
+}
+
 int
 kernel_module_init(size_t dr_heap_size)
 {
@@ -226,11 +256,17 @@ kernel_module_init(size_t dr_heap_size)
     /* PAGE_KERNEL_EXEC makes the heap RWX because it backs both DR's vmcode and vmheap.
      * TODO i#8124: Allocate two separate regions instead for fine-grained W^X protection.
      */
-    heap = vmalloc_node_range_ptr(heap_size, PAGE_SIZE, MODULES_VADDR, MODULES_END,
-                                  GFP_KERNEL, PAGE_KERNEL_EXEC, VM_FLUSH_RESET_PERMS,
-                                  NUMA_NO_NODE, __builtin_return_address(0));
+    unsigned long start, end;
+    ret = compute_heap_range(&start, &end);
+    if (ret != 0) {
+        return ret;
+    }
+    heap = vmalloc_node_range_ptr(heap_size, PAGE_SIZE, start, end, GFP_KERNEL,
+                                  PAGE_KERNEL_EXEC, VM_FLUSH_RESET_PERMS, NUMA_NO_NODE,
+                                  __builtin_return_address(0));
     if (heap == NULL) {
-        pr_err("Failed to allocate %zu bytes with __vmalloc_node_range\n", heap_size);
+        pr_err("Failed to allocate %zu bytes in [%lx, %lx) with __vmalloc_node_range\n",
+               heap_size, start, end);
         return -ENOMEM;
     }
 
@@ -285,6 +321,21 @@ kernel_get_timestamp_counter_khz(void)
 #    error "Unsupported architecture"
 #endif
 }
+
+#ifdef CONFIG_ARM64
+void
+kernel_get_cache_line_sizes(size_t *dcache_line_size, size_t *icache_line_size)
+{
+    u64 ctr = read_sanitised_ftr_reg(SYS_CTR_EL0);
+    /* Cache line size is represented as Log2(words) in CTR_EL0. */
+    if (dcache_line_size != NULL) {
+        *dcache_line_size = 4 << SYS_FIELD_GET(CTR_EL0, DminLine, ctr);
+    }
+    if (icache_line_size != NULL) {
+        *icache_line_size = 4 << SYS_FIELD_GET(CTR_EL0, IminLine, ctr);
+    }
+}
+#endif
 
 void
 kernel_get_cpu_local_state_layout(size_t *size, size_t *alignment)
@@ -409,6 +460,12 @@ unsigned long long
 kernel_query_time_nanos(void)
 {
     return ktime_get_real_fast_ns();
+}
+
+unsigned int
+kernel_get_random_u32(void)
+{
+    return get_random_u32();
 }
 
 void
