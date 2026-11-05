@@ -263,7 +263,9 @@ get_processor_specific_info(void)
     if (max_val >= 0x7) {
         our_cpuid(cpuid_res_local, 0x7, 0);
         res_ebx = cpuid_res_local[1];
+        res_ecx = cpuid_res_local[2];
         cpu_info.features.sext_flags_ebx = res_ebx;
+        cpu_info.features.sext_flags_ecx = res_ecx;
     }
 
     /* now get processor info */
@@ -377,8 +379,8 @@ proc_init_arch(void)
             cpu_info.features.flags_edx, cpu_info.features.flags_ecx);
         LOG(GLOBAL, LOG_TOP, 1, "\text_edx = 0x%08x\n\text_ecx = 0x%08x\n",
             cpu_info.features.ext_flags_edx, cpu_info.features.ext_flags_ecx);
-        LOG(GLOBAL, LOG_TOP, 1, "\tsext_ebx = 0x%08x\n",
-            cpu_info.features.sext_flags_ebx);
+        LOG(GLOBAL, LOG_TOP, 1, "\tsext_ebx = 0x%08x\n\tsext_ecx = 0x%08x\n",
+            cpu_info.features.sext_flags_ebx, cpu_info.features.sext_flags_ecx);
         if (proc_has_feature(FEATURE_XD_Bit))
             LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has XD Bit\n");
         if (proc_has_feature(FEATURE_MMX))
@@ -497,6 +499,8 @@ proc_has_feature(feature_bit_t f)
         val = cpu_info.features.ext_flags_ecx;
     } else if (f >= 128 && f <= 159) {
         val = cpu_info.features.sext_flags_ebx;
+    } else if (f >= 160 && f <= 191) {
+        val = cpu_info.features.sext_flags_ecx;
     } else {
         CLIENT_ASSERT(false, "proc_has_feature: invalid parameter");
     }
