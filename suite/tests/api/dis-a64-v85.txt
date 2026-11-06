@@ -509,6 +509,9 @@ d9e00338 : ldgm x24, [x25]                            : ldgm   (%x25) -> %x24
 d9e0037a : ldgm x26, [x27]                            : ldgm   (%x27) -> %x26
 d9e003fe : ldgm x30, [sp]                             : ldgm   (%sp) -> %x30
 
+# SB      (SB)
+d50330ff : sb                                        : sb
+
 # SMMLA   <Vd>.4S, <Vn>.16B, <Vm>.16B (SMMLA-Q.QQ-Vec)
 4e80a400 : smmla v0.4s, v0.16b, v0.16b               : smmla  %q0 %q0 %q0 $0x00 -> %q0
 4e84a462 : smmla v2.4s, v3.16b, v4.16b               : smmla  %q2 %q3 %q4 $0x00 -> %q2
