@@ -52,6 +52,7 @@
 #include <linux/module.h>
 #include <linux/panic.h>
 #include <linux/percpu.h>
+#include <linux/pgtable.h>
 #include <linux/printk.h>
 #include <linux/preempt.h>
 #include <linux/smp.h>
@@ -199,6 +200,39 @@ resolve_kernel_symbols(void)
     return 0;
 }
 
+/* Sets |*prot| to the KERNEL_MEMPROT_* protection of a core module memory type.
+ * Returns false for an unknown type.
+ */
+static bool
+module_mem_type_prot(enum mod_mem_type type, unsigned int *prot)
+{
+    *prot = KERNEL_MEMPROT_READ;
+    switch (type) {
+    case MOD_TEXT: *prot |= KERNEL_MEMPROT_EXEC; return true;
+    case MOD_DATA: *prot |= KERNEL_MEMPROT_WRITE; return true;
+    case MOD_RODATA:
+    case MOD_RO_AFTER_INIT: return true;
+    default: return false;
+    }
+}
+
+/* Rejects a kernel whose module memory layout has a core type we do not know, so that
+ * kernel_walk_module_regions() cannot fail later.
+ */
+static int
+check_module_mem_types(void)
+{
+    for_class_mod_mem_type(type, core)
+    {
+        unsigned int prot;
+        if (THIS_MODULE->mem[type].size != 0 && !module_mem_type_prot(type, &prot)) {
+            pr_err("Unsupported module memory type %d\n", type);
+            return -EOPNOTSUPP;
+        }
+    }
+    return 0;
+}
+
 int
 kernel_module_init(size_t dr_heap_size)
 {
@@ -208,6 +242,11 @@ kernel_module_init(size_t dr_heap_size)
     }
 
     ret = resolve_kernel_symbols();
+    if (ret != 0) {
+        return ret;
+    }
+
+    ret = check_module_mem_types();
     if (ret != 0) {
         return ret;
     }
@@ -350,6 +389,138 @@ void *
 kernel_get_module_text_end(void)
 {
     return THIS_MODULE->mem[MOD_TEXT].base + THIS_MODULE->mem[MOD_TEXT].size;
+}
+
+void
+kernel_walk_module_regions(kernel_memory_region_callback_t callback, void *arg)
+{
+    for_class_mod_mem_type(type, core)
+    {
+        const struct module_memory *mem = &THIS_MODULE->mem[type];
+        if (mem->size == 0) {
+            continue;
+        }
+
+        unsigned int prot;
+        if (!module_mem_type_prot(type, &prot)) {
+            /* Should be unreachable as unknown module memory type is rejected
+             * by check_module_mem_types() at module load.
+             */
+            KERNEL_ASSERT(false);
+            continue;
+        }
+
+        const kernel_memory_region_t region = {
+            .base = mem->base,
+            .size = mem->size,
+            .prot = prot,
+        };
+
+        callback(&region, arg);
+    }
+}
+
+#ifdef CONFIG_X86_64
+static unsigned long
+query_kernel_page(unsigned long addr, unsigned int *prot)
+{
+    unsigned int level;
+    pte_t *ptep = lookup_address(addr, &level);
+    unsigned long size;
+
+    *prot = 0;
+    if (ptep == NULL) {
+        /* Some entry at the PMD level or above is empty, so at least the PMD-sized block
+         * containing |addr| is unmapped. We could use |level| to determine the exact skip
+         * needed, but the meaning of |level| on a NULL return changed in Linux 6.11:
+         * https://github.com/torvalds/linux/commit/9d1dcdfa9091
+         * Skipping PMD_SIZE at a time is conservative but works across versions.
+         */
+        size = PMD_SIZE;
+    } else {
+        pte_t pte = ptep_get(ptep);
+        size = page_level_size(level);
+
+        if ((pte_flags(pte) & _PAGE_PRESENT) != 0) {
+            *prot = KERNEL_MEMPROT_READ;
+            if (pte_write(pte)) {
+                *prot |= KERNEL_MEMPROT_WRITE;
+            }
+            if (pte_exec(pte)) {
+                *prot |= KERNEL_MEMPROT_EXEC;
+            }
+        }
+    }
+    return (addr & ~(size - 1)) + size;
+}
+
+/* Returns the end of the run of pages starting at |addr| that share its protection. */
+static unsigned long
+query_kernel_run(unsigned long addr, unsigned long end, unsigned int *prot)
+{
+    unsigned long next = query_kernel_page(addr, prot);
+    while (next != 0 && next < end) {
+        unsigned int next_prot;
+        unsigned long after = query_kernel_page(next, &next_prot);
+        if (next_prot != *prot) {
+            break;
+        }
+        next = after;
+    }
+
+    return (next == 0 || next > end) ? end : next;
+}
+
+static void
+walk_code_range(unsigned long start, unsigned long end,
+                kernel_memory_region_callback_t callback, void *arg)
+{
+    unsigned long addr = start;
+
+    while (addr < end) {
+        unsigned int prot;
+        unsigned long next = query_kernel_run(addr, end, &prot);
+
+        if (prot != 0) {
+            const kernel_memory_region_t region = {
+                .base = (unsigned char *)addr,
+                .size = next - addr,
+                .prot = prot,
+            };
+            callback(&region, arg);
+        }
+
+        addr = next;
+    }
+}
+
+#endif /* CONFIG_X86_64 */
+
+void
+kernel_walk_code_regions(kernel_memory_region_callback_t callback, void *arg)
+{
+#ifdef CONFIG_X86_64
+    /* On x86-64, kernel code lives in the top 2 GiB: the kernel image at
+     * __START_KERNEL_map, followed by the module area up to MODULES_END.
+     * XXX i#8021: Executable memory mapped after this walk is not tracked. Neither is
+     * memory unmapped after it (e.g., module unload, freed BPF JIT images), which
+     * leaves stale regions behind.
+     */
+    const unsigned long start = __START_KERNEL_map;
+    const unsigned long end = MODULES_END;
+
+    /* DR's heap lies in the module area and is mapped executable, but it's not kernel
+     * code. It should be skipped here.
+     */
+    const unsigned long heap_start = (unsigned long)heap;
+    const unsigned long heap_end = heap_start + heap_size;
+    KERNEL_ASSERT(heap != NULL && start <= heap_start && heap_end <= end);
+
+    walk_code_range(start, heap_start, callback, arg);
+    walk_code_range(heap_end, end, callback, arg);
+#else
+    /* TODO i#8021: Implement the page table walk for AArch64. */
+#endif
 }
 
 /* Returns whether the |size| bytes at |addr| can be read without faulting.  Probes one

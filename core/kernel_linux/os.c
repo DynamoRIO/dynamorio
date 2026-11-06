@@ -391,6 +391,12 @@ get_dynamorio_dll_end(void)
     return (app_pc)kernel_get_module_text_end();
 }
 
+bool
+is_in_dynamo_dll(app_pc pc)
+{
+    return pc >= get_dynamorio_dll_start() && pc < get_dynamorio_dll_end();
+}
+
 /* The kernel port has no OS-specific module-list state, matching core/unix/module.c. */
 void
 os_modules_init(void)
@@ -402,6 +408,23 @@ void
 os_modules_exit(void)
 {
     /* Nothing. */
+}
+
+/* Matches core/unix/module.c. The kernel module does not add vmlinux or loaded kernel
+ * modules to DR's module list yet, so this currently returns NULL.
+ * TODO i#8021: Register vmlinux and kernel modules with the module list.
+ */
+app_pc
+get_module_base(app_pc pc)
+{
+    app_pc base = NULL;
+    module_area_t *ma;
+    os_get_module_info_lock();
+    ma = module_pc_lookup(pc);
+    if (ma != NULL)
+        base = ma->start;
+    os_get_module_info_unlock();
+    return base;
 }
 
 /* Native module retakeover relies on ELF PLT/GOT and ld.so hooking,
@@ -595,6 +618,49 @@ remove_from_all_memory_areas(app_pc start, app_pc end)
 {
     /* No-op in kernel mode. */
     return true;
+}
+
+/* kernel_interface.h cannot include DR headers, so it defines its own protection bits.
+ * They match DR's, so kernel_memory_region_t.prot can be used as a MEMPROT_* value.
+ */
+_Static_assert(KERNEL_MEMPROT_READ == MEMPROT_READ, "KERNEL_MEMPROT_READ mismatch");
+_Static_assert(KERNEL_MEMPROT_WRITE == MEMPROT_WRITE, "KERNEL_MEMPROT_WRITE mismatch");
+_Static_assert(KERNEL_MEMPROT_EXEC == MEMPROT_EXEC, "KERNEL_MEMPROT_EXEC mismatch");
+
+static void
+find_dynamo_library_vm_areas_callback(const kernel_memory_region_t *region, void *arg)
+{
+    int *count = (int *)arg;
+    add_dynamo_vm_area(region->base, region->base + region->size, region->prot,
+                       true /*image*/ _IF_DEBUG(get_dynamorio_library_path()));
+    (*count)++;
+}
+
+int
+find_dynamo_library_vm_areas(void)
+{
+    int count = 0;
+    kernel_walk_module_regions(find_dynamo_library_vm_areas_callback, &count);
+    return count;
+}
+
+static void
+find_executable_vm_areas_callback(const kernel_memory_region_t *region, void *arg)
+{
+    int *count = (int *)arg;
+    if (app_memory_allocation(NULL, region->base, region->size, region->prot,
+                              false /*!image*/ _IF_DEBUG("find_executable_vm_areas"))) {
+        (*count)++;
+    }
+}
+
+int
+find_executable_vm_areas(void)
+{
+    int count = 0;
+    kernel_walk_code_regions(find_executable_vm_areas_callback, &count);
+    STATS_ADD(num_app_code_modules, count);
+    return count;
 }
 
 int
