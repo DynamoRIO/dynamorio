@@ -1346,6 +1346,9 @@ raw2trace_t::do_conversion()
     error = read_syscall_template_file();
     if (!error.empty())
         return error;
+    error = read_v2p_file();
+    if (!error.empty())
+        return error;
     // XXX i#3286: Add a %-completed progress message by looking at the file sizes.
     if (worker_count_ == 0) {
         for (size_t i = 0; i < thread_data_.size(); ++i) {
@@ -3817,6 +3820,7 @@ raw2trace_t::open_new_chunk(raw2trace_thread_data_t *tdata)
     tdata->last_encoding_emitted = nullptr;
     // Similarly, tell v2p to start repeating.
     tdata->v2p.start_repeating();
+    tdata->v2p_emitted.clear();
 
     return true;
 }
@@ -3924,6 +3928,243 @@ raw2trace_t::write_with_repeats(raw2trace_thread_data_t *tdata,
     return true;
 }
 
+// Loads `v2p.bin` into a per-page timeline of map and unmap events, sorted by
+// timestamp so `lookup_v2p()` can binary-search any page's history.
+std::string
+raw2trace_t::read_v2p_file()
+{
+    if (v2p_file_.empty())
+        return "";
+    std::ifstream in(v2p_file_, std::ios::binary);
+    if (!in.good())
+        return "Failed to open v2p file " + v2p_file_;
+
+    // Read each record from the file, expanding multi-page spans into 4 KB pages.
+    v2p_events_by_vpn_.clear();
+    uint64 overflow_events = 0;
+    bool saw_end = false;
+    v2p_record_t rec = {};
+    while (in.read(reinterpret_cast<char *>(&rec), sizeof(rec))) {
+        if (rec.type == V2P_RECORD_MAP) {
+            addr_t base_vpn = static_cast<addr_t>(rec.vaddr >> V2P_PAGE_BITS);
+            addr_t base_pfn = static_cast<addr_t>(rec.paddr >> V2P_PAGE_BITS);
+            for (uint32_t i = 0; i < rec.page_count; ++i) {
+                v2p_events_by_vpn_[base_vpn + i].push_back(
+                    { rec.timestamp_us, base_pfn + i });
+            }
+        } else if (rec.type == V2P_RECORD_UNMAP) {
+            addr_t base_vpn = static_cast<addr_t>(rec.vaddr >> V2P_PAGE_BITS);
+            for (uint32_t i = 0; i < rec.page_count; ++i) {
+                v2p_events_by_vpn_[base_vpn + i].push_back(
+                    { rec.timestamp_us, V2P_PAGE_INVALID });
+            }
+        } else if (rec.type == V2P_RECORD_OVERFLOW) {
+            overflow_events += rec.page_count;
+        } else if (rec.type == V2P_RECORD_END) {
+            saw_end = true;
+        }
+    }
+
+    // Sort each page's timeline chronologically for binary search.
+    for (auto &kv : v2p_events_by_vpn_) {
+        std::stable_sort(kv.second.begin(), kv.second.end(),
+                         [](const v2p_event_t &a, const v2p_event_t &b) {
+                             return a.timestamp_us < b.timestamp_us;
+                         });
+    }
+
+    // Warn if the kernel tracefs ring buffer overflowed or if the file was truncated.
+    if (overflow_events > 0) {
+        WARN("v2p file %s reported " UINT64_FORMAT_STRING
+             " dropped tracefs events; physical addresses may be incomplete",
+             v2p_file_.c_str(), overflow_events);
+    }
+    if (!saw_end) {
+        WARN("v2p file %s is missing its END sentinel (truncated log)",
+             v2p_file_.c_str());
+    }
+    return "";
+}
+
+// Looks up the physical frame (`pfn_out`) for virtual page `vpn` at
+// `timestamp_us`, and sets `expiration_time_out` to the timestamp when that
+// mapping next changes (or UINT64_MAX if it never changes).
+bool
+raw2trace_t::lookup_v2p(addr_t vpn, uint64_t timestamp_us, DR_PARAM_OUT addr_t *pfn_out,
+                        DR_PARAM_OUT uint64_t *expiration_time_out) const
+{
+    auto it = v2p_events_by_vpn_.find(vpn);
+    if (it == v2p_events_by_vpn_.end() || it->second.empty()) {
+        *pfn_out = V2P_PAGE_INVALID;
+        *expiration_time_out = (std::numeric_limits<uint64_t>::max)();
+        return false;
+    }
+
+    // Binary-search for the latest event at or before `timestamp_us`.
+    const std::vector<v2p_event_t> &vpn_events = it->second;
+    auto upper = std::upper_bound(
+        vpn_events.begin(), vpn_events.end(), timestamp_us,
+        [](uint64_t ts, const v2p_event_t &e) { return ts < e.timestamp_us; });
+    size_t start_idx = (upper == vpn_events.begin())
+        ? 0
+        : static_cast<size_t>((upper - 1) - vpn_events.begin());
+
+    // Scan forward from `start_idx` for the active physical frame (covering mid-buffer
+    // faults after an unmap).
+    for (size_t k = start_idx; k < vpn_events.size(); ++k) {
+        if (vpn_events[k].pfn != V2P_PAGE_INVALID) {
+            addr_t pfn = vpn_events[k].pfn;
+            uint64_t expiration_time_us = (std::numeric_limits<uint64_t>::max)();
+
+            // Find the next timestamp where this page transitions to another frame or
+            // unmaps.
+            for (size_t m = k + 1; m < vpn_events.size(); ++m) {
+                if (vpn_events[m].pfn != pfn) {
+                    expiration_time_us = vpn_events[m].timestamp_us;
+                    break;
+                }
+            }
+            *pfn_out = pfn;
+            *expiration_time_out = expiration_time_us;
+            return true;
+        }
+    }
+
+    // No mapping exists for this page (e.g., unmapped and never faulted in again).
+    *pfn_out = V2P_PAGE_INVALID;
+    *expiration_time_out = (std::numeric_limits<uint64_t>::max)();
+    return false;
+}
+
+// Emits a physical/virtual address marker pair (or a not-available marker)
+// right before `it` if `vaddr`'s page hasn't been emitted in this chunk or its
+// cached mapping has expired.
+bool
+raw2trace_t::emit_v2p_for_addr(raw2trace_thread_data_t *tdata, addr_t vaddr,
+                               const trace_entry_t *it, const trace_entry_t *&start)
+{
+    // Skip if this page is already cached in the current chunk and hasn't expired.
+    addr_t vpn = vaddr >> V2P_PAGE_BITS;
+    auto cached = tdata->v2p_emitted.find(vpn);
+    if (cached != tdata->v2p_emitted.end() &&
+        tdata->v2p_current_time_us < cached->second.expiration_time_us) {
+        return true;
+    }
+
+    // Write out buffered entries before `it` so the new markers go right before `it`.
+    if (it > start) {
+        if (!tdata->out_file->write(reinterpret_cast<const char *>(start),
+                                    reinterpret_cast<const char *>(it) -
+                                        reinterpret_cast<const char *>(start))) {
+            tdata->error = "Failed to write to output file";
+            return false;
+        }
+        start = it;
+    }
+
+    // Look up the page's physical frame and cache it for this chunk.
+    addr_t pfn = V2P_PAGE_INVALID;
+    uint64_t expiration_time_us = 0;
+    bool found = lookup_v2p(vpn, tdata->v2p_current_time_us, &pfn, &expiration_time_us);
+    tdata->v2p_emitted[vpn] = { pfn, expiration_time_us };
+
+    // Build the (physical, virtual) marker pair, or a not-available marker.
+    trace_entry_t markers[2];
+    size_t count = 0;
+    if (found) {
+        addr_t phys_addr = (pfn << V2P_PAGE_BITS) | (vaddr & V2P_PAGE_MASK);
+        markers[0] = { TRACE_TYPE_MARKER,
+                       TRACE_MARKER_TYPE_PHYSICAL_ADDRESS,
+                       { phys_addr } };
+        markers[1] = { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, { vaddr } };
+        count = 2;
+    } else {
+        markers[0] = { TRACE_TYPE_MARKER,
+                       TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE,
+                       { vaddr } };
+        count = 1;
+    }
+
+    // Update per-chunk entry counts for the extra markers we are injecting.
+    for (size_t i = 0; i < count; ++i) {
+        observe_entry_output(tdata, &markers[i]);
+        if (tdata->out_archive != nullptr) {
+            tdata->cur_chunk_ref_count +=
+                tdata->memref_counter.entry_memref_count(&markers[i]);
+        }
+    }
+
+    // Write the markers to the output file.
+    if (!tdata->out_file->write(reinterpret_cast<const char *>(markers),
+                                count * sizeof(markers[0]))) {
+        tdata->error = "Failed to write to output file";
+        return false;
+    }
+    return true;
+}
+
+// Scans one instruction packet `[ENCODING*, BRANCH_TARGET?, INSTR, MEMREF*]`
+// starting at `it` and emits all needed translation markers before the packet
+// begins, avoiding interleaving markers inside the packet.
+bool
+raw2trace_t::insert_v2p_markers(raw2trace_thread_data_t *tdata, const trace_entry_t *it,
+                                const trace_entry_t *end, const trace_entry_t *&start,
+                                const trace_entry_t *&checked_up_to)
+{
+    // Advance `scan` past pre-instruction prefix records (`ENCODING` and
+    // `BRANCH_TARGET`), the instruction fetch, and any trailing memref entries.
+    const trace_entry_t *scan = it;
+    while (scan < end &&
+           (scan->type == TRACE_TYPE_ENCODING ||
+            (scan->type == TRACE_TYPE_MARKER &&
+             scan->size == TRACE_MARKER_TYPE_BRANCH_TARGET))) {
+        ++scan;
+    }
+    if (scan < end &&
+        (type_is_instr(static_cast<trace_type_t>(scan->type)) ||
+         scan->type == TRACE_TYPE_INSTR_NO_FETCH ||
+         scan->type == TRACE_TYPE_PREFETCH_INSTR)) {
+        ++scan;
+    }
+    while (scan < end &&
+           (scan->type == TRACE_TYPE_READ || scan->type == TRACE_TYPE_WRITE ||
+            type_is_prefetch(static_cast<trace_type_t>(scan->type)))) {
+        ++scan;
+    }
+
+    // Not an instruction packet (e.g., a standalone marker); skip past it.
+    if (scan == it) {
+        checked_up_to = it + 1;
+        return true;
+    }
+
+    // Emit translation markers prior to `it` for the instruction fetch and each memref.
+    for (const trace_entry_t *entry = it; entry < scan; ++entry) {
+        trace_type_t type = static_cast<trace_type_t>(entry->type);
+        if (type == TRACE_TYPE_ENCODING || type == TRACE_TYPE_INSTR_NO_FETCH ||
+            type == TRACE_TYPE_MARKER) {
+            continue;
+        }
+        if (type_is_instr(type) && entry->size == 0)
+            continue;
+        if (!type_has_address(type))
+            continue;
+        if (!emit_v2p_for_addr(tdata, entry->addr, it, start))
+            return false;
+
+        // Also emit a marker for the next page if this access crosses a 4 KB boundary.
+        if (entry->size > 1 &&
+            ((entry->addr & V2P_PAGE_MASK) + entry->size > V2P_PAGE_SIZE)) {
+            addr_t next_vpage = (entry->addr & ~static_cast<addr_t>(V2P_PAGE_MASK)) +
+                static_cast<addr_t>(V2P_PAGE_SIZE);
+            if (!emit_v2p_for_addr(tdata, next_vpage, it, start))
+                return false;
+        }
+    }
+    checked_up_to = scan;
+    return true;
+}
+
 // All writes to out_file go through this function, except new chunk headers
 // and footers (to do so would cause recursion; we assume those do not need
 // extra processing here).
@@ -3952,8 +4193,15 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
     if (tdata->out_archive != nullptr) {
         bool prev_was_encoding = false;
         int instr_ordinal = -1;
+        const trace_entry_t *v2p_checked_up_to = start;
         for (const trace_entry_t *it = start; it < end; ++it) {
-            observe_entry_output(tdata, it);
+            // When we encounter a timestamp marker, advance the thread's current
+            // timestamp used to look up v2p mappings.
+            if (!v2p_events_by_vpn_.empty() && it->type == TRACE_TYPE_MARKER &&
+                it->size == TRACE_MARKER_TYPE_TIMESTAMP &&
+                it->addr > tdata->v2p_current_time_us) {
+                tdata->v2p_current_time_us = it->addr;
+            }
             tdata->cur_chunk_ref_count += tdata->memref_counter.entry_memref_count(it);
             // We wait until we're past the final instr to write, to ensure we
             // get all its memrefs, by not stopping until we hit an instr or an
@@ -3970,8 +4218,16 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                 if (!open_new_chunk(tdata))
                     return false;
                 start = it;
+                v2p_checked_up_to = it;
                 DEBUG_ASSERT(tdata->cur_chunk_instr_count == 0);
             }
+
+            // Emit any needed v2p markers before the current instruction packet.
+            if (!v2p_events_by_vpn_.empty() && it >= v2p_checked_up_to) {
+                if (!insert_v2p_markers(tdata, it, end, start, v2p_checked_up_to))
+                    return false;
+            }
+            observe_entry_output(tdata, it);
             if (type_is_instr(static_cast<trace_type_t>(it->type))) {
                 ++instr_ordinal;
                 // Do not count PC-only i-filtered instrs.
@@ -4054,7 +4310,22 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
             }
         }
     } else {
+        const trace_entry_t *v2p_checked_up_to = start;
         for (const trace_entry_t *it = start; it < end; ++it) {
+            if (!v2p_events_by_vpn_.empty()) {
+                // Advance the thread's v2p lookup clock on timestamp markers.
+                if (it->type == TRACE_TYPE_MARKER &&
+                    it->size == TRACE_MARKER_TYPE_TIMESTAMP &&
+                    it->addr > tdata->v2p_current_time_us) {
+                    tdata->v2p_current_time_us = it->addr;
+                }
+
+                // Emit any needed v2p markers before the current instruction packet.
+                if (it >= v2p_checked_up_to) {
+                    if (!insert_v2p_markers(tdata, it, end, start, v2p_checked_up_to))
+                        return false;
+                }
+            }
             observe_entry_output(tdata, it);
             if (type_is_instr(static_cast<trace_type_t>(it->type))) {
                 accumulate_to_statistic(tdata,

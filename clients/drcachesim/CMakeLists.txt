@@ -548,6 +548,11 @@ macro(add_drmemtrace name type static_DR no_main)
     tracer/raw2trace_shared.cpp
     ${client_and_sim_srcs}
     )
+  if (LINUX AND X64)
+    set(drmemtrace_srcs ${drmemtrace_srcs}
+      tracer/v2p_tracker.cpp
+      )
+  endif ()
   if (BUILD_PT_TRACER)
     set(drmemtrace_srcs ${drmemtrace_srcs}
       tracer/syscall_pt_trace.cpp
