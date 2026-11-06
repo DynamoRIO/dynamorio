@@ -82,6 +82,20 @@ For non-compressed instructions:
 - j_imm
 - imm
 
+For vector instructions:
+
+- zimm
+- zimm10
+- zimm11
+- vm
+- nf
+- simm5
+- zimm6
+- vd
+- vs1
+- vs2
+- vs3
+
 For compressed instructions:
 
 - crd
