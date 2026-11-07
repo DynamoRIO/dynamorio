@@ -314,6 +314,12 @@ Further non-compatibility-affecting changes include:
  - Raised the maximum -vm_size on AArch64 from 2GB to 64GB.  A value larger
    than 2GB removes the code cache reachability guarantees described in
    \ref sec_64bit_reach.
+ - Changed the drmemtrace scheduler to have a core whose ready queue holds only
+   blocked inputs attempt to steal work from other cores rather than idling.  This is
+   controlled by the new drmemtrace analyzer option -sched_steal_when_only_blocked and
+   the new #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t::
+   steal_when_only_blocked field, both on by default.  Related fixes to work stealing
+   also change schedules when this option is off.
 
 **************************************************
 <hr>
