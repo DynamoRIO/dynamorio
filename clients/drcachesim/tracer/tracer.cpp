@@ -37,11 +37,13 @@
  * XXX i#1703, i#2001: add in more optimizations to improve performance.
  */
 
+#define NOMINMAX // Avoid windows.h messing up std::max.
 #include "tracer.h"
 
 #include <string.h>
 #include <sys/types.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cstdarg>
 #include <cstdint>
@@ -153,7 +155,9 @@ typedef struct {
 /* For online simulation, we write to a single global pipe */
 named_pipe_t ipc_pipe;
 
-#define MAX_INSTRU_SIZE 256 /* The max instance size of instru_t or its children. */
+// The max instance size of instru_t or its children.
+static constexpr size_t MAX_INSTRU_SIZE =
+    std::max(sizeof(offline_instru_t), sizeof(online_instru_t));
 instru_t *instru;
 
 static client_id_t client_id;
@@ -2553,6 +2557,7 @@ event_exit(void)
     /* we use placement new for better isolation */
     instru->~instru_t();
     dr_global_free(instru, MAX_INSTRU_SIZE);
+    instru = nullptr;
 
     if (op_offline.get_value()) {
         if (module_file != INVALID_FILE)
@@ -2761,8 +2766,13 @@ drmemtrace_replace_file_ops(drmemtrace_open_file_func_t open_file_func,
         file_ops_func.open_file = open_file_func;
     if (read_file_func != NULL)
         file_ops_func.read_file = read_file_func;
-    if (write_file_func != NULL)
+    if (write_file_func != NULL) {
         file_ops_func.write_file = write_file_func;
+        if (instru != nullptr) {
+            reinterpret_cast<offline_instru_t *>(instru)->set_write_file_func(
+                file_ops_func.write_file);
+        }
+    }
     if (close_file_func != NULL)
         file_ops_func.close_file = close_file_func;
     if (create_dir_func != NULL)
@@ -2783,8 +2793,13 @@ drmemtrace_replace_file_ops_ex(drmemtrace_replace_file_ops_t *ops)
     }
     if (ops->read_file_func != nullptr)
         file_ops_func.read_file = ops->read_file_func;
-    if (ops->write_file_func != nullptr)
+    if (ops->write_file_func != nullptr) {
         file_ops_func.write_file = ops->write_file_func;
+        if (instru != nullptr) {
+            reinterpret_cast<offline_instru_t *>(instru)->set_write_file_func(
+                file_ops_func.write_file);
+        }
+    }
     if (ops->close_file_func != nullptr)
         file_ops_func.close_file = ops->close_file_func;
     if (ops->create_dir_func != nullptr)
@@ -3012,7 +3027,6 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
             FATAL("Failed to create a subdir in %s\n", op_outdir.get_value().c_str());
         }
         /* we use placement new for better isolation */
-        DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(offline_instru_t));
         placement = dr_global_alloc(MAX_INSTRU_SIZE);
         // TODO i#6474, i#2062: Also handle op_L0_filter_until_instrs here when
         // i#6474 is resolved.
@@ -3023,7 +3037,6 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     } else {
         void *placement;
         /* we use placement new for better isolation */
-        DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(online_instru_t));
         placement = dr_global_alloc(MAX_INSTRU_SIZE);
         instru = new (placement) online_instru_t(
             insert_load_buf_ptr, insert_update_buf_ptr, &scratch_reserve_vec);

@@ -84,9 +84,9 @@ public:
         if (file_ == nullptr)
             return traits_type::eof();
         if (gptr() == egptr()) {
-            // If the last inflate didn't fill the output buffer, it
-            // finished with the input buffer and we need to read more.
-            if (zstream_.avail_out != 0) {
+            // The uncompressed data has been consumed.
+            // If there's no more compressed data (avail_in), read more now.
+            if (zstream_.avail_in == 0) {
                 zstream_.avail_in =
                     static_cast<uInt>(fread(buf_compressed_, 1, buffer_size_, file_));
                 if (ferror(file_) || zstream_.avail_in == 0)
@@ -100,7 +100,7 @@ public:
             case Z_STREAM_ERROR:
             case Z_NEED_DICT:
             case Z_DATA_ERROR:
-            case Z_MEM_ERROR: inflateEnd(&zstream_); return traits_type::eof();
+            case Z_MEM_ERROR: return traits_type::eof();
             }
             size_t have = buffer_size_ - zstream_.avail_out;
             setg(buf_uncompressed_, buf_uncompressed_, buf_uncompressed_ + have);

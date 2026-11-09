@@ -933,6 +933,14 @@ loader_allow_unsafe_static_behavior(void)
 
 #define HEADER_WORD_SIZE sizeof(size_t)
 
+#ifdef STANDALONE_UNIT_TEST
+/* For unit tests use a shim where we can control what global_heap_alloc() returns. */
+static void *
+mock_global_heap_alloc(size_t size HEAPACCT(which_heap_t which));
+#    define GLOBAL_HEAP_ALLOC mock_global_heap_alloc
+#else
+#    define GLOBAL_HEAP_ALLOC global_heap_alloc
+#endif
 /* This routine allocates memory from DR's global memory pool.  Unlike
  * dr_global_alloc(), however, we store the size of the allocation in
  * the first few bytes so redirect_free() can retrieve it.  We also align
@@ -956,23 +964,21 @@ redirect_aligned_alloc(size_t alignment, size_t size)
         header_size += 2 * HEADER_WORD_SIZE;
     /* We always need extra space to store the size and to ensure the returned pointer is
      * aligned. We try to avoid needing the other two headers.
+     * For AArch32 HEAP_ALIGNMENT > HEADER_WORD_SIZE so we could end up without enough
+     * space for the header: ALIGN_FORWARD to add padding.
      */
-    size_t alloc_size = size + header_size + alignment - HEAP_ALIGNMENT;
-    /* For Arm we have HEAP_ALIGNMENT larger than HEADER_WORD_SIZE so we could
-     * end up without enough space for the header: ensure we have enough.
-     */
-    if (header_size < HEAP_ALIGNMENT)
-        alloc_size += HEAP_ALIGNMENT - header_size;
+    size_t alloc_size =
+        size + ALIGN_FORWARD(header_size, HEAP_ALIGNMENT) + alignment - HEAP_ALIGNMENT;
     /* Our header is the size itself, with the top bits stolen. */
     if (TESTANY(REDIRECT_HEADER_SHIFTED | REDIRECT_EXTRA_HEADERS, alloc_size)) {
         /* We do not support the top bits being set as that conflicts with the bits in
-         * our header.  This should be fine as all sytem allocators we have seen also
+         * our header.  This should be fine as all system allocators we have seen also
          * have size limits that are this size (for 32-bit) or even smaller.
          */
         CLIENT_ASSERT(false, "malloc failed: size requested is too large");
         return NULL;
     }
-    mem = global_heap_alloc(alloc_size HEAPACCT(ACCT_LIBDUP));
+    mem = GLOBAL_HEAP_ALLOC(alloc_size HEAPACCT(ACCT_LIBDUP));
     if (mem == NULL) {
         CLIENT_ASSERT(false, "malloc failed: out of memory");
         return NULL;
@@ -1025,22 +1031,17 @@ redirect_malloc_size_and_start(void *mem, DR_PARAM_OUT void **start_out,
         if (requested_size != NULL)
             *requested_size = *(size_t *)((ptr_uint_t)mem - 3 * HEADER_WORD_SIZE);
         size &= ~REDIRECT_EXTRA_HEADERS;
-    } else if (TESTANY(REDIRECT_HEADER_SHIFTED, size)) {
-        start = size_ptr - 1;
-        size &= ~REDIRECT_HEADER_SHIFTED;
+    } else {
+        if (TESTANY(REDIRECT_HEADER_SHIFTED, size)) {
+            start = size_ptr - 1;
+            size &= ~REDIRECT_HEADER_SHIFTED;
+        }
         if (requested_size != NULL) {
             /* Subtract the header and extra size for alignment. */
-            *requested_size =
-                size - HEADER_WORD_SIZE - (STANDARD_HEAP_ALIGNMENT - HEAP_ALIGNMENT);
-            if (HEADER_WORD_SIZE < HEAP_ALIGNMENT)
-                *requested_size -= HEAP_ALIGNMENT - HEADER_WORD_SIZE;
+            *requested_size = size -
+                (ALIGN_FORWARD(HEADER_WORD_SIZE, HEAP_ALIGNMENT) +
+                 STANDARD_HEAP_ALIGNMENT - HEAP_ALIGNMENT);
         }
-    } else if (requested_size != NULL) {
-        /* This is STANDARD_HEAP_ALIGNMENT-aligned with no header shift. */
-        *requested_size =
-            size - (HEADER_WORD_SIZE + STANDARD_HEAP_ALIGNMENT - HEAP_ALIGNMENT);
-        if (HEADER_WORD_SIZE < HEAP_ALIGNMENT)
-            *requested_size -= HEAP_ALIGNMENT - HEADER_WORD_SIZE;
     }
     if (start_out != NULL)
         *start_out = start;
@@ -1172,6 +1173,23 @@ redirect_strdup_initonly(const char *str)
 #endif
 
 #ifdef STANDALONE_UNIT_TEST
+/* Set enable_heap_alloc_address_override=true to have mock_global_heap_alloc() return
+ * heap_alloc_address_override.
+ * This is not thread safe but unit tests are assumed to be single-threaded.
+ */
+static bool enable_heap_alloc_address_override = false;
+static void *heap_alloc_address_override = NULL;
+
+static void *
+mock_global_heap_alloc(size_t size HEAPACCT(which_heap_t which))
+{
+    if (enable_heap_alloc_address_override) {
+        return (void *)heap_alloc_address_override;
+    } else {
+        return global_heap_alloc(size HEAPACCT(which));
+    }
+}
+
 void
 unit_test_redirect_heap(void)
 {
@@ -1240,5 +1258,27 @@ unit_test_redirect_heap(void)
     ASSERT(ALIGNED(p, STANDARD_HEAP_ALIGNMENT * 4));
     ASSERT(redirect_malloc_requested_size(p) == STANDARD_HEAP_ALIGNMENT + 2);
     redirect_free(p);
+
+    /* Test allocation where the backing memory has different HEAP_ALIGNMENT aligned
+     * offsets.
+     */
+    const size_t alignment = STANDARD_HEAP_ALIGNMENT * 2;
+    /* Allocate more backing memory than we need so there is room for the allocation's
+     * headers, alignment padding, and payload.
+     */
+    void *mem = redirect_malloc(8 * alignment);
+    ptr_uint_t base = ALIGN_FORWARD((ptr_uint_t)mem, alignment);
+    enable_heap_alloc_address_override = true;
+    for (size_t offset = 0; offset < alignment; offset += HEAP_ALIGNMENT) {
+        heap_alloc_address_override = (void *)(base + offset);
+        p = redirect_aligned_alloc(alignment, STANDARD_HEAP_ALIGNMENT);
+        ASSERT(ALIGNED(p, alignment));
+        ASSERT(redirect_malloc_requested_size(p) == STANDARD_HEAP_ALIGNMENT);
+        /* p is not a real allocation so don't free it. The backing memory is freed below.
+         */
+    }
+
+    enable_heap_alloc_address_override = false;
+    redirect_free(mem);
 }
 #endif
