@@ -495,7 +495,48 @@ kernel_walk_module_regions(kernel_memory_region_callback_t callback, void *arg)
     }
 }
 
+typedef struct {
+    kernel_memory_region_t pending;
+    kernel_memory_region_callback_t callback;
+    void *arg;
+} kernel_region_coalescer_t;
+
+static void
+region_coalescer_flush(kernel_region_coalescer_t *coalescer)
+{
+    kernel_memory_region_t *pending = &coalescer->pending;
+    if (pending->prot != 0 && pending->size > 0) {
+        coalescer->callback(pending, coalescer->arg);
+    }
+    *pending = (kernel_memory_region_t) { 0 };
+}
+
+static void
+region_coalescer_add(kernel_region_coalescer_t *coalescer, unsigned long start,
+                     unsigned long end, unsigned int prot)
+{
+    kernel_memory_region_t *pending = &coalescer->pending;
+    if (prot == pending->prot &&
+        pending->base + pending->size == (unsigned char *)start) {
+        pending->size += end - start;
+        return;
+    }
+    region_coalescer_flush(coalescer);
+    *pending = (kernel_memory_region_t) {
+        .base = (unsigned char *)start,
+        .size = end - start,
+        .prot = prot,
+    };
+}
+
 #ifdef CONFIG_X86_64
+/* On x86-64, kernel code lives in the top 2 GiB: the kernel image at
+ * __START_KERNEL_map, followed by the module area up to MODULES_END, which also
+ * backs other executable allocations (BPF JIT images, ftrace/kprobe trampolines).
+ */
+#    define KERNEL_CODE_VMAP_START __START_KERNEL_map
+#    define KERNEL_CODE_VMAP_END MODULES_END
+
 static unsigned long
 query_kernel_page(unsigned long addr, unsigned int *prot)
 {
@@ -529,63 +570,42 @@ query_kernel_page(unsigned long addr, unsigned int *prot)
     return (addr & ~(size - 1)) + size;
 }
 
-/* Returns the end of the run of pages starting at |addr| that share its protection. */
-static unsigned long
-query_kernel_run(unsigned long addr, unsigned long end, unsigned int *prot)
-{
-    unsigned long next = query_kernel_page(addr, prot);
-    while (next != 0 && next < end) {
-        unsigned int next_prot;
-        unsigned long after = query_kernel_page(next, &next_prot);
-        if (next_prot != *prot) {
-            break;
-        }
-        next = after;
-    }
-
-    return (next == 0 || next > end) ? end : next;
-}
-
 static void
 walk_code_range(unsigned long start, unsigned long end,
                 kernel_memory_region_callback_t callback, void *arg)
 {
+    kernel_region_coalescer_t coalescer = { .callback = callback, .arg = arg };
     unsigned long addr = start;
 
     while (addr < end) {
         unsigned int prot;
-        unsigned long next = query_kernel_run(addr, end, &prot);
-
-        if (prot != 0) {
-            const kernel_memory_region_t region = {
-                .base = (unsigned char *)addr,
-                .size = next - addr,
-                .prot = prot,
-            };
-            callback(&region, arg);
+        unsigned long next = query_kernel_page(addr, &prot);
+        /* Clamp a page crosses |end| or wraps past the top of the address space. */
+        if (next == 0 || next > end) {
+            next = end;
         }
-
+        region_coalescer_add(&coalescer, addr, next, prot);
         addr = next;
     }
+    region_coalescer_flush(&coalescer);
 }
-
+#elif defined(CONFIG_ARM64)
+#    define KERNEL_CODE_VMAP_START MODULES_VADDR
+#    define KERNEL_CODE_VMAP_END VMALLOC_END
+#else
+#    error "Unsupported architecture"
 #endif /* CONFIG_X86_64 */
 
 void
 kernel_walk_code_regions(kernel_memory_region_callback_t callback, void *arg)
 {
-#ifdef CONFIG_X86_64
-    /* On x86-64, kernel code lives in the top 2 GiB: the kernel image at
-     * __START_KERNEL_map, followed by the module area up to MODULES_END, which also
-     * backs other executable allocations (BPF JIT images, ftrace/kprobe trampolines).
-     *
-     * XXX i#8021: Executable memory mapped after this walk is not tracked. Neither is
+    /* XXX i#8021: Executable memory mapped after this walk is not tracked. Neither is
      * memory unmapped after it (e.g., module unload, freed BPF JIT images), which
      * leaves stale regions behind. The walk also takes no page table locks, so
      * concurrent mapping or protection changes may yield missing or inaccurate regions.
      */
-    const unsigned long start = __START_KERNEL_map;
-    const unsigned long end = MODULES_END;
+    const unsigned long start = KERNEL_CODE_VMAP_START;
+    const unsigned long end = KERNEL_CODE_VMAP_END;
 
     /* DR's heap lies in the module area and is mapped executable, but it's not kernel
      * code. It should be skipped here.
@@ -596,9 +616,6 @@ kernel_walk_code_regions(kernel_memory_region_callback_t callback, void *arg)
 
     walk_code_range(start, heap_start, callback, arg);
     walk_code_range(heap_end, end, callback, arg);
-#else
-    /* TODO i#8021: Implement the page table walk for AArch64. */
-#endif
 }
 
 /* Returns whether the |size| bytes at |addr| can be read without faulting.  Probes one
