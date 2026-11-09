@@ -44,6 +44,7 @@
 #    include <asm/tsc.h> /* For tsc_khz. */
 #elif defined(CONFIG_ARM64)
 #    include <asm/arch_timer.h> /* For arch_timer_get_cntfrq(). */
+#    include <asm/cacheflush.h> /* For flush_icache_range(). */
 #    include <asm/cpufeature.h> /* For read_sanitised_ftr_reg(). */
 #endif
 #include <linux/cpumask.h>
@@ -334,6 +335,16 @@ kernel_get_cache_line_sizes(size_t *dcache_line_size, size_t *icache_line_size)
     if (icache_line_size != NULL) {
         *icache_line_size = 4 << SYS_FIELD_GET(CTR_EL0, IminLine, ctr);
     }
+}
+
+void
+kernel_flush_icache_range(void *start, void *end)
+{
+    /* Cleans D-cache and invalidates I-cache to the PoU, then IPIs all online CPUs
+     * for a context synchronization event.  The IPI requires IRQs to be enabled.
+     */
+    KERNEL_ASSERT(!irqs_disabled());
+    flush_icache_range((unsigned long)start, (unsigned long)end);
 }
 #endif
 

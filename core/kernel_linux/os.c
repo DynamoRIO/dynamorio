@@ -636,6 +636,12 @@ get_cache_line_size(DR_PARAM_OUT size_t *dcache_line_size,
     kernel_get_cache_line_sizes(dcache_line_size, icache_line_size);
     return true;
 }
+
+void
+clear_icache(void *beg, void *end)
+{
+    kernel_flush_icache_range(beg, end);
+}
 #endif
 
 uint

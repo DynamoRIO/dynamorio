@@ -69,6 +69,12 @@ kernel_get_timestamp_counter_khz(void);
  */
 void
 kernel_get_cache_line_sizes(size_t *dcache_line_size, size_t *icache_line_size);
+
+/* Makes instructions written to [start, end) visible to instruction fetch on all
+ * online CPUs. Must be called with IRQs enabled.
+ */
+void
+kernel_flush_icache_range(void *start, void *end);
 #endif
 
 /* Reports the per-CPU buffer capacity and alignment in bytes. Both output pointers
