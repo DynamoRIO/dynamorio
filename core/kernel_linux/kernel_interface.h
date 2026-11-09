@@ -123,7 +123,7 @@ kernel_walk_module_regions(kernel_memory_region_callback_t callback, void *arg);
 
 /* Walks the present pages between the kernel image base and the end of the modules area,
  * excluding DR's own heap. Calls |callback| once for each maximal run of virtually
-  * contiguous pages that have identical KERNEL_MEMPROT_* protection.
+ * contiguous pages that have identical KERNEL_MEMPROT_* protection.
  */
 void
 kernel_walk_code_regions(kernel_memory_region_callback_t callback, void *arg);
