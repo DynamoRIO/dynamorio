@@ -138,6 +138,16 @@ d_r_os_init(void)
     DOCHECK(1, { check_tls_segment_mapping(); });
 }
 
+#ifdef AARCH64
+static void **
+local_state_slot(int tls_offs)
+{
+    ASSERT(tls_offs >= 0 &&
+           (size_t)tls_offs <= sizeof(local_state_extended_t) - sizeof(void *));
+    return (void **)((byte *)kernel_get_cpu_local_state() + tls_offs);
+}
+#endif
+
 void *
 d_r_get_tls(int tls_offs)
 {
@@ -149,9 +159,10 @@ d_r_get_tls(int tls_offs)
                  : "r"((ptr_int_t)tls_offs)
                  : "memory");
     return value;
+#elif defined(AARCH64)
+    return *local_state_slot(tls_offs);
 #else
-    ASSERT_NOT_PORTED(false);
-    return NULL;
+#    error "Unsupported architecture"
 #endif
 }
 
@@ -164,8 +175,10 @@ d_r_set_tls(int tls_offs, void *value)
                  :
                  : "r"(value), "r"((ptr_int_t)tls_offs)
                  : "memory");
+#elif defined(AARCH64)
+    *local_state_slot(tls_offs) = value;
 #else
-    ASSERT_NOT_PORTED(false);
+#    error "Unsupported architecture"
 #endif
 }
 
