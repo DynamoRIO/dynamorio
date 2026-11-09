@@ -398,6 +398,9 @@ kernel_get_module_text_end(void)
 void
 kernel_walk_module_regions(kernel_memory_region_callback_t callback, void *arg)
 {
+    /* Core regions don't change after the module is loaded, so this doesn't need
+     * locking as long as the module stays loaded.
+     */
     for_class_mod_mem_type(type, core)
     {
         const struct module_memory *mem = &THIS_MODULE->mem[type];
