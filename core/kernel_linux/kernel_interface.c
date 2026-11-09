@@ -93,8 +93,9 @@ static void *kernel_image_start = NULL;
 static void *kernel_image_end = NULL;
 
 /* Holds DR's per-CPU TLS, including future client TLS slots; d_r_os_init() checks the
- * size. It must be static per-CPU data for gs:[disp32] access from generated code, and
- * it shares the kernel's 8 KiB PERCPU_MODULE_RESERVE, so keep it small.
+ * size. It must be static per-CPU data for gs:[disp32] access from generated
+ * code on x86. Static per-CPU data in modules shares the kernel's 8 KiB
+ * PERCPU_MODULE_RESERVE on all architectures, so keep it small.
  * The module loader copies this zero-initialized buffer to every possible CPU
  * and releases the storage on unload.
  */
