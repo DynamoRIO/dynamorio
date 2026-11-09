@@ -505,6 +505,26 @@ raw2trace_t::process_marker(raw2trace_thread_data_t *tdata,
         // Consumed by raw2trace and not made visible in final trace.
         return true;
     }
+    if (!tdata->has_v2p &&
+        (marker_type == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS ||
+         marker_type == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE))
+        tdata->has_v2p = true;
+    if (marker_type == TRACE_MARKER_TYPE_PAGE_SIZE) {
+        trace_entry_t marker;
+        marker.type = TRACE_TYPE_MARKER;
+        marker.size = static_cast<unsigned short>(marker_type);
+        marker.addr = marker_val;
+        std::vector<trace_entry_t> toadd;
+        std::string error = tdata->v2p.process_record(marker, toadd);
+        if (!error.empty()) {
+            tdata->error = "Failed to handle v2p: " + error;
+            return false;
+        }
+        if (!toadd.empty()) {
+            tdata->error = "Unexpected v2p records to add at page size marker";
+            return false;
+        }
+    }
     if (marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
         uint64 stamp = static_cast<uint64>(marker_val);
         VPRINT(2, "Thread %u timestamp 0x" ZHEX64_FORMAT_STRING "\n",
@@ -3795,14 +3815,8 @@ raw2trace_t::open_new_chunk(raw2trace_thread_data_t *tdata)
     // and repeats all encodings used inside it.
     tdata->encoding_emitted.clear();
     tdata->last_encoding_emitted = nullptr;
-
-    // TODO i#6654,i#5538: Add a virtual-to-physical cache and clear it here.
-    // We'll need to add a routine for trace_converter_t to call to query our cache --
-    // or we can put the cache in trace_converter_t and have it clear the cache via
-    // a new new-chunk return value from write() and append_delayed_branch().
-    // Insertion of v2p markers in all but the first chunk will need to prepend
-    // them to the instr after observing its memref: we may want to reserve the
-    // first out_buf slot to avoid a memmove.
+    // Similarly, tell v2p to start repeating.
+    tdata->v2p.start_repeating();
 
     return true;
 }
@@ -3866,6 +3880,50 @@ raw2trace_t::observe_entry_output(raw2trace_thread_data_t *tls,
     // Nothing to do for us: this is for subclasses.
 }
 
+bool
+raw2trace_t::write_with_repeats(raw2trace_thread_data_t *tdata,
+                                const trace_entry_t *start, const trace_entry_t *end)
+{
+    if (tdata->out_archive != nullptr && tdata->has_v2p) {
+        // Process and repeat v2p markers.
+        // It is easier here than to try to insert at every point we add
+        // an address-carrying record; we also don't determine the chunk boundaries
+        // until we output.
+        std::vector<trace_entry_t> toadd;
+        for (const trace_entry_t *it = start; it < end; ++it) {
+            std::string error = tdata->v2p.process_record(*it, toadd);
+            if (!error.empty()) {
+                tdata->error = "Failed to handle v2p: " + error;
+                return false;
+            }
+        }
+        if (!toadd.empty()) {
+            // This should only happen on non-initial chunks so we should be
+            // fine writing this first and don't have to worry about it being
+            // before up front headers.
+            for (const trace_entry_t &record : toadd) {
+                observe_entry_output(tdata, &record);
+                if (tdata->out_archive != nullptr) {
+                    tdata->cur_chunk_ref_count +=
+                        tdata->memref_counter.entry_memref_count(&record);
+                }
+            }
+            if (!tdata->out_file->write(reinterpret_cast<const char *>(toadd.data()),
+                                        toadd.size() * sizeof(trace_entry_t))) {
+                tdata->error = "Failed to write to output file";
+                return false;
+            }
+        }
+    }
+    if (!tdata->out_file->write(reinterpret_cast<const char *>(start),
+                                reinterpret_cast<const char *>(end) -
+                                    reinterpret_cast<const char *>(start))) {
+        tdata->error = "Failed to write to output file";
+        return false;
+    }
+    return true;
+}
+
 // All writes to out_file go through this function, except new chunk headers
 // and footers (to do so would cause recursion; we assume those do not need
 // extra processing here).
@@ -3907,12 +3965,8 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                  it->type == TRACE_TYPE_ENCODING) &&
                 tdata->cur_chunk_instr_count >= chunk_instr_count_) {
                 DEBUG_ASSERT(tdata->cur_chunk_instr_count == chunk_instr_count_);
-                if (!tdata->out_file->write(reinterpret_cast<const char *>(start),
-                                            reinterpret_cast<const char *>(it) -
-                                                reinterpret_cast<const char *>(start))) {
-                    tdata->error = "Failed to write to output file";
+                if (!write_with_repeats(tdata, start, it))
                     return false;
-                }
                 if (!open_new_chunk(tdata))
                     return false;
                 start = it;
@@ -3961,22 +4015,13 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                     // so maybe we could avoid adding them to decode_pcs.
                     (record_encoding_emitted(tdata, *(decode_pcs + instr_ordinal))) {
                     // Write any data we were waiting until post-loop to write.
-                    if (it > start &&
-                        !tdata->out_file->write(
-                            reinterpret_cast<const char *>(start),
-                            reinterpret_cast<const char *>(it) -
-                                reinterpret_cast<const char *>(start))) {
-                        tdata->error = "Failed to write to output file";
+                    if (it > start && !write_with_repeats(tdata, start, it))
                         return false;
-                    }
                     if (!insert_post_chunk_encodings(tdata, it,
                                                      *(decode_pcs + instr_ordinal)))
                         return false;
-                    if (!tdata->out_file->write(reinterpret_cast<const char *>(it),
-                                                sizeof(*it))) {
-                        tdata->error = "Failed to write to output file";
+                    if (!write_with_repeats(tdata, it, it + 1))
                         return false;
-                    }
                     start = it + 1;
                 }
             }
@@ -4017,13 +4062,8 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
             }
         }
     }
-    if (end > start &&
-        !tdata->out_file->write(reinterpret_cast<const char *>(start),
-                                reinterpret_cast<const char *>(end) -
-                                    reinterpret_cast<const char *>(start))) {
-        tdata->error = "Failed to write to output file";
+    if (end > start && !write_with_repeats(tdata, start, end))
         return false;
-    }
 
     // If we're at the end of a block (minus its delayed branch) we need
     // to split now to avoid going too far by waiting for the next instr.

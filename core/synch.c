@@ -686,7 +686,16 @@ void
 check_wait_at_safe_spot(dcontext_t *dcontext, thread_synch_permission_t cur_state)
 {
     thread_synch_data_t *tsd = (thread_synch_data_t *)dcontext->synch_field;
+#ifdef WINDOWS
     byte cxt[MAX(CONTEXT_HEAP_SIZE_OPAQUE, sizeof(priv_mcontext_t))];
+#else
+    /* On UNIX, cxt never holds an opaque sigcontext_t (see below), so we don't
+     * reserve space for one to avoid exceeding the kernel module's
+     * -Wframe-larger-than limit.
+     * XXX: Use a pre-allocated per-thread buffer to avoid the stack entirely.
+     */
+    byte cxt[sizeof(priv_mcontext_t)];
+#endif
     bool set_context = false;
     bool set_mcontext = false;
     if (tsd->pending_synch_count == 0 || cur_state == THREAD_SYNCH_NONE)
@@ -760,8 +769,16 @@ check_wait_at_safe_spot(dcontext_t *dcontext, thread_synch_permission_t cur_stat
             set_mcontext = true;
             memcpy(cxt, tsd->set_mcontext, sizeof(*tsd->set_mcontext));
         } else {
+#ifdef WINDOWS
             set_context = true;
             memcpy(cxt, tsd->set_context, tsd->set_context_size);
+#else
+            /* tsd->set_context is set by set_synched_thread_context(), which
+             * only accepts a priv_mcontext_t on UNIX. If that changes, cxt must
+             * be enlarged to fit a sigcontext_t.
+             */
+            ASSERT_NOT_IMPLEMENTED(false);
+#endif
         }
         synch_thread_free_setcontext(tsd); /* sets to NULL for us */
     }
