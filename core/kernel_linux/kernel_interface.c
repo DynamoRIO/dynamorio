@@ -516,7 +516,8 @@ kernel_walk_code_regions(kernel_memory_region_callback_t callback, void *arg)
      *
      * XXX i#8021: Executable memory mapped after this walk is not tracked. Neither is
      * memory unmapped after it (e.g., module unload, freed BPF JIT images), which
-     * leaves stale regions behind.
+     * leaves stale regions behind. The walk also takes no page table locks, so
+     * concurrent mapping or protection changes may yield missing or inaccurate regions.
      */
     const unsigned long start = __START_KERNEL_map;
     const unsigned long end = MODULES_END;
