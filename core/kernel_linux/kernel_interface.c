@@ -200,20 +200,25 @@ resolve_kernel_symbols(void)
     return 0;
 }
 
-/* Sets |*prot| to the KERNEL_MEMPROT_* protection of a core module memory type.
- * Returns false for an unknown type.
+/* Returns whether |type| is a supported core module memory type.
+ * If |prot| is non-NULL, |*prot| is set to the corresponding KERNEL_MEMPROT_* protection
+ * on success.
  */
 static bool
-module_mem_type_prot(enum mod_mem_type type, unsigned int *prot)
+module_mem_type_supported(enum mod_mem_type type, unsigned int *prot)
 {
-    *prot = KERNEL_MEMPROT_READ;
+    unsigned int protection = KERNEL_MEMPROT_READ;
     switch (type) {
-    case MOD_TEXT: *prot |= KERNEL_MEMPROT_EXEC; return true;
-    case MOD_DATA: *prot |= KERNEL_MEMPROT_WRITE; return true;
+    case MOD_TEXT: protection |= KERNEL_MEMPROT_EXEC; break;
+    case MOD_DATA: protection |= KERNEL_MEMPROT_WRITE; break;
     case MOD_RODATA:
-    case MOD_RO_AFTER_INIT: return true;
+    case MOD_RO_AFTER_INIT: break;
     default: return false;
     }
+    if (prot != NULL) {
+        *prot = protection;
+    }
+    return true;
 }
 
 /* Rejects a kernel whose module memory layout has a core type we do not know, so that
@@ -224,8 +229,7 @@ check_module_mem_types(void)
 {
     for_class_mod_mem_type(type, core)
     {
-        unsigned int prot;
-        if (THIS_MODULE->mem[type].size != 0 && !module_mem_type_prot(type, &prot)) {
+        if (THIS_MODULE->mem[type].size != 0 && !module_mem_type_supported(type, NULL)) {
             pr_err("Unsupported module memory type %d\n", type);
             return -EOPNOTSUPP;
         }
@@ -402,7 +406,7 @@ kernel_walk_module_regions(kernel_memory_region_callback_t callback, void *arg)
         }
 
         unsigned int prot;
-        if (!module_mem_type_prot(type, &prot)) {
+        if (!module_mem_type_supported(type, &prot)) {
             /* Should be unreachable as unknown module memory type is rejected
              * by check_module_mem_types() at module load.
              */
