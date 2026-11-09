@@ -127,11 +127,13 @@ d_r_os_init(void)
      * support starts.
      */
     tls_local_state_seg_offs = kernel_get_cpu_local_state_segment_offset();
-#else
-    ASSERT_NOT_PORTED(false);
-#endif
     /* Ensures os_tls_offset() cannot overflow. */
     ASSERT(tls_local_state_seg_offs <= INT_MAX - (int)sizeof(local_state_extended_t));
+#elif defined(AARCH64)
+    tls_local_state_seg_offs = 0;
+#else
+#    error "Unsupported architecture"
+#endif
     os_state_ready = true;
     DOCHECK(1, { check_tls_segment_mapping(); });
 }

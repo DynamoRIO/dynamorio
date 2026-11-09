@@ -354,6 +354,7 @@ kernel_get_cpu_local_state(void)
     return this_cpu_ptr(&dr_cpu_local_storage)->data;
 }
 
+#ifdef CONFIG_X86
 int
 kernel_get_cpu_local_state_segment_offset(void)
 {
@@ -365,6 +366,7 @@ kernel_get_cpu_local_state_segment_offset(void)
     KERNEL_ASSERT(offs == (int)offs);
     return (int)offs;
 }
+#endif
 
 size_t
 kernel_get_page_size(void)

@@ -86,11 +86,13 @@ kernel_get_cpu_local_state_layout(size_t *size, size_t *alignment);
 void *
 kernel_get_cpu_local_state(void);
 
+#ifdef CONFIG_X86
 /* Returns the gs-relative displacement of the buffer returned by
  * kernel_get_cpu_local_state(). That is its raw __percpu address on x86-64 SMP.
  */
 int
 kernel_get_cpu_local_state_segment_offset(void);
+#endif
 
 size_t
 kernel_get_page_size(void);
