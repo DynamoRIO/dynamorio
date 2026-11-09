@@ -508,7 +508,9 @@ kernel_walk_code_regions(kernel_memory_region_callback_t callback, void *arg)
 {
 #ifdef CONFIG_X86_64
     /* On x86-64, kernel code lives in the top 2 GiB: the kernel image at
-     * __START_KERNEL_map, followed by the module area up to MODULES_END.
+     * __START_KERNEL_map, followed by the module area up to MODULES_END, which also
+     * backs other executable allocations (BPF JIT images, ftrace/kprobe trampolines).
+     *
      * XXX i#8021: Executable memory mapped after this walk is not tracked. Neither is
      * memory unmapped after it (e.g., module unload, freed BPF JIT images), which
      * leaves stale regions behind.
