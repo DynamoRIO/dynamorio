@@ -316,6 +316,11 @@ typedef enum {
  */
 constexpr int IDLE_THREAD_ID = -1;
 
+/**
+ * A process id sentinel for an idle core with no software thread.
+ */
+constexpr int IDLE_PROCESS_ID = 0;
+
 /** The sub-type for TRACE_TYPE_MARKER. */
 /* For offline traces, we are not able to place a marker accurately in the middle
  * of a block (except for kernel event markers which contain their interruption PC).

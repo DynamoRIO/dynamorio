@@ -815,6 +815,12 @@ set_local_window(void *drcontext, ptr_int_t value)
             // The initial file is opened at thread init.
             if (data->file != INVALID_FILE && value > 0 && op_split_windows.get_value())
                 close_thread_file(drcontext);
+            if (value > 0 && op_use_physical.get_value() &&
+                op_split_windows.get_value()) {
+                // Ensure we get new physaddr markers in each separate window after
+                // the first one.
+                data->physaddr.clear_cache(drcontext);
+            }
         }
     }
     *(ptr_int_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_WINDOW) = value;
@@ -1023,8 +1029,8 @@ process_entry_for_physaddr(void *drcontext, per_thread_t *data, size_t header_si
     addr_t phys = 0;
     bool success = data->physaddr.virtual2physical(drcontext, virt, &phys, &from_cache);
     ASSERT(emitted != NULL && skip != NULL, "invalid input parameters");
-    NOTIFY(4, "%s: type=%s (%2d) virt=%p phys=%p\n", __FUNCTION__, trace_type_names[type],
-           type, virt, phys);
+    NOTIFY(4, "%s: type=%s (%2d) virt=%p phys=%p cached=%d\n", __FUNCTION__,
+           trace_type_names[type], type, virt, phys, from_cache);
     if (!success) {
         // XXX i#1735: Unfortunately this happens; currently we use the virtual
         // address and continue.

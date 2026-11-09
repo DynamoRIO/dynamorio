@@ -688,6 +688,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             "Chunks do not increase monotonically");
         }
         shard->last_chunk_ordinal_ = memref.marker.marker_value;
+        // Clear the v2p cache to check that records are repeated in a new chunk.
+        shard->v2p_seen_.clear();
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT_RAW) {
@@ -1097,32 +1099,39 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 (memref.marker.marker_value % shard->page_size_) ==
                     (shard->prev_entry_.marker.marker_value % shard->page_size_),
                 "Physical address page offset does not match virtual");
-            shard->v2p_.insert(
+            shard->v2p_seen_.insert(
                 ALIGN_BACKWARD(memref.marker.marker_value, shard->page_size_));
+            // We use the presence of any v2p markers to indicate they should all be
+            // present.
+            // XXX i#8245: Add a new OFFLINE_FILE_TYPE_PHYSICAL_ADDR type, which would
+            // require a version bump.
+            shard->has_v2p_ = true;
         }
     } else if (memref.marker.type == TRACE_TYPE_MARKER &&
                memref.marker.marker_type == TRACE_MARKER_TYPE_VIRTUAL_ADDRESS) {
         report_if_false(shard, false,
                         "Virtual address marker without prior physical marker");
         // Avoid a further error "Missing physical address".
-        shard->v2p_.insert(ALIGN_BACKWARD(memref.marker.marker_value, shard->page_size_));
+        shard->v2p_seen_.insert(
+            ALIGN_BACKWARD(memref.marker.marker_value, shard->page_size_));
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE) {
-        shard->v2p_.insert(ALIGN_BACKWARD(memref.marker.marker_value, shard->page_size_));
+        shard->v2p_seen_.insert(
+            ALIGN_BACKWARD(memref.marker.marker_value, shard->page_size_));
+        // XXX i#8245: Add a new OFFLINE_FILE_TYPE_PHYSICAL_ADDR type, which would
+        // require a version bump.
+        shard->has_v2p_ = true;
     }
-    // We use the presence of any v2p markers to indicate they should all be present.
-    // XXX i#8245: Add a new OFFLINE_FILE_TYPE_PHYSICAL_ADDR type, which would
-    // require a version bump.
-    if (!shard->v2p_.empty() && type_has_address(memref.instr.type)) {
+    if (shard->has_v2p_ && type_has_address(memref.instr.type)) {
         addr_t addr = 0;
         if (type_is_instr(memref.instr.type))
             addr = memref.instr.addr;
         else
             addr = memref.data.addr;
         report_if_false(shard,
-                        shard->v2p_.find(ALIGN_BACKWARD(addr, shard->page_size_)) !=
-                            shard->v2p_.end(),
+                        shard->v2p_seen_.find(ALIGN_BACKWARD(addr, shard->page_size_)) !=
+                            shard->v2p_seen_.end(),
                         "Missing physical address");
     }
 

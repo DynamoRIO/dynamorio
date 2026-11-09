@@ -12,8 +12,6 @@ pre-DR start.*
 restore the write file function
 pre-DR detach
 close file .*
-2: writing [0-9]+ bytes .*
-3: writing [0-9]+ bytes .*
 close file .*
 close file .*
 close file .*

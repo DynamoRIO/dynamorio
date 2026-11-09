@@ -680,12 +680,6 @@ dynamorio_app_init_part_two_finalize(void)
         dynamo_thread_init(NULL, NULL, NULL, false);
         /* i#2751: we need TLS to be set up to relocate and call init funcs. */
         loader_init_epilogue(get_thread_private_dcontext());
-#ifdef LINUX_KERNEL
-        /* TODO i#8021: Remove this early return as the remainder of part two is ported.
-         * Move it further down for each incremental step.
-         */
-        return SUCCESS;
-#endif
 
         /* We move vm_areas_init() below dynamo_thread_init() so we can have
          * two things: 1) a dcontext and 2) a SIGSEGV handler, for TRY/EXCEPT
@@ -705,6 +699,12 @@ dynamorio_app_init_part_two_finalize(void)
             find_dynamo_library_vm_areas();
             dynamo_vm_areas_unlock();
         }
+#ifdef LINUX_KERNEL
+        /* TODO i#8021: Remove this early return as the remainder of part two is ported.
+         * Move it further down for each incremental step.
+         */
+        return SUCCESS;
+#endif
 
 #ifdef ANNOTATIONS
         annotation_init();
