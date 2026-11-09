@@ -36,6 +36,19 @@
 
 #include <linux/types.h>
 
+#define KERNEL_MEMPROT_READ 0x1
+#define KERNEL_MEMPROT_WRITE 0x2
+#define KERNEL_MEMPROT_EXEC 0x4
+
+typedef struct {
+    unsigned char *base;
+    size_t size;
+    unsigned int prot; /* KERNEL_MEMPROT_* */
+} kernel_memory_region_t;
+
+typedef void (*kernel_memory_region_callback_t)(const kernel_memory_region_t *region,
+                                                void *arg);
+
 int
 kernel_module_init(size_t dr_heap_size);
 
@@ -101,6 +114,19 @@ kernel_get_module_text_start(void);
 
 void *
 kernel_get_module_text_end(void);
+
+/* Calls |callback| for each non-empty core memory region of this module (text, data,
+ * rodata, ro_after_init).
+ */
+void
+kernel_walk_module_regions(kernel_memory_region_callback_t callback, void *arg);
+
+/* Walks the present pages between the kernel image base and the end of the modules area,
+ * excluding DR's own heap. Calls |callback| once for each maximal run of virtually
+ * contiguous pages that have identical KERNEL_MEMPROT_* protection.
+ */
+void
+kernel_walk_code_regions(kernel_memory_region_callback_t callback, void *arg);
 
 /* Returns whether the |size| bytes at |addr| can be read without faulting.  Handles both
  * kernel and user addresses.  Acquires no locks and never sleeps, so it is safe to call
