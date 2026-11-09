@@ -401,6 +401,9 @@ kernel_walk_module_regions(kernel_memory_region_callback_t callback, void *arg)
     for_class_mod_mem_type(type, core)
     {
         const struct module_memory *mem = &THIS_MODULE->mem[type];
+        /* Skip memory types this module doesn't use. For example, MOD_RO_AFTER_INIT
+         * is empty unless the module has __ro_after_init variables or jump labels.
+         */
         if (mem->size == 0) {
             continue;
         }
