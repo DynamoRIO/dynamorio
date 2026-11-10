@@ -92,6 +92,9 @@ static void *(*vmalloc_node_range_ptr)(unsigned long size, unsigned long align,
 
 static void *kernel_image_start = NULL;
 static void *kernel_image_end = NULL;
+#ifdef CONFIG_ARM64
+static struct mm_struct *init_mm_ptr;
+#endif
 
 /* Holds DR's per-CPU TLS, including future client TLS slots; d_r_os_init() checks the
  * size. It must be static per-CPU data for gs:[disp32] access from generated
@@ -209,6 +212,14 @@ resolve_kernel_symbols(void)
         pr_err("Failed to resolve _end\n");
         return -ENOENT;
     }
+
+#ifdef CONFIG_ARM64
+    init_mm_ptr = kernel_find_symbol("init_mm", NULL);
+    if (init_mm_ptr == NULL) {
+        pr_err("Failed to resolve init_mm\n");
+        return -ENOENT;
+    }
+#endif
 
     return 0;
 }
@@ -528,6 +539,8 @@ region_coalescer_add(kernel_region_coalescer_t *coalescer, unsigned long start,
     };
 }
 
+#define ENTRY_END(addr, size) (((addr) & ~((size) - 1)) + (size))
+
 #ifdef CONFIG_X86_64
 /* On x86-64, kernel code lives in the top 2 GiB: the kernel image at
  * __START_KERNEL_map, followed by the module area up to MODULES_END, which also
@@ -566,8 +579,76 @@ query_kernel_page(unsigned long addr, unsigned int *prot)
             }
         }
     }
-    return (addr & ~(size - 1)) + size;
+    return ENTRY_END(addr, size);
 }
+#elif defined(CONFIG_ARM64)
+#    define KERNEL_CODE_VMAP_START MODULES_VADDR
+#    define KERNEL_CODE_VMAP_END VMALLOC_END
+
+static unsigned int
+pte_to_kernel_memprot(pte_t pte)
+{
+    if (!pte_valid(pte)) {
+        return 0;
+    }
+
+    unsigned int prot = KERNEL_MEMPROT_READ;
+    if (pte_write(pte)) {
+        prot |= KERNEL_MEMPROT_WRITE;
+    }
+    if ((pte_val(pte) & PTE_PXN) == 0) {
+        prot |= KERNEL_MEMPROT_EXEC;
+    }
+    return prot;
+}
+
+static unsigned long
+query_kernel_page(unsigned long addr, unsigned int *prot)
+{
+    *prot = 0;
+    pgd_t pgd = pgdp_get(pgd_offset(init_mm_ptr, addr));
+    if (pgd_none(pgd) || pgd_bad(pgd)) {
+        return ENTRY_END(addr, PGDIR_SIZE);
+    }
+
+    p4d_t p4d = p4dp_get(p4d_offset(&pgd, addr));
+    if (p4d_none(p4d) || p4d_bad(p4d)) {
+        return ENTRY_END(addr, P4D_SIZE);
+    }
+
+    pud_t pud = pudp_get(pud_offset(&p4d, addr));
+    if (pud_none(pud)) {
+        return ENTRY_END(addr, PUD_SIZE);
+    }
+    /* pud_bad() means "not a table", so it is also true for
+     * valid block mappings. Therefore, we should check pud_leaf() first.
+     */
+    if (pud_leaf(pud)) {
+        *prot = pte_to_kernel_memprot(__pte(pud_val(pud)));
+        return ENTRY_END(addr, PUD_SIZE);
+    }
+    if (pud_bad(pud)) {
+        return ENTRY_END(addr, PUD_SIZE);
+    }
+
+    pmd_t pmd = pmdp_get(pmd_offset(&pud, addr));
+    if (pmd_none(pmd)) {
+        return ENTRY_END(addr, PMD_SIZE);
+    }
+    if (pmd_leaf(pmd)) {
+        *prot = pte_to_kernel_memprot(__pte(pmd_val(pmd)));
+        return ENTRY_END(addr, PMD_SIZE);
+    }
+    if (pmd_bad(pmd)) {
+        return ENTRY_END(addr, PMD_SIZE);
+    }
+
+    *prot = pte_to_kernel_memprot(ptep_get(pte_offset_kernel(&pmd, addr)));
+    return ENTRY_END(addr, PAGE_SIZE);
+}
+#else
+#    error "Unsupported architecture"
+#endif /* CONFIG_X86_64 */
 
 static void
 walk_code_range(unsigned long start, unsigned long end,
@@ -588,12 +669,6 @@ walk_code_range(unsigned long start, unsigned long end,
     }
     region_coalescer_flush(&coalescer);
 }
-#elif defined(CONFIG_ARM64)
-#    define KERNEL_CODE_VMAP_START MODULES_VADDR
-#    define KERNEL_CODE_VMAP_END VMALLOC_END
-#else
-#    error "Unsupported architecture"
-#endif /* CONFIG_X86_64 */
 
 void
 kernel_walk_code_regions(kernel_memory_region_callback_t callback, void *arg)
