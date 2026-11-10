@@ -516,8 +516,7 @@ region_coalescer_add(kernel_region_coalescer_t *coalescer, unsigned long start,
                      unsigned long end, unsigned int prot)
 {
     kernel_memory_region_t *pending = &coalescer->pending;
-    if (prot == pending->prot &&
-        pending->base + pending->size == (unsigned char *)start) {
+    if (prot == pending->prot && (unsigned long)pending->base + pending->size == start) {
         pending->size += end - start;
         return;
     }
