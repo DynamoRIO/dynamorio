@@ -95,6 +95,16 @@
 #    define ATTACH_PARENT_PROCESS ((DWORD) - 1)
 #endif
 
+/* NtFreeVirtualMemory flags for placeholders, added in Windows 10 1803 and
+ * missing from older SDKs.
+ */
+#ifndef MEM_COALESCE_PLACEHOLDERS
+#    define MEM_COALESCE_PLACEHOLDERS 0x00000001
+#endif
+#ifndef MEM_PRESERVE_PLACEHOLDER
+#    define MEM_PRESERVE_PLACEHOLDER 0x00000002
+#endif
+
 #ifdef X64
 typedef struct _UNICODE_STRING_32 {
     /* Length field is size in bytes not counting final 0. */
