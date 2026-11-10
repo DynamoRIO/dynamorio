@@ -129,9 +129,7 @@ d_r_os_init(void)
     /* Ensures os_tls_offset() cannot overflow. */
     ASSERT(tls_local_state_seg_offs <= INT_MAX - (int)sizeof(local_state_extended_t));
 #elif defined(AARCH64)
-    /* AArch64 has no segment addressing, so TLS offsets are relative to this CPU's
-     * local-state base, as in user mode where TLS_LOCAL_STATE_OFFSET is 0.
-     */
+    /* AArch64 has no segment addressing, so offsets are from the local-state base. */
     tls_local_state_seg_offs = 0;
 #else
 #    error "Unsupported architecture"
@@ -141,10 +139,7 @@ d_r_os_init(void)
 }
 
 #ifdef AARCH64
-/* Returns the address of the TLS slot at base-relative offset tls_offs for this CPU.
- * Callers must keep preemption disabled, as computing the per-CPU address and then
- * accessing it is not atomic with respect to migration.
- */
+/* Returns this CPU's TLS slot at tls_offs. Callers must keep preemption disabled. */
 static void **
 local_state_slot(int tls_offs)
 {
@@ -241,7 +236,7 @@ thread_id_t
 d_r_get_thread_id(void)
 {
     /* kernel_get_cpu_id is reentrant and fast because it just reads the per-CPU
-     * cpu_number variable (gs-relative on x86, TPIDR_ELx-relative on AArch64).
+     * cpu_number variable.
      * Avoid INVALID_THREAD_ID (0) which is used for unowned locks by returning CPU ID
      * plus one.
      *

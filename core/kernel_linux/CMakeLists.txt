@@ -41,9 +41,7 @@ set_target_properties(drkernel_ctl PROPERTIES
 # Must match obj-m in Kbuild.
 set(dynamorio_module_name dynamorio_module)
 
-# When cross-compiling, Kbuild needs ARCH and CROSS_COMPILE. Derive them from
-# the CMake toolchain so the module builds without exporting them in the
-# environment.
+# Derive Kbuild's ARCH and CROSS_COMPILE from the CMake toolchain when cross-compiling.
 set(dynamorio_module_make_args)
 if (CMAKE_CROSSCOMPILING)
   if (AARCH64)

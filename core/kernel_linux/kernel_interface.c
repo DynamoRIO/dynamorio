@@ -97,9 +97,8 @@ static struct mm_struct *init_mm_ptr = NULL;
 #endif
 
 /* Holds DR's per-CPU TLS, including future client TLS slots; d_r_os_init() checks the
- * size. It must be static per-CPU data for gs:[disp32] access from generated
- * code on x86. Static per-CPU data in modules shares the kernel's 8 KiB
- * PERCPU_MODULE_RESERVE on all architectures, so keep it small.
+ * size. It must be static per-CPU data for gs:[disp32] access from generated code on
+ * x86, and it shares the kernel's 8 KiB PERCPU_MODULE_RESERVE, so keep it small.
  * The module loader copies this zero-initialized buffer to every possible CPU
  * and releases the storage on unload.
  */
@@ -395,9 +394,7 @@ kernel_get_cache_line_sizes(size_t *dcache_line_size, size_t *icache_line_size)
 void
 kernel_flush_icache_range(void *start, void *end)
 {
-    /* Cleans D-cache and invalidates I-cache to the PoU, then IPIs all online CPUs
-     * for a context synchronization event.  The IPI requires IRQs to be enabled.
-     */
+    /* flush_icache_range() IPIs all online CPUs, which requires IRQs to be enabled. */
     KERNEL_ASSERT(!irqs_disabled());
     flush_icache_range((unsigned long)start, (unsigned long)end);
 }
@@ -580,9 +577,13 @@ query_kernel_page(unsigned long addr, unsigned int *prot)
     return ALIGN_BACKWARD(addr, size) + size;
 }
 #elif defined(CONFIG_ARM64)
+/* On AArch64, kernel code lives in the module region, the kernel image, and the vmalloc
+ * area (BPF JIT images, kprobe slots).
+ */
 #    define KERNEL_CODE_VMAP_START MODULES_VADDR
 #    define KERNEL_CODE_VMAP_END VMALLOC_END
 
+/* Also works for PMD/PUD block entries, which use the same bit positions. */
 static unsigned int
 pte_to_kernel_memprot(pte_t pte)
 {
@@ -594,12 +595,14 @@ pte_to_kernel_memprot(pte_t pte)
     if (pte_write(pte)) {
         prot |= KERNEL_MEMPROT_WRITE;
     }
+    /* Kernel execution is controlled by PXN; UXN only applies to EL0. */
     if ((pte_val(pte) & PTE_PXN) == 0) {
         prot |= KERNEL_MEMPROT_EXEC;
     }
     return prot;
 }
 
+/* arm64 has no lookup_address(), so walk init_mm's page tables directly. */
 static unsigned long
 query_kernel_page(unsigned long addr, unsigned int *prot)
 {
@@ -618,9 +621,7 @@ query_kernel_page(unsigned long addr, unsigned int *prot)
     if (pud_none(pud)) {
         return ALIGN_BACKWARD(addr, PUD_SIZE) + PUD_SIZE;
     }
-    /* pud_bad() means "not a table", so it is also true for
-     * valid block mappings. Therefore, we should check pud_leaf() first.
-     */
+    /* pud_bad() is also true for block mappings, so check pud_leaf() first. */
     if (pud_leaf(pud)) {
         *prot = pte_to_kernel_memprot(__pte(pud_val(pud)));
         return ALIGN_BACKWARD(addr, PUD_SIZE) + PUD_SIZE;
@@ -658,7 +659,7 @@ walk_code_range(unsigned long start, unsigned long end,
     while (addr < end) {
         unsigned int prot;
         unsigned long next = query_kernel_page(addr, &prot);
-        /* Clamp a page crosses |end| or wraps past the top of the address space. */
+        /* Clamp to |end|, including on wraparound. */
         if (next == 0 || next > end) {
             next = end;
         }
