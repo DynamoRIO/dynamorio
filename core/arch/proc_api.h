@@ -415,6 +415,7 @@ typedef enum {
     FEATURE_FPACCOMBINE =
         DEF_FEAT(AA64ISAR2, 3, 5, FEAT_GR_EQ), /**< Faulting on combined branch pointer
                                                   authentication instructions (AArch64) */
+    FEATURE_SB = DEF_FEAT(AA64ISAR1, 9, 1, FEAT_EQ), /**< SB (AArch64) */
 } feature_bit_t;
 
 #endif
