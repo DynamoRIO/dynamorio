@@ -116,7 +116,7 @@ jobs:
           MODULE=build/core/kernel_linux/dynamorio_module.ko
           CONTROLLER=build/bin64/drkernel_ctl
 
-          # Record the page table layout so it is clear which walk paths this
+          # Record the page table layout to help identify which walk paths this
           # run exercised (e.g., AArch64 runtime-folded p4d/pud levels).
           grep -E 'CONFIG_(ARM64_VA_BITS|ARM64_[0-9]+K_PAGES|PGTABLE_LEVELS)=' \
             "/boot/config-$(uname -r)" || true

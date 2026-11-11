@@ -333,7 +333,7 @@ query_kernel_page(unsigned long addr, unsigned int *prot)
      * without LPA2 folds p4d (4K pages) or pud (16K pages) at runtime. A folded level's
      * entry is located from the address of the entry above it, not from its contents,
      * so pass the real table pointer rather than a local copy. pmd and pte are never
-     * folded at runtime, so reading them through copies below is fine.
+     * folded at runtime, so reading them through local copies below is fine.
      */
     p4d_t *p4dp = p4d_offset_lockless(pgdp, pgd, addr);
     p4d_t p4d = p4dp_get(p4dp);
