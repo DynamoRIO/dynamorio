@@ -72,12 +72,14 @@ public:
         stop();
     }
 
-    // Enables an isolated tracefs instance for `pid`, calibrates kernel clock and
-    // `vmemmap` constants, snapshots resident pages from `/proc/<pid>/pagemap`, and
-    // starts the background reader thread writing `v2p_record_t` entries to
-    // `output_path`.
+    // Verifies kernel BTF support, enables an isolated tracefs instance for `pid`,
+    // snapshots resident pages from `/proc/<pid>/pagemap`, and starts the background
+    // reader thread writing `v2p_record_t` entries to `output_path`. When
+    // `ignore_missing_hooks` is true, non-critical hook failures emit warnings and
+    // continue instead of aborting.
     bool
-    start(pid_t pid, const std::string &output_path, uint32_t buffer_size_kb = 16384);
+    start(pid_t pid, const std::string &output_path, uint32_t buffer_size_kb = 16384,
+          bool ignore_missing_hooks = false);
 
     // Stops kernel tracing, drains buffered trace lines, writes any ring-buffer
     // overflow summary plus `V2P_RECORD_END`, and removes registered probes.
@@ -147,6 +149,10 @@ private:
     bool
     apply_probe_filters() const;
     bool
+    handle_runtime_hook_failures(
+        const std::vector<std::pair<v2p_probe_spec_t, const char *>> &failed_specs,
+        const std::string &extra_warning = "");
+    bool
     calibrate_live_vmemmap_and_mm();
     void
     snapshot_pagemap();
@@ -186,6 +192,7 @@ private:
     std::string instance_dir_;
     std::string pipe_remainder_;
     std::vector<std::string> registered_probes_;
+    bool ignore_missing_hooks_ = false;
     bool kernel_tracing_active_ = false;
     // Offset added to tracefs clock microseconds to match DR's UTC/FILETIME epoch.
     uint64_t clock_offset_us_ = 0;

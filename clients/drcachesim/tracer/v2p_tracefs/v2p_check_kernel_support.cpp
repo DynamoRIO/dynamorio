@@ -326,7 +326,9 @@ v2p_btf_checker_t::parse_and_check_base(const std::string &raw)
     } else {
         add_base_error("unable to resolve compound page/folio order offset in BTF");
     }
-    return plan_.critical_errors.empty();
+    // Return true once the BTF type/string sections are indexed so `check_all_hooks`
+    // still runs and reports any missing hooks alongside base layout errors.
+    return true;
 }
 
 // Returns the NUL-terminated string at byte offset `off` in the BTF string section.
@@ -554,7 +556,8 @@ v2p_btf_checker_t::resolve_probe_offsets(std::string &str, std::string &err_out)
 // Checks whether `cand` matches `cand.func_name`'s BTF parameter list and resolves all
 // struct member byte offsets in its probes before appending them to `plan_.probes`.
 bool
-v2p_btf_checker_t::try_candidate(const v2p_hook_candidate_t &cand, std::string &err_out)
+v2p_btf_checker_t::try_candidate(const char *uncovered_transitions, bool is_critical,
+                                 const v2p_hook_candidate_t &cand, std::string &err_out)
 {
     // Parse comma-separated parameter type specs from `cand.param_sig`.
     std::vector<std::string> specs;
@@ -598,17 +601,20 @@ v2p_btf_checker_t::try_candidate(const v2p_hook_candidate_t &cand, std::string &
         p.definition = std::string(cand.func_name) +
             (p.definition.empty() ? "" : " " + p.definition);
         p.hook_name = cand.func_name;
+        p.uncovered_transitions = uncovered_transitions;
+        p.is_critical = is_critical;
     }
     plan_.probes.insert(plan_.probes.end(), resolved.begin(), resolved.end());
     return true;
 }
 
 // Finds the first function in `candidates` present in kernel BTF and validates all
-// candidate overloads for that symbol; records an error in `plan_.critical_errors` if
-// no candidate matches.
+// candidate overloads for that symbol; records `uncovered_transitions` as a critical
+// error or non-critical warning if no candidate matches.
 bool
-v2p_btf_checker_t::check_hook(const char *hook_name,
-                              std::initializer_list<v2p_hook_candidate_t> candidates)
+v2p_btf_checker_t::check_hook(const char *hook_name, const char *uncovered_transitions,
+                              std::initializer_list<v2p_hook_candidate_t> candidates,
+                              bool is_critical)
 {
     const char *active_fn = nullptr;
     std::string detail_err = "signature missing or incompatible in BTF";
@@ -619,20 +625,25 @@ v2p_btf_checker_t::check_hook(const char *hook_name,
             active_fn = cand.func_name;
         else if (strcmp(active_fn, cand.func_name) != 0)
             continue;
-        if (try_candidate(cand, detail_err))
+        if (try_candidate(uncovered_transitions, is_critical, cand, detail_err))
             return true;
     }
     const char *label = (active_fn != nullptr) ? active_fn : hook_name;
     const std::string detail = (active_fn != nullptr) ? detail_err : "not found in BTF";
-    plan_.critical_errors.push_back(std::string(label) + " (" + detail + ")");
+    std::string msg = std::string(label) + " (" + detail +
+        ") - transitions uncovered: " + uncovered_transitions;
+    if (is_critical)
+        plan_.critical_errors.push_back("(CRITICAL) " + msg);
+    else
+        plan_.warnings.push_back(std::move(msg));
     return false;
 }
 
-// Parses `/sys/kernel/btf/vmlinux` at `btf_path`, validates base `page`/`folio`
-// metadata layout and all registered kernel hooks, and populates `plan_out`.
+// Parses `/sys/kernel/btf/vmlinux` at `btf_path` across all V2P hooks, collecting
+// critical errors and non-critical hook warnings.
 bool
 v2p_check_kernel_support(const std::string &btf_path, v2p_kernel_plan_t &plan_out,
-                         std::string &error_out)
+                         std::string &error_out, bool ignore_missing_hooks)
 {
     plan_out = {};
     error_out.clear();
@@ -641,8 +652,11 @@ v2p_check_kernel_support(const std::string &btf_path, v2p_kernel_plan_t &plan_ou
     std::string btf_raw;
     if (btf_path.empty() || !v2p_read_file_bytes(btf_path, btf_raw)) {
         const std::string label = btf_path.empty() ? "/sys/kernel/btf/vmlinux" : btf_path;
-        error_out =
-            label + " (unable to read kernel BTF, CONFIG_DEBUG_INFO_BTF required)";
+        plan_out.critical_errors.push_back(
+            "(CRITICAL) " + label +
+            " (unable to read kernel BTF, CONFIG_DEBUG_INFO_BTF required) - cannot "
+            "decode kernel page/folio metadata for live V2P tracking");
+        error_out = plan_out.critical_errors.front();
         return false;
     }
     if (!checker.parse_and_check_base(btf_raw)) {
@@ -651,15 +665,26 @@ v2p_check_kernel_support(const std::string &btf_path, v2p_kernel_plan_t &plan_ou
     }
 
     v2p_tracefs_hooks_t::check_all_hooks(checker, plan_out);
-    if (!plan_out.critical_errors.empty()) {
-        for (const std::string &err : plan_out.critical_errors) {
-            if (!error_out.empty())
-                error_out += "; ";
-            error_out += err;
-        }
-        return false;
+
+    const bool has_critical = !plan_out.critical_errors.empty();
+    const bool has_warnings = !plan_out.warnings.empty();
+    if (!has_critical && (!has_warnings || ignore_missing_hooks))
+        return true;
+
+    auto append_msg = [&](const std::string &msg) {
+        if (!error_out.empty())
+            error_out += "; ";
+        error_out += msg;
+    };
+    for (const std::string &err : plan_out.critical_errors)
+        append_msg(err);
+    for (const std::string &warn : plan_out.warnings)
+        append_msg(warn);
+    if (!has_critical) {
+        append_msg("pass -v2p_tracefs_ignore_missing_hooks to proceed with partial V2P "
+                   "coverage");
     }
-    return true;
+    return false;
 }
 
 } // namespace drmemtrace

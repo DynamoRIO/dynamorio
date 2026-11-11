@@ -63,6 +63,8 @@ struct v2p_probe_spec_t {
     bool filter_by_mm = false;
     std::string static_filter;
     std::string hook_name;
+    std::string uncovered_transitions;
+    bool is_critical = false;
 
     v2p_probe_spec_t() = default;
     v2p_probe_spec_t(std::string name, std::string def = "", bool is_ret = false,
@@ -87,6 +89,7 @@ struct v2p_kernel_plan_t {
     bool has_hugetlb = false;
     std::vector<v2p_probe_spec_t> probes;
     std::vector<std::string> critical_errors;
+    std::vector<std::string> warnings;
 };
 
 // Describes one candidate kernel function signature and the probe(s) it registers.
@@ -151,27 +154,34 @@ public:
                       uint32_t &byte_offset_out, uint32_t &field_type_out) const;
 
     // Validates the first present function in `candidates` against BTF, resolves struct
-    // field byte offsets in its probes, and appends them to `plan_.probes`.
+    // field byte offsets in its probes, and appends them to `plan_.probes`. On failure,
+    // records `uncovered_transitions` in `plan_` and returns false so remaining hooks
+    // can still be checked.
     bool
-    check_hook(const char *hook_name,
-               std::initializer_list<v2p_hook_candidate_t> candidates);
+    check_hook(const char *hook_name, const char *uncovered_transitions,
+               std::initializer_list<v2p_hook_candidate_t> candidates,
+               bool is_critical = false);
 
     // Convenience overload for a single kernel function with multiple probes.
     bool
     check_hook(const char *func_name, std::string param_sig,
-               std::initializer_list<v2p_probe_spec_t> probes)
+               const char *uncovered_transitions,
+               std::initializer_list<v2p_probe_spec_t> probes, bool is_critical = false)
     {
-        return check_hook(func_name, { { func_name, std::move(param_sig), probes } });
+        return check_hook(func_name, uncovered_transitions,
+                          { { func_name, std::move(param_sig), probes } }, is_critical);
     }
 
     // Convenience overload for a single kernel function with one entry probe.
     bool
     check_hook(const char *func_name, std::string param_sig, const char *probe_name,
-               std::string probe_def)
+               std::string probe_def, const char *uncovered_transitions,
+               bool is_critical = false)
     {
         return check_hook(
-            func_name,
-            { { func_name, std::move(param_sig), probe_name, std::move(probe_def) } });
+            func_name, uncovered_transitions,
+            { { func_name, std::move(param_sig), probe_name, std::move(probe_def) } },
+            is_critical);
     }
 
 private:
@@ -202,7 +212,8 @@ private:
     bool
     resolve_probe_offsets(std::string &str, std::string &err_out) const;
     bool
-    try_candidate(const v2p_hook_candidate_t &cand, std::string &err_out);
+    try_candidate(const char *uncovered_transitions, bool is_critical,
+                  const v2p_hook_candidate_t &cand, std::string &err_out);
     void
     add_base_error(const std::string &detail);
 
@@ -236,11 +247,12 @@ v2p_extract_u64_field(const std::string &line, const char *key, uint64_t &out,
 uint32_t
 v2p_folio_order_pages(uint64_t flags, uint64_t ord, uint32_t pg_head_bit);
 
-// Parses `/sys/kernel/btf/vmlinux` at `btf_path`, validates `page`/`folio` metadata
-// layout and all registered kernel hooks, and populates `plan_out` or `error_out`.
+// Parses `/sys/kernel/btf/vmlinux` at `btf_path` across all V2P hooks, populating
+// `plan_out.critical_errors` and `plan_out.warnings`. Returns true if no critical
+// errors occurred and either no hook warnings occurred or `ignore_missing_hooks` is set.
 bool
 v2p_check_kernel_support(const std::string &btf_path, v2p_kernel_plan_t &plan_out,
-                         std::string &error_out);
+                         std::string &error_out, bool ignore_missing_hooks = false);
 
 } // namespace drmemtrace
 } // namespace dynamorio

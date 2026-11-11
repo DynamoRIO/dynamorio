@@ -175,12 +175,14 @@ check_hugetlb_hooks(v2p_btf_checker_t &btf, v2p_kernel_plan_t &plan)
     plan.has_hugetlb = true;
     const bool fault_ok = btf.check_hook(
         "hugetlb_fault", "mm_struct*, vm_area_struct*, u64, u32",
+        "all hugetlbfs and MAP_HUGETLB page-fault installations",
         { { "hugetlb_fault_in",
             "mm=$arg1:x64 vm_flags={vm_area_struct.vm_flags:u64}($arg2):x64 "
             "vaddr=$arg3:x64" },
           { "hugetlb_fault_out", "ret=$retval:u32", true } });
     std::string anon_def = rmap_def("$arg1", "$arg2", "$arg3", kFolioOrdArg1);
     btf.check_hook("hugetlb_add_new_anon_rmap",
+                   "private hugetlbfs / MAP_HUGETLB allocations and copy-on-write faults",
                    { { "hugetlb_add_new_anon_rmap", "folio|page*, vm_area_struct*, u64",
                        "hugetlb_anon", anon_def },
                      { "hugepage_add_new_anon_rmap", "folio|page*, vm_area_struct*, u64",
@@ -189,6 +191,8 @@ check_hugetlb_hooks(v2p_btf_checker_t &btf, v2p_kernel_plan_t &plan)
     const char *unlock_flt = "(flags & {pg_head_mask}) && ord >= 4";
     btf.check_hook(
         "folio_unlock/unlock_page",
+        "shared hugetlbfs pool faults and read-only private faults backed by hugetlbfs "
+        "file pages",
         { { "folio_unlock", "folio|page*", "hugetlb_unlock", unlock_def, -1, unlock_flt },
           { "unlock_page", "folio|page*", "hugetlb_unlock", unlock_def, -1,
             unlock_flt } });
@@ -196,7 +200,9 @@ check_hugetlb_hooks(v2p_btf_checker_t &btf, v2p_kernel_plan_t &plan)
         erase_probes(plan.probes, { "hugetlb_anon", "hugetlb_unlock" });
     btf.check_hook("__unmap_hugepage_range",
                    "mmu_gather*, vm_area_struct*, u64, u64, folio|page*", "hugetlb_unmap",
-                   vma_mm("$arg2") + " start=$arg3:x64 end=$arg4:x64 ref=$arg5:x64");
+                   vma_mm("$arg2") + " start=$arg3:x64 end=$arg4:x64 ref=$arg5:x64",
+                   "explicit unmappings and truncations of hugetlbfs / MAP_HUGETLB "
+                   "mappings");
 }
 
 } // namespace
@@ -210,14 +216,14 @@ v2p_tracefs_hooks_t::check_all_hooks(v2p_btf_checker_t &btf, v2p_kernel_plan_t &
     // `handle_mm_fault` (and hook `mm_get_huge_zero_folio` / `mm_get_huge_zero_page`)
     // to cover anonymous 4 KB and 2 MB zero-page read faults.
     const bool fault_ok = btf.check_hook(
-        "handle_mm_fault", "vm_area_struct*, u64, u32",
+        "handle_mm_fault", "vm_area_struct*, u64, u32", "zero-page read faults",
         { { "fault_in",
             vma_mm("$arg1") +
                 " vm_ops={vm_area_struct.vm_ops:vm_operations_struct*}($arg1):x64 "
                 "vaddr=$arg2:x64 flags=$arg3:u32" },
           { "fault_out", "ret=$retval:u32", true, "ret == 0" } });
     v2p_probe_spec_t hz_probe("huge_zero_out", "ret=$retval:x64", true, "ret != 0");
-    btf.check_hook("mm_get_huge_zero_folio/page",
+    btf.check_hook("mm_get_huge_zero_folio/page", "2 MB zero-page read faults",
                    { { "mm_get_huge_zero_folio", "mm_struct*", { hz_probe }, 1 },
                      { "mm_get_huge_zero_page", "mm_struct*", { hz_probe }, 1 } });
     if (!fault_ok)
@@ -232,32 +238,44 @@ v2p_tracefs_hooks_t::check_all_hooks(v2p_btf_checker_t &btf, v2p_kernel_plan_t &
     //   `page_add_anon_rmap` on pre-6.8 kernels) whenever it binds an existing anonymous
     //   folio into PTEs or a 2 MB PMD, so we hook them to cover 2 MB anonymous THP
     //   collapses (`khugepaged` / `MADV_COLLAPSE`), swap-in faults, and KSM merges.
+    constexpr const char *kAnonNewUncovered =
+        "first-touch anonymous page allocations (heap, stack, MAP_ANONYMOUS), "
+        "copy-on-write faults, and anonymous hugepage allocations";
     std::string anon_new_folio = rmap_def("$arg1", "$arg2", "$arg3", kFolioOrdArg1);
     if (btf.has_func("folio_add_new_anon_rmap")) {
         btf.check_hook("folio_add_new_anon_rmap", "folio*, vm_area_struct*, u64",
-                       "anon_new", anon_new_folio);
-        btf.check_hook("folio_add_anon_rmap_ptes", "*, page*, u32, vm_area_struct*, u64",
-                       "anon_ptes", rmap_def("$arg2", "$arg4", "$arg5", "nr=$arg3:u32"));
+                       "anon_new", anon_new_folio, kAnonNewUncovered,
+                       /*is_critical=*/true);
+        btf.check_hook(
+            "folio_add_anon_rmap_ptes", "*, page*, u32, vm_area_struct*, u64",
+            "anon_ptes", rmap_def("$arg2", "$arg4", "$arg5", "nr=$arg3:u32"),
+            "swap-in faults, KSM page merges, and post-fork anonymous PTE rebindings");
         btf.check_hook("folio_add_anon_rmap_pmd", "*, page*, vm_area_struct*, u64",
-                       "anon_pmd", rmap_def("$arg2", "$arg3", "$arg4"));
+                       "anon_pmd", rmap_def("$arg2", "$arg3", "$arg4"),
+                       "2 MB anonymous transparent hugepage collapses (khugepaged / "
+                       "MADV_COLLAPSE) and PMD rebindings");
     } else {
         std::string comp_u8 = rmap_def("$arg1", "$arg2", "$arg3", "comp=$arg4:u8");
         std::string comp_u32 = rmap_def("$arg1", "$arg2", "$arg3", "comp=$arg4:u32");
-        btf.check_hook("page_add_new_anon_rmap",
+        btf.check_hook("page_add_new_anon_rmap", kAnonNewUncovered,
                        { { "page_add_new_anon_rmap", "page*, vm_area_struct*, u64, u8",
                            "anon_new", comp_u8 },
                          { "page_add_new_anon_rmap", "page*, vm_area_struct*, u64",
-                           "anon_new", anon_new_folio } });
+                           "anon_new", anon_new_folio } },
+                       /*is_critical=*/true);
         uint64_t rmap_comp = 0;
         plan.legacy_anon_compound_mask =
             (btf.find_enum_value("RMAP_COMPOUND", rmap_comp) && rmap_comp != 0)
             ? static_cast<uint32_t>(rmap_comp)
             : 2U;
-        if (btf.check_hook("page_add_anon_rmap",
-                           { { "page_add_anon_rmap", "page*, vm_area_struct*, u64, u8",
-                               "anon_ptes", comp_u8 },
-                             { "page_add_anon_rmap", "page*, vm_area_struct*, u64, u32",
-                               "anon_ptes", comp_u32 } }) &&
+        if (btf.check_hook(
+                "page_add_anon_rmap",
+                "swap-in faults, KSM page merges, post-fork anonymous PTE rebindings, "
+                "and 2 MB anonymous transparent hugepage collapses",
+                { { "page_add_anon_rmap", "page*, vm_area_struct*, u64, u8", "anon_ptes",
+                    comp_u8 },
+                  { "page_add_anon_rmap", "page*, vm_area_struct*, u64, u32", "anon_ptes",
+                    comp_u32 } }) &&
             plan.probes.back().definition.find("comp=$arg4:u8") != std::string::npos) {
             plan.legacy_anon_compound_mask = 1;
         }
@@ -270,6 +288,7 @@ v2p_tracefs_hooks_t::check_all_hooks(v2p_btf_checker_t &btf, v2p_kernel_plan_t &
     // mappings.
     btf.check_hook(
         "set_pte_range/do_set_pte/alloc_set_pte",
+        "4 KB file-backed page-cache demand faults and fault-around mappings",
         { { "set_pte_range", "vm_fault*, *, page*, u32, u64", "file_pte",
             std::string(kVmfMm) + " page=$arg3:x64 nr=$arg4:u32 vaddr=$arg5:x64" },
           { "do_set_pte", "vm_fault*, page*, u64", "file_pte",
@@ -286,14 +305,18 @@ v2p_tracefs_hooks_t::check_all_hooks(v2p_btf_checker_t &btf, v2p_kernel_plan_t &
     // faults and `khugepaged` / `MADV_COLLAPSE` file THP collapses.
     bool added_collapse = false;
     if (!btf.has_func("do_set_pmd") && btf.has_func("collapse_pte_mapped_thp")) {
-        added_collapse =
-            btf.check_hook("collapse_pte_mapped_thp", "mm_struct*, u64",
-                           { { "collapse_in", "mm=$arg1:x64 vaddr=$arg2:x64" },
-                             { "collapse_out", "", true } });
+        added_collapse = btf.check_hook(
+            "collapse_pte_mapped_thp", "mm_struct*, u64",
+            "collapse of PTE-mapped file and shared-memory pages into a 2 MB transparent "
+            "hugepage",
+            { { "collapse_in", "mm=$arg1:x64 vaddr=$arg2:x64" },
+              { "collapse_out", "", true } });
     }
     v2p_probe_spec_t pmd_out("set_pmd_out", "ret=$retval:u32", true, "ret == 0");
     const bool file_pmd_ok = btf.check_hook(
         "do_set_pmd/file_rmap_pmd",
+        "2 MB PMD-mapped file-backed and shared-memory (tmpfs/shmem) transparent "
+        "hugepages",
         { { "do_set_pmd",
             "vm_fault*, page*",
             { { "set_pmd_in", vmf_page_def("$arg2") }, pmd_out },
@@ -319,7 +342,9 @@ v2p_tracefs_hooks_t::check_all_hooks(v2p_btf_checker_t &btf, v2p_kernel_plan_t &
     // to cover physical page migrations across memory compaction, NUMA balancing,
     // `move_pages`, and memory tiering.
     btf.check_hook("remove_migration_ptes", "folio|page*, folio|page*", "mig_ptes",
-                   std::string("src=$arg1:x64 dst=$arg2:x64 ") + kFolioOrdArg1);
+                   std::string("src=$arg1:x64 dst=$arg2:x64 ") + kFolioOrdArg1,
+                   "physical page migrations across memory compaction, NUMA balancing, "
+                   "move_pages, and memory tiering");
 
     // 6. Virtual address relocation (`mremap`):
     // The kernel calls `move_page_tables` whenever `mremap` moves PTEs/PMDs to a new
@@ -328,7 +353,7 @@ v2p_tracefs_hooks_t::check_all_hooks(v2p_btf_checker_t &btf, v2p_kernel_plan_t &
     // kernels) and clamp to its `moved` return byte count.
     v2p_probe_spec_t move_out("move_pt_out", "moved=$retval:u64", true);
     btf.check_hook(
-        "move_page_tables",
+        "move_page_tables", "virtual-address page-table relocations on mremap",
         { { "move_page_tables",
             "pagetable_move_control*",
             { { "move_pt_in",
@@ -353,15 +378,22 @@ v2p_tracefs_hooks_t::check_all_hooks(v2p_btf_checker_t &btf, v2p_kernel_plan_t &
     // (`munmap`, `MADV_DONTNEED`, `MADV_FREE`, `MAP_FIXED` overwrites, and file
     // truncation/hole-punching).
     if (btf.has_func("unmap_page_range")) {
-        btf.check_hook("unmap_page_range", "mmu_gather*, *, u64, u64", "unmap_range",
-                       std::string(kTlbMm) + "start=$arg3:x64 end=$arg4:x64");
+        btf.check_hook(
+            "unmap_page_range", "mmu_gather*, *, u64, u64", "unmap_range",
+            std::string(kTlbMm) + "start=$arg3:x64 end=$arg4:x64",
+            "explicit virtual-address unmappings (munmap, MADV_DONTNEED, MADV_FREE, "
+            "MAP_FIXED overwrites, and file truncation/hole-punching)");
     } else {
         btf.check_hook("unmap_vmas", "mmu_gather*, unmap_desc*", "unmap_vmas",
                        std::string(kTlbMm) +
                            "start={unmap_desc.vma_start:u64}($arg2):x64 "
-                           "end={unmap_desc.vma_end:u64}($arg2):x64");
+                           "end={unmap_desc.vma_end:u64}($arg2):x64",
+                       "explicit VMA teardowns (munmap, MAP_FIXED overwrites, and file "
+                       "truncation/hole-punching)");
         btf.check_hook("zap_vma_range_batched", "mmu_gather*, *, u64, u64", "unmap_zap",
-                       std::string(kTlbMm) + "start=$arg3:x64 size=$arg4:u64");
+                       std::string(kTlbMm) + "start=$arg3:x64 size=$arg4:u64",
+                       "explicit sub-VMA range invalidations (MADV_DONTNEED and "
+                       "MADV_FREE)");
     }
 
     // 8. Asynchronous kernel reclaim and swap-out eviction:
@@ -382,6 +414,8 @@ v2p_tracefs_hooks_t::check_all_hooks(v2p_btf_checker_t &btf, v2p_kernel_plan_t &
     }
     btf.check_hook(
         "try_to_unmap_one", std::move(try_to_unmap_sig),
+        "kernel reclaim and eviction unmappings (swap-out, page-cache eviction, "
+        "MADV_PAGEOUT, and hardware memory-error isolation)",
         { { "ttu_in",
             rmap_def("$arg1", "$arg2", "$arg3", kFolioOrdArg1) +
                 " vm_end={vm_area_struct.vm_end:u64}($arg2):x64" + try_to_unmap_extra },
@@ -395,7 +429,9 @@ v2p_tracefs_hooks_t::check_all_hooks(v2p_btf_checker_t &btf, v2p_kernel_plan_t &
     btf.check_hook("__split_huge_pmd", "vm_area_struct*, *, u64", "split_pmd",
                    vma_mm("$arg1") +
                        " vm_ops={vm_area_struct.vm_ops:vm_operations_struct*}($arg1):x64 "
-                       "vaddr=$arg3:x64");
+                       "vaddr=$arg3:x64",
+                   "2 MB transparent hugepage splits (in-place anonymous/huge-zero PMD "
+                   "splits into 4 KB PTEs and file/shmem PMD invalidations)");
 
     // 10. Explicit hugepage pools (`hugetlbfs`).
     check_hugetlb_hooks(btf, plan);

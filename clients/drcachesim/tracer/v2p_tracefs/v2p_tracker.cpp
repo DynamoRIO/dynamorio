@@ -155,10 +155,12 @@ calibrate_zero_pfn()
  * ------------------------------------------------------------------------- */
 
 bool
-v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_size_kb)
+v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_size_kb,
+                     bool ignore_missing_hooks)
 {
     stop();
     target_pid_ = pid;
+    ignore_missing_hooks_ = ignore_missing_hooks;
     vmemmap_base_ = 0;
     zero_pfn_ = 0;
     tracked_mm_ = 0;
@@ -184,11 +186,22 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
     else
         return false;
 
-    // Parse `/sys/kernel/btf/vmlinux` to verify `struct page` layout, validate all
-    // hooked kernel function signatures, and resolve struct offsets before attaching.
-    std::string btf_error;
-    if (!v2p_check_kernel_support("/sys/kernel/btf/vmlinux", plan_, btf_error)) {
-        dr_fprintf(STDERR, "ERROR: drmemtrace v2p_tracker: %s\n", btf_error.c_str());
+    // Resolve all kernel kprobe definitions, struct field offsets, and enum bits via
+    // BTF, emitting `(CRITICAL)` errors and per-hook uncovered-transition warnings.
+    std::string plan_error;
+    const bool plan_ok = v2p_check_kernel_support("/sys/kernel/btf/vmlinux", plan_,
+                                                  plan_error, ignore_missing_hooks_);
+    for (const std::string &err : plan_.critical_errors)
+        dr_fprintf(STDERR, "ERROR: drmemtrace v2p_tracker: %s\n", err.c_str());
+    for (const std::string &warn : plan_.warnings)
+        dr_fprintf(STDERR, "WARNING: drmemtrace v2p_tracker: %s\n", warn.c_str());
+    if (!plan_ok) {
+        if (plan_.critical_errors.empty()) {
+            dr_fprintf(STDERR,
+                       "ERROR: drmemtrace v2p_tracker: aborting due to missing tracefs "
+                       "hooks; pass -v2p_tracefs_ignore_missing_hooks to proceed with "
+                       "partial V2P coverage\n");
+        }
         return false;
     }
 
@@ -244,32 +257,46 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
         (real_ts.tv_sec * 1000000ULL + real_ts.tv_nsec / 1000ULL + kDrUtcToEpochMicros) -
         (clk_ts.tv_sec * 1000000ULL + clk_ts.tv_nsec / 1000ULL);
 
-    // Register all BTF-validated kprobes and kretprobes from `plan_.probes`.
+    // Register all BTF-validated kprobes and kretprobes, reporting every failure at once.
     const std::string kp = tracefs_root_ + "/kprobe_events";
+    std::vector<std::pair<v2p_probe_spec_t, const char *>> failed_regs;
     for (const v2p_probe_spec_t &spec : plan_.probes) {
         std::string name = spec.base_name + sfx;
         std::string cmd = (spec.is_return ? "r4096:kprobes/" : "p:kprobes/") + name +
             " " + spec.definition + "\n";
         if (!v2p_write_tracefs_file(kp, cmd, /*append=*/true))
-            return fail();
-        registered_probes_.push_back(name);
+            failed_regs.push_back({ spec, "failed to register kprobe" });
+        else
+            registered_probes_.push_back(name);
     }
+    if (!failed_regs.empty() && !handle_runtime_hook_failures(failed_regs))
+        return fail();
 
     // Open `trace_pipe` for non-blocking reads and calibrate both `vmemmap_base_` and
     // `tracked_mm_` before enabling live collection.
     trace_pipe_fd_ =
         open((instance_dir_ + "/trace_pipe").c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
-    if (trace_pipe_fd_ < 0 || !calibrate_live_vmemmap_and_mm())
+    if (trace_pipe_fd_ < 0)
         return fail();
+    if (!calibrate_live_vmemmap_and_mm()) {
+        dr_fprintf(STDERR,
+                   "ERROR: drmemtrace v2p_tracker: (CRITICAL) vmemmap calibration "
+                   "failed (requires CAP_SYS_ADMIN access to /proc/self/pagemap) - "
+                   "cannot translate kernel page pointers to physical addresses\n");
+        return fail();
+    }
 
     // Install kernel-side `mm == tracked_mm_` filters, enable all registered probes, and
     // turn on ring-buffer recording BEFORE scanning `/proc/<pid>/pagemap` so any
     // concurrent fault, THP collapse, or unmap during the scan is captured.
+    std::vector<std::pair<v2p_probe_spec_t, const char *>> failed_enables;
     for (const v2p_probe_spec_t &spec : plan_.probes) {
         const std::string expr = probe_filter_expr(spec);
         if (!set_event("kprobes/" + spec.base_name + sfx, /*enable=*/true, &expr))
-            return fail();
+            failed_enables.push_back({ spec, "failed to filter or enable kprobe" });
     }
+    if (!failed_enables.empty() && !handle_runtime_hook_failures(failed_enables))
+        return fail();
     if (!v2p_write_tracefs_file(instance_dir_ + "/tracing_on", "1"))
         return fail();
 
@@ -336,6 +363,81 @@ v2p_tracker_t::apply_probe_filters() const
             return false;
         }
     }
+    return true;
+}
+
+// Reports runtime `kprobe_events` / filter / enable failures with uncovered-transition
+// diagnostics, prunes broken hook groups (and any companion probes) so half-registered
+// entry/return pairs never run, and aborts unless `ignore_missing_hooks_` is set and no
+// critical hook failed.
+bool
+v2p_tracker_t::handle_runtime_hook_failures(
+    const std::vector<std::pair<v2p_probe_spec_t, const char *>> &failed_specs,
+    const std::string &extra_warning)
+{
+    std::set<std::string> failed_hooks;
+    bool had_critical = false;
+    if (!extra_warning.empty()) {
+        dr_fprintf(STDERR, "WARNING: drmemtrace v2p_tracker: %s\n",
+                   extra_warning.c_str());
+    }
+    for (const auto &entry : failed_specs) {
+        const v2p_probe_spec_t &spec = entry.first;
+        const std::string key = spec.hook_name.empty() ? spec.base_name : spec.hook_name;
+        if (!failed_hooks.insert(key).second)
+            continue;
+        std::string msg = key + " (" + entry.second + ")";
+        if (!spec.uncovered_transitions.empty())
+            msg += " - transitions uncovered: " + spec.uncovered_transitions;
+        if (spec.is_critical) {
+            had_critical = true;
+            dr_fprintf(STDERR, "ERROR: drmemtrace v2p_tracker: (CRITICAL) %s\n",
+                       msg.c_str());
+        } else {
+            dr_fprintf(STDERR, "WARNING: drmemtrace v2p_tracker: %s\n", msg.c_str());
+        }
+    }
+    if (had_critical || !ignore_missing_hooks_) {
+        if (!had_critical) {
+            dr_fprintf(STDERR,
+                       "ERROR: drmemtrace v2p_tracker: aborting due to missing tracefs "
+                       "hooks; pass -v2p_tracefs_ignore_missing_hooks to proceed with "
+                       "partial V2P coverage\n");
+        }
+        return false;
+    }
+
+    // Unregister any sibling or companion probes belonging to a failed hook group.
+    std::set<std::string> drop_bases;
+    if (failed_hooks.count("handle_mm_fault") > 0)
+        drop_bases.insert("huge_zero_out");
+    if (failed_hooks.count("folio_add_file_rmap_pmd") > 0 ||
+        failed_hooks.count("page_add_file_rmap") > 0) {
+        drop_bases.insert("collapse_in");
+        drop_bases.insert("collapse_out");
+    }
+    if (failed_hooks.count("hugetlb_fault") > 0) {
+        drop_bases.insert("hugetlb_anon");
+        drop_bases.insert("hugetlb_unlock");
+    }
+    const std::string sfx = "_" + std::to_string(target_pid_);
+    std::vector<v2p_probe_spec_t> healthy_probes;
+    for (const v2p_probe_spec_t &spec : plan_.probes) {
+        const std::string key = spec.hook_name.empty() ? spec.base_name : spec.hook_name;
+        if (failed_hooks.count(key) == 0 && drop_bases.count(spec.base_name) == 0) {
+            healthy_probes.push_back(spec);
+            continue;
+        }
+        const std::string full = spec.base_name + sfx;
+        set_event("kprobes/" + full, /*enable=*/false);
+        auto rit = std::find(registered_probes_.begin(), registered_probes_.end(), full);
+        if (rit != registered_probes_.end()) {
+            v2p_write_tracefs_file(tracefs_root_ + "/kprobe_events",
+                                   "-:kprobes/" + full + "\n", true);
+            registered_probes_.erase(rit);
+        }
+    }
+    plan_.probes = std::move(healthy_probes);
     return true;
 }
 

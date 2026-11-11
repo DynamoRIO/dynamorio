@@ -2733,9 +2733,11 @@ init_offline_dir(void)
                     DRMEMTRACE_V2P_LOG_FILENAME);
         NULL_TERMINATE_BUFFER(v2p_path);
         if (!v2p_tracker.start(dr_get_process_id(), v2p_path,
-                               op_v2p_buffer_size_kb.get_value())) {
-            FATAL("Failed to start tracefs v2p tracker at %s: check privileges and "
-                  "kernel version (at least Linux version 5.4 required).\n",
+                               op_v2p_buffer_size_kb.get_value(),
+                               op_v2p_tracefs_ignore_missing_hooks.get_value())) {
+            FATAL("Failed to start tracefs v2p tracker at %s: check privileges, BTF "
+                  "(/sys/kernel/btf/vmlinux), and kernel version (at least Linux "
+                  "version 5.4 required).\n",
                   v2p_path);
         }
     }

@@ -309,6 +309,13 @@ droption_t<unsigned int> op_v2p_buffer_size_kb(
     "Per-CPU tracefs buffer size in KB for -enable_v2p_tracefs",
     "Per-CPU kernel tracefs ring buffer size in KB when -enable_v2p_tracefs is set.");
 
+droption_t<bool> op_v2p_tracefs_ignore_missing_hooks(
+    DROPTION_SCOPE_CLIENT, "v2p_tracefs_ignore_missing_hooks", false,
+    "Continue tracing when non-critical tracefs V2P hooks are missing",
+    "Allows -enable_v2p_tracefs to proceed with warnings when non-critical kernel "
+    "tracefs hooks are missing or fail to attach. Critical BTF layout, vmemmap "
+    "calibration, and anonymous page installation failures still abort.");
+
 droption_t<unsigned int> op_virt2phys_freq(
     DROPTION_SCOPE_CLIENT, "virt2phys_freq", 0, "Frequency of physical mapping refresh",
     "This option only applies if -use_physical is enabled.  The virtual to physical "
