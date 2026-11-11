@@ -105,6 +105,7 @@ const std::unordered_map<std::string, event_type_t> &
 probe_name_map()
 {
     static const std::unordered_map<std::string, event_type_t> kMap = {
+        { "sched_process_exec", event_type_t::kSchedProcessExec },
         { "anon_new", event_type_t::kAnonRmapNew },
         { "anon_ptes", event_type_t::kAnonRmapPtes },
         { "anon_pmd", event_type_t::kAnonRmapPmd },
@@ -210,6 +211,15 @@ check_hugetlb_hooks(v2p_btf_checker_t &btf, v2p_kernel_plan_t &plan)
 void
 v2p_tracefs_hooks_t::check_all_hooks(v2p_btf_checker_t &btf, v2p_kernel_plan_t &plan)
 {
+    // 0. Address-space replacement (`execve`):
+    // The kernel fires `sched/sched_process_exec` whenever `execve` replaces a
+    // process's address space with a new executable image, so we enable it to clear
+    // prior mappings and re-snapshot `/proc/<pid>/pagemap` for the new address space.
+    plan.has_exec_tracepoint = btf.check_tracepoint_format(
+        "sched/sched_process_exec", "/events/sched/sched_process_exec/format", { "pid=" },
+        "process address-space replacement on execve, including teardown of prior "
+        "mappings and initial snapshot of the new executable");
+
     // 1. Shared 4 KB and 2 MB zero-page read-fault installations:
     // The kernel installs the shared 4 KB zero page or 2 MB huge zero folio during
     // `handle_mm_fault` without calling any reverse-mapping function, so we bracket
@@ -587,6 +597,21 @@ v2p_tracefs_hooks_t::handle_event(const std::string &line, size_t event_pos, pid
 
     switch (trace_event.parse_event_type()) {
     case event_type_t::kUnknown: return false;
+
+    // Address-space replacement (`sched/sched_process_exec`): match the trailing
+    // `pid=` field so a `filename=` path containing `" pid="` cannot spoof `execve`.
+    case event_type_t::kSchedProcessExec: {
+        size_t last_pid = line.rfind(" pid=");
+        uint64_t exec_pid = 0;
+        if (last_pid != std::string::npos && last_pid >= event_pos &&
+            v2p_extract_u64_field(line, "pid=", exec_pid, 10, last_pid + 1) &&
+            static_cast<pid_t>(exec_pid) == tracker.target_pid()) {
+            tracker.reset_for_exec(trace_event.ts);
+            if (tracker.is_live_tracing())
+                tracker.snapshot_pagemap(trace_event.ts);
+        }
+        return true;
+    }
 
     // 1. Anonymous reverse-mapping (`rmap`) page and 2 MB THP installations.
     case event_type_t::kAnonRmapPmd:

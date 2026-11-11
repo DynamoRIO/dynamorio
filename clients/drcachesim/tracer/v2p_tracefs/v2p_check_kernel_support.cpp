@@ -639,16 +639,44 @@ v2p_btf_checker_t::check_hook(const char *hook_name, const char *uncovered_trans
     return false;
 }
 
-// Parses `/sys/kernel/btf/vmlinux` at `btf_path` across all V2P hooks, collecting
-// critical errors and non-critical hook warnings.
+// Verifies that a static tracefs tracepoint `format` file exists and exposes `fields`.
 bool
-v2p_check_kernel_support(const std::string &btf_path, v2p_kernel_plan_t &plan_out,
-                         std::string &error_out, bool ignore_missing_hooks)
+v2p_btf_checker_t::check_tracepoint_format(const char *hook_name, const char *rel_path,
+                                           std::initializer_list<const char *> fields,
+                                           const char *uncovered_transitions)
+{
+    if (tracefs_dir_.empty())
+        return true;
+    std::string full_path = tracefs_dir_ + rel_path;
+    std::string fmt;
+    if (!v2p_read_file_bytes(full_path, fmt)) {
+        plan_.warnings.push_back(std::string(hook_name) +
+                                 " (unable to read tracepoint format at " + full_path +
+                                 ") - transitions uncovered: " + uncovered_transitions);
+        return false;
+    }
+    for (const char *f : fields) {
+        if (fmt.find(f) == std::string::npos) {
+            plan_.warnings.push_back(
+                std::string(hook_name) + " (tracepoint format missing " + f + " in " +
+                full_path + ") - transitions uncovered: " + uncovered_transitions);
+            return false;
+        }
+    }
+    return true;
+}
+
+// Inspects `/sys/kernel/btf/vmlinux` at `btf_path` and optional tracefs `format`
+// files under `tracefs_dir` across all V2P hooks.
+bool
+v2p_check_kernel_support(const std::string &btf_path, const std::string &tracefs_dir,
+                         v2p_kernel_plan_t &plan_out, std::string &error_out,
+                         bool ignore_missing_hooks)
 {
     plan_out = {};
     error_out.clear();
 
-    v2p_btf_checker_t checker(btf_path, plan_out);
+    v2p_btf_checker_t checker(btf_path, tracefs_dir, plan_out);
     std::string btf_raw;
     if (btf_path.empty() || !v2p_read_file_bytes(btf_path, btf_raw)) {
         const std::string label = btf_path.empty() ? "/sys/kernel/btf/vmlinux" : btf_path;

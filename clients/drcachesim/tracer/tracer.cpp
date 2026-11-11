@@ -1992,6 +1992,16 @@ stop_cur_syscall_pt_trace(void *drcontext, per_thread_t *data, bool dump_to_trac
 static bool
 event_pre_syscall(void *drcontext, int sysnum)
 {
+#if defined(LINUX) && defined(X64) && !defined(RISCV64)
+    if (op_offline.get_value() && op_enable_v2p_tracefs.get_value() &&
+        (sysnum == SYS_execve
+#    ifdef SYS_execveat
+         || sysnum == SYS_execveat
+#    endif
+         )) {
+        v2p_tracker.suspend_for_exec();
+    }
+#endif
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     if (!is_in_tracing_mode(tracing_mode.load(std::memory_order_acquire)))
         return true;
@@ -2102,6 +2112,16 @@ event_pre_syscall(void *drcontext, int sysnum)
 static void
 event_post_syscall(void *drcontext, int sysnum)
 {
+#if defined(LINUX) && defined(X64) && !defined(RISCV64)
+    if (op_offline.get_value() && op_enable_v2p_tracefs.get_value() &&
+        (sysnum == SYS_execve
+#    ifdef SYS_execveat
+         || sysnum == SYS_execveat
+#    endif
+         )) {
+        v2p_tracker.resume_after_failed_exec();
+    }
+#endif
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     if (tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
         return;

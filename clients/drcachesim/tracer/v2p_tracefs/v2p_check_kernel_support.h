@@ -86,6 +86,7 @@ struct v2p_kernel_plan_t {
     uint32_t vm_fault_error_mask = 0x0c73;
     uint32_t legacy_anon_compound_mask = 1;
     uint32_t ttu_ignore_arg4_mask = 0;
+    bool has_exec_tracepoint = false;
     bool has_hugetlb = false;
     std::vector<v2p_probe_spec_t> probes;
     std::vector<std::string> critical_errors;
@@ -127,8 +128,10 @@ struct v2p_hook_candidate_t {
 // and enum constants, validating both base `page`/`folio` layout and hooked functions.
 class v2p_btf_checker_t {
 public:
-    v2p_btf_checker_t(const std::string &btf_path, v2p_kernel_plan_t &plan)
+    v2p_btf_checker_t(const std::string &btf_path, const std::string &tracefs_dir,
+                      v2p_kernel_plan_t &plan)
         : btf_path_(btf_path)
+        , tracefs_dir_(tracefs_dir)
         , plan_(plan)
     {
     }
@@ -184,6 +187,12 @@ public:
             is_critical);
     }
 
+    // Validates that a static tracefs tracepoint `format` file contains `fields`.
+    bool
+    check_tracepoint_format(const char *hook_name, const char *rel_path,
+                            std::initializer_list<const char *> fields,
+                            const char *uncovered_transitions);
+
 private:
     struct btf_type_entry_t {
         uint32_t kind = 0;
@@ -221,6 +230,7 @@ private:
     size_t str_start_ = 0;
     size_t str_end_ = 0;
     std::string btf_path_;
+    std::string tracefs_dir_;
     v2p_kernel_plan_t &plan_;
     std::vector<btf_type_entry_t> types_;
     std::unordered_map<std::string, uint32_t> funcs_;
@@ -247,12 +257,14 @@ v2p_extract_u64_field(const std::string &line, const char *key, uint64_t &out,
 uint32_t
 v2p_folio_order_pages(uint64_t flags, uint64_t ord, uint32_t pg_head_bit);
 
-// Parses `/sys/kernel/btf/vmlinux` at `btf_path` across all V2P hooks, populating
-// `plan_out.critical_errors` and `plan_out.warnings`. Returns true if no critical
-// errors occurred and either no hook warnings occurred or `ignore_missing_hooks` is set.
+// Inspects `/sys/kernel/btf/vmlinux` at `btf_path` and optional tracefs `format`
+// files under `tracefs_dir` across all V2P hooks, populating `plan_out.critical_errors`
+// and `plan_out.warnings`. Returns true if no critical errors occurred and either no
+// hook warnings occurred or `ignore_missing_hooks` is true.
 bool
-v2p_check_kernel_support(const std::string &btf_path, v2p_kernel_plan_t &plan_out,
-                         std::string &error_out, bool ignore_missing_hooks = false);
+v2p_check_kernel_support(const std::string &btf_path, const std::string &tracefs_dir,
+                         v2p_kernel_plan_t &plan_out, std::string &error_out,
+                         bool ignore_missing_hooks = false);
 
 } // namespace drmemtrace
 } // namespace dynamorio

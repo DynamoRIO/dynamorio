@@ -34,7 +34,7 @@
  *
  * Captures initial /proc/<pid>/pagemap state and live kernel page-table updates
  * into raw/v2p.bin during drmemtrace -offline collection (Linux 5.4+, 4 KB base
- * pages, CAP_SYS_ADMIN).
+ * pages, /sys/kernel/btf/vmlinux, CAP_SYS_ADMIN).
  */
 
 #ifndef _V2P_TRACKER_H_
@@ -86,7 +86,35 @@ public:
     void
     stop();
 
-    // Shadow page-table helpers called by `v2p_tracefs_hooks_t` from the reader thread.
+    // Suspends the reader thread, removes kernel probes, and writes a tentative
+    // `V2P_RECORD_END` before `execve`/`execveat` so post-exec re-init of the same PID
+    // starts cleanly.
+    void
+    suspend_for_exec();
+
+    // Restores kernel tracing and rewinds the tentative `V2P_RECORD_END` if `execve`
+    // fails and returns to the pre-exec process image.
+    void
+    resume_after_failed_exec();
+
+    bool
+    is_running() const
+    {
+        return running_.load(std::memory_order_acquire);
+    }
+
+    // State accessors and shadow page-table operations called by `v2p_tracefs_hooks_t`
+    // from the single background reader thread.
+    pid_t
+    target_pid() const
+    {
+        return target_pid_;
+    }
+    bool
+    is_live_tracing() const
+    {
+        return kernel_tracing_active_;
+    }
     uint64_t
     zero_pfn() const
     {
@@ -127,6 +155,12 @@ public:
                           uint64_t folio_paddr, uint32_t folio_pages);
     void
     split_huge_pmd(uint64_t timestamp_us, uint64_t aligned_2m_va, bool is_anon);
+    // Snapshots resident 4 KB, 2 MB THP, and `hugetlbfs` mappings from `/proc/<pid>`.
+    void
+    snapshot_pagemap(uint64_t timestamp_us);
+    // Clears the prior address space and `mm` filter on `execve`.
+    void
+    reset_for_exec(uint64_t timestamp_us);
 
 private:
     using shadow_span_t = v2p_shadow_page_table_t::span_t;
@@ -152,10 +186,18 @@ private:
     handle_runtime_hook_failures(
         const std::vector<std::pair<v2p_probe_spec_t, const char *>> &failed_specs,
         const std::string &extra_warning = "");
+    void
+    reset_session_state(pid_t pid);
+    void
+    detach_forked_child(bool exclude_child_pid);
+    void
+    pre_clean_stale_tracefs() const;
+    bool
+    setup_tracefs_and_reader(bool is_initial_start);
+    void
+    stop_and_drain_tracing(bool save_exec_offset, bool close_output);
     bool
     calibrate_live_vmemmap_and_mm();
-    void
-    snapshot_pagemap();
     void
     cleanup_kernel_tracing();
     void
@@ -186,8 +228,11 @@ private:
     void
     process_trace_line(const std::string &line);
 
+    pid_t owner_pid_ = 0;
     pid_t target_pid_ = 0;
     std::atomic<pid_t> reader_tid_ { 0 };
+    int kernel_major_ = 0;
+    int kernel_minor_ = 0;
     std::string tracefs_root_;
     std::string instance_dir_;
     std::string pipe_remainder_;
@@ -204,6 +249,9 @@ private:
     uint64_t tracked_mm_ = 0;
     int out_fd_ = -1;
     int trace_pipe_fd_ = -1;
+    uint32_t buffer_size_kb_ = 16384;
+    off_t exec_saved_offset_ = -1;
+    bool suspended_for_exec_ = false;
     v2p_kernel_plan_t plan_;
     std::atomic<bool> running_ { false };
     std::atomic<bool> stop_requested_ { false };

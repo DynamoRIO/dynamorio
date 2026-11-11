@@ -30,8 +30,18 @@
  * DAMAGE.
  */
 
-/* v2p_tracefs_hooks: BTF hook registration and tracefs event handlers for
- * virtual-to-physical page-table transitions.
+/* v2p_tracefs_hooks: BTF hook registration and tracefs event handlers across the
+ * seven V2P page-table transition categories:
+ *   1. Address-space replacement (`sched/sched_process_exec` process image
+ *      teardown and re-snapshot).
+ *   2. Page-table installation (anonymous rmap commits, shared 4 KB and 2 MB
+ *      zero-page read faults, and file-backed memory in the page cache).
+ *   3. Physical page migration (`remove_migration_ptes`).
+ *   4. Virtual address relocation (`move_page_tables`).
+ *   5. Mapping invalidation (explicit virtual teardowns and asynchronous
+ *      `try_to_unmap_one` reclaim/swap-out evictions).
+ *   6. Hugepage split (`__split_huge_pmd`).
+ *   7. Explicit hugepage pools (`hugetlbfs` private/shared faults and teardowns).
  */
 
 #ifndef _V2P_TRACEFS_HOOKS_H_
@@ -63,6 +73,9 @@ public:
     // entry (`p:`) and return (`r:`) probes on the same thread (`tid`).
     enum class event_type_t {
         kUnknown,
+
+        // Address-space replacement (`execve`).
+        kSchedProcessExec, // sched/sched_process_exec: process image replaced.
 
         // Shared zero-page read-fault detection (`handle_mm_fault` entry/return):
         kHandleMmFaultEntry,  // handle_mm_fault entry: fault vaddr & R/W flags.

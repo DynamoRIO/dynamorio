@@ -154,26 +154,96 @@ calibrate_zero_pfn()
  * Tracker Lifecycle & Tracefs Instance Setup
  * ------------------------------------------------------------------------- */
 
+// Resets all per-session tracking state, shadow mappings, and pending hook tables.
+void
+v2p_tracker_t::reset_session_state(pid_t pid)
+{
+    owner_pid_ = getpid();
+    target_pid_ = pid;
+    reader_tid_.store(0, std::memory_order_relaxed);
+    clock_offset_us_ = 0;
+    vmemmap_base_ = 0;
+    zero_pfn_ = 0;
+    tracked_mm_ = 0;
+    exec_saved_offset_ = -1;
+    kernel_tracing_active_ = false;
+    suspended_for_exec_ = false;
+    pipe_remainder_.clear();
+    registered_probes_.clear();
+    clear_shadow_tables();
+    hooks_.clear();
+}
+
+// Detaches inherited descriptors in a `fork()` child without tearing down parent probes,
+// optionally adding the child PID to `set_event_notrace_pid` before starting its tracker.
+void
+v2p_tracker_t::detach_forked_child(bool exclude_child_pid)
+{
+    if (exclude_child_pid && !instance_dir_.empty()) {
+        v2p_write_tracefs_file(instance_dir_ + "/set_event_notrace_pid",
+                               std::to_string(getpid()) + "\n", /*append=*/true);
+    }
+    if (trace_pipe_fd_ >= 0)
+        close(trace_pipe_fd_);
+    if (out_fd_ >= 0)
+        close(out_fd_);
+    trace_pipe_fd_ = -1;
+    out_fd_ = -1;
+    instance_dir_.clear();
+    reset_session_state(0);
+    thread_running_.store(false, std::memory_order_release);
+    running_.store(false, std::memory_order_release);
+}
+
+// Cleans up any leftover `drmemtrace_v2p_<pid>` instance or `_<pid>` kprobes if an
+// earlier traced process with the same recycled PID exited via `SIGKILL`.
+void
+v2p_tracker_t::pre_clean_stale_tracefs() const
+{
+    const std::string sfx = "_" + std::to_string(target_pid_);
+    const std::string inst = tracefs_root_ + "/instances/drmemtrace_v2p" + sfx;
+    struct stat st = {};
+    if (stat(inst.c_str(), &st) == 0) {
+        v2p_write_tracefs_file(inst + "/tracing_on", "0");
+        v2p_write_tracefs_file(inst + "/events/enable", "0");
+        rmdir(inst.c_str());
+    }
+
+    // Only touch global `kprobe_events` if a stale `_<pid>` probe actually exists.
+    std::string kp_path = tracefs_root_ + "/kprobe_events";
+    std::string kp_text;
+    if (!v2p_read_file_bytes(kp_path, kp_text) ||
+        kp_text.find(sfx + " ") == std::string::npos) {
+        return;
+    }
+    for (const v2p_probe_spec_t &spec : plan_.probes) {
+        v2p_write_tracefs_file(kp_path, "-:kprobes/" + spec.base_name + sfx + "\n",
+                               /*append=*/true);
+    }
+}
+
 bool
 v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_size_kb,
                      bool ignore_missing_hooks)
 {
-    stop();
-    target_pid_ = pid;
+    // If `v2p_tracker` was already active before `fork()`, drop inherited parent FDs
+    // without touching the parent's tracefs instance; otherwise stop the old session.
+    if (running_.load(std::memory_order_acquire)) {
+        if (owner_pid_ != 0 && getpid() != owner_pid_)
+            detach_forked_child(/*exclude_child_pid=*/true);
+        else
+            stop();
+    }
+
+    reset_session_state(pid);
+    buffer_size_kb_ = buffer_size_kb;
     ignore_missing_hooks_ = ignore_missing_hooks;
-    vmemmap_base_ = 0;
-    zero_pfn_ = 0;
-    tracked_mm_ = 0;
-    pipe_remainder_.clear();
-    clear_shadow_tables();
-    hooks_.clear();
 
     // Require 4 KB base pages and at least Linux version 5.4.
-    int kmaj = 0, kmin = 0;
     struct utsname uts = {};
     if (dr_page_size() != kPageSize4K || uname(&uts) != 0 ||
-        sscanf(uts.release, "%d.%d", &kmaj, &kmin) != 2 ||
-        (kmaj < 5 || (kmaj == 5 && kmin < 4))) {
+        sscanf(uts.release, "%d.%d", &kernel_major_, &kernel_minor_) != 2 ||
+        (kernel_major_ < 5 || (kernel_major_ == 5 && kernel_minor_ < 4))) {
         return false;
     }
 
@@ -189,8 +259,9 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
     // Resolve all kernel kprobe definitions, struct field offsets, and enum bits via
     // BTF, emitting `(CRITICAL)` errors and per-hook uncovered-transition warnings.
     std::string plan_error;
-    const bool plan_ok = v2p_check_kernel_support("/sys/kernel/btf/vmlinux", plan_,
-                                                  plan_error, ignore_missing_hooks_);
+    const bool plan_ok =
+        v2p_check_kernel_support("/sys/kernel/btf/vmlinux", tracefs_root_, plan_,
+                                 plan_error, ignore_missing_hooks_);
     for (const std::string &err : plan_.critical_errors)
         dr_fprintf(STDERR, "ERROR: drmemtrace v2p_tracker: %s\n", err.c_str());
     for (const std::string &warn : plan_.warnings)
@@ -205,57 +276,69 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
         return false;
     }
 
-    // Open `raw/v2p.bin` for binary record output.
+    // Open `raw/v2p.bin`, discover the shared 4 KB zero-page PFN, and start tracing.
     out_fd_ = open(output_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
     if (out_fd_ < 0)
         return false;
     zero_pfn_ = calibrate_zero_pfn();
+    if (!setup_tracefs_and_reader(/*is_initial_start=*/true)) {
+        close(out_fd_);
+        out_fd_ = -1;
+        return false;
+    }
+    running_.store(true, std::memory_order_release);
+    return true;
+}
 
+// Creates the isolated tracefs instance, registers and filters all probes, and starts
+// the background `trace_pipe` reader thread. On `start()` (`is_initial_start == true`),
+// also calibrates kernel clock/pointer constants and snapshots `/proc/<pid>/pagemap`
+// (skipped when restarting tracefs after a failed `execve`, which reuses them).
+bool
+v2p_tracker_t::setup_tracefs_and_reader(bool is_initial_start)
+{
     auto fail = [this]() {
         cleanup_kernel_tracing();
-        if (out_fd_ >= 0) {
-            close(out_fd_);
-            out_fd_ = -1;
-        }
         return false;
     };
 
-    // Pre-clean any leftover instance or kprobes from a recycled PID killed via
-    // `SIGKILL`, then create a fresh isolated tracefs instance directory.
-    const std::string sfx = "_" + std::to_string(pid);
+    const std::string sfx = "_" + std::to_string(target_pid_);
+    pre_clean_stale_tracefs();
     instance_dir_ = tracefs_root_ + "/instances/drmemtrace_v2p" + sfx;
     registered_probes_.clear();
-    for (const v2p_probe_spec_t &spec : plan_.probes)
-        registered_probes_.push_back(spec.base_name + sfx);
-    kernel_tracing_active_ = true;
-    cleanup_kernel_tracing();
+    pipe_remainder_.clear();
     kernel_tracing_active_ = true;
     if (mkdir(instance_dir_.c_str(), 0755) != 0 && errno != EEXIST)
         return fail();
 
     // Configure the instance ring buffer: use `CLOCK_TAI` on Linux 5.19+ (unaffected by
-    // NTP slew) or `CLOCK_MONOTONIC`, and track child threads via `event-fork` and
-    // `set_event_pid`.
-    const bool use_tai = kmaj > 5 || (kmaj == 5 && kmin >= 19);
+    // NTP slew) or `CLOCK_MONOTONIC`, and track child threads via `event-fork`.
+    // Scope events by matching the traced process's kernel address space (`mm_struct *`)
+    // on each probe rather than `set_event_pid`: `set_event_pid` misses background
+    // `khugepaged` kernel-thread collapses because `khugepaged` runs under its own PID,
+    // whereas matching `mm == tracked_mm_` records `khugepaged` activity on our process
+    // while still ignoring all other processes.
+    const bool use_tai = kernel_major_ > 5 || (kernel_major_ == 5 && kernel_minor_ >= 19);
     if (!v2p_write_tracefs_file(instance_dir_ + "/trace_clock",
                                 use_tai ? "tai" : "mono") ||
-        (buffer_size_kb > 0 &&
+        (buffer_size_kb_ > 0 &&
          !v2p_write_tracefs_file(instance_dir_ + "/buffer_size_kb",
-                                 std::to_string(buffer_size_kb))) ||
-        !v2p_write_tracefs_file(instance_dir_ + "/options/event-fork", "1") ||
-        !v2p_write_tracefs_file(instance_dir_ + "/set_event_pid", std::to_string(pid))) {
+                                 std::to_string(buffer_size_kb_))) ||
+        !v2p_write_tracefs_file(instance_dir_ + "/options/event-fork", "1")) {
         return fail();
     }
 
     // Measure the offset from tracefs timestamps to DR's UTC/FILETIME microsecond clock.
-    struct timespec clk_ts = {}, real_ts = {};
-    if (clock_gettime(use_tai ? CLOCK_TAI : CLOCK_MONOTONIC, &clk_ts) != 0 ||
-        clock_gettime(CLOCK_REALTIME, &real_ts) != 0) {
-        return fail();
+    if (is_initial_start) {
+        struct timespec clk_ts = {}, real_ts = {};
+        if (clock_gettime(use_tai ? CLOCK_TAI : CLOCK_MONOTONIC, &clk_ts) != 0 ||
+            clock_gettime(CLOCK_REALTIME, &real_ts) != 0) {
+            return fail();
+        }
+        clock_offset_us_ = (real_ts.tv_sec * 1000000ULL + real_ts.tv_nsec / 1000ULL +
+                            kDrUtcToEpochMicros) -
+            (clk_ts.tv_sec * 1000000ULL + clk_ts.tv_nsec / 1000ULL);
     }
-    clock_offset_us_ =
-        (real_ts.tv_sec * 1000000ULL + real_ts.tv_nsec / 1000ULL + kDrUtcToEpochMicros) -
-        (clk_ts.tv_sec * 1000000ULL + clk_ts.tv_nsec / 1000ULL);
 
     // Register all BTF-validated kprobes and kretprobes, reporting every failure at once.
     const std::string kp = tracefs_root_ + "/kprobe_events";
@@ -272,13 +355,11 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
     if (!failed_regs.empty() && !handle_runtime_hook_failures(failed_regs))
         return fail();
 
-    // Open `trace_pipe` for non-blocking reads and calibrate both `vmemmap_base_` and
-    // `tracked_mm_` before enabling live collection.
     trace_pipe_fd_ =
         open((instance_dir_ + "/trace_pipe").c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
     if (trace_pipe_fd_ < 0)
         return fail();
-    if (!calibrate_live_vmemmap_and_mm()) {
+    if (is_initial_start && !calibrate_live_vmemmap_and_mm()) {
         dr_fprintf(STDERR,
                    "ERROR: drmemtrace v2p_tracker: (CRITICAL) vmemmap calibration "
                    "failed (requires CAP_SYS_ADMIN access to /proc/self/pagemap) - "
@@ -286,31 +367,42 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
         return fail();
     }
 
-    // Install kernel-side `mm == tracked_mm_` filters, enable all registered probes, and
-    // turn on ring-buffer recording BEFORE scanning `/proc/<pid>/pagemap` so any
-    // concurrent fault, THP collapse, or unmap during the scan is captured.
+    // Install kernel-side `mm == tracked_mm_` filters, enable `sched_process_exec` and
+    // all registered probes, and turn on ring-buffer recording BEFORE scanning
+    // `/proc/<pid>/pagemap` so any concurrent fault or unmap during the scan is captured.
+    std::string exec_warn;
+    const std::string exec_flt = "pid == " + std::to_string(target_pid_);
+    if (plan_.has_exec_tracepoint &&
+        !set_event("sched/sched_process_exec", /*enable=*/true, &exec_flt)) {
+        plan_.has_exec_tracepoint = false;
+        exec_warn = "sched/sched_process_exec (failed to enable tracepoint) - "
+                    "transitions uncovered: process address-space replacement on execve, "
+                    "including teardown of prior mappings and initial snapshot of the "
+                    "new executable";
+    }
     std::vector<std::pair<v2p_probe_spec_t, const char *>> failed_enables;
     for (const v2p_probe_spec_t &spec : plan_.probes) {
         const std::string expr = probe_filter_expr(spec);
         if (!set_event("kprobes/" + spec.base_name + sfx, /*enable=*/true, &expr))
             failed_enables.push_back({ spec, "failed to filter or enable kprobe" });
     }
-    if (!failed_enables.empty() && !handle_runtime_hook_failures(failed_enables))
+    if ((!failed_enables.empty() || !exec_warn.empty()) &&
+        !handle_runtime_hook_failures(failed_enables, exec_warn)) {
         return fail();
+    }
     if (!v2p_write_tracefs_file(instance_dir_ + "/tracing_on", "1"))
         return fail();
 
-    snapshot_pagemap();
+    if (is_initial_start)
+        snapshot_pagemap(/*timestamp_us=*/0);
 
     // Spawn the background client reader thread to drain `trace_pipe_fd_` continuously.
     reader_tid_.store(0, std::memory_order_relaxed);
     stop_requested_.store(false, std::memory_order_relaxed);
     thread_exited_.store(false, std::memory_order_relaxed);
     thread_running_.store(true, std::memory_order_release);
-    running_.store(true, std::memory_order_release);
     if (!dr_create_client_thread(&v2p_tracker_t::reader_thread_entry, this)) {
         thread_running_.store(false, std::memory_order_release);
-        running_.store(false, std::memory_order_release);
         return fail();
     }
     return true;
@@ -518,7 +610,7 @@ v2p_tracker_t::calibrate_live_vmemmap_and_mm()
 // Snapshots already-resident 4 KB, 2 MB THP, and `hugetlbfs` mappings from
 // `/proc/<pid>/smaps` (or `maps`), `/proc/<pid>/pagemap`, and `/proc/kpageflags`.
 void
-v2p_tracker_t::snapshot_pagemap()
+v2p_tracker_t::snapshot_pagemap(uint64_t timestamp_us)
 {
     const std::string proc_dir = "/proc/" + std::to_string(target_pid_);
     FILE *maps = fopen((proc_dir + "/smaps").c_str(), "r");
@@ -578,7 +670,7 @@ v2p_tracker_t::snapshot_pagemap()
                 off_t off = static_cast<off_t>((va / kPageSize4K) * sizeof(uint64_t));
                 if (pread(pm_fd, &entry, sizeof(entry), off) == sizeof(entry) &&
                     (entry & kPagemapPresentBit) != 0 && (entry & kPagemapPfnMask) != 0) {
-                    bind_pages(0, va, (entry & kPagemapPfnMask) * kPageSize4K,
+                    bind_pages(timestamp_us, va, (entry & kPagemapPfnMask) * kPageSize4K,
                                hpage_pages, /*is_huge_2m=*/false);
                 }
             }
@@ -611,14 +703,16 @@ v2p_tracker_t::snapshot_pagemap()
                 pread(kpf_fd, &kpf, sizeof(kpf),
                       static_cast<off_t>(base_pfn * sizeof(uint64_t))) == sizeof(kpf)) {
                 if ((kpf & kKpfHuge) != 0) {
-                    if (plan_.has_hugetlb)
-                        bind_pages(0, va, base_pfn * kPageSize4K, kPagesPer2M, false);
+                    if (plan_.has_hugetlb) {
+                        bind_pages(timestamp_us, va, base_pfn * kPageSize4K, kPagesPer2M,
+                                   false);
+                    }
                     va += kPageSize2M;
                     continue;
                 }
                 bool is_huge_zero = (kpf & kKpfZeroPage) != 0;
                 if ((kpf & kKpfThp) != 0 && (is_huge_zero || vma.has_pmd_thp)) {
-                    bind_pages(0, va, base_pfn * kPageSize4K, kPagesPer2M,
+                    bind_pages(timestamp_us, va, base_pfn * kPageSize4K, kPagesPer2M,
                                /*is_huge_2m=*/true, is_huge_zero);
                     va += kPageSize2M;
                     continue;
@@ -629,7 +723,7 @@ v2p_tracker_t::snapshot_pagemap()
             for (size_t i = 0; i < n; ++i) {
                 uint64_t pfn = entries[i] & kPagemapPfnMask;
                 if ((entries[i] & kPagemapPresentBit) != 0 && pfn != 0)
-                    bind_pages(0, va + i * kPageSize4K, pfn * kPageSize4K, 1);
+                    bind_pages(timestamp_us, va + i * kPageSize4K, pfn * kPageSize4K, 1);
             }
             va += n * kPageSize4K;
         }
@@ -1059,6 +1153,23 @@ v2p_tracker_t::split_huge_pmd(uint64_t timestamp_us, uint64_t aligned_2m_va, boo
     unbind_range(timestamp_us, aligned_2m_va, end_2m);
 }
 
+// Clears the old address space on `execve`, resets `tracked_mm_`, and removes the
+// previous `mm` filter so the new executable's `mm_struct *` can be learned.
+void
+v2p_tracker_t::reset_for_exec(uint64_t timestamp_us)
+{
+    hooks_.clear();
+    if (!shadow_table_.spans.empty()) {
+        uint64_t first_va = shadow_table_.spans.begin()->first;
+        const auto &last = *shadow_table_.spans.rbegin();
+        unbind_range(timestamp_us, first_va,
+                     v2p_shadow_page_table_t::end_of(last.first, last.second.page_count));
+    }
+    clear_shadow_tables();
+    tracked_mm_ = 0;
+    apply_probe_filters();
+}
+
 // Sums ring-buffer `overrun:` counts across `per_cpu/cpu*/stats` in the instance.
 uint64_t
 v2p_tracker_t::read_total_overflows() const
@@ -1112,11 +1223,8 @@ v2p_tracker_t::cleanup_kernel_tracing()
 // per-CPU ring-buffer drop counts, tears down the kernel instance, and appends any
 // `V2P_RECORD_OVERFLOW` summary plus `V2P_RECORD_END`.
 void
-v2p_tracker_t::stop()
+v2p_tracker_t::stop_and_drain_tracing(bool save_exec_offset, bool close_output)
 {
-    if (!running_.exchange(false, std::memory_order_acq_rel))
-        return;
-
     // Freeze new ring-buffer writes first so `drain_pipe()` reaches EOF cleanly.
     if (kernel_tracing_active_)
         v2p_write_tracefs_file(instance_dir_ + "/tracing_on", "0");
@@ -1132,10 +1240,11 @@ v2p_tracker_t::stop()
     } else if (kernel_tracing_active_) {
         drain_pipe();
     }
+    reader_tid_.store(0, std::memory_order_relaxed);
 
     // Check per-CPU ring-buffer drop counts before removing the tracefs instance.
     uint64_t overflows = kernel_tracing_active_ ? read_total_overflows() : 0;
-    if (overflows > 0) {
+    if (!save_exec_offset && overflows > 0) {
         dr_fprintf(STDERR,
                    "WARNING: drmemtrace v2p_tracker detected %" PRIu64
                    " dropped tracefs events due to buffer overflow (increase "
@@ -1145,17 +1254,74 @@ v2p_tracker_t::stop()
 
     cleanup_kernel_tracing();
 
-    // Write any overflow summary and the end-of-stream sentinel before closing `v2p.bin`.
+    // Emit any overflow summary and the trailing `V2P_RECORD_END` sentinel, saving the
+    // pre-trailer file offset when suspending for `execve` in case `execve` fails.
     if (out_fd_ >= 0) {
+        if (save_exec_offset)
+            exec_saved_offset_ = lseek(out_fd_, 0, SEEK_CUR);
         if (overflows > 0) {
             uint32_t clamped = static_cast<uint32_t>(
                 std::min<uint64_t>(overflows, (std::numeric_limits<uint32_t>::max)()));
             write_record(out_fd_, 0, 0, 0, clamped, V2P_RECORD_OVERFLOW);
         }
         write_record(out_fd_, 0, 0, 0, 0, V2P_RECORD_END);
-        close(out_fd_);
-        out_fd_ = -1;
+        if (close_output) {
+            close(out_fd_);
+            out_fd_ = -1;
+        }
     }
+}
+
+// Finalizes tracing on normal process exit (or detaches quietly in an untraced fork).
+void
+v2p_tracker_t::stop()
+{
+    if (!running_.exchange(false, std::memory_order_acq_rel))
+        return;
+    if (owner_pid_ != 0 && getpid() != owner_pid_) {
+        detach_forked_child(/*exclude_child_pid=*/false);
+        return;
+    }
+    if (suspended_for_exec_) {
+        suspended_for_exec_ = false;
+        exec_saved_offset_ = -1;
+        if (out_fd_ >= 0)
+            close(out_fd_);
+        out_fd_ = -1;
+        return;
+    }
+    stop_and_drain_tracing(/*save_exec_offset=*/false, /*close_output=*/true);
+}
+
+// Drains tracing and writes a tentative `V2P_RECORD_END` before `SYS_execve`/`execveat`
+// because a successful `execve` replaces the process image without running `event_exit`.
+void
+v2p_tracker_t::suspend_for_exec()
+{
+    if (!running_.load(std::memory_order_acquire) || !kernel_tracing_active_ ||
+        suspended_for_exec_ || (owner_pid_ != 0 && getpid() != owner_pid_)) {
+        return;
+    }
+    stop_and_drain_tracing(/*save_exec_offset=*/true, /*close_output=*/false);
+    suspended_for_exec_ = true;
+}
+
+// Truncates the tentative `V2P_RECORD_END` written by `suspend_for_exec()` and restarts
+// the tracefs instance when `SYS_execve`/`execveat` fails and returns to user space.
+void
+v2p_tracker_t::resume_after_failed_exec()
+{
+    if (!running_.load(std::memory_order_acquire) || !suspended_for_exec_ ||
+        (owner_pid_ != 0 && getpid() != owner_pid_)) {
+        return;
+    }
+    suspended_for_exec_ = false;
+    if (out_fd_ >= 0 && exec_saved_offset_ >= 0 &&
+        ftruncate(out_fd_, exec_saved_offset_) == 0) {
+        lseek(out_fd_, exec_saved_offset_, SEEK_SET);
+    }
+    exec_saved_offset_ = -1;
+    setup_tracefs_and_reader(/*is_initial_start=*/false);
 }
 
 /* -------------------------------------------------------------------------
