@@ -80,8 +80,11 @@ struct v2p_kernel_plan_t {
     uint32_t pg_head_bit = 0;
     uint32_t folio_order_byte_off = 0;
     uint32_t fault_flag_write = 1;
+    uint32_t vm_shared_mask = 0x8;
+    uint32_t vm_fault_error_mask = 0x0c73;
     uint32_t legacy_anon_compound_mask = 1;
     uint32_t ttu_ignore_arg4_mask = 0;
+    bool has_hugetlb = false;
     std::vector<v2p_probe_spec_t> probes;
     std::vector<std::string> critical_errors;
 };

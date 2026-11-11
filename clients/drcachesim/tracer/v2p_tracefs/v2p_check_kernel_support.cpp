@@ -302,6 +302,17 @@ v2p_btf_checker_t::parse_and_check_base(const std::string &raw)
 
     if (find_enum_value("FAULT_FLAG_WRITE", enum_val) && enum_val != 0)
         plan_.fault_flag_write = static_cast<uint32_t>(enum_val);
+    if (find_enum_value("VM_FAULT_OOM", enum_val) && enum_val != 0) {
+        uint32_t mask = static_cast<uint32_t>(enum_val);
+        const char *err_names[] = { "VM_FAULT_SIGBUS",         "VM_FAULT_HWPOISON",
+                                    "VM_FAULT_HWPOISON_LARGE", "VM_FAULT_SIGSEGV",
+                                    "VM_FAULT_RETRY",          "VM_FAULT_FALLBACK" };
+        for (const char *name : err_names) {
+            if (find_enum_value(name, enum_val))
+                mask |= static_cast<uint32_t>(enum_val);
+        }
+        plan_.vm_fault_error_mask = mask;
+    }
 
     if (find_struct_field("folio", "_folio_order", off, ftype) &&
         is_int_of_size(ftype, 1)) {

@@ -126,6 +126,11 @@ probe_name_map()
         { "ttu_in", event_type_t::kTryToUnmapEntry },
         { "ttu_out", event_type_t::kTryToUnmapReturn },
         { "split_pmd", event_type_t::kSplitHugePmd },
+        { "hugetlb_fault_in", event_type_t::kHugetlbFaultEntry },
+        { "hugetlb_anon", event_type_t::kHugetlbAnonRmap },
+        { "hugetlb_unlock", event_type_t::kHugetlbFolioUnlock },
+        { "hugetlb_fault_out", event_type_t::kHugetlbFaultReturn },
+        { "hugetlb_unmap", event_type_t::kHugetlbUnmap },
     };
     return kMap;
 }
@@ -141,6 +146,57 @@ pop_pending(Map &map, pid_t tid, Val &out)
     out = it->second;
     map.erase(it);
     return true;
+}
+
+// Returns whether `nr` matches an architectural 4 KB-base-page `hugetlbfs` pool size
+// (64 KB, 2 MB, 32 MB, or 1 GB, ignoring 128 KB page-cache folio unlocks).
+bool
+is_supported_hugetlb_pages(uint32_t nr)
+{
+    return nr == 16 || nr == 512 || nr == 8192 || nr == 262144;
+}
+
+// Explicit hugepage pool (`hugetlbfs`) hooks, skipped when `CONFIG_HUGETLB_PAGE=n`:
+// - The kernel calls `hugetlb_add_new_anon_rmap` (or `hugepage_add_new_anon_rmap`)
+//   whenever it allocates a private `hugetlbfs` / `MAP_HUGETLB` page or resolves a
+//   private Copy-on-Write fault.
+// - Shared `hugetlbfs` faults and read-only private faults borrowing a file pool
+//   page never call an rmap hook; instead `hugetlb_fault` unlocks the pool folio via
+//   `folio_unlock` / `unlock_page` in process context right before returning, so we
+//   bracket `hugetlb_fault` and record the unlocked folio when `hugetlb_fault`
+//   succeeds without an error or retry flag.
+// - The kernel calls `__unmap_hugepage_range` whenever it unmaps or truncates a
+//   `hugetlbfs` range.
+void
+check_hugetlb_hooks(v2p_btf_checker_t &btf, v2p_kernel_plan_t &plan)
+{
+    if (!btf.has_func("hugetlb_fault"))
+        return;
+    plan.has_hugetlb = true;
+    const bool fault_ok = btf.check_hook(
+        "hugetlb_fault", "mm_struct*, vm_area_struct*, u64, u32",
+        { { "hugetlb_fault_in",
+            "mm=$arg1:x64 vm_flags={vm_area_struct.vm_flags:u64}($arg2):x64 "
+            "vaddr=$arg3:x64" },
+          { "hugetlb_fault_out", "ret=$retval:u32", true } });
+    std::string anon_def = rmap_def("$arg1", "$arg2", "$arg3", kFolioOrdArg1);
+    btf.check_hook("hugetlb_add_new_anon_rmap",
+                   { { "hugetlb_add_new_anon_rmap", "folio|page*, vm_area_struct*, u64",
+                       "hugetlb_anon", anon_def },
+                     { "hugepage_add_new_anon_rmap", "folio|page*, vm_area_struct*, u64",
+                       "hugetlb_anon", anon_def } });
+    std::string unlock_def = std::string("page=$arg1:x64 ") + kFolioOrdArg1;
+    const char *unlock_flt = "(flags & {pg_head_mask}) && ord >= 4";
+    btf.check_hook(
+        "folio_unlock/unlock_page",
+        { { "folio_unlock", "folio|page*", "hugetlb_unlock", unlock_def, -1, unlock_flt },
+          { "unlock_page", "folio|page*", "hugetlb_unlock", unlock_def, -1,
+            unlock_flt } });
+    if (!fault_ok)
+        erase_probes(plan.probes, { "hugetlb_anon", "hugetlb_unlock" });
+    btf.check_hook("__unmap_hugepage_range",
+                   "mmu_gather*, vm_area_struct*, u64, u64, folio|page*", "hugetlb_unmap",
+                   vma_mm("$arg2") + " start=$arg3:x64 end=$arg4:x64 ref=$arg5:x64");
 }
 
 } // namespace
@@ -340,6 +396,9 @@ v2p_tracefs_hooks_t::check_all_hooks(v2p_btf_checker_t &btf, v2p_kernel_plan_t &
                    vma_mm("$arg1") +
                        " vm_ops={vm_area_struct.vm_ops:vm_operations_struct*}($arg1):x64 "
                        "vaddr=$arg3:x64");
+
+    // 10. Explicit hugepage pools (`hugetlbfs`).
+    check_hugetlb_hooks(btf, plan);
 }
 
 /* -------------------------------------------------------------------------
@@ -353,6 +412,7 @@ struct v2p_tracefs_hooks_t::trace_event_t {
     size_t pos;
     pid_t tid;
     uint64_t ts;
+    bool in_irq;
 
     // Extracts the event name before `:`, strips the per-process `_<pid>` suffix that
     // `v2p_tracker_t` appends to dynamic `kprobe_events`, and looks up its enum.
@@ -444,6 +504,7 @@ v2p_tracefs_hooks_t::clear()
     pending_collapse_vaddr_.clear();
     pending_moves_.clear();
     pending_try_to_unmap_.clear();
+    pending_hugetlb_.clear();
 }
 
 void
@@ -471,12 +532,22 @@ v2p_tracefs_hooks_t::install_pages(const trace_event_t &trace_event,
     return true;
 }
 
+// Binds a power-of-two `hugetlbfs` pool page (`64 KB`, `2 MB`, `32 MB`, or `1 GB`).
+void
+v2p_tracefs_hooks_t::bind_hugetlb(uint64_t ts, pid_t tid, uint64_t vaddr, uint64_t paddr,
+                                  uint32_t nr, v2p_tracker_t &tracker)
+{
+    uint64_t mask = static_cast<uint64_t>(nr) * kPageSize4K - 1;
+    tracker.bind_pages(ts, vaddr & ~mask, paddr & ~mask, nr, /*is_huge_2m=*/false);
+    mark_fault_handled(tid);
+}
+
 bool
 v2p_tracefs_hooks_t::handle_event(const std::string &line, size_t event_pos, pid_t tid,
                                   uint64_t timestamp_us, const v2p_kernel_plan_t &plan,
-                                  v2p_tracker_t &tracker)
+                                  v2p_tracker_t &tracker, bool in_irq)
 {
-    const trace_event_t trace_event { line, event_pos, tid, timestamp_us };
+    const trace_event_t trace_event { line, event_pos, tid, timestamp_us, in_irq };
 
     switch (trace_event.parse_event_type()) {
     case event_type_t::kUnknown: return false;
@@ -708,6 +779,88 @@ v2p_tracefs_hooks_t::handle_event(const std::string &line, size_t event_pos, pid
             trace_event.extract_field("vaddr=", vaddr, 16)) {
             tracker.split_huge_pmd(trace_event.ts, vaddr & ~(kPageSize2M - 1),
                                    /*is_anon=*/(vm_ops == 0));
+        }
+        return true;
+    }
+
+    // 7. Explicit hugepage pools (`hugetlbfs`): private CoW faults commit via
+    //    `hugetlb_anon`, while shared (`VM_SHARED`) and file-borrowed read faults
+    //    unlock the pool folio in process context (`!in_irq`) before `hugetlb_fault`.
+    case event_type_t::kHugetlbFaultEntry: {
+        if (!plan.has_hugetlb)
+            return false;
+        pending_hugetlb_.erase(tid);
+        uint64_t vm_flags = 0, vaddr = 0;
+        if (trace_event.is_target_mm(tracker) &&
+            trace_event.extract_field("vm_flags=", vm_flags, 16) &&
+            trace_event.extract_field("vaddr=", vaddr, 16)) {
+            pending_hugetlb_[tid] = { vaddr, vm_flags, 0, 0, false };
+        }
+        return true;
+    }
+    case event_type_t::kHugetlbAnonRmap: {
+        if (!plan.has_hugetlb)
+            return false;
+        uint64_t vaddr = 0, paddr = 0;
+        uint32_t nr = trace_event.extract_folio_pages(plan.pg_head_bit);
+        if (is_supported_hugetlb_pages(nr) && trace_event.is_target_mm(tracker) &&
+            trace_event.extract_field("vaddr=", vaddr, 16) &&
+            trace_event.extract_page_paddr(tracker, paddr)) {
+            bind_hugetlb(trace_event.ts, tid, vaddr, paddr, nr, tracker);
+            auto it = pending_hugetlb_.find(tid);
+            if (it != pending_hugetlb_.end())
+                it->second.saw_anon_rmap = true;
+        }
+        return true;
+    }
+    case event_type_t::kHugetlbFolioUnlock: {
+        if (!plan.has_hugetlb)
+            return false;
+        auto it = pending_hugetlb_.find(tid);
+        uint64_t paddr = 0;
+        uint32_t nr = trace_event.extract_folio_pages(plan.pg_head_bit);
+        if (!trace_event.in_irq && it != pending_hugetlb_.end() &&
+            is_supported_hugetlb_pages(nr) &&
+            trace_event.extract_page_paddr(tracker, paddr)) {
+            it->second.folio_paddr = paddr;
+            it->second.folio_pages = nr;
+        }
+        return true;
+    }
+    case event_type_t::kHugetlbFaultReturn: {
+        if (!plan.has_hugetlb)
+            return false;
+        pending_hugetlb_t hf;
+        uint64_t ret = plan.vm_fault_error_mask;
+        if (!pop_pending(pending_hugetlb_, tid, hf) ||
+            !trace_event.extract_field("ret=", ret) ||
+            (ret & plan.vm_fault_error_mask) != 0 || hf.saw_anon_rmap ||
+            !is_supported_hugetlb_pages(hf.folio_pages)) {
+            return true;
+        }
+        uint64_t huge_bytes = static_cast<uint64_t>(hf.folio_pages) * kPageSize4K;
+        if ((hf.vm_flags & plan.vm_shared_mask) != 0 ||
+            !tracker.has_shadow_mapping(hf.vaddr & ~(huge_bytes - 1), hf.folio_pages)) {
+            bind_hugetlb(trace_event.ts, tid, hf.vaddr, hf.folio_paddr, hf.folio_pages,
+                         tracker);
+        }
+        return true;
+    }
+    case event_type_t::kHugetlbUnmap: {
+        if (!plan.has_hugetlb)
+            return false;
+        uint64_t lo = 0, hi = 0, ref = 0, ref_pa = 0;
+        if (trace_event.is_target_mm(tracker) &&
+            trace_event.extract_unmap_bounds(lo, hi) &&
+            trace_event.extract_field("ref=", ref, 16)) {
+            if (ref == 0) {
+                tracker.unbind_range(trace_event.ts, lo, hi);
+            } else if ((hi - lo) / kPageSize4K <=
+                           (std::numeric_limits<uint32_t>::max)() &&
+                       tracker.page_ptr_to_paddr(ref, ref_pa)) {
+                uint32_t pages = static_cast<uint32_t>((hi - lo) / kPageSize4K);
+                tracker.unbind_folio_in_range(trace_event.ts, lo, pages, ref_pa, pages);
+            }
         }
         return true;
     }

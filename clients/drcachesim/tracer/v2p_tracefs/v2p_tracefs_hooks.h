@@ -98,13 +98,20 @@ public:
 
         // 2 MB transparent hugepage PMD splits (`__split_huge_pmd`).
         kSplitHugePmd,
+
+        // Explicit hugepage pools (`hugetlbfs`: 64 KB, 2 MB, 32 MB, and 1 GB).
+        kHugetlbFaultEntry,  // hugetlb_fault entry: begins hugetlbfs page fault.
+        kHugetlbAnonRmap,    // hugetlb/hugepage_add_new_anon_rmap: private CoW.
+        kHugetlbFolioUnlock, // folio_unlock/unlock_page: shared/file pool folio.
+        kHugetlbFaultReturn, // hugetlb_fault return: commits unlocked pool folio.
+        kHugetlbUnmap,       // __unmap_hugepage_range: tears down hugetlbfs span.
     };
 
     // Validates every registered V2P hook against `btf` and populates `plan.probes`.
     static void
     check_all_hooks(v2p_btf_checker_t &btf, v2p_kernel_plan_t &plan);
 
-    // Clears all in-flight per-thread fault, PMD, mremap, and reclaim state.
+    // Clears all in-flight per-thread fault, PMD, mremap, reclaim, and hugetlb state.
     void
     clear();
 
@@ -113,7 +120,7 @@ public:
     bool
     handle_event(const std::string &line, size_t event_pos, pid_t tid,
                  uint64_t timestamp_us, const v2p_kernel_plan_t &plan,
-                 v2p_tracker_t &tracker);
+                 v2p_tracker_t &tracker, bool in_irq = false);
 
 private:
     struct trace_event_t;
@@ -149,11 +156,24 @@ private:
         uint32_t folio_pages = 1;
     };
 
+    // Tracks `hugetlb_fault` entry -> return, pairing inner `hugetlb_add_new_anon_rmap`
+    // (private CoW) or `folio_unlock` (shared / file-borrowed pool folio) with return.
+    struct pending_hugetlb_t {
+        uint64_t vaddr = 0;
+        uint64_t vm_flags = 0;
+        uint64_t folio_paddr = 0;
+        uint32_t folio_pages = 0;
+        bool saw_anon_rmap = false;
+    };
+
     void
     mark_fault_handled(pid_t tid);
     bool
     install_pages(const trace_event_t &trace_event, v2p_tracker_t &tracker, uint32_t nr,
                   bool is_huge_2m);
+    void
+    bind_hugetlb(uint64_t ts, pid_t tid, uint64_t vaddr, uint64_t paddr, uint32_t nr,
+                 v2p_tracker_t &tracker);
 
     std::unordered_map<pid_t, pending_fault_t> pending_faults_;
     std::unordered_map<pid_t, pending_pmd_t> pending_set_pmd_;
@@ -161,6 +181,7 @@ private:
     std::unordered_map<pid_t, uint64_t> pending_collapse_vaddr_;
     std::unordered_map<pid_t, pending_move_t> pending_moves_;
     std::unordered_map<pid_t, pending_try_to_unmap_t> pending_try_to_unmap_;
+    std::unordered_map<pid_t, pending_hugetlb_t> pending_hugetlb_;
 };
 
 } // namespace drmemtrace

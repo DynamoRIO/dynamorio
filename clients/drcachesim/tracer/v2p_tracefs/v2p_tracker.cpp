@@ -73,6 +73,7 @@ constexpr uint64_t kDrUtcToEpochMicros = 11644473600ULL * 1000000ULL;
 // `/proc/<pid>/pagemap` entry bits and `/proc/kpageflags` (`KPF_THP`) bit mask.
 constexpr uint64_t kPagemapPresentBit = 1ULL << 63;
 constexpr uint64_t kPagemapPfnMask = (1ULL << 55) - 1;
+constexpr uint64_t kKpfHuge = 1ULL << 17;
 constexpr uint64_t kKpfThp = 1ULL << 22;
 constexpr uint64_t kKpfZeroPage = 1ULL << 24;
 
@@ -412,8 +413,8 @@ v2p_tracker_t::calibrate_live_vmemmap_and_mm()
     return vmemmap_base_ != 0;
 }
 
-// Snapshots already-resident 4 KB and 2 MB THP mappings from `/proc/<pid>/smaps` (or
-// `maps`), `/proc/<pid>/pagemap`, and `/proc/kpageflags` at timestamp 0.
+// Snapshots already-resident 4 KB, 2 MB THP, and `hugetlbfs` mappings from
+// `/proc/<pid>/smaps` (or `maps`), `/proc/<pid>/pagemap`, and `/proc/kpageflags`.
 void
 v2p_tracker_t::snapshot_pagemap()
 {
@@ -425,25 +426,34 @@ v2p_tracker_t::snapshot_pagemap()
     int pm_fd = open((proc_dir + "/pagemap").c_str(), O_RDONLY | O_CLOEXEC);
     int kpf_fd = open("/proc/kpageflags", O_RDONLY | O_CLOEXEC);
 
-    // Step 1: Collect user-space VMAs and note which VMAs have PMD-mapped THPs in
-    // `smaps` (falling back to checking every 2 MB contiguous run when `smaps` is
-    // unavailable).
+    // Step 1: Parse user-space VMA ranges, `KernelPageSize:` (`>= 64 kB` on `hugetlbfs`
+    // VMAs), and PMD-mapped THP counters (`AnonHugePages:`, `ShmemPmdMapped:`,
+    // `FilePmdMapped:`) from `smaps`.
     struct vma_desc_t {
         uint64_t start = 0;
         uint64_t end = 0;
+        uint64_t page_bytes = kPageSize4K;
         bool has_pmd_thp = false;
     };
     std::vector<vma_desc_t> vmas;
     char line[512];
+    bool in_user_vma = false;
     while (maps != nullptr && pm_fd >= 0 && fgets(line, sizeof(line), maps) != nullptr) {
         uint64_t s = 0, e = 0, kb = 0;
         if (isxdigit(static_cast<unsigned char>(line[0])) &&
             sscanf(line, "%" SCNx64 "-%" SCNx64, &s, &e) == 2) {
             // Skip kernel-space pseudo-VMAs such as `[vsyscall]` (`>= 0xffff8000...`).
-            if (s < 0xffff800000000000ULL && e > s)
-                vmas.push_back({ s, e, !have_smaps });
-        } else if (!vmas.empty() &&
-                   (strncmp(line, "AnonHugePages:", 14) == 0 ||
+            in_user_vma = (s < 0xffff800000000000ULL && e > s);
+            if (in_user_vma)
+                vmas.push_back({ s, e, kPageSize4K, !have_smaps });
+        } else if (!in_user_vma) {
+            continue;
+        } else if (strncmp(line, "KernelPageSize:", 15) == 0 &&
+                   sscanf(line + 15, "%" SCNu64, &kb) == 1 && kb >= 64 &&
+                   (kb & (kb - 1)) == 0 &&
+                   kb <= (std::numeric_limits<uint32_t>::max)() * 4ULL) {
+            vmas.back().page_bytes = kb * 1024ULL;
+        } else if ((strncmp(line, "AnonHugePages:", 14) == 0 ||
                     strncmp(line, "ShmemPmdMapped:", 15) == 0 ||
                     strncmp(line, "FilePmdMapped:", 14) == 0) &&
                    sscanf(strchr(line, ':') + 1, "%" SCNu64, &kb) == 1 && kb > 0) {
@@ -451,11 +461,30 @@ v2p_tracker_t::snapshot_pagemap()
         }
     }
 
-    // Step 2: Read `pagemap` in up to 2 MB-aligned batches across each VMA so pre-
-    // existing 2 MB THP PMDs are recorded as `is_huge_2m` spans (matching subsequent
-    // `__split_huge_pmd` events) before falling back to per-4 KB PTE bindings.
+    // Step 2: Query `/proc/<pid>/pagemap` across each user-space VMA.
     uint64_t entries[kPagesPer2M];
     for (const vma_desc_t &vma : vmas) {
+        // Explicit `hugetlbfs` VMAs (`KernelPageSize >= 64 kB`): step one hugepage at
+        // a time when `hugetlbfs` hooks are active, or skip when `CONFIG_HUGETLB_PAGE=n`.
+        if (vma.page_bytes > kPageSize4K) {
+            if (!plan_.has_hugetlb)
+                continue;
+            auto hpage_pages = static_cast<uint32_t>(vma.page_bytes / kPageSize4K);
+            for (uint64_t va = vma.start; va + vma.page_bytes <= vma.end;
+                 va += vma.page_bytes) {
+                uint64_t entry = 0;
+                off_t off = static_cast<off_t>((va / kPageSize4K) * sizeof(uint64_t));
+                if (pread(pm_fd, &entry, sizeof(entry), off) == sizeof(entry) &&
+                    (entry & kPagemapPresentBit) != 0 && (entry & kPagemapPfnMask) != 0) {
+                    bind_pages(0, va, (entry & kPagemapPfnMask) * kPageSize4K,
+                               hpage_pages, /*is_huge_2m=*/false);
+                }
+            }
+            continue;
+        }
+
+        // Standard 4 KB / THP VMAs: read `pagemap` in up to 2 MB-aligned batches so
+        // 2 MB THP PMDs are recognized before falling back to per-4 KB PTE bindings.
         for (uint64_t va = vma.start; va < vma.end;) {
             uint64_t batch_end =
                 std::min(vma.end, (va + kPageSize2M) & ~(kPageSize2M - 1));
@@ -466,8 +495,7 @@ v2p_tracker_t::snapshot_pagemap()
                 break;
             size_t n = static_cast<size_t>(bytes) / sizeof(uint64_t);
 
-            // Check whether this batch is a 2 MB-aligned run of 512 contiguous PFNs
-            // backed by a `KPF_THP` compound page.
+            // Check whether this batch is a 2 MB-aligned run of 512 contiguous PFNs.
             uint64_t base_pfn = entries[0] & kPagemapPfnMask;
             uint64_t kpf = 0;
             bool is_2m_contig = n == kPagesPer2M && (va & (kPageSize2M - 1)) == 0 &&
@@ -480,6 +508,12 @@ v2p_tracker_t::snapshot_pagemap()
             if (is_2m_contig && kpf_fd >= 0 &&
                 pread(kpf_fd, &kpf, sizeof(kpf),
                       static_cast<off_t>(base_pfn * sizeof(uint64_t))) == sizeof(kpf)) {
+                if ((kpf & kKpfHuge) != 0) {
+                    if (plan_.has_hugetlb)
+                        bind_pages(0, va, base_pfn * kPageSize4K, kPagesPer2M, false);
+                    va += kPageSize2M;
+                    continue;
+                }
                 bool is_huge_zero = (kpf & kKpfZeroPage) != 0;
                 if ((kpf & kKpfThp) != 0 && (is_huge_zero || vma.has_pmd_thp)) {
                     bind_pages(0, va, base_pfn * kPageSize4K, kPagesPer2M,
@@ -1051,6 +1085,7 @@ v2p_tracker_t::process_trace_line(const std::string &line)
     pid_t tid = 0;
     uint64_t timestamp_us = 0;
     size_t event_pos = std::string::npos;
+    bool in_irq = false;
     const char *raw = line.c_str();
 
     // Scan each `" ["` candidate because thread `comm` names may contain `[...]`
@@ -1069,15 +1104,22 @@ v2p_tracker_t::process_trace_line(const std::string &line)
         char cpu_s[16], flags_s[16] = {}, sec_s[24], usec_s[16];
         char sp1 = 0, sp2 = 0;
         int n = 0;
-        bool ok =
-            (sscanf(raw + cpu_open + 2, "%15[0-9]]%c %15[^] :] %23[0-9].%15[0-9]:%c%n",
-                    cpu_s, &sp1, flags_s, sec_s, usec_s, &sp2, &n) == 6 &&
-             sp1 == ' ' && sp2 == ' ') ||
+        bool has_flags =
+            sscanf(raw + cpu_open + 2, "%15[0-9]]%c %15[^] :] %23[0-9].%15[0-9]:%c%n",
+                   cpu_s, &sp1, flags_s, sec_s, usec_s, &sp2, &n) == 6 &&
+            sp1 == ' ' && sp2 == ' ';
+        if (!has_flags &&
             (sscanf(raw + cpu_open + 2, "%15[0-9]]%c %23[0-9].%15[0-9]:%c%n", cpu_s, &sp1,
-                    sec_s, usec_s, &sp2, &n) == 5 &&
-             sp1 == ' ' && sp2 == ' ');
-        if (!ok)
+                    sec_s, usec_s, &sp2, &n) != 5 ||
+             sp1 != ' ' || sp2 != ' ')) {
             continue;
+        }
+        // Byte 2 of the ftrace flags field (`d.s1.`) marks hardirq/softirq/NMI context.
+        if (has_flags && strlen(flags_s) >= 3) {
+            char irq = flags_s[2];
+            in_irq = (irq == 'h' || irq == 'H' || irq == 's' || irq == 'S' ||
+                      irq == 'z' || irq == 'Z');
+        }
         tid = static_cast<pid_t>(strtol(raw + dash, nullptr, 10));
         timestamp_us = strtoull(sec_s, nullptr, 10) * 1000000ULL +
             strtoull(usec_s, nullptr, 10) + clock_offset_us_;
@@ -1092,7 +1134,7 @@ v2p_tracker_t::process_trace_line(const std::string &line)
         return;
     }
 
-    hooks_.handle_event(line, event_pos, tid, timestamp_us, plan_, *this);
+    hooks_.handle_event(line, event_pos, tid, timestamp_us, plan_, *this, in_irq);
 }
 
 // Entry point for the background client reader thread: marks itself non-suspendable by
