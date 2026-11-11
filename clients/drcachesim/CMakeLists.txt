@@ -550,6 +550,7 @@ macro(add_drmemtrace name type static_DR no_main)
     )
   if (LINUX AND X64 AND (X86 OR AARCH64))
     set(drmemtrace_srcs ${drmemtrace_srcs}
+      tracer/v2p_tracefs/v2p_check_kernel_support.cpp
       tracer/v2p_tracefs/v2p_tracker.cpp
       )
   endif ()

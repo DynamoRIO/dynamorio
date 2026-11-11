@@ -52,6 +52,7 @@
 #    include "dr_api.h"
 #    include "raw2trace_shared.h"
 #    include "trace_entry.h"
+#    include "v2p_check_kernel_support.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -119,7 +120,7 @@ private:
     uint64_t vmemmap_base_ = 0;
     int out_fd_ = -1;
     int trace_pipe_fd_ = -1;
-    int kpageflags_fd_ = -1;
+    v2p_kernel_plan_t plan_;
     std::atomic<bool> running_ { false };
     std::atomic<bool> stop_requested_ { false };
     std::atomic<bool> thread_running_ { false };
