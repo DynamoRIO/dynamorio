@@ -251,7 +251,6 @@ check_module_mem_types(void)
     return 0;
 }
 
-/* The VA range that kernel_walk_code_regions() walks. */
 #ifdef CONFIG_X86_64
 /* On x86-64, kernel code lives in the top 2 GiB: the kernel image at
  * __START_KERNEL_map, followed by the module area up to MODULES_END, which also
@@ -319,7 +318,7 @@ pte_to_kernel_memprot(pte_t pte)
     return prot;
 }
 
-/* arm64 has no lookup_address(), so walk init_mm's page tables directly. */
+/* AArch64 has no lookup_address(), so walk init_mm's page tables directly. */
 static unsigned long
 query_kernel_page(unsigned long addr, unsigned int *prot)
 {
@@ -330,7 +329,7 @@ query_kernel_page(unsigned long addr, unsigned int *prot)
         return ALIGN_BACKWARD(addr, PGDIR_SIZE) + PGDIR_SIZE;
     }
 
-    /* Since Linux 6.9, an arm64 kernel built for 52-bit VA (LPA2) that runs on a CPU
+    /* Since Linux 6.9, an AArch64 kernel built for 52-bit VA (LPA2) that runs on a CPU
      * without LPA2 folds p4d (4K pages) or pud (16K pages) at runtime. A folded level's
      * entry is located from the address of the entry above it, not from its contents,
      * so pass the real table pointer rather than a local copy. pmd and pte are never
@@ -404,8 +403,8 @@ compute_heap_range(unsigned long *start, unsigned long *end)
 static int
 check_query_kernel_page(void)
 {
-    /* Probe _stext rather than _text: on arm64, [_text, _stext) holds the Image header,
-     * which map_kernel() leaves unmapped.
+    /* Probe _stext rather than _text: on AArch64, [_text, _stext) holds the Image
+     * header, which map_kernel() leaves unmapped.
      */
     const char *kernel_text = kernel_find_symbol("_stext", NULL);
     if (kernel_text == NULL) {
