@@ -315,6 +315,14 @@ create_event(void)
     return e;
 }
 
+event_t
+create_broadcast_event(void)
+{
+    event_t e = create_event();
+    e->broadcast = true;
+    return e;
+}
+
 void
 destroy_event(event_t e)
 {
