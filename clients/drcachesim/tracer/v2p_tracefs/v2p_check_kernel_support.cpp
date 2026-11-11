@@ -43,6 +43,8 @@
 #    include <string.h>
 #    include <unistd.h>
 
+#    include "v2p_tracefs_hooks.h"
+
 namespace dynamorio {
 namespace drmemtrace {
 
@@ -116,10 +118,12 @@ namespace {
 
 // Linux `<uapi/linux/btf.h>` type kinds used when walking `/sys/kernel/btf/vmlinux`.
 constexpr uint32_t kBtfInt = 1;
+constexpr uint32_t kBtfPtr = 2;
 constexpr uint32_t kBtfArray = 3;
 constexpr uint32_t kBtfStruct = 4;
 constexpr uint32_t kBtfUnion = 5;
 constexpr uint32_t kBtfEnum = 6;
+constexpr uint32_t kBtfFwd = 7;
 constexpr uint32_t kBtfTypedef = 8;
 constexpr uint32_t kBtfVolatile = 9;
 constexpr uint32_t kBtfConst = 10;
@@ -430,8 +434,187 @@ v2p_btf_checker_t::find_enum_value(const char *enum_const, uint64_t &val_out) co
     return true;
 }
 
-// Parses `/sys/kernel/btf/vmlinux` at `btf_path` and validates base `page`/`folio`
-// metadata layout (`sizeof(struct page) == 64`, `PG_head`, and compound order offset).
+// Checks whether `type_id` is a pointer to `struct <struct_name>` (either a complete
+// `BTF_KIND_STRUCT` definition or an opaque `BTF_KIND_FWD` forward declaration).
+bool
+v2p_btf_checker_t::is_ptr_to_struct(uint32_t type_id, const char *struct_name) const
+{
+    type_id = strip_qualifiers(type_id);
+    if (type_id == 0 || types_[type_id].kind != kBtfPtr)
+        return false;
+    uint32_t target = strip_qualifiers(types_[type_id].size_or_type);
+    if (target == 0 ||
+        (types_[target].kind != kBtfStruct && types_[target].kind != kBtfFwd)) {
+        return false;
+    }
+    return strcmp(get_str(types_[target].name_off), struct_name) == 0;
+}
+
+// Matches a BTF parameter or struct-member `type_id` against a compact type spec
+// (`"*"`, `"u8"`, `"u32"`, `"u64"`, `"folio|page*"`, or `"<struct_name>*"`).
+bool
+v2p_btf_checker_t::matches_type(uint32_t type_id, const char *spec) const
+{
+    if (strcmp(spec, "*") == 0)
+        return true;
+    if (strcmp(spec, "u8") == 0)
+        return is_int_of_size(type_id, 1);
+    if (strcmp(spec, "u32") == 0)
+        return is_int_of_size(type_id, 4);
+    if (strcmp(spec, "u64") == 0)
+        return is_int_of_size(type_id, 8);
+    if (strcmp(spec, "folio|page*") == 0)
+        return is_ptr_to_struct(type_id, "folio") || is_ptr_to_struct(type_id, "page");
+    size_t len = strlen(spec);
+    if (len > 1 && spec[len - 1] == '*') {
+        std::string sname(spec, len - 1);
+        return is_ptr_to_struct(type_id, sname.c_str());
+    }
+    return false;
+}
+
+// Looks up `func_name`'s `BTF_KIND_FUNC_PROTO` record and extracts its parameter types.
+bool
+v2p_btf_checker_t::find_func_params(const char *func_name,
+                                    std::vector<uint32_t> &param_types) const
+{
+    auto it = funcs_.find(func_name);
+    if (it == funcs_.end())
+        return false;
+    uint32_t proto_id = strip_qualifiers(types_[it->second].size_or_type);
+    if (proto_id == 0 || types_[proto_id].kind != kBtfFuncProto)
+        return false;
+    const btf_type_entry_t &proto = types_[proto_id];
+    param_types.clear();
+    for (uint32_t i = 0; i < proto.vlen; ++i) {
+        uint32_t pwords[2] = {};
+        memcpy(pwords, raw_->data() + proto.payload_off + 8 * static_cast<size_t>(i),
+               sizeof(pwords));
+        param_types.push_back(pwords[1]);
+    }
+    return true;
+}
+
+// Replaces `{<struct>.<field>:<type>}`, `{folio_order}`, and `{pg_head_mask}` tokens
+// in a kprobe definition or filter string with the field's BTF-verified `+<byte_offset>`
+// (or bitmask) for the running kernel.
+bool
+v2p_btf_checker_t::resolve_probe_offsets(std::string &str, std::string &err_out) const
+{
+    for (size_t lb = 0; (lb = str.find('{', lb)) != std::string::npos;) {
+        size_t rb = str.find('}', lb + 1);
+        if (rb == std::string::npos)
+            return false;
+        std::string tok = str.substr(lb + 1, rb - lb - 1);
+        std::string repl;
+        if (tok == "folio_order") {
+            repl = "+" + std::to_string(plan_.folio_order_byte_off);
+        } else if (tok == "pg_head_mask") {
+            char buf[32];
+            snprintf(buf, sizeof(buf), "0x%" PRIx64,
+                     static_cast<uint64_t>(1) << plan_.pg_head_bit);
+            repl = buf;
+        } else {
+            size_t dot = tok.find('.');
+            size_t col = tok.find(':', dot == std::string::npos ? 0 : dot + 1);
+            if (dot == std::string::npos || col == std::string::npos)
+                return false;
+            std::string sname = tok.substr(0, dot);
+            std::string fname = tok.substr(dot + 1, col - dot - 1);
+            std::string tspec = tok.substr(col + 1);
+            uint32_t off = 0, ftype = 0;
+            if (!find_struct_field(sname.c_str(), fname.c_str(), off, ftype) ||
+                !matches_type(ftype, tspec.c_str())) {
+                err_out =
+                    "struct " + sname + "::" + fname + " missing or incompatible in BTF";
+                return false;
+            }
+            repl = "+" + std::to_string(off);
+        }
+        str.replace(lb, rb - lb + 1, repl);
+        lb += repl.size();
+    }
+    return true;
+}
+
+// Checks whether `cand` matches `cand.func_name`'s BTF parameter list and resolves all
+// struct member byte offsets in its probes before appending them to `plan_.probes`.
+bool
+v2p_btf_checker_t::try_candidate(const v2p_hook_candidate_t &cand, std::string &err_out)
+{
+    // Parse comma-separated parameter type specs from `cand.param_sig`.
+    std::vector<std::string> specs;
+    for (size_t pos = 0; pos < cand.param_sig.size();) {
+        size_t comma = cand.param_sig.find(',', pos);
+        size_t end = (comma == std::string::npos) ? cand.param_sig.size() : comma;
+        while (pos < end && cand.param_sig[pos] == ' ')
+            ++pos;
+        size_t trim = end;
+        while (trim > pos && cand.param_sig[trim - 1] == ' ')
+            --trim;
+        if (trim > pos)
+            specs.push_back(cand.param_sig.substr(pos, trim - pos));
+        pos = (comma == std::string::npos) ? end : comma + 1;
+    }
+
+    // Verify parameter count and each parameter's BTF type against `specs`.
+    std::vector<uint32_t> params;
+    if (!find_func_params(cand.func_name, params) ||
+        (cand.exact_param_count >= 0 &&
+         params.size() != static_cast<size_t>(cand.exact_param_count)) ||
+        params.size() < specs.size()) {
+        err_out = "signature missing or incompatible in BTF";
+        return false;
+    }
+    for (size_t i = 0; i < specs.size(); ++i) {
+        if (!matches_type(params[i], specs[i].c_str())) {
+            err_out = "signature missing or incompatible in BTF";
+            return false;
+        }
+    }
+
+    // Resolve `{struct.field:type}` byte offsets in each probe definition and filter.
+    std::vector<v2p_probe_spec_t> resolved = cand.probes;
+    for (v2p_probe_spec_t &p : resolved) {
+        if (!resolve_probe_offsets(p.definition, err_out) ||
+            !resolve_probe_offsets(p.static_filter, err_out)) {
+            return false;
+        }
+        p.definition = std::string(cand.func_name) +
+            (p.definition.empty() ? "" : " " + p.definition);
+        p.hook_name = cand.func_name;
+    }
+    plan_.probes.insert(plan_.probes.end(), resolved.begin(), resolved.end());
+    return true;
+}
+
+// Finds the first function in `candidates` present in kernel BTF and validates all
+// candidate overloads for that symbol; records an error in `plan_.critical_errors` if
+// no candidate matches.
+bool
+v2p_btf_checker_t::check_hook(const char *hook_name,
+                              std::initializer_list<v2p_hook_candidate_t> candidates)
+{
+    const char *active_fn = nullptr;
+    std::string detail_err = "signature missing or incompatible in BTF";
+    for (const v2p_hook_candidate_t &cand : candidates) {
+        if (!has_func(cand.func_name))
+            continue;
+        if (active_fn == nullptr)
+            active_fn = cand.func_name;
+        else if (strcmp(active_fn, cand.func_name) != 0)
+            continue;
+        if (try_candidate(cand, detail_err))
+            return true;
+    }
+    const char *label = (active_fn != nullptr) ? active_fn : hook_name;
+    const std::string detail = (active_fn != nullptr) ? detail_err : "not found in BTF";
+    plan_.critical_errors.push_back(std::string(label) + " (" + detail + ")");
+    return false;
+}
+
+// Parses `/sys/kernel/btf/vmlinux` at `btf_path`, validates base `page`/`folio`
+// metadata layout and all registered kernel hooks, and populates `plan_out`.
 bool
 v2p_check_kernel_support(const std::string &btf_path, v2p_kernel_plan_t &plan_out,
                          std::string &error_out)
@@ -449,6 +632,16 @@ v2p_check_kernel_support(const std::string &btf_path, v2p_kernel_plan_t &plan_ou
     }
     if (!checker.parse_and_check_base(btf_raw)) {
         error_out = plan_out.critical_errors.front();
+        return false;
+    }
+
+    v2p_tracefs_hooks_t::check_all_hooks(checker, plan_out);
+    if (!plan_out.critical_errors.empty()) {
+        for (const std::string &err : plan_out.critical_errors) {
+            if (!error_out.empty())
+                error_out += "; ";
+            error_out += err;
+        }
         return false;
     }
     return true;

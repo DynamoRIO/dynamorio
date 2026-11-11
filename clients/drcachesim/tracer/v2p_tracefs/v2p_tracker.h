@@ -53,6 +53,7 @@
 #    include "raw2trace_shared.h"
 #    include "trace_entry.h"
 #    include "v2p_check_kernel_support.h"
+#    include "v2p_tracefs_hooks.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -81,6 +82,17 @@ public:
     void
     stop();
 
+    // Shadow page-table helpers called by `v2p_tracefs_hooks_t` from the reader thread.
+    bool
+    page_ptr_to_paddr(uint64_t page_ptr, uint64_t &paddr_out) const;
+    void
+    bind_pages(uint64_t timestamp_us, uint64_t aligned_vaddr, uint64_t aligned_paddr,
+               uint32_t page_count, bool is_huge_2m = false);
+    void
+    unbind_range(uint64_t timestamp_us, uint64_t start_vaddr, uint64_t end_vaddr);
+    void
+    split_huge_pmd(uint64_t timestamp_us, uint64_t aligned_2m_va, bool is_anon);
+
 private:
     bool
     calibrate_vmemmap_base();
@@ -91,11 +103,7 @@ private:
     void
     carve_range(uint64_t timestamp_us, uint64_t start_vaddr, uint64_t end_vaddr,
                 bool emit_unmap, bool preserve_huge);
-    void
-    bind_pages(uint64_t timestamp_us, uint64_t aligned_vaddr, uint64_t aligned_paddr,
-               uint32_t page_count, bool is_huge_2m = false);
-    void
-    split_huge_pmd(uint64_t timestamp_us, uint64_t aligned_2m_va, bool is_anon);
+
     uint64_t
     read_total_overflows() const;
     static void
@@ -110,9 +118,7 @@ private:
     std::string tracefs_root_;
     std::string instance_dir_;
     std::string pipe_remainder_;
-    std::string anon_probe_name_;
     std::vector<std::string> registered_probes_;
-    bool use_folio_anon_ = true;
     bool kernel_tracing_active_ = false;
     // Offset added to tracefs clock microseconds to match DR's UTC/FILETIME epoch.
     uint64_t clock_offset_us_ = 0;
@@ -126,6 +132,7 @@ private:
     std::atomic<bool> thread_running_ { false };
     std::atomic<bool> thread_exited_ { false };
     v2p_shadow_page_table_t shadow_table_;
+    v2p_tracefs_hooks_t hooks_;
 };
 
 } // namespace drmemtrace

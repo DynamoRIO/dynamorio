@@ -155,8 +155,8 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
     else
         return false;
 
-    // Parse `/sys/kernel/btf/vmlinux` to verify 64-byte `struct page` layout and
-    // resolve `PG_head` and the compound folio order offset before attaching kprobes.
+    // Parse `/sys/kernel/btf/vmlinux` to verify `struct page` layout, validate all
+    // hooked kernel function signatures, and resolve struct offsets before attaching.
     std::string btf_error;
     if (!v2p_check_kernel_support("/sys/kernel/btf/vmlinux", plan_, btf_error)) {
         dr_fprintf(STDERR, "ERROR: drmemtrace v2p_tracker: %s\n", btf_error.c_str());
@@ -181,8 +181,9 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
     // `SIGKILL`, then create a fresh isolated tracefs instance directory.
     const std::string sfx = "_" + std::to_string(pid);
     instance_dir_ = tracefs_root_ + "/instances/drmemtrace_v2p" + sfx;
-    registered_probes_ = { "anon_new" + sfx, "unmap_range" + sfx, "unmap_vmas" + sfx,
-                           "unmap_zap" + sfx, "split_pmd" + sfx };
+    registered_probes_.clear();
+    for (const v2p_probe_spec_t &spec : plan_.probes)
+        registered_probes_.push_back(spec.base_name + sfx);
     kernel_tracing_active_ = true;
     cleanup_kernel_tracing();
     kernel_tracing_active_ = true;
@@ -213,51 +214,15 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
         (real_ts.tv_sec * 1000000ULL + real_ts.tv_nsec / 1000ULL + kDrUtcToEpochMicros) -
         (clk_ts.tv_sec * 1000000ULL + clk_ts.tv_nsec / 1000ULL);
 
+    // Register all BTF-validated kprobes and kretprobes from `plan_.probes`.
     const std::string kp = tracefs_root_ + "/kprobe_events";
-    auto add_probe = [&](const char *base, const char *def) {
-        std::string name = base + sfx;
-        if (!v2p_write_tracefs_file(kp, "p:kprobes/" + name + " " + def + "\n", true))
-            return false;
+    for (const v2p_probe_spec_t &spec : plan_.probes) {
+        std::string name = spec.base_name + sfx;
+        std::string cmd = (spec.is_return ? "r4096:kprobes/" : "p:kprobes/") + name +
+            " " + spec.definition + "\n";
+        if (!v2p_write_tracefs_file(kp, cmd, /*append=*/true))
+            return fail();
         registered_probes_.push_back(name);
-        return true;
-    };
-
-    // The kernel calls `folio_add_new_anon_rmap` (or `page_add_new_anon_rmap` on older
-    // kernels) whenever it maps a newly allocated anonymous page into a process, so we
-    // hook it to cover first-touch heap/stack/`MAP_ANONYMOUS` faults, Copy-on-Write
-    // faults, and new 2 MB anonymous THP faults. Prefer `folio_add_new_anon_rmap` when
-    // present and fall back to `page_add_new_anon_rmap`.
-    anon_probe_name_ = "anon_new" + sfx;
-    std::string folio_def = "folio_add_new_anon_rmap page=$arg1:x64 vaddr=$arg3:x64 "
-                            "flags=+0($arg1):x64 ord=+" +
-        std::to_string(plan_.folio_order_byte_off) + "($arg1):u8";
-    use_folio_anon_ = add_probe("anon_new", folio_def.c_str());
-    if (!use_folio_anon_ &&
-        !add_probe(
-            "anon_new",
-            "page_add_new_anon_rmap page=$arg1:x64 vaddr=$arg3:x64 comp=$arg4:u8")) {
-        return fail();
-    }
-
-    // The kernel calls `unmap_page_range` (or `unmap_vmas` and `zap_vma_range_batched`
-    // on Linux 6.12+ where `unmap_page_range` is inlined) whenever it tears down
-    // virtual page-table entries for a range, so we hook it to cover explicit unmappings
-    // (`munmap`, `MADV_DONTNEED`, `MADV_FREE`, `MAP_FIXED` overwrites, and file
-    // truncation/hole-punching).
-    if (!add_probe("unmap_range", "unmap_page_range start=$arg3:x64 end=$arg4:x64") &&
-        (!add_probe("unmap_vmas", "unmap_vmas start=+16($arg2):x64 end=+24($arg2):x64") ||
-         !add_probe("unmap_zap",
-                    "zap_vma_range_batched start=$arg3:x64 size=$arg4:u64"))) {
-        return fail();
-    }
-
-    // The kernel calls `__split_huge_pmd` whenever it breaks a 2 MB PMD mapping down
-    // into 4 KB PTEs (or zaps a file/shmem PMD), so we hook it to cover in-place
-    // anonymous 2 MB THP splits (`V2P_RECORD_SPLIT`) and file/shmem PMD invalidations
-    // (`V2P_RECORD_UNMAP`).
-    if (!add_probe("split_pmd",
-                   "__split_huge_pmd vm_ops=+112($arg1):x64 vaddr=$arg3:x64")) {
-        return fail();
     }
 
     // Open `trace_pipe` for non-blocking reads and calibrate `vmemmap_base_` before
@@ -267,12 +232,16 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
     if (trace_pipe_fd_ < 0 || !calibrate_vmemmap_base())
         return fail();
 
-    // Enable all registered probes (including re-enabling `anon_new` after calibration)
-    // and turn on ring-buffer recording BEFORE scanning `/proc/<pid>/pagemap` so any
-    // concurrent page fault or unmap during the scan is captured.
-    for (const std::string &p : registered_probes_) {
-        if (!v2p_write_tracefs_file(instance_dir_ + "/events/kprobes/" + p + "/enable",
-                                    "1"))
+    // Install any static probe filters, enable all registered probes, and turn on
+    // ring-buffer recording BEFORE scanning `/proc/<pid>/pagemap` so any concurrent page
+    // fault or unmap during the scan is captured.
+    for (const v2p_probe_spec_t &spec : plan_.probes) {
+        const std::string ev = instance_dir_ + "/events/kprobes/" + spec.base_name + sfx;
+        if (!spec.static_filter.empty() &&
+            !v2p_write_tracefs_file(ev + "/filter", spec.static_filter)) {
+            return fail();
+        }
+        if (!v2p_write_tracefs_file(ev + "/enable", "1"))
             return fail();
     }
     if (!v2p_write_tracefs_file(instance_dir_ + "/tracing_on", "1"))
@@ -307,7 +276,7 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
 bool
 v2p_tracker_t::calibrate_vmemmap_base()
 {
-    const std::string ev_dir = "/events/kprobes/" + anon_probe_name_;
+    const std::string ev_dir = "/events/kprobes/anon_new_" + std::to_string(target_pid_);
     const std::string tid_flt =
         "common_pid == " + std::to_string(static_cast<long>(syscall(SYS_gettid)));
     if (!v2p_write_tracefs_file(instance_dir_ + ev_dir + "/filter", tid_flt) ||
@@ -447,6 +416,31 @@ v2p_tracker_t::snapshot_pagemap()
 /* -------------------------------------------------------------------------
  * Shadow Page Table Operations & Teardown
  * ------------------------------------------------------------------------- */
+
+// Converts a kernel `struct page *` or `struct folio *` pointer into its physical
+// byte address by subtracting `vmemmap_base_` (`pfn = (page_ptr - vmemmap_base_) / 64`).
+bool
+v2p_tracker_t::page_ptr_to_paddr(uint64_t page_ptr, uint64_t &paddr_out) const
+{
+    if (vmemmap_base_ == 0 || page_ptr < vmemmap_base_)
+        return false;
+    uint64_t pfn = (page_ptr - vmemmap_base_) >> kStructPageShift;
+    if (pfn >= (1ULL << 52))
+        return false;
+    paddr_out = pfn * kPageSize4K;
+    return true;
+}
+
+// Unmaps `[start_vaddr, end_vaddr)` and emits coalesced `V2P_RECORD_UNMAP` records.
+void
+v2p_tracker_t::unbind_range(uint64_t timestamp_us, uint64_t start_vaddr,
+                            uint64_t end_vaddr)
+{
+    if (end_vaddr > start_vaddr) {
+        carve_range(timestamp_us, start_vaddr, end_vaddr, /*emit_unmap=*/true,
+                    /*preserve_huge=*/true);
+    }
+}
 
 // Carves `[start_vaddr, end_vaddr)` out of `shadow_table_`, optionally emitting
 // coalesced `V2P_RECORD_UNMAP` records for all previously mapped sub-ranges.
@@ -611,7 +605,6 @@ v2p_tracker_t::cleanup_kernel_tracing()
                                /*append=*/true);
     }
     registered_probes_.clear();
-    anon_probe_name_.clear();
     kernel_tracing_active_ = false;
 }
 
@@ -686,93 +679,56 @@ v2p_tracker_t::drain_pipe()
     }
 }
 
-// Parses one `trace_pipe` event line (`<comm>-<tid> [<cpu>] <flags> <secs>.<usecs>:
-// <probe>_<pid>: ...`) and applies anonymous faults, range unmaps, and 2 MB PMD splits.
+// Parses the ftrace prefix (`<comm>-<tid> [<cpu>] [<irq_flags>] <secs>.<usecs>: `) of a
+// `trace_pipe` line and dispatches the event payload to `hooks_`.
 void
 v2p_tracker_t::process_trace_line(const std::string &line)
 {
-    const std::string sfx = "_" + std::to_string(target_pid_) + ":";
-    size_t sp = line.find(sfx);
-    size_t ev = (sp == std::string::npos) ? sp : line.rfind(": ", sp);
-    if (ev == std::string::npos || ev == 0)
-        return;
+    pid_t tid = 0;
+    uint64_t timestamp_us = 0;
+    size_t event_pos = std::string::npos;
+    const char *raw = line.c_str();
 
-    // Ignore any page faults generated by the reader thread itself.
+    // Scan each `" ["` candidate because thread `comm` names may contain `[...]`
+    // (e.g., `" tokio-rt[0]-1000 [000] d.s1. 0.000081: ..."`).
+    for (size_t cpu_open = 0; (cpu_open = line.find(" [", cpu_open)) != std::string::npos;
+         ++cpu_open) {
+        size_t tid_end = cpu_open;
+        while (tid_end > 0 && line[tid_end - 1] == ' ')
+            --tid_end;
+        size_t dash = tid_end;
+        while (dash > 0 && isdigit(static_cast<unsigned char>(line[dash - 1])))
+            --dash;
+        if (dash == 0 || dash == tid_end || line[dash - 1] != '-')
+            continue;
+
+        char cpu_s[16], flags_s[16] = {}, sec_s[24], usec_s[16];
+        char sp1 = 0, sp2 = 0;
+        int n = 0;
+        bool ok =
+            (sscanf(raw + cpu_open + 2, "%15[0-9]]%c %15[^] :] %23[0-9].%15[0-9]:%c%n",
+                    cpu_s, &sp1, flags_s, sec_s, usec_s, &sp2, &n) == 6 &&
+             sp1 == ' ' && sp2 == ' ') ||
+            (sscanf(raw + cpu_open + 2, "%15[0-9]]%c %23[0-9].%15[0-9]:%c%n", cpu_s, &sp1,
+                    sec_s, usec_s, &sp2, &n) == 5 &&
+             sp1 == ' ' && sp2 == ' ');
+        if (!ok)
+            continue;
+        tid = static_cast<pid_t>(strtol(raw + dash, nullptr, 10));
+        timestamp_us = strtoull(sec_s, nullptr, 10) * 1000000ULL +
+            strtoull(usec_s, nullptr, 10) + clock_offset_us_;
+        event_pos = cpu_open + 2 + static_cast<size_t>(n);
+        break;
+    }
+
+    // Ignore malformed lines and any page faults generated by the reader thread itself.
     pid_t rtid = reader_tid_.load(std::memory_order_relaxed);
-    size_t ts_p = line.rfind(' ', ev - 1);
-    if (ts_p == std::string::npos ||
-        (rtid > 0 && line.find("-" + std::to_string(rtid) + " [") < ts_p)) {
+    if (event_pos == std::string::npos || tid <= 0 || (rtid != 0 && tid == rtid) ||
+        vmemmap_base_ == 0) {
         return;
     }
 
-    // Parse the `<secs>.<usecs>:` kernel clock timestamp and convert to DR UTC micros.
-    unsigned long long secs = 0, usecs = 0;
-    if (sscanf(line.c_str() + ts_p + 1, "%llu.%llu:", &secs, &usecs) != 2)
-        return;
-    uint64_t ts_us = secs * 1000000ULL + usecs + clock_offset_us_;
-    std::string name = line.substr(ev + 2, sp - (ev + 2));
-
-    // 1. Anonymous / CoW page fault (`anon_new`).
-    if (name == "anon_new") {
-        uint64_t page_ptr = 0, vaddr = 0;
-        if (!v2p_extract_u64_field(line, "page=", page_ptr, 16, ev) ||
-            page_ptr < vmemmap_base_ ||
-            !v2p_extract_u64_field(line, "vaddr=", vaddr, 16, ev)) {
-            return;
-        }
-        uint64_t pfn = (page_ptr - vmemmap_base_) >> kStructPageShift;
-        if (pfn >= (1ULL << 52))
-            return;
-
-        // Decode folio page count via BTF-resolved `PG_head` and `folio_order_byte_off`
-        // (or `comp != 0` on legacy `page_add_new_anon_rmap` kernels).
-        uint32_t nr = 1;
-        if (use_folio_anon_) {
-            uint64_t flags = 0, ord = 0;
-            if (v2p_extract_u64_field(line, "flags=", flags, 16, ev)) {
-                v2p_extract_u64_field(line, "ord=", ord, 0, ev);
-                nr = v2p_folio_order_pages(flags, ord, plan_.pg_head_bit);
-            }
-        } else {
-            uint64_t comp = 0;
-            if (v2p_extract_u64_field(line, "comp=", comp, 0, ev) && comp != 0)
-                nr = kPagesPer2M;
-        }
-        bool is_2m = (nr == kPagesPer2M);
-        uint64_t mask = (is_2m ? kPageSize2M : kPageSize4K) - 1;
-        bind_pages(ts_us, vaddr & ~mask, (pfn * kPageSize4K) & ~mask, nr, is_2m);
-        return;
-    }
-
-    // 2. Explicit virtual range unmapping (`unmap_range`, `unmap_vmas`, `unmap_zap`).
-    if (name == "unmap_range" || name == "unmap_vmas" || name == "unmap_zap") {
-        uint64_t st = 0, en = 0, sz = 0;
-        if (!v2p_extract_u64_field(line, "start=", st, 16, ev))
-            return;
-        if (!v2p_extract_u64_field(line, "end=", en, 16, ev) &&
-            v2p_extract_u64_field(line, "size=", sz, 0, ev) && sz > 0) {
-            en = (sz > (std::numeric_limits<uint64_t>::max)() - st)
-                ? (std::numeric_limits<uint64_t>::max)()
-                : st + sz;
-        }
-        constexpr uint64_t kMax =
-            (std::numeric_limits<uint64_t>::max)() & ~(kPageSize4K - 1);
-        uint64_t lo = st & ~(kPageSize4K - 1);
-        uint64_t hi = (en > kMax) ? kMax : ((en + kPageSize4K - 1) & ~(kPageSize4K - 1));
-        if (en > st && hi > lo) {
-            carve_range(ts_us, lo, hi, /*emit_unmap=*/true, /*preserve_huge=*/true);
-        }
-        return;
-    }
-
-    // 3. 2 MB PMD split (`split_pmd`): `vm_ops == 0` identifies anonymous VMAs.
-    if (name == "split_pmd") {
-        uint64_t vm_ops = 0, vaddr = 0;
-        if (v2p_extract_u64_field(line, "vm_ops=", vm_ops, 16, ev) &&
-            v2p_extract_u64_field(line, "vaddr=", vaddr, 16, ev)) {
-            split_huge_pmd(ts_us, vaddr & ~(kPageSize2M - 1), /*is_anon=*/(vm_ops == 0));
-        }
-    }
+    hooks_.handle_event(line, event_pos, tid, timestamp_us, plan_, *this);
 }
 
 // Entry point for the background client reader thread: marks itself non-suspendable by
