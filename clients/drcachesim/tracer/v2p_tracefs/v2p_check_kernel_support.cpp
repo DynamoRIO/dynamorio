@@ -580,6 +580,7 @@ v2p_btf_checker_t::try_candidate(const v2p_hook_candidate_t &cand, std::string &
             !resolve_probe_offsets(p.static_filter, err_out)) {
             return false;
         }
+        p.filter_by_mm = !p.is_return && p.definition.find("mm=") != std::string::npos;
         p.definition = std::string(cand.func_name) +
             (p.definition.empty() ? "" : " " + p.definition);
         p.hook_name = cand.func_name;

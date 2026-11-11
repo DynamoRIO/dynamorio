@@ -85,6 +85,10 @@ public:
     // Shadow page-table helpers called by `v2p_tracefs_hooks_t` from the reader thread.
     bool
     page_ptr_to_paddr(uint64_t page_ptr, uint64_t &paddr_out) const;
+    // Returns whether `mm` belongs to `target_pid_` (learning `tracked_mm_` on
+    // first hit).
+    bool
+    is_tracked_mm(uint64_t mm, pid_t tid);
     void
     bind_pages(uint64_t timestamp_us, uint64_t aligned_vaddr, uint64_t aligned_paddr,
                uint32_t page_count, bool is_huge_2m = false);
@@ -95,7 +99,14 @@ public:
 
 private:
     bool
-    calibrate_vmemmap_base();
+    set_event(const std::string &rel_dir, bool enable,
+              const std::string *filter = nullptr) const;
+    std::string
+    probe_filter_expr(const v2p_probe_spec_t &spec) const;
+    bool
+    apply_probe_filters() const;
+    bool
+    calibrate_live_vmemmap_and_mm();
     void
     snapshot_pagemap();
     void
@@ -124,6 +135,8 @@ private:
     uint64_t clock_offset_us_ = 0;
     // KASLR-randomized base of the kernel's 64-byte `struct page` array (`vmemmap`).
     uint64_t vmemmap_base_ = 0;
+    // Kernel `mm_struct *` pointer of `target_pid_`.
+    uint64_t tracked_mm_ = 0;
     int out_fd_ = -1;
     int trace_pipe_fd_ = -1;
     v2p_kernel_plan_t plan_;

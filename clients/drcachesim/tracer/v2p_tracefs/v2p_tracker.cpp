@@ -134,8 +134,10 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
     stop();
     target_pid_ = pid;
     vmemmap_base_ = 0;
+    tracked_mm_ = 0;
     pipe_remainder_.clear();
     shadow_table_ = {};
+    hooks_.clear();
 
     // Require 4 KB base pages and at least Linux version 5.4.
     int kmaj = 0, kmin = 0;
@@ -225,23 +227,19 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
         registered_probes_.push_back(name);
     }
 
-    // Open `trace_pipe` for non-blocking reads and calibrate `vmemmap_base_` before
-    // enabling live collection.
+    // Open `trace_pipe` for non-blocking reads and calibrate both `vmemmap_base_` and
+    // `tracked_mm_` before enabling live collection.
     trace_pipe_fd_ =
         open((instance_dir_ + "/trace_pipe").c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
-    if (trace_pipe_fd_ < 0 || !calibrate_vmemmap_base())
+    if (trace_pipe_fd_ < 0 || !calibrate_live_vmemmap_and_mm())
         return fail();
 
-    // Install any static probe filters, enable all registered probes, and turn on
-    // ring-buffer recording BEFORE scanning `/proc/<pid>/pagemap` so any concurrent page
-    // fault or unmap during the scan is captured.
+    // Install kernel-side `mm == tracked_mm_` filters, enable all registered probes, and
+    // turn on ring-buffer recording BEFORE scanning `/proc/<pid>/pagemap` so any
+    // concurrent fault, THP collapse, or unmap during the scan is captured.
     for (const v2p_probe_spec_t &spec : plan_.probes) {
-        const std::string ev = instance_dir_ + "/events/kprobes/" + spec.base_name + sfx;
-        if (!spec.static_filter.empty() &&
-            !v2p_write_tracefs_file(ev + "/filter", spec.static_filter)) {
-            return fail();
-        }
-        if (!v2p_write_tracefs_file(ev + "/enable", "1"))
+        const std::string expr = probe_filter_expr(spec);
+        if (!set_event("kprobes/" + spec.base_name + sfx, /*enable=*/true, &expr))
             return fail();
     }
     if (!v2p_write_tracefs_file(instance_dir_ + "/tracing_on", "1"))
@@ -263,7 +261,57 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
     return true;
 }
 
-// Calibrates `vmemmap_base_` before live tracing starts:
+// Enables or disables `events/<rel_dir>` in the tracefs instance, updating `filter`
+// while the event is disabled so an unfiltered window never opens.
+bool
+v2p_tracker_t::set_event(const std::string &rel_dir, bool enable,
+                         const std::string *filter) const
+{
+    const std::string base = instance_dir_ + "/events/" + rel_dir;
+    bool ok = true;
+    if (!enable)
+        ok = v2p_write_tracefs_file(base + "/enable", "0") && ok;
+    if (filter != nullptr)
+        ok = v2p_write_tracefs_file(base + "/filter", *filter) && ok;
+    if (enable)
+        ok = v2p_write_tracefs_file(base + "/enable", "1") && ok;
+    return ok;
+}
+
+// Builds the tracefs filter expression (`mm == tracked_mm_` plus any static filter) for
+// `spec`; in tracefs, `"0"` clears any active filter until `tracked_mm_` is learned.
+std::string
+v2p_tracker_t::probe_filter_expr(const v2p_probe_spec_t &spec) const
+{
+    if (spec.filter_by_mm && tracked_mm_ != 0) {
+        char mm_hex[32];
+        snprintf(mm_hex, sizeof(mm_hex), "0x%" PRIx64, tracked_mm_);
+        return std::string("mm == ") + mm_hex +
+            (spec.static_filter.empty() ? "" : " && " + spec.static_filter);
+    }
+    return spec.static_filter.empty() ? "0" : spec.static_filter;
+}
+
+// Installs kernel-side event filters (`mm == tracked_mm_` plus any static probe filter)
+// so non-target processes do not consume tracefs ring-buffer space.
+bool
+v2p_tracker_t::apply_probe_filters() const
+{
+    if (!kernel_tracing_active_)
+        return true;
+    const std::string sfx = "_" + std::to_string(target_pid_);
+    for (const v2p_probe_spec_t &spec : plan_.probes) {
+        const std::string expr = probe_filter_expr(spec);
+        if (!v2p_write_tracefs_file(instance_dir_ + "/events/kprobes/" + spec.base_name +
+                                        sfx + "/filter",
+                                    expr)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Calibrates `vmemmap_base_` and `tracked_mm_` before live tracing starts:
 //   - Why `vmemmap_base_` is needed: hooked kernel MM functions never pass physical RAM
 //     addresses; they pass a kernel virtual `struct page *` / `struct folio *` pointer
 //     into Linux's flat array of 64-byte page descriptors indexed by physical frame
@@ -272,16 +320,18 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
 //     any hooked page pointer into a physical address.
 //   - How we measure it: fault one temporary 4 KB page on this thread to observe both
 //     its kernel `page=` pointer (from `anon_new`) and its physical frame number (from
-//     `/proc/self/pagemap`), giving `vmemmap_base_ = page_ptr - pfn * 64`.
+//     `/proc/self/pagemap`), giving `vmemmap_base_ = page_ptr - pfn * 64` (plus `mm=`
+//     for kernel-side `mm_struct` filtering).
 bool
-v2p_tracker_t::calibrate_vmemmap_base()
+v2p_tracker_t::calibrate_live_vmemmap_and_mm()
 {
-    const std::string ev_dir = "/events/kprobes/anon_new_" + std::to_string(target_pid_);
+    const std::string anon_ev = "kprobes/anon_new_" + std::to_string(target_pid_);
     const std::string tid_flt =
         "common_pid == " + std::to_string(static_cast<long>(syscall(SYS_gettid)));
-    if (!v2p_write_tracefs_file(instance_dir_ + ev_dir + "/filter", tid_flt) ||
-        !v2p_write_tracefs_file(instance_dir_ + ev_dir + "/enable", "1") ||
-        !v2p_write_tracefs_file(instance_dir_ + "/tracing_on", "1")) {
+    if (!set_event(anon_ev, /*enable=*/true, &tid_flt))
+        return false;
+    if (!v2p_write_tracefs_file(instance_dir_ + "/tracing_on", "1")) {
+        set_event(anon_ev, /*enable=*/false);
         return false;
     }
 
@@ -298,24 +348,39 @@ v2p_tracker_t::calibrate_vmemmap_base()
     } else {
         v2p_write_tracefs_file(instance_dir_ + "/tracing_on", "0");
     }
-    v2p_write_tracefs_file(instance_dir_ + ev_dir + "/enable", "0");
-    v2p_write_tracefs_file(instance_dir_ + ev_dir + "/filter", "0");
+    set_event(anon_ev, /*enable=*/false);
 
     // Drain `trace_pipe` directly so the temporary calibration page is not recorded in
-    // `v2p.bin`.
+    // `v2p.bin`; `set_event` replaces `anon_ev`'s filter immediately after.
     char chunk[4096];
     std::string buf;
     for (ssize_t n = 0; (n = read(trace_pipe_fd_, chunk, sizeof(chunk))) > 0;)
         buf.append(chunk, static_cast<size_t>(n));
 
-    uint64_t page = 0, va = 0;
-    if (cal_pfn != 0 && v2p_extract_u64_field(buf, "vaddr=", va, 16, 0) &&
-        (va & ~(kPageSize4K - 1)) == cal_addr &&
-        v2p_extract_u64_field(buf, "page=", page, 16, 0) &&
-        page > (cal_pfn << kStructPageShift)) {
-        uint64_t base = page - (cal_pfn << kStructPageShift);
-        if ((base >> 63) != 0 && (base & ((1ULL << kStructPageShift) - 1)) == 0)
-            vmemmap_base_ = base;
+    for (size_t pos = 0; pos < buf.size();) {
+        size_t nl = buf.find('\n', pos);
+        size_t end = (nl == std::string::npos) ? buf.size() : nl;
+        std::string line = buf.substr(pos, end - pos);
+        pos = (nl == std::string::npos) ? buf.size() : nl + 1;
+
+        size_t colon = line.find(": ");
+        if (colon == std::string::npos || line.compare(colon + 2, 9, "anon_new_") != 0)
+            continue;
+        size_t ev = colon + 2;
+        uint64_t page = 0, mm = 0, va = 0;
+        if (vmemmap_base_ == 0 && cal_pfn != 0 &&
+            v2p_extract_u64_field(line, "vaddr=", va, 16, ev) &&
+            (va & ~(kPageSize4K - 1)) == cal_addr &&
+            v2p_extract_u64_field(line, "page=", page, 16, ev) && (page >> 63) != 0 &&
+            page > (cal_pfn << kStructPageShift)) {
+            uint64_t base = page - (cal_pfn << kStructPageShift);
+            if ((base >> 63) != 0 && (base & ((1ULL << kStructPageShift) - 1)) == 0)
+                vmemmap_base_ = base;
+        }
+        if (target_pid_ == getpid() && tracked_mm_ == 0 &&
+            v2p_extract_u64_field(line, "mm=", mm, 16, ev) && mm != 0) {
+            tracked_mm_ = mm;
+        }
     }
     return vmemmap_base_ != 0;
 }
@@ -429,6 +494,27 @@ v2p_tracker_t::page_ptr_to_paddr(uint64_t page_ptr, uint64_t &paddr_out) const
         return false;
     paddr_out = pfn * kPageSize4K;
     return true;
+}
+
+// Matches `mm` against the traced process's `mm_struct *`, learning `tracked_mm_` on
+// the first event from `target_pid_` (or one of its `/proc/<pid>/task/<tid>` threads)
+// and installing kernel-side `mm == tracked_mm_` filters.
+bool
+v2p_tracker_t::is_tracked_mm(uint64_t mm, pid_t tid)
+{
+    if (mm == 0)
+        return false;
+    if (tracked_mm_ == 0) {
+        if (kernel_tracing_active_ && tid != target_pid_) {
+            std::string task_path =
+                "/proc/" + std::to_string(target_pid_) + "/task/" + std::to_string(tid);
+            if (access(task_path.c_str(), F_OK) != 0)
+                return false;
+        }
+        tracked_mm_ = mm;
+        apply_probe_filters();
+    }
+    return mm == tracked_mm_;
 }
 
 // Unmaps `[start_vaddr, end_vaddr)` and emits coalesced `V2P_RECORD_UNMAP` records.
@@ -732,16 +818,14 @@ v2p_tracker_t::process_trace_line(const std::string &line)
 }
 
 // Entry point for the background client reader thread: marks itself non-suspendable by
-// DR synchall, excludes its own TID from tracefs, and polls `trace_pipe` until `stop()`.
+// DR synchall, publishes its TID so its own faults are ignored, and polls `trace_pipe`.
 void
 v2p_tracker_t::reader_thread_entry(void *arg)
 {
     auto *self = static_cast<v2p_tracker_t *>(arg);
     dr_client_thread_set_suspendable(false);
-    pid_t tid = static_cast<pid_t>(syscall(SYS_gettid));
-    v2p_write_tracefs_file(self->instance_dir_ + "/set_event_notrace_pid",
-                           std::to_string(tid) + "\n", /*append=*/true);
-    self->reader_tid_.store(tid, std::memory_order_release);
+    self->reader_tid_.store(static_cast<pid_t>(syscall(SYS_gettid)),
+                            std::memory_order_release);
 
     while (!self->stop_requested_.load(std::memory_order_acquire)) {
         struct pollfd pfd = { self->trace_pipe_fd_, POLLIN, 0 };

@@ -60,6 +60,7 @@ struct v2p_probe_spec_t {
     std::string base_name;
     std::string definition;
     bool is_return = false;
+    bool filter_by_mm = false;
     std::string static_filter;
     std::string hook_name;
 
@@ -78,6 +79,7 @@ struct v2p_probe_spec_t {
 struct v2p_kernel_plan_t {
     uint32_t pg_head_bit = 0;
     uint32_t folio_order_byte_off = 0;
+    uint32_t legacy_anon_compound_mask = 1;
     std::vector<v2p_probe_spec_t> probes;
     std::vector<std::string> critical_errors;
 };
@@ -148,6 +150,14 @@ public:
     bool
     check_hook(const char *hook_name,
                std::initializer_list<v2p_hook_candidate_t> candidates);
+
+    // Convenience overload for a single kernel function with multiple probes.
+    bool
+    check_hook(const char *func_name, std::string param_sig,
+               std::initializer_list<v2p_probe_spec_t> probes)
+    {
+        return check_hook(func_name, { { func_name, std::move(param_sig), probes } });
+    }
 
     // Convenience overload for a single kernel function with one entry probe.
     bool
