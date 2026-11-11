@@ -1324,6 +1324,27 @@ v2p_tracker_t::resume_after_failed_exec()
     setup_tracefs_and_reader(/*is_initial_start=*/false);
 }
 
+// Initializes an offline replay session (without mounting or touching `tracefs`) so
+// unprivileged unit tests can feed synthetic `trace_pipe` lines directly.
+bool
+v2p_tracker_t::init_for_testing(pid_t pid, const std::string &output_path,
+                                const v2p_kernel_plan_t &plan, uint64_t vmemmap_base,
+                                uint64_t zero_pfn)
+{
+    stop();
+    reset_session_state(pid);
+    kernel_major_ = 6;
+    kernel_minor_ = 12;
+    vmemmap_base_ = vmemmap_base;
+    zero_pfn_ = zero_pfn;
+    plan_ = plan;
+    out_fd_ = open(output_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+    if (out_fd_ < 0)
+        return false;
+    running_.store(true, std::memory_order_release);
+    return true;
+}
+
 /* -------------------------------------------------------------------------
  * Background Trace-Pipe Reader & Event Parsing
  * ------------------------------------------------------------------------- */

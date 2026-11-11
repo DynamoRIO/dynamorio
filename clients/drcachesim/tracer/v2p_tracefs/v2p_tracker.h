@@ -162,6 +162,24 @@ public:
     void
     reset_for_exec(uint64_t timestamp_us);
 
+    // Offline `trace_pipe` replay entry points for unprivileged unit tests.
+    bool
+    init_for_testing(pid_t pid, const std::string &output_path,
+                     const v2p_kernel_plan_t &plan, uint64_t vmemmap_base,
+                     uint64_t zero_pfn);
+
+    void
+    feed_trace_line_for_testing(const std::string &line)
+    {
+        process_trace_line(line);
+    }
+
+    void
+    finish_for_testing()
+    {
+        stop();
+    }
+
 private:
     using shadow_span_t = v2p_shadow_page_table_t::span_t;
     // `(paddr_base, vaddr_start)` entry in the physical-to-virtual reverse index.
