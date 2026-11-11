@@ -34,7 +34,8 @@
  *
  * Captures initial /proc/<pid>/pagemap state and live kernel page-table updates
  * into raw/v2p.bin during drmemtrace -offline collection (Linux 5.4+, 4 KB base
- * pages, /sys/kernel/btf/vmlinux, CAP_SYS_ADMIN).
+ * pages, /sys/kernel/btf/vmlinux, CAP_SYS_ADMIN). See v2p_tracefs/README.md for
+ * usage, architecture, tracked transitions, and limitations.
  */
 
 #ifndef _V2P_TRACKER_H_
