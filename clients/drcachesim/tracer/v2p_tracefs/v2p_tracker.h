@@ -47,9 +47,10 @@
 #    include <atomic>
 #    include <cstdint>
 #    include <string>
-#    include <unordered_map>
+#    include <vector>
 
 #    include "dr_api.h"
+#    include "raw2trace_shared.h"
 #    include "trace_entry.h"
 
 namespace dynamorio {
@@ -74,8 +75,8 @@ public:
     bool
     start(pid_t pid, const std::string &output_path, uint32_t buffer_size_kb = 16384);
 
-    // Stops kernel tracing, drains buffered trace lines, writes `V2P_RECORD_END`, and
-    // removes the isolated tracefs instance and registered kprobe.
+    // Stops kernel tracing, drains buffered trace lines, writes any ring-buffer
+    // overflow summary plus `V2P_RECORD_END`, and removes registered probes.
     void
     stop();
 
@@ -87,8 +88,15 @@ private:
     void
     cleanup_kernel_tracing();
     void
+    carve_range(uint64_t timestamp_us, uint64_t start_vaddr, uint64_t end_vaddr,
+                bool emit_unmap, bool preserve_huge);
+    void
     bind_pages(uint64_t timestamp_us, uint64_t aligned_vaddr, uint64_t aligned_paddr,
-               uint32_t page_count);
+               uint32_t page_count, bool is_huge_2m = false);
+    void
+    split_huge_pmd(uint64_t timestamp_us, uint64_t aligned_2m_va, bool is_anon);
+    uint64_t
+    read_total_overflows() const;
     static void
     reader_thread_entry(void *arg);
     void
@@ -102,6 +110,7 @@ private:
     std::string instance_dir_;
     std::string pipe_remainder_;
     std::string anon_probe_name_;
+    std::vector<std::string> registered_probes_;
     bool use_folio_anon_ = true;
     bool kernel_tracing_active_ = false;
     // Offset added to tracefs clock microseconds to match DR's UTC/FILETIME epoch.
@@ -115,7 +124,7 @@ private:
     std::atomic<bool> stop_requested_ { false };
     std::atomic<bool> thread_running_ { false };
     std::atomic<bool> thread_exited_ { false };
-    std::unordered_map<uint64_t, uint64_t> shadow_pages_;
+    v2p_shadow_page_table_t shadow_table_;
 };
 
 } // namespace drmemtrace

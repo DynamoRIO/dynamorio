@@ -802,8 +802,9 @@ protected:
         // Per-shard state for replaying timestamped `v2p.bin` page-mapping records.
         uint64_t v2p_time_us = 0;
         size_t v2p_idx = 0;
-        std::unordered_map<uint64_t, uint64_t> v2p_pages;
-        std::unordered_map<uint64_t, uint64_t> v2p_emitted;
+        v2p_shadow_page_table_t v2p_table;
+        // Maps `vpage -> (last_emitted_ppage, v2p_table.generation)`.
+        std::unordered_map<uint64_t, std::pair<uint64_t, uint64_t>> v2p_emitted;
 
         schedule_file_t::per_shard_t sched_data;
 
@@ -1481,6 +1482,7 @@ private:
     read_v2p_file();
     std::string v2p_file_;
     std::vector<v2p_record_t> v2p_records_;
+    v2p_shadow_page_table_t v2p_last_map_table_;
 };
 
 } // namespace drmemtrace

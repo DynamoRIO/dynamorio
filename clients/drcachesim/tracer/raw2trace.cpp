@@ -3890,27 +3890,44 @@ std::string
 raw2trace_t::read_v2p_file()
 {
     v2p_records_.clear();
+    v2p_last_map_table_ = {};
     if (v2p_file_.empty())
         return "";
     std::ifstream in(v2p_file_, std::ios::binary);
     if (!in.good())
         return "Failed to open v2p file " + v2p_file_;
 
-    // Read fixed-stride 32-byte records and verify the trailing `V2P_RECORD_END`
-    // sentinel so truncated logs produce a warning.
+    // Read fixed-stride 32-byte records (`V2P_RECORD_SPLIT` keeps physical frames in
+    // place so `raw2trace` does not need to alter its address map), accumulate ring-
+    // buffer overflow counts, and verify the trailing `V2P_RECORD_END` sentinel.
+    uint64 dropped = 0;
     bool saw_end = false;
     for (v2p_record_t r = {}; in.read(reinterpret_cast<char *>(&r), sizeof(r));) {
-        if (r.type == V2P_RECORD_MAP && r.page_count > 0)
+        if ((r.type == V2P_RECORD_MAP || r.type == V2P_RECORD_UNMAP) &&
+            r.page_count > 0) {
             v2p_records_.push_back(r);
-        else if (r.type == V2P_RECORD_END)
+        } else if (r.type == V2P_RECORD_OVERFLOW) {
+            dropped += r.page_count;
+        } else if (r.type == V2P_RECORD_END) {
             saw_end = true;
+        }
     }
 
-    // Sort chronologically (`stable_sort` preserves ring-buffer order on ties).
+    // Sort chronologically (`stable_sort` preserves ring-buffer order on ties) and
+    // index the final `V2P_RECORD_MAP` covering each page in `v2p_last_map_table_` so
+    // mid-buffer lookahead skips pages that never map again after an `UNMAP`.
     std::stable_sort(v2p_records_.begin(), v2p_records_.end(),
                      [](const v2p_record_t &a, const v2p_record_t &b) {
                          return a.timestamp_us < b.timestamp_us;
                      });
+    for (size_t i = 0; i < v2p_records_.size(); ++i) {
+        if (v2p_records_[i].type == V2P_RECORD_MAP)
+            v2p_last_map_table_.apply_record(v2p_records_[i], i);
+    }
+    if (dropped > 0) {
+        WARN("v2p file %s dropped " UINT64_FORMAT_STRING " tracefs events",
+             v2p_file_.c_str(), dropped);
+    }
     if (!saw_end) {
         WARN("v2p file %s is missing its END sentinel (truncated log)",
              v2p_file_.c_str());
@@ -3954,7 +3971,7 @@ raw2trace_t::write_with_repeats(raw2trace_thread_data_t *tdata,
         }
     }
     if (!v2p_records_.empty()) {
-        constexpr uint64_t kPageSize4K = 4096;
+        constexpr uint64_t kPageSize4K = v2p_shadow_page_table_t::kPageSize4K;
         std::vector<trace_entry_t> toadd;
 
         // Appends a physical/virtual marker pair (or not-available marker) to `toadd`
@@ -3962,19 +3979,23 @@ raw2trace_t::write_with_repeats(raw2trace_thread_data_t *tdata,
         // its physical frame changed since it was last emitted.
         auto add_v2p = [&](addr_t vaddr) {
             uint64_t vpage = vaddr & ~(kPageSize4K - 1);
-            auto it_p = tdata->v2p_pages.find(vpage);
-            uint64_t ppage = (it_p != tdata->v2p_pages.end()) ? it_p->second : UINT64_MAX;
+            auto it_em = tdata->v2p_emitted.find(vpage);
+            if (it_em != tdata->v2p_emitted.end() &&
+                it_em->second.second == tdata->v2p_table.generation) {
+                return;
+            }
 
-            // Raw trace buffers carry a single opening timestamp, so a page first faulted
-            // in mid-buffer has a kprobe timestamp slightly ahead of
-            // `tdata->v2p_time_us`. Scan ahead to find its initial `V2P_RECORD_MAP`
-            // record.
-            if (ppage == UINT64_MAX) {
-                for (size_t i = tdata->v2p_idx; i < v2p_records_.size(); ++i) {
+            // Raw trace buffers carry a single opening timestamp, so a page faulted or
+            // re-faulted in mid-buffer has a kprobe timestamp slightly ahead of
+            // `tdata->v2p_time_us`. If `vpage` is currently absent from `v2p_table` but
+            // has a future `MAP` (`v2p_idx <= last_idx`), scan ahead to that `MAP`.
+            uint64_t ppage = UINT64_MAX, last_idx = 0, unused = 0;
+            if (!tdata->v2p_table.lookup(vpage, ppage) &&
+                v2p_last_map_table_.lookup(vpage, unused, &last_idx)) {
+                for (size_t i = tdata->v2p_idx; i <= last_idx; ++i) {
                     const v2p_record_t &r = v2p_records_[i];
-                    if (vpage >= r.vaddr &&
-                        vpage - r.vaddr <
-                            static_cast<uint64_t>(r.page_count) * kPageSize4K) {
+                    if (r.type == V2P_RECORD_MAP && vpage >= r.vaddr &&
+                        vpage < v2p_shadow_page_table_t::end_of(r.vaddr, r.page_count)) {
                         ppage = r.paddr + (vpage - r.vaddr);
                         break;
                     }
@@ -3982,11 +4003,12 @@ raw2trace_t::write_with_repeats(raw2trace_thread_data_t *tdata,
             }
 
             // Skip if this exact `(vpage -> ppage)` state was already emitted in this
-            // chunk.
-            auto it_em = tdata->v2p_emitted.find(vpage);
-            if (it_em != tdata->v2p_emitted.end() && it_em->second == ppage)
+            // chunk, refreshing the cached table `generation` to avoid repeat lookups.
+            if (it_em != tdata->v2p_emitted.end() && it_em->second.first == ppage) {
+                it_em->second.second = tdata->v2p_table.generation;
                 return;
-            tdata->v2p_emitted[vpage] = ppage;
+            }
+            tdata->v2p_emitted[vpage] = { ppage, tdata->v2p_table.generation };
 
             // Build the `(PHYSICAL_ADDRESS, VIRTUAL_ADDRESS)` pair, preserving the 12-bit
             // page offset required by `invariant_checker`, or emit `NOT_AVAILABLE`.
@@ -4014,14 +4036,10 @@ raw2trace_t::write_with_repeats(raw2trace_thread_data_t *tdata,
                 tdata->v2p_time_us = it->addr;
             }
 
-            // Apply all `v2p.bin` mapping records up to the current thread timestamp.
+            // Apply all `v2p.bin` map and unmap records up to the current timestamp.
             while (tdata->v2p_idx < v2p_records_.size() &&
                    v2p_records_[tdata->v2p_idx].timestamp_us <= tdata->v2p_time_us) {
-                const v2p_record_t &r = v2p_records_[tdata->v2p_idx++];
-                for (uint32_t i = 0; i < r.page_count; ++i) {
-                    tdata->v2p_pages[r.vaddr + static_cast<uint64_t>(i) * kPageSize4K] =
-                        r.paddr + static_cast<uint64_t>(i) * kPageSize4K;
-                }
+                tdata->v2p_table.apply_record(v2p_records_[tdata->v2p_idx++]);
             }
 
             // Defer pre-instruction encoding and branch-target prefix entries.

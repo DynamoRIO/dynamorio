@@ -1833,16 +1833,25 @@ constexpr int DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM = 0x0fffffff;
 enum v2p_record_type_t {
     /** Maps one or more contiguous 4 KB virtual pages to a physical frame. */
     V2P_RECORD_MAP = 1,
+    /** Invalidates mappings for a range of contiguous 4 KB virtual pages. */
+    V2P_RECORD_UNMAP = 2,
+    /** Indicates that kernel tracefs ring buffer events were dropped. */
+    V2P_RECORD_OVERFLOW = 3,
     /** Marks the clean end of the v2p log file. */
     V2P_RECORD_END = 4,
+    /** Demotes an anonymous 2 MB hugepage into 512 contiguous 4 KB pages in-place. */
+    V2P_RECORD_SPLIT = 5,
 };
 
-/** Fixed 32-byte record stored in #DRMEMTRACE_V2P_LOG_FILENAME. */
+/**
+ * Fixed 32-byte record stored in #DRMEMTRACE_V2P_LOG_FILENAME.
+ * For #V2P_RECORD_OVERFLOW, page_count holds the number of dropped tracefs events.
+ */
 struct v2p_record_t {
     uint64_t timestamp_us; /**< Event timestamp in microseconds (0 for snapshot). */
     uint64_t vaddr;        /**< Base virtual address (4 KB aligned). */
     uint64_t paddr;        /**< Base physical address for #V2P_RECORD_MAP. */
-    uint32_t page_count;   /**< Number of 4 KB pages covered by this record. */
+    uint32_t page_count;   /**< Number of 4 KB pages (or dropped event count). */
     uint32_t type;         /**< Record type from #v2p_record_type_t. */
 };
 

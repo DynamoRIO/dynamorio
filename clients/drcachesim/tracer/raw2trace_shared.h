@@ -43,6 +43,8 @@
  * @brief DrMemtrace routines and structs shared between raw2trace and tracer.
  */
 
+#include <algorithm>
+#include <cstdint>
 #include <list>
 #include <map>
 #include <set>
@@ -560,6 +562,100 @@ private:
     // Addresses in our tables are all page-aligned so a non-aligned address
     // works as a sentinel.
     static constexpr uint64_t NO_PHYS_SENTINEL = 1;
+};
+
+/** Interval-map shadow page table shared by the live tracker and raw2trace. */
+struct v2p_shadow_page_table_t {
+    static constexpr uint64_t kPageSize4K = 4096;
+    struct span_t {
+        uint64_t paddr_base = 0;
+        uint32_t page_count = 1;
+        // True while mapped by a single 2 MB THP PMD (so `__split_huge_pmd` ignores
+        // ranges already mapped as 4 KB PTEs).
+        bool is_huge_2m = false;
+        // Caller-defined tag (`raw2trace` stores the last `MAP` record index here).
+        uint64_t meta = 0;
+    };
+    std::map<uint64_t, span_t> spans;
+    uint64_t generation = 1;
+
+    // Returns the saturating end virtual address of `[va, va + pages * kPageSize4K)`.
+    static uint64_t
+    end_of(uint64_t va, uint32_t pages)
+    {
+        uint64_t bytes = static_cast<uint64_t>(pages) * kPageSize4K;
+        return bytes > UINT64_MAX - va ? UINT64_MAX : va + bytes;
+    }
+
+    // Returns the first span whose virtual range ends strictly after `va` (or `end()`).
+    std::map<uint64_t, span_t>::iterator
+    find_overlapping(uint64_t va)
+    {
+        auto it = spans.upper_bound(va);
+        return (it != spans.begin() &&
+                end_of(std::prev(it)->first, std::prev(it)->second.page_count) > va)
+            ? std::prev(it)
+            : it;
+    }
+
+    // Looks up the 4 KB-aligned `vpage` in `spans` and writes its physical page address.
+    bool
+    lookup(uint64_t vpage, DR_PARAM_OUT uint64_t &paddr_out,
+           DR_PARAM_OUT uint64_t *meta_out = nullptr) const
+    {
+        auto it = const_cast<v2p_shadow_page_table_t *>(this)->find_overlapping(vpage);
+        if (it == spans.end() || it->first > vpage)
+            return false;
+        paddr_out = it->second.paddr_base + (vpage - it->first);
+        if (meta_out != nullptr)
+            *meta_out = it->second.meta;
+        return true;
+    }
+
+    // Carves out any portion of spans overlapping `[start_va, end_va)`, re-inserting
+    // surviving left/right remainders and notifying `on_carved` for `UNMAP` emission.
+    template <typename OnCarvedFn>
+    void
+    carve(uint64_t start_va, uint64_t end_va, bool preserve_huge, OnCarvedFn &&on_carved)
+    {
+        ++generation;
+        for (auto it = find_overlapping(start_va);
+             it != spans.end() && it->first < end_va;) {
+            uint64_t s_va = it->first;
+            uint64_t s_end = end_of(s_va, it->second.page_count);
+            span_t s = it->second;
+
+            // Erase the overlapped span and re-insert any surviving left/right slices.
+            uint64_t m_lo = (std::max)(s_va, start_va);
+            uint64_t m_hi = (std::min)(s_end, end_va);
+            it = spans.erase(it);
+            const uint64_t rems[2][2] = { { s_va, m_lo }, { m_hi, s_end } };
+            for (const auto &rem : rems) {
+                if (rem[0] < rem[1]) {
+                    span_t r { s.paddr_base + (rem[0] - s_va),
+                               static_cast<uint32_t>((rem[1] - rem[0]) / kPageSize4K),
+                               preserve_huge && s.is_huge_2m, s.meta };
+                    spans.emplace(rem[0], r);
+                }
+            }
+            on_carved(m_lo, m_hi);
+        }
+    }
+
+    // Applies a `V2P_RECORD_MAP` or `V2P_RECORD_UNMAP` record during offline replay.
+    void
+    apply_record(const v2p_record_t &rec, uint64_t meta = 0)
+    {
+        if (rec.page_count == 0 ||
+            (rec.type != V2P_RECORD_MAP && rec.type != V2P_RECORD_UNMAP)) {
+            return;
+        }
+        carve(rec.vaddr, end_of(rec.vaddr, rec.page_count), false,
+              [](uint64_t, uint64_t) {});
+        if (rec.type == V2P_RECORD_MAP) {
+            spans.emplace(rec.vaddr, span_t { rec.paddr, rec.page_count, false, meta });
+        }
+    }
 };
 
 } // namespace drmemtrace

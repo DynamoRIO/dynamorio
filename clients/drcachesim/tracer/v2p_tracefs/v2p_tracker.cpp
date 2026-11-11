@@ -36,6 +36,9 @@
     !defined(RISCV64) && !defined(__riscv)
 
 #    include <algorithm>
+#    include <ctype.h>
+#    include <dirent.h>
+#    include <limits>
 #    include <errno.h>
 #    include <fcntl.h>
 #    include <inttypes.h>
@@ -169,7 +172,7 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
     target_pid_ = pid;
     vmemmap_base_ = 0;
     pipe_remainder_.clear();
-    shadow_pages_.clear();
+    shadow_table_ = {};
 
     // Require 4 KB base pages and at least Linux version 5.4.
     int kmaj = 0, kmin = 0;
@@ -203,18 +206,17 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
         return false;
     };
 
-    // Pre-clean any leftover instance or kprobe from a recycled PID killed via `SIGKILL`,
-    // then create a fresh isolated tracefs instance directory for this process.
-    instance_dir_ = tracefs_root_ + "/instances/drmemtrace_v2p_" + std::to_string(pid);
-    anon_probe_name_ = "anon_new_" + std::to_string(pid);
+    // Pre-clean any leftover instance or kprobes from a recycled PID killed via
+    // `SIGKILL`, then create a fresh isolated tracefs instance directory.
+    const std::string sfx = "_" + std::to_string(pid);
+    instance_dir_ = tracefs_root_ + "/instances/drmemtrace_v2p" + sfx;
+    registered_probes_ = { "anon_new" + sfx, "unmap_range" + sfx, "unmap_vmas" + sfx,
+                           "unmap_zap" + sfx, "split_pmd" + sfx };
     kernel_tracing_active_ = true;
     cleanup_kernel_tracing();
-    anon_probe_name_ = "anon_new_" + std::to_string(pid);
     kernel_tracing_active_ = true;
-    if (mkdir(instance_dir_.c_str(), 0755) != 0 && errno != EEXIST) {
-        anon_probe_name_.clear();
+    if (mkdir(instance_dir_.c_str(), 0755) != 0 && errno != EEXIST)
         return fail();
-    }
 
     // Configure the instance ring buffer: use `CLOCK_TAI` on Linux 5.19+ (unaffected by
     // NTP slew) or `CLOCK_MONOTONIC`, and track child threads via `event-fork` and
@@ -226,7 +228,6 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
                              std::to_string(buffer_size_kb))) ||
         !write_tracefs_file(instance_dir_ + "/options/event-fork", "1") ||
         !write_tracefs_file(instance_dir_ + "/set_event_pid", std::to_string(pid))) {
-        anon_probe_name_.clear();
         return fail();
     }
 
@@ -234,30 +235,58 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
     struct timespec clk_ts = {}, real_ts = {};
     if (clock_gettime(use_tai ? CLOCK_TAI : CLOCK_MONOTONIC, &clk_ts) != 0 ||
         clock_gettime(CLOCK_REALTIME, &real_ts) != 0) {
-        anon_probe_name_.clear();
         return fail();
     }
     clock_offset_us_ =
         (real_ts.tv_sec * 1000000ULL + real_ts.tv_nsec / 1000ULL + kDrUtcToEpochMicros) -
         (clk_ts.tv_sec * 1000000ULL + clk_ts.tv_nsec / 1000ULL);
 
+    const std::string kp = tracefs_root_ + "/kprobe_events";
+    auto add_probe = [&](const char *base, const char *def) {
+        std::string name = base + sfx;
+        if (!write_tracefs_file(kp, "p:kprobes/" + name + " " + def + "\n", true))
+            return false;
+        registered_probes_.push_back(name);
+        return true;
+    };
+
     // The kernel calls `folio_add_new_anon_rmap` (or `page_add_new_anon_rmap` on older
     // kernels) whenever it maps a newly allocated anonymous page into a process, so we
     // hook it to cover first-touch heap/stack/`MAP_ANONYMOUS` faults, Copy-on-Write
     // faults, and new 2 MB anonymous THP faults. Prefer `folio_add_new_anon_rmap` when
     // present and fall back to `page_add_new_anon_rmap`.
-    const std::string kp = tracefs_root_ + "/kprobe_events";
-    const std::string pfx = "p:kprobes/" + anon_probe_name_ + " ";
-    const char *folio_def = "folio_add_new_anon_rmap page=$arg1:x64 vaddr=$arg3:x64\n";
-    const char *page_def =
-        "page_add_new_anon_rmap page=$arg1:x64 vaddr=$arg3:x64 comp=$arg4:u8\n";
-    use_folio_anon_ = write_tracefs_file(kp, pfx + folio_def, /*append=*/true);
-    if (!use_folio_anon_ && !write_tracefs_file(kp, pfx + page_def, /*append=*/true)) {
-        anon_probe_name_.clear();
+    anon_probe_name_ = "anon_new" + sfx;
+    use_folio_anon_ =
+        add_probe("anon_new", "folio_add_new_anon_rmap page=$arg1:x64 vaddr=$arg3:x64");
+    if (!use_folio_anon_ &&
+        !add_probe(
+            "anon_new",
+            "page_add_new_anon_rmap page=$arg1:x64 vaddr=$arg3:x64 comp=$arg4:u8")) {
         return fail();
     }
     if (use_folio_anon_)
         kpageflags_fd_ = open("/proc/kpageflags", O_RDONLY | O_CLOEXEC);
+
+    // The kernel calls `unmap_page_range` (or `unmap_vmas` and `zap_vma_range_batched`
+    // on Linux 6.12+ where `unmap_page_range` is inlined) whenever it tears down
+    // virtual page-table entries for a range, so we hook it to cover explicit unmappings
+    // (`munmap`, `MADV_DONTNEED`, `MADV_FREE`, `MAP_FIXED` overwrites, and file
+    // truncation/hole-punching).
+    if (!add_probe("unmap_range", "unmap_page_range start=$arg3:x64 end=$arg4:x64") &&
+        (!add_probe("unmap_vmas", "unmap_vmas start=+16($arg2):x64 end=+24($arg2):x64") ||
+         !add_probe("unmap_zap",
+                    "zap_vma_range_batched start=$arg3:x64 size=$arg4:u64"))) {
+        return fail();
+    }
+
+    // The kernel calls `__split_huge_pmd` whenever it breaks a 2 MB PMD mapping down
+    // into 4 KB PTEs (or zaps a file/shmem PMD), so we hook it to cover in-place
+    // anonymous 2 MB THP splits (`V2P_RECORD_SPLIT`) and file/shmem PMD invalidations
+    // (`V2P_RECORD_UNMAP`).
+    if (!add_probe("split_pmd",
+                   "__split_huge_pmd vm_ops=+112($arg1):x64 vaddr=$arg3:x64")) {
+        return fail();
+    }
 
     // Open `trace_pipe` for non-blocking reads and calibrate `vmemmap_base_` before
     // enabling live collection.
@@ -266,14 +295,15 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
     if (trace_pipe_fd_ < 0 || !calibrate_vmemmap_base())
         return fail();
 
-    // Re-enable the page-fault kprobe (disabled at the end of calibration) and turn on
-    // ring-buffer recording BEFORE scanning `/proc/<pid>/pagemap` so any concurrent page
-    // fault during the scan is captured.
-    if (!write_tracefs_file(
-            instance_dir_ + "/events/kprobes/" + anon_probe_name_ + "/enable", "1") ||
-        !write_tracefs_file(instance_dir_ + "/tracing_on", "1")) {
-        return fail();
+    // Enable all registered probes (including re-enabling `anon_new` after calibration)
+    // and turn on ring-buffer recording BEFORE scanning `/proc/<pid>/pagemap` so any
+    // concurrent page fault or unmap during the scan is captured.
+    for (const std::string &p : registered_probes_) {
+        if (!write_tracefs_file(instance_dir_ + "/events/kprobes/" + p + "/enable", "1"))
+            return fail();
     }
+    if (!write_tracefs_file(instance_dir_ + "/tracing_on", "1"))
+        return fail();
 
     snapshot_pagemap();
 
@@ -348,35 +378,82 @@ v2p_tracker_t::calibrate_vmemmap_base()
     return vmemmap_base_ != 0;
 }
 
-// Snapshots already-resident mappings from `/proc/<pid>/maps` and `/proc/<pid>/pagemap`
-// at timestamp 0 (`V2P_RECORD_MAP`).
+// Snapshots already-resident 4 KB and 2 MB THP mappings from `/proc/<pid>/smaps` (or
+// `maps`), `/proc/<pid>/pagemap`, and `/proc/kpageflags` at timestamp 0.
 void
 v2p_tracker_t::snapshot_pagemap()
 {
     const std::string proc_dir = "/proc/" + std::to_string(target_pid_);
-    FILE *maps = fopen((proc_dir + "/maps").c_str(), "r");
+    FILE *maps = fopen((proc_dir + "/smaps").c_str(), "r");
+    const bool have_smaps = (maps != nullptr);
+    if (!have_smaps)
+        maps = fopen((proc_dir + "/maps").c_str(), "r");
     int pm_fd = open((proc_dir + "/pagemap").c_str(), O_RDONLY | O_CLOEXEC);
+    int kpf_fd = open("/proc/kpageflags", O_RDONLY | O_CLOEXEC);
+
+    // Step 1: Collect user-space VMAs and note which VMAs have PMD-mapped THPs in
+    // `smaps` (falling back to checking every 2 MB contiguous run when `smaps` is
+    // unavailable).
+    struct vma_desc_t {
+        uint64_t start = 0;
+        uint64_t end = 0;
+        bool has_pmd_thp = false;
+    };
+    std::vector<vma_desc_t> vmas;
     char line[512];
-    uint64_t entries[kPagesPer2M];
-
     while (maps != nullptr && pm_fd >= 0 && fgets(line, sizeof(line), maps) != nullptr) {
-        uint64_t s = 0, e = 0;
-        // Skip malformed lines and kernel-space pseudo-VMAs such as `[vsyscall]`.
-        if (sscanf(line, "%" SCNx64 "-%" SCNx64, &s, &e) != 2 ||
-            s >= 0xffff800000000000ULL || e <= s) {
-            continue;
+        uint64_t s = 0, e = 0, kb = 0;
+        if (isxdigit(static_cast<unsigned char>(line[0])) &&
+            sscanf(line, "%" SCNx64 "-%" SCNx64, &s, &e) == 2) {
+            // Skip kernel-space pseudo-VMAs such as `[vsyscall]` (`>= 0xffff8000...`).
+            if (s < 0xffff800000000000ULL && e > s)
+                vmas.push_back({ s, e, !have_smaps });
+        } else if (!vmas.empty() &&
+                   (strncmp(line, "AnonHugePages:", 14) == 0 ||
+                    strncmp(line, "ShmemPmdMapped:", 15) == 0 ||
+                    strncmp(line, "FilePmdMapped:", 14) == 0) &&
+                   sscanf(strchr(line, ':') + 1, "%" SCNu64, &kb) == 1 && kb > 0) {
+            vmas.back().has_pmd_thp = true;
         }
+    }
 
-        // Read `pagemap` in 512-page (2 MB) batches across each user-space VMA.
-        for (uint64_t va = s; va < e;) {
-            size_t batch = static_cast<size_t>(
-                std::min<uint64_t>((e - va) / kPageSize4K, kPagesPer2M));
+    // Step 2: Read `pagemap` in up to 2 MB-aligned batches across each VMA so pre-
+    // existing 2 MB THP PMDs are recorded as `is_huge_2m` spans (matching subsequent
+    // `__split_huge_pmd` events) before falling back to per-4 KB PTE bindings.
+    uint64_t entries[kPagesPer2M];
+    for (const vma_desc_t &vma : vmas) {
+        for (uint64_t va = vma.start; va < vma.end;) {
+            uint64_t batch_end =
+                std::min(vma.end, (va + kPageSize2M) & ~(kPageSize2M - 1));
             ssize_t bytes =
-                pread(pm_fd, entries, batch * sizeof(uint64_t),
+                pread(pm_fd, entries, ((batch_end - va) / kPageSize4K) * sizeof(uint64_t),
                       static_cast<off_t>((va / kPageSize4K) * sizeof(uint64_t)));
             if (bytes <= 0)
                 break;
             size_t n = static_cast<size_t>(bytes) / sizeof(uint64_t);
+
+            // Check whether this batch is a 2 MB-aligned run of 512 contiguous PFNs
+            // backed by a `KPF_THP` compound page.
+            uint64_t base_pfn = entries[0] & kPagemapPfnMask;
+            uint64_t kpf = 0;
+            bool is_2m_contig = n == kPagesPer2M && (va & (kPageSize2M - 1)) == 0 &&
+                (entries[0] & kPagemapPresentBit) != 0 && base_pfn != 0 &&
+                (base_pfn & (kPagesPer2M - 1)) == 0;
+            for (size_t i = 1; is_2m_contig && i < kPagesPer2M; ++i) {
+                is_2m_contig = (entries[i] & kPagemapPresentBit) != 0 &&
+                    (entries[i] & kPagemapPfnMask) == base_pfn + i;
+            }
+            if (is_2m_contig && vma.has_pmd_thp && kpf_fd >= 0 &&
+                pread(kpf_fd, &kpf, sizeof(kpf),
+                      static_cast<off_t>(base_pfn * sizeof(uint64_t))) == sizeof(kpf) &&
+                (kpf & kKpfThp) != 0) {
+                bind_pages(0, va, base_pfn * kPageSize4K, kPagesPer2M,
+                           /*is_huge_2m=*/true);
+                va += kPageSize2M;
+                continue;
+            }
+
+            // Otherwise bind each resident 4 KB page in the batch individually.
             for (size_t i = 0; i < n; ++i) {
                 uint64_t pfn = entries[i] & kPagemapPfnMask;
                 if ((entries[i] & kPagemapPresentBit) != 0 && pfn != 0)
@@ -386,36 +463,163 @@ v2p_tracker_t::snapshot_pagemap()
         }
     }
 
+    if (kpf_fd >= 0)
+        close(kpf_fd);
     if (pm_fd >= 0)
         close(pm_fd);
     if (maps != nullptr)
         fclose(maps);
 }
 
-// Updates `shadow_pages_` for `[aligned_vaddr, +page_count * 4 KB)` and writes a
-// `V2P_RECORD_MAP` record whenever at least one covered 4 KB page changed physical frame.
+/* -------------------------------------------------------------------------
+ * Shadow Page Table Operations & Teardown
+ * ------------------------------------------------------------------------- */
+
+// Carves `[start_vaddr, end_vaddr)` out of `shadow_table_`, optionally emitting
+// coalesced `V2P_RECORD_UNMAP` records for all previously mapped sub-ranges.
+void
+v2p_tracker_t::carve_range(uint64_t timestamp_us, uint64_t start_vaddr,
+                           uint64_t end_vaddr, bool emit_unmap, bool preserve_huge)
+{
+    uint64_t run_start = 0;
+    uint32_t run_pages = 0;
+    shadow_table_.carve(
+        start_vaddr, end_vaddr, preserve_huge,
+        // Coalesce contiguous carved virtual ranges into a single `UNMAP` record.
+        [&](uint64_t m_lo, uint64_t m_hi) {
+            if (!emit_unmap)
+                return;
+            uint32_t m_pages = static_cast<uint32_t>((m_hi - m_lo) / kPageSize4K);
+            if (run_pages > 0 &&
+                m_pages <= (std::numeric_limits<uint32_t>::max)() - run_pages &&
+                m_lo == run_start + static_cast<uint64_t>(run_pages) * kPageSize4K) {
+                run_pages += m_pages;
+                return;
+            }
+            if (run_pages > 0) {
+                write_record(out_fd_, timestamp_us, run_start, 0, run_pages,
+                             V2P_RECORD_UNMAP);
+            }
+            run_start = m_lo;
+            run_pages = m_pages;
+        });
+    if (emit_unmap && run_pages > 0)
+        write_record(out_fd_, timestamp_us, run_start, 0, run_pages, V2P_RECORD_UNMAP);
+}
+
+// Installs `[aligned_vaddr, +page_count * 4 KB) -> aligned_paddr` in `shadow_table_`
+// and writes a `V2P_RECORD_MAP` record whenever the mapping changed.
 void
 v2p_tracker_t::bind_pages(uint64_t timestamp_us, uint64_t aligned_vaddr,
-                          uint64_t aligned_paddr, uint32_t page_count)
+                          uint64_t aligned_paddr, uint32_t page_count, bool is_huge_2m)
 {
-    bool changed = false;
-    for (uint32_t i = 0; i < page_count; ++i) {
-        uint64_t va = aligned_vaddr + static_cast<uint64_t>(i) * kPageSize4K;
-        uint64_t pa = aligned_paddr + static_cast<uint64_t>(i) * kPageSize4K;
-        auto it = shadow_pages_.find(va);
-        if (it == shadow_pages_.end() || it->second != pa) {
-            shadow_pages_[va] = pa;
-            changed = true;
+    if (page_count == 0)
+        return;
+    uint64_t end_va = aligned_vaddr + static_cast<uint64_t>(page_count) * kPageSize4K;
+
+    // Suppress duplicate `V2P_RECORD_MAP` records if `shadow_table_` already holds the
+    // identical mapping across `[aligned_vaddr, end_va)`.
+    uint64_t covered = aligned_vaddr;
+    for (auto it = shadow_table_.find_overlapping(aligned_vaddr);
+         it != shadow_table_.spans.end() && it->first <= covered && covered < end_va;
+         ++it) {
+        if (it->second.paddr_base + (covered - it->first) !=
+                aligned_paddr + (covered - aligned_vaddr) ||
+            it->second.is_huge_2m != is_huge_2m) {
+            break;
+        }
+        covered = std::min(
+            end_va, v2p_shadow_page_table_t::end_of(it->first, it->second.page_count));
+    }
+    if (covered == end_va)
+        return;
+
+    // A 4 KB mapping inside a 2 MB window means that PMD is now split into 4 KB PTEs.
+    if (!is_huge_2m) {
+        for (auto it = shadow_table_.find_overlapping(aligned_vaddr & ~(kPageSize2M - 1));
+             it != shadow_table_.spans.end() &&
+             it->first < ((end_va + kPageSize2M - 1) & ~(kPageSize2M - 1));
+             ++it) {
+            it->second.is_huge_2m = false;
         }
     }
-    if (changed) {
-        write_record(out_fd_, timestamp_us, aligned_vaddr, aligned_paddr, page_count,
-                     V2P_RECORD_MAP);
+
+    carve_range(timestamp_us, aligned_vaddr, end_va, /*emit_unmap=*/false,
+                /*preserve_huge=*/false);
+    shadow_table_.spans.emplace(
+        aligned_vaddr,
+        v2p_shadow_page_table_t::span_t { aligned_paddr, page_count, is_huge_2m });
+    write_record(out_fd_, timestamp_us, aligned_vaddr, aligned_paddr, page_count,
+                 V2P_RECORD_MAP);
+}
+
+// Handles `__split_huge_pmd` on `[aligned_2m_va, +2 MB)`:
+// - Anonymous 2 MB THP: physical frames stay in place at 4 KB PTE granularity
+//   (`V2P_RECORD_SPLIT`).
+// - File/shmem 2 MB THP (`!is_anon`): `__split_huge_pmd_locked` clears the PMD without
+//   installing 4 KB PTEs, so unmap the 2 MB range (`V2P_RECORD_UNMAP`).
+void
+v2p_tracker_t::split_huge_pmd(uint64_t timestamp_us, uint64_t aligned_2m_va, bool is_anon)
+{
+    uint64_t end_2m = aligned_2m_va + kPageSize2M;
+    uint64_t base_pa = 0;
+    size_t huge_spans = 0;
+    bool full_2m = false;
+    for (auto it = shadow_table_.find_overlapping(aligned_2m_va);
+         it != shadow_table_.spans.end() && it->first < end_2m; ++it) {
+        if (!it->second.is_huge_2m)
+            continue;
+        if (huge_spans++ == 0) {
+            base_pa = it->second.paddr_base + (aligned_2m_va - it->first);
+            full_2m = it->first == aligned_2m_va &&
+                v2p_shadow_page_table_t::end_of(it->first, it->second.page_count) ==
+                    end_2m;
+        }
+        if (is_anon)
+            it->second.is_huge_2m = false;
+    }
+    if (huge_spans == 0)
+        return;
+
+    if (is_anon) {
+        if (huge_spans == 1 && full_2m) {
+            write_record(out_fd_, timestamp_us, aligned_2m_va, base_pa, kPagesPer2M,
+                         V2P_RECORD_SPLIT);
+        }
+    } else {
+        carve_range(timestamp_us, aligned_2m_va, end_2m, /*emit_unmap=*/true,
+                    /*preserve_huge=*/true);
     }
 }
 
+// Sums ring-buffer `overrun:` counts across `per_cpu/cpu*/stats` in the instance.
+uint64_t
+v2p_tracker_t::read_total_overflows() const
+{
+    std::string per_cpu = instance_dir_ + "/per_cpu";
+    DIR *dir = opendir(per_cpu.c_str());
+    if (dir == nullptr)
+        return 0;
+    uint64_t total = 0;
+    for (struct dirent *e = nullptr; (e = readdir(dir)) != nullptr;) {
+        if (strncmp(e->d_name, "cpu", 3) != 0)
+            continue;
+        FILE *fp = fopen((per_cpu + "/" + e->d_name + "/stats").c_str(), "r");
+        char buf[256];
+        // Match line-initial `overrun:` rather than `commit overrun:`.
+        while (fp != nullptr && fgets(buf, sizeof(buf), fp) != nullptr) {
+            if (strncmp(buf, "overrun:", 8) == 0)
+                total += strtoull(buf + 8, nullptr, 10);
+        }
+        if (fp != nullptr)
+            fclose(fp);
+    }
+    closedir(dir);
+    return total;
+}
+
 // Closes `trace_pipe` and `/proc/kpageflags`, disables events in the isolated instance,
-// removes the instance directory, and unregisters this session's kprobe.
+// removes the instance directory, and unregisters this session's kprobes.
 void
 v2p_tracker_t::cleanup_kernel_tracing()
 {
@@ -433,16 +637,18 @@ v2p_tracker_t::cleanup_kernel_tracing()
     write_tracefs_file(instance_dir_ + "/tracing_on", "0");
     write_tracefs_file(instance_dir_ + "/events/enable", "0");
     rmdir(instance_dir_.c_str());
-    if (!anon_probe_name_.empty()) {
-        write_tracefs_file(tracefs_root_ + "/kprobe_events",
-                           "-:kprobes/" + anon_probe_name_ + "\n", /*append=*/true);
-        anon_probe_name_.clear();
+    for (const std::string &p : registered_probes_) {
+        write_tracefs_file(tracefs_root_ + "/kprobe_events", "-:kprobes/" + p + "\n",
+                           /*append=*/true);
     }
+    registered_probes_.clear();
+    anon_probe_name_.clear();
     kernel_tracing_active_ = false;
 }
 
-// Stops tracefs collection, joins the reader thread to drain all buffered events, tears
-// down the kernel instance, and appends the trailing `V2P_RECORD_END` sentinel.
+// Stops tracefs collection, joins the reader thread to drain all buffered events, checks
+// per-CPU ring-buffer drop counts, tears down the kernel instance, and appends any
+// `V2P_RECORD_OVERFLOW` summary plus `V2P_RECORD_END`.
 void
 v2p_tracker_t::stop()
 {
@@ -465,10 +671,25 @@ v2p_tracker_t::stop()
         drain_pipe();
     }
 
+    // Check per-CPU ring-buffer drop counts before removing the tracefs instance.
+    uint64_t overflows = kernel_tracing_active_ ? read_total_overflows() : 0;
+    if (overflows > 0) {
+        dr_fprintf(STDERR,
+                   "WARNING: drmemtrace v2p_tracker detected %" PRIu64
+                   " dropped tracefs events due to buffer overflow (increase "
+                   "-v2p_buffer_size_kb)\n",
+                   overflows);
+    }
+
     cleanup_kernel_tracing();
 
-    // Write the end-of-stream sentinel before closing `raw/v2p.bin`.
+    // Write any overflow summary and the end-of-stream sentinel before closing `v2p.bin`.
     if (out_fd_ >= 0) {
+        if (overflows > 0) {
+            uint32_t clamped = static_cast<uint32_t>(
+                std::min<uint64_t>(overflows, (std::numeric_limits<uint32_t>::max)()));
+            write_record(out_fd_, 0, 0, 0, clamped, V2P_RECORD_OVERFLOW);
+        }
         write_record(out_fd_, 0, 0, 0, 0, V2P_RECORD_END);
         close(out_fd_);
         out_fd_ = -1;
@@ -497,13 +718,14 @@ v2p_tracker_t::drain_pipe()
 }
 
 // Parses one `trace_pipe` event line (`<comm>-<tid> [<cpu>] <flags> <secs>.<usecs>:
-// anon_new_<pid>: ...`), converts its `page=` pointer to a physical frame via
-// `vmemmap_base_`, and binds the newly installed 4 KB page or 2 MB THP folio.
+// <probe>_<pid>: ...`) and applies anonymous faults, range unmaps, and 2 MB PMD splits.
 void
 v2p_tracker_t::process_trace_line(const std::string &line)
 {
-    size_t ev = line.find(": " + anon_probe_name_ + ":");
-    if (ev == std::string::npos)
+    const std::string sfx = "_" + std::to_string(target_pid_) + ":";
+    size_t sp = line.find(sfx);
+    size_t ev = (sp == std::string::npos) ? sp : line.rfind(": ", sp);
+    if (ev == std::string::npos || ev == 0)
         return;
 
     // Ignore any page faults generated by the reader thread itself.
@@ -519,35 +741,69 @@ v2p_tracker_t::process_trace_line(const std::string &line)
     if (sscanf(line.c_str() + ts_p + 1, "%llu.%llu:", &secs, &usecs) != 2)
         return;
     uint64_t ts_us = secs * 1000000ULL + usecs + clock_offset_us_;
+    std::string name = line.substr(ev + 2, sp - (ev + 2));
 
-    // Extract `page=` and `vaddr=` and translate `page_ptr` to its physical frame number.
-    uint64_t page_ptr = 0, vaddr = 0;
-    if (!extract_u64_field(line, "page=", page_ptr, 16, ev) || page_ptr < vmemmap_base_ ||
-        !extract_u64_field(line, "vaddr=", vaddr, 16, ev)) {
+    // 1. Anonymous / CoW page fault (`anon_new`).
+    if (name == "anon_new") {
+        uint64_t page_ptr = 0, vaddr = 0;
+        if (!extract_u64_field(line, "page=", page_ptr, 16, ev) ||
+            page_ptr < vmemmap_base_ ||
+            !extract_u64_field(line, "vaddr=", vaddr, 16, ev)) {
+            return;
+        }
+        uint64_t pfn = (page_ptr - vmemmap_base_) >> kStructPageShift;
+        if (pfn >= (1ULL << 52))
+            return;
+
+        // Check whether the fault installed a 2 MB anonymous THP (`comp != 0` on
+        // `page_add_new_anon_rmap`, or `KPF_THP` in `/proc/kpageflags` on 2 MB-aligned
+        // `folio_add_new_anon_rmap` faults) rather than a 4 KB page.
+        bool is_2m = false;
+        if (!use_folio_anon_) {
+            uint64_t comp = 0;
+            is_2m = extract_u64_field(line, "comp=", comp, 0, ev) && comp != 0;
+        } else if ((vaddr & (kPageSize2M - 1)) == 0 && (pfn & (kPagesPer2M - 1)) == 0 &&
+                   kpageflags_fd_ >= 0) {
+            uint64_t kpf = 0;
+            off_t off = static_cast<off_t>(pfn * sizeof(uint64_t));
+            is_2m = pread(kpageflags_fd_, &kpf, sizeof(kpf), off) == sizeof(kpf) &&
+                (kpf & kKpfThp) != 0;
+        }
+        uint64_t mask = (is_2m ? kPageSize2M : kPageSize4K) - 1;
+        bind_pages(ts_us, vaddr & ~mask, (pfn * kPageSize4K) & ~mask,
+                   is_2m ? kPagesPer2M : 1, is_2m);
         return;
     }
-    uint64_t pfn = (page_ptr - vmemmap_base_) >> kStructPageShift;
-    if (pfn >= (1ULL << 52))
-        return;
 
-    // Check whether the fault installed a 2 MB anonymous THP (`comp != 0` on
-    // `page_add_new_anon_rmap`, or `KPF_THP` in `/proc/kpageflags` on 2 MB-aligned
-    // `folio_add_new_anon_rmap` faults) rather than a 4 KB page.
-    bool is_2m = false;
-    if (!use_folio_anon_) {
-        uint64_t comp = 0;
-        is_2m = extract_u64_field(line, "comp=", comp, 0, ev) && comp != 0;
-    } else if ((vaddr & (kPageSize2M - 1)) == 0 && (pfn & (kPagesPer2M - 1)) == 0 &&
-               kpageflags_fd_ >= 0) {
-        uint64_t kpf = 0;
-        off_t off = static_cast<off_t>(pfn * sizeof(uint64_t));
-        is_2m = pread(kpageflags_fd_, &kpf, sizeof(kpf), off) == sizeof(kpf) &&
-            (kpf & kKpfThp) != 0;
+    // 2. Explicit virtual range unmapping (`unmap_range`, `unmap_vmas`, `unmap_zap`).
+    if (name == "unmap_range" || name == "unmap_vmas" || name == "unmap_zap") {
+        uint64_t st = 0, en = 0, sz = 0;
+        if (!extract_u64_field(line, "start=", st, 16, ev))
+            return;
+        if (!extract_u64_field(line, "end=", en, 16, ev) &&
+            extract_u64_field(line, "size=", sz, 0, ev) && sz > 0) {
+            en = (sz > (std::numeric_limits<uint64_t>::max)() - st)
+                ? (std::numeric_limits<uint64_t>::max)()
+                : st + sz;
+        }
+        constexpr uint64_t kMax =
+            (std::numeric_limits<uint64_t>::max)() & ~(kPageSize4K - 1);
+        uint64_t lo = st & ~(kPageSize4K - 1);
+        uint64_t hi = (en > kMax) ? kMax : ((en + kPageSize4K - 1) & ~(kPageSize4K - 1));
+        if (en > st && hi > lo) {
+            carve_range(ts_us, lo, hi, /*emit_unmap=*/true, /*preserve_huge=*/true);
+        }
+        return;
     }
 
-    uint64_t mask = (is_2m ? kPageSize2M : kPageSize4K) - 1;
-    bind_pages(ts_us, vaddr & ~mask, (pfn * kPageSize4K) & ~mask,
-               is_2m ? kPagesPer2M : 1);
+    // 3. 2 MB PMD split (`split_pmd`): `vm_ops == 0` identifies anonymous VMAs.
+    if (name == "split_pmd") {
+        uint64_t vm_ops = 0, vaddr = 0;
+        if (extract_u64_field(line, "vm_ops=", vm_ops, 16, ev) &&
+            extract_u64_field(line, "vaddr=", vaddr, 16, ev)) {
+            split_huge_pmd(ts_us, vaddr & ~(kPageSize2M - 1), /*is_anon=*/(vm_ops == 0));
+        }
+    }
 }
 
 // Entry point for the background client reader thread: marks itself non-suspendable by
