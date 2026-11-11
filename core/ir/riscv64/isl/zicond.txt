@@ -1,0 +1,8 @@
+# Zicond (Integer Conditional Operations)
+# Version 1.0
+# https://github.com/riscv/riscv-zicond
+
+# rd = (rs2 == 0) ? 0 : rs1
+czero.eqz | r | rs2 rs1 rd | 0000111..........100.....0110011
+# rd = (rs2 != 0) ? 0 : rs1
+czero.nez | r | rs2 rs1 rd | 0000111..........101.....0110011
