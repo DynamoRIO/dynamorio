@@ -615,13 +615,14 @@ struct v2p_shadow_page_table_t {
         return true;
     }
 
-    // Carves out any portion of spans overlapping `[start_va, end_va)`, re-inserting
-    // surviving left/right remainders and notifying `on_span` (for physical-to-virtual
-    // reverse-index updates) and `on_carved` (for `UNMAP` emission).
+    // Carves out any portion of spans in `[start_va, end_va)` whose physical frames
+    // also overlap `[pa_lo, pa_hi)` (used by reclaim eviction to preserve pages that
+    // diverged via private CoW), re-inserting surviving left/right remainders and
+    // notifying `on_span` and `on_carved`.
     template <typename OnSpanFn, typename OnCarvedFn>
     void
-    carve(uint64_t start_va, uint64_t end_va, bool preserve_huge, OnSpanFn &&on_span,
-          OnCarvedFn &&on_carved)
+    carve(uint64_t start_va, uint64_t end_va, uint64_t pa_lo, uint64_t pa_hi,
+          bool preserve_huge, OnSpanFn &&on_span, OnCarvedFn &&on_carved)
     {
         ++generation;
         for (auto it = find_overlapping(start_va);
@@ -630,9 +631,20 @@ struct v2p_shadow_page_table_t {
             uint64_t s_end = end_of(s_va, it->second.page_count);
             span_t s = it->second;
 
-            // Erase the overlapped span and re-insert any surviving left/right slices.
-            uint64_t m_lo = (std::max)(s_va, start_va);
-            uint64_t m_hi = (std::min)(s_end, end_va);
+            // Intersect both the virtual window and the physical filter window.
+            uint64_t v_lo = (std::max)(s_va, start_va);
+            uint64_t v_hi = (std::min)(s_end, end_va);
+            uint64_t p_lo = s.paddr_base + (v_lo - s_va);
+            uint64_t ov_lo = (std::max)(p_lo, pa_lo);
+            uint64_t ov_hi = (std::min)(s.paddr_base + (v_hi - s_va), pa_hi);
+            if (ov_lo >= ov_hi) {
+                ++it;
+                continue;
+            }
+
+            // Erase the matched span and re-insert any surviving left/right slices.
+            uint64_t m_lo = v_lo + (ov_lo - p_lo);
+            uint64_t m_hi = v_lo + (ov_hi - p_lo);
             on_span(s_va, s, false);
             it = spans.erase(it);
             const uint64_t rems[2][2] = { { s_va, m_lo }, { m_hi, s_end } };
@@ -658,7 +670,7 @@ struct v2p_shadow_page_table_t {
             return;
         }
         carve(
-            rec.vaddr, end_of(rec.vaddr, rec.page_count), false,
+            rec.vaddr, end_of(rec.vaddr, rec.page_count), 0, UINT64_MAX, false,
             [](uint64_t, const span_t &, bool) {}, [](uint64_t, uint64_t) {});
         if (rec.type == V2P_RECORD_MAP) {
             spans.emplace(rec.vaddr,

@@ -73,6 +73,7 @@ public:
         kAnonRmapNew,  // folio/page_add_new_anon_rmap: new anon folio/page.
         kAnonRmapPtes, // folio_add_anon_rmap_ptes / page_add_anon_rmap.
         kAnonRmapPmd,  // folio_add_anon_rmap_pmd: 2 MB anonymous THP PMD.
+        kFilePte,      // set_pte_range/do_set_pte/alloc_set_pte: 4 KB file PTEs.
 
         // 2 MB file/shmem THP PMD installations (`do_set_pmd` or file-rmap fallback):
         kDoSetPmdEntry,     // do_set_pmd entry: candidate 2 MB file/shmem PMD.
@@ -84,10 +85,16 @@ public:
         // Physical page migration (`remove_migration_ptes`).
         kRemoveMigrationPtes,
 
-        // Explicit virtual range invalidations (`munmap`, `MADV_DONTNEED`, `MADV_FREE`).
+        // Virtual address relocation (`mremap`).
+        kMovePageTablesEntry,  // move_page_tables entry: mremap range & target.
+        kMovePageTablesReturn, // move_page_tables return: actual moved byte span.
+
+        // Mapping invalidations (explicit unmaps and reclaim/swap-out evictions).
         kUnmapPageRange,
         kUnmapVmas,
         kZapVmaRange,
+        kTryToUnmapEntry,  // try_to_unmap_one entry: candidate reclaim folio.
+        kTryToUnmapReturn, // try_to_unmap_one return: evicts unmapped folio.
 
         // 2 MB transparent hugepage PMD splits (`__split_huge_pmd`).
         kSplitHugePmd,
@@ -97,7 +104,7 @@ public:
     static void
     check_all_hooks(v2p_btf_checker_t &btf, v2p_kernel_plan_t &plan);
 
-    // Clears all in-flight per-thread fault, PMD, and THP collapse state.
+    // Clears all in-flight per-thread fault, PMD, mremap, and reclaim state.
     void
     clear();
 
@@ -126,6 +133,22 @@ private:
         uint64_t paddr = 0;
     };
 
+    // Tracks `move_page_tables` entry -> return (`moved` gives actual relocated bytes
+    // in case `mremap` stops partway through `[old_addr, +len)`).
+    struct pending_move_t {
+        uint64_t old_addr = 0;
+        uint64_t new_addr = 0;
+        uint64_t len = 0;
+    };
+
+    // Tracks `try_to_unmap_one` entry -> return (`ret != 0` confirms reclaim succeeded).
+    struct pending_try_to_unmap_t {
+        uint64_t aligned_vaddr = 0;
+        uint64_t folio_paddr = 0;
+        uint32_t max_pages = 1;
+        uint32_t folio_pages = 1;
+    };
+
     void
     mark_fault_handled(pid_t tid);
     bool
@@ -136,6 +159,8 @@ private:
     std::unordered_map<pid_t, pending_pmd_t> pending_set_pmd_;
     // 2 MB-aligned fault/collapse address for legacy file-PMD rmap hooks lacking `vaddr`.
     std::unordered_map<pid_t, uint64_t> pending_collapse_vaddr_;
+    std::unordered_map<pid_t, pending_move_t> pending_moves_;
+    std::unordered_map<pid_t, pending_try_to_unmap_t> pending_try_to_unmap_;
 };
 
 } // namespace drmemtrace

@@ -111,8 +111,18 @@ public:
     void
     rebind_migrated_folio(uint64_t timestamp_us, uint64_t src_paddr, uint64_t dst_paddr,
                           uint32_t folio_pages);
+    // Moves mapped spans in `[old_addr, old_addr + moved_bytes)` to `new_addr`
+    // (`mremap`).
+    void
+    relocate_range(uint64_t timestamp_us, uint64_t old_addr, uint64_t new_addr,
+                   uint64_t moved_bytes);
     void
     unbind_range(uint64_t timestamp_us, uint64_t start_vaddr, uint64_t end_vaddr);
+    // Unmaps only sub-pages in `[start_vaddr, +max_pages)` still backed by
+    // `folio_paddr`.
+    void
+    unbind_folio_in_range(uint64_t timestamp_us, uint64_t start_vaddr, uint32_t max_pages,
+                          uint64_t folio_paddr, uint32_t folio_pages);
     void
     split_huge_pmd(uint64_t timestamp_us, uint64_t aligned_2m_va, bool is_anon);
 
@@ -155,7 +165,8 @@ private:
     update_span_reverse(uint64_t vaddr_start, const shadow_span_t &span, bool insert);
     void
     carve_range(uint64_t timestamp_us, uint64_t start_vaddr, uint64_t end_vaddr,
-                bool emit_unmap, bool preserve_huge);
+                uint64_t paddr_lo, uint64_t paddr_hi, bool emit_unmap,
+                bool preserve_huge);
     void
     bind_coalesced_slices(uint64_t timestamp_us,
                           const std::vector<rebound_slice_t> &slices);

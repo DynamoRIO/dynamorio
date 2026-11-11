@@ -76,6 +76,15 @@ constexpr uint64_t kPagemapPfnMask = (1ULL << 55) - 1;
 constexpr uint64_t kKpfThp = 1ULL << 22;
 constexpr uint64_t kKpfZeroPage = 1ULL << 24;
 
+// Saturating unsigned 64-bit addition used to guard virtual range end calculations.
+uint64_t
+sat_add(uint64_t base, uint64_t delta)
+{
+    return delta > (std::numeric_limits<uint64_t>::max)() - base
+        ? (std::numeric_limits<uint64_t>::max)()
+        : base + delta;
+}
+
 // Writes a 32-byte `v2p_record_t` entry to `out_fd`, retrying on `EINTR` or short writes
 // so fixed-stride binary records are never misaligned.
 void
@@ -628,16 +637,18 @@ v2p_tracker_t::update_span_reverse(uint64_t vaddr_start, const shadow_span_t &sp
     }
 }
 
-// Carves `[start_vaddr, end_vaddr)` out of `shadow_table_`, keeping `paddr_spans_`
-// synchronized and optionally emitting coalesced `V2P_RECORD_UNMAP` records.
+// Carves `[start_vaddr, end_vaddr)` (restricted to physical frames in `[paddr_lo,
+// paddr_hi)`) out of `shadow_table_`, keeping `paddr_spans_` synchronized and
+// optionally emitting coalesced `V2P_RECORD_UNMAP` records.
 void
 v2p_tracker_t::carve_range(uint64_t timestamp_us, uint64_t start_vaddr,
-                           uint64_t end_vaddr, bool emit_unmap, bool preserve_huge)
+                           uint64_t end_vaddr, uint64_t paddr_lo, uint64_t paddr_hi,
+                           bool emit_unmap, bool preserve_huge)
 {
     uint64_t run_start = 0;
     uint32_t run_pages = 0;
     shadow_table_.carve(
-        start_vaddr, end_vaddr, preserve_huge,
+        start_vaddr, end_vaddr, paddr_lo, paddr_hi, preserve_huge,
         [this](uint64_t va, const shadow_span_t &s, bool ins) {
             update_span_reverse(va, s, ins);
         },
@@ -685,8 +696,15 @@ v2p_tracker_t::bind_coalesced_slices(uint64_t timestamp_us,
         }
         bool keep_huge =
             s.is_huge_2m && count == kPagesPer2M && (s.vaddr & (kPageSize2M - 1)) == 0;
-        bind_pages(timestamp_us, s.vaddr, s.paddr, count, keep_huge,
-                   keep_huge && s.is_huge_zero);
+        if (s.is_huge_zero && !keep_huge) {
+            if (zero_pfn_ != 0) {
+                rebind_zero_ptes(timestamp_us, s.vaddr,
+                                 v2p_shadow_page_table_t::end_of(s.vaddr, count));
+            }
+        } else {
+            bind_pages(timestamp_us, s.vaddr, s.paddr, count, keep_huge,
+                       keep_huge && s.is_huge_zero);
+        }
         i = j;
     }
 }
@@ -732,7 +750,8 @@ v2p_tracker_t::bind_pages(uint64_t timestamp_us, uint64_t aligned_vaddr,
         }
     }
 
-    carve_range(timestamp_us, aligned_vaddr, end_va, /*emit_unmap=*/false,
+    carve_range(timestamp_us, aligned_vaddr, end_va, 0,
+                (std::numeric_limits<uint64_t>::max)(), /*emit_unmap=*/false,
                 /*preserve_huge=*/false);
     shadow_span_t span { aligned_paddr, page_count, is_huge_2m, is_huge_zero };
     shadow_table_.spans.emplace(aligned_vaddr, span);
@@ -788,6 +807,37 @@ v2p_tracker_t::rebind_migrated_folio(uint64_t timestamp_us, uint64_t src_paddr,
     bind_coalesced_slices(timestamp_us, slices);
 }
 
+// Moves mapped spans from `[old_addr, old_addr + moved_bytes)` to `new_addr` (`mremap`).
+void
+v2p_tracker_t::relocate_range(uint64_t timestamp_us, uint64_t old_addr, uint64_t new_addr,
+                              uint64_t moved_bytes)
+{
+    if (moved_bytes < kPageSize4K || old_addr == new_addr)
+        return;
+    uint64_t old_end = sat_add(old_addr, moved_bytes);
+
+    // Snapshot clipped slices from `[old_addr, old_end)` before unmapping old and
+    // destination ranges (which may overlap or replace existing destination mappings).
+    std::vector<rebound_slice_t> slices;
+    for (auto it = shadow_table_.find_overlapping(old_addr);
+         it != shadow_table_.spans.end() && it->first < old_end; ++it) {
+        uint64_t s_va = it->first;
+        uint64_t clip_va = std::max(s_va, old_addr);
+        uint64_t clip_end = std::min(
+            v2p_shadow_page_table_t::end_of(s_va, it->second.page_count), old_end);
+        slices.push_back({ new_addr + (clip_va - old_addr),
+                           it->second.paddr_base + (clip_va - s_va),
+                           static_cast<uint32_t>((clip_end - clip_va) / kPageSize4K),
+                           it->second.is_huge_2m, it->second.is_huge_zero });
+    }
+    if (slices.empty())
+        return;
+
+    unbind_range(timestamp_us, old_addr, old_end);
+    unbind_range(timestamp_us, new_addr, sat_add(new_addr, moved_bytes));
+    bind_coalesced_slices(timestamp_us, slices);
+}
+
 // Unmaps `[start_vaddr, end_vaddr)`, pre-splitting any partially unmapped 2 MB shared
 // huge zero page while preserving `is_huge_2m` on partial file-THP zaps until
 // `split_pmd`.
@@ -799,8 +849,24 @@ v2p_tracker_t::unbind_range(uint64_t timestamp_us, uint64_t start_vaddr,
         return;
     split_overlapping_huge_zero(timestamp_us, start_vaddr, end_vaddr,
                                 /*partial_only=*/true);
-    carve_range(timestamp_us, start_vaddr, end_vaddr, /*emit_unmap=*/true,
+    carve_range(timestamp_us, start_vaddr, end_vaddr, 0,
+                (std::numeric_limits<uint64_t>::max)(), /*emit_unmap=*/true,
                 /*preserve_huge=*/true);
+}
+
+// Unmaps only sub-pages in `[start_vaddr, +max_pages)` still backed by `folio_paddr`,
+// preserving any sub-pages that previously diverged via private Copy-on-Write.
+void
+v2p_tracker_t::unbind_folio_in_range(uint64_t timestamp_us, uint64_t start_vaddr,
+                                     uint32_t max_pages, uint64_t folio_paddr,
+                                     uint32_t folio_pages)
+{
+    if (max_pages == 0 || folio_pages == 0)
+        return;
+    carve_range(timestamp_us, start_vaddr,
+                v2p_shadow_page_table_t::end_of(start_vaddr, max_pages), folio_paddr,
+                folio_paddr + static_cast<uint64_t>(folio_pages) * kPageSize4K,
+                /*emit_unmap=*/true, /*preserve_huge=*/false);
 }
 
 // Handles `__split_huge_pmd` on `[aligned_2m_va, +2 MB)`:

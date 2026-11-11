@@ -108,6 +108,7 @@ probe_name_map()
         { "anon_new", event_type_t::kAnonRmapNew },
         { "anon_ptes", event_type_t::kAnonRmapPtes },
         { "anon_pmd", event_type_t::kAnonRmapPmd },
+        { "file_pte", event_type_t::kFilePte },
         { "set_pmd_in", event_type_t::kDoSetPmdEntry },
         { "set_pmd_out", event_type_t::kDoSetPmdReturn },
         { "fault_in", event_type_t::kHandleMmFaultEntry },
@@ -117,9 +118,13 @@ probe_name_map()
         { "file_rmap_pmd", event_type_t::kFileRmapPmd },
         { "collapse_out", event_type_t::kCollapseThpReturn },
         { "mig_ptes", event_type_t::kRemoveMigrationPtes },
+        { "move_pt_in", event_type_t::kMovePageTablesEntry },
+        { "move_pt_out", event_type_t::kMovePageTablesReturn },
         { "unmap_range", event_type_t::kUnmapPageRange },
         { "unmap_vmas", event_type_t::kUnmapVmas },
         { "unmap_zap", event_type_t::kZapVmaRange },
+        { "ttu_in", event_type_t::kTryToUnmapEntry },
+        { "ttu_out", event_type_t::kTryToUnmapReturn },
         { "split_pmd", event_type_t::kSplitHugePmd },
     };
     return kMap;
@@ -202,7 +207,22 @@ v2p_tracefs_hooks_t::check_all_hooks(v2p_btf_checker_t &btf, v2p_kernel_plan_t &
         }
     }
 
-    // 3. 2 MB file-backed and shared-memory (`tmpfs`/`shmem`) THP PMD installations:
+    // 3. 4 KB file page-cache PTE installations:
+    // The kernel calls `set_pte_range` (or `do_set_pte` / `alloc_set_pte` on older
+    // kernels) whenever it maps one or more page-cache pages into 4 KB PTEs, so we
+    // hook it to cover both single-page file demand faults and batched fault-around
+    // mappings.
+    btf.check_hook(
+        "set_pte_range/do_set_pte/alloc_set_pte",
+        { { "set_pte_range", "vm_fault*, *, page*, u32, u64", "file_pte",
+            std::string(kVmfMm) + " page=$arg3:x64 nr=$arg4:u32 vaddr=$arg5:x64" },
+          { "do_set_pte", "vm_fault*, page*, u64", "file_pte",
+            std::string(kVmfMm) + " page=$arg2:x64 vaddr=$arg3:x64" },
+          { "alloc_set_pte", "vm_fault*, page*", "file_pte", vmf_page_def("$arg2"), 2 },
+          { "alloc_set_pte", "vm_fault*, *, page*", "file_pte",
+            vmf_page_def("$arg3") } });
+
+    // 4. 2 MB file-backed and shared-memory (`tmpfs`/`shmem`) THP PMD installations:
     // The kernel calls `do_set_pmd` (or `folio_add_file_rmap_pmd` / `page_add_file_rmap`
     // when `do_set_pmd` is inlined) whenever it installs a 2 MB file or shmem PMD, so we
     // hook it (paired with `handle_mm_fault` and `collapse_pte_mapped_thp` for the 2 MB
@@ -237,7 +257,7 @@ v2p_tracefs_hooks_t::check_all_hooks(v2p_btf_checker_t &btf, v2p_kernel_plan_t &
     if (added_collapse && !file_pmd_ok)
         erase_probes(plan.probes, { "collapse_in", "collapse_out" });
 
-    // 4. Physical page migration:
+    // 5. Physical page migration:
     // The kernel calls `remove_migration_ptes` whenever it finishes copying a physical
     // folio to a new frame and rewrites PTEs to point to the destination, so we hook it
     // to cover physical page migrations across memory compaction, NUMA balancing,
@@ -245,7 +265,32 @@ v2p_tracefs_hooks_t::check_all_hooks(v2p_btf_checker_t &btf, v2p_kernel_plan_t &
     btf.check_hook("remove_migration_ptes", "folio|page*, folio|page*", "mig_ptes",
                    std::string("src=$arg1:x64 dst=$arg2:x64 ") + kFolioOrdArg1);
 
-    // 5. Explicit virtual range invalidation:
+    // 6. Virtual address relocation (`mremap`):
+    // The kernel calls `move_page_tables` whenever `mremap` moves PTEs/PMDs to a new
+    // virtual address without changing their physical frames, so we bracket it (using
+    // `pagetable_move_control` on Linux 6.13+ or the 5-arg signature on earlier
+    // kernels) and clamp to its `moved` return byte count.
+    v2p_probe_spec_t move_out("move_pt_out", "moved=$retval:u64", true);
+    btf.check_hook(
+        "move_page_tables",
+        { { "move_page_tables",
+            "pagetable_move_control*",
+            { { "move_pt_in",
+                "mm={vm_area_struct.vm_mm:mm_struct*}({pagetable_move_control.old:"
+                "vm_area_struct*}($arg1)):x64 "
+                "old_addr={pagetable_move_control.old_addr:u64}($arg1):x64 "
+                "new_addr={pagetable_move_control.new_addr:u64}($arg1):x64 "
+                "len={pagetable_move_control.len_in:u64}($arg1):u64" },
+              move_out },
+            1 },
+          { "move_page_tables",
+            "vm_area_struct*, u64, *, u64, u64",
+            { { "move_pt_in",
+                vma_mm("$arg1") +
+                    " old_addr=$arg2:x64 new_addr=$arg4:x64 len=$arg5:u64" },
+              move_out } } });
+
+    // 7. Explicit virtual range invalidation:
     // The kernel calls `unmap_page_range` (or `unmap_vmas` and `zap_vma_range_batched`
     // on Linux 6.12+ where `unmap_page_range` is inlined) whenever it tears down
     // virtual page-table entries for a range, so we hook it to cover explicit unmappings
@@ -263,7 +308,30 @@ v2p_tracefs_hooks_t::check_all_hooks(v2p_btf_checker_t &btf, v2p_kernel_plan_t &
                        std::string(kTlbMm) + "start=$arg3:x64 size=$arg4:u64");
     }
 
-    // 6. 2 MB transparent hugepage PMD split:
+    // 8. Asynchronous kernel reclaim and swap-out eviction:
+    // The kernel calls `try_to_unmap_one` whenever memory reclaim (`kswapd`, direct
+    // reclaim, `MADV_PAGEOUT`, or page-cache eviction) unmaps a folio from a VMA, so
+    // we bracket it to unmap pages when `ret != 0`. Pre-5.14 kernels shared
+    // `try_to_unmap_one` with migration and `munlock` before `try_to_migrate_one` was
+    // split out, so ignore calls carrying `TTU_MIGRATION | TTU_MUNLOCK` there.
+    std::string try_to_unmap_sig = "folio|page*, vm_area_struct*, u64";
+    std::string try_to_unmap_extra;
+    if (!btf.has_func("try_to_migrate_one")) {
+        uint64_t mig = 0x1, munlock = 0x2;
+        btf.find_enum_value("TTU_MIGRATION", mig);
+        btf.find_enum_value("TTU_MUNLOCK", munlock);
+        plan.ttu_ignore_arg4_mask = static_cast<uint32_t>(mig | munlock);
+        try_to_unmap_sig += ", *";
+        try_to_unmap_extra = " ttu_flags=$arg4:x64";
+    }
+    btf.check_hook(
+        "try_to_unmap_one", std::move(try_to_unmap_sig),
+        { { "ttu_in",
+            rmap_def("$arg1", "$arg2", "$arg3", kFolioOrdArg1) +
+                " vm_end={vm_area_struct.vm_end:u64}($arg2):x64" + try_to_unmap_extra },
+          { "ttu_out", "ret=$retval:u8", true, "ret != 0" } });
+
+    // 9. 2 MB transparent hugepage PMD split:
     // The kernel calls `__split_huge_pmd` whenever it breaks a 2 MB PMD mapping down
     // into 4 KB PTEs (or zaps a file/shmem PMD), so we hook it to cover in-place
     // anonymous 2 MB THP splits (`V2P_RECORD_SPLIT`) and file/shmem PMD invalidations
@@ -374,6 +442,8 @@ v2p_tracefs_hooks_t::clear()
     pending_faults_.clear();
     pending_set_pmd_.clear();
     pending_collapse_vaddr_.clear();
+    pending_moves_.clear();
+    pending_try_to_unmap_.clear();
 }
 
 void
@@ -414,6 +484,12 @@ v2p_tracefs_hooks_t::handle_event(const std::string &line, size_t event_pos, pid
     // 1. Anonymous reverse-mapping (`rmap`) page and 2 MB THP installations.
     case event_type_t::kAnonRmapPmd:
         return install_pages(trace_event, tracker, kPagesPer2M, /*is_huge_2m=*/true);
+    case event_type_t::kFilePte: {
+        if (trace_event.is_target_mm(tracker))
+            pending_collapse_vaddr_.erase(tid);
+        uint32_t nr = static_cast<uint32_t>(trace_event.extract_field_or("nr=", 1));
+        return install_pages(trace_event, tracker, nr, /*is_huge_2m=*/false);
+    }
     case event_type_t::kAnonRmapNew: {
         uint64_t comp = 0;
         uint32_t nr = trace_event.extract_field("comp=", comp)
@@ -549,7 +625,36 @@ v2p_tracefs_hooks_t::handle_event(const std::string &line, size_t event_pos, pid
         return true;
     }
 
-    // 4. Explicit virtual range invalidations (`unmap_range`, `unmap_vmas`, `unmap_zap`).
+    // 4. Virtual address relocation (`move_page_tables`): clamp to the actual `moved`
+    //    return byte count in case `mremap` stopped partway through `[old_addr, +len)`.
+    case event_type_t::kMovePageTablesEntry: {
+        uint64_t old_va = 0, new_va = 0, len = 0;
+        if (trace_event.is_target_mm(tracker) &&
+            trace_event.extract_field("old_addr=", old_va, 16) &&
+            trace_event.extract_field("new_addr=", new_va, 16) &&
+            trace_event.extract_field("len=", len) && old_va != new_va &&
+            len >= kPageSize4K) {
+            pending_moves_[tid] = { old_va, new_va, len };
+        }
+        return true;
+    }
+    case event_type_t::kMovePageTablesReturn: {
+        pending_move_t move;
+        uint64_t moved = 0;
+        if (pop_pending(pending_moves_, tid, move) &&
+            trace_event.extract_field("moved=", moved)) {
+            uint64_t bytes = std::min(moved, move.len) & ~(kPageSize4K - 1);
+            if (bytes >= kPageSize4K) {
+                tracker.relocate_range(trace_event.ts, move.old_addr & ~(kPageSize4K - 1),
+                                       move.new_addr & ~(kPageSize4K - 1), bytes);
+            }
+        }
+        return true;
+    }
+
+    // 5. Mapping invalidations: explicit virtual unmaps and `vm_end`-clamped reclaim
+    //    evictions (`try_to_unmap_one` unmaps only pages still backed by `folio_paddr`
+    //    so private Copy-on-Write pages in the same VMA are preserved).
     case event_type_t::kUnmapPageRange:
     case event_type_t::kUnmapVmas:
     case event_type_t::kZapVmaRange: {
@@ -560,8 +665,42 @@ v2p_tracefs_hooks_t::handle_event(const std::string &line, size_t event_pos, pid
         }
         return true;
     }
+    case event_type_t::kTryToUnmapEntry: {
+        pending_try_to_unmap_.erase(tid);
+        uint64_t vaddr = 0, folio_pa = 0, ttu_flags = 0, vm_end = 0;
+        if (!trace_event.is_target_mm(tracker) ||
+            !trace_event.extract_field("vaddr=", vaddr, 16) ||
+            !trace_event.extract_page_paddr(tracker, folio_pa) ||
+            (plan.ttu_ignore_arg4_mask != 0 &&
+             trace_event.extract_field("ttu_flags=", ttu_flags, 16) &&
+             (ttu_flags & plan.ttu_ignore_arg4_mask) != 0)) {
+            return true;
+        }
+        uint32_t nr = trace_event.extract_folio_pages(plan.pg_head_bit);
+        uint64_t aligned_va = vaddr & ~(kPageSize4K - 1);
+        uint32_t max_pages = nr;
+        if (trace_event.extract_field("vm_end=", vm_end, 16) && vm_end > 0) {
+            if (vm_end <= aligned_va)
+                return true;
+            max_pages = static_cast<uint32_t>(
+                std::min<uint64_t>(max_pages, (vm_end - aligned_va) / kPageSize4K));
+        }
+        pending_try_to_unmap_[tid] = { aligned_va, folio_pa, max_pages, nr };
+        return true;
+    }
+    case event_type_t::kTryToUnmapReturn: {
+        pending_try_to_unmap_t unmap;
+        uint64_t ret = 0;
+        if (pop_pending(pending_try_to_unmap_, tid, unmap) &&
+            trace_event.extract_field("ret=", ret) && ret != 0) {
+            tracker.unbind_folio_in_range(trace_event.ts, unmap.aligned_vaddr,
+                                          unmap.max_pages, unmap.folio_paddr,
+                                          unmap.folio_pages);
+        }
+        return true;
+    }
 
-    // 5. 2 MB PMD split (`split_pmd`): `vm_ops == 0` identifies anonymous VMAs.
+    // 6. 2 MB PMD split (`split_pmd`): `vm_ops == 0` identifies anonymous VMAs.
     case event_type_t::kSplitHugePmd: {
         uint64_t vm_ops = 0, vaddr = 0;
         if (trace_event.is_target_mm(tracker) &&
