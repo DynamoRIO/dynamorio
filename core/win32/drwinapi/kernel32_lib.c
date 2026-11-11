@@ -237,15 +237,26 @@ redirect_GetModuleFileNameW(HMODULE modbase, wchar_t *buf, DWORD bufcnt)
     acquire_recursive_lock(&privload_lock);
     mod = privload_lookup_by_base((app_pc)modbase);
     if (mod != NULL) {
-        cnt = (DWORD)strlen(mod->path);
-        if (cnt >= bufcnt) {
-            cnt = bufcnt;
+        // Calculate length of narrow string
+        size_t pathlen = strlen(mod->path);
+
+        // Check if buffer is large enough (need space for null terminator)
+        if (pathlen >= bufcnt) {
+            cnt = bufcnt - 1; // Leave room for null terminator
             set_last_error(ERROR_INSUFFICIENT_BUFFER);
+        } else {
+            cnt = (DWORD)pathlen;
         }
-        _snwprintf(buf, bufcnt, L"%s", mod->path);
-        buf[bufcnt - 1] = L'\0';
+
+        // Manually convert narrow string to wide string
+        for (uint32 i = 0; i < cnt; i++) {
+            buf[i] = (wchar_t)(unsigned char)mod->path[i];
+        }
+        buf[cnt] = L'\0'; // Null terminate
+
         LOG(GLOBAL, LOG_LOADER, 2, "%s: " PFX " => %s\n", __FUNCTION__, mod, mod->path);
     }
+
     release_recursive_lock(&privload_lock);
     if (mod == NULL) {
         /* XXX: should set more appropriate error code */
