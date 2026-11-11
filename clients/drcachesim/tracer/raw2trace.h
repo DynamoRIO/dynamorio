@@ -616,6 +616,12 @@ public:
     virtual std::string
     do_conversion();
 
+    void
+    set_v2p_file(const std::string &v2p_file)
+    {
+        v2p_file_ = v2p_file;
+    }
+
     static std::string
     check_thread_file(std::istream *f);
 
@@ -792,6 +798,12 @@ protected:
 
         bitset_hash_table_t<app_pc> encoding_emitted;
         app_pc last_encoding_emitted = nullptr;
+
+        // Per-shard state for replaying timestamped `v2p.bin` page-mapping records.
+        uint64_t v2p_time_us = 0;
+        size_t v2p_idx = 0;
+        std::unordered_map<uint64_t, uint64_t> v2p_pages;
+        std::unordered_map<uint64_t, uint64_t> v2p_emitted;
 
         schedule_file_t::per_shard_t sched_data;
 
@@ -1464,6 +1476,11 @@ private:
     // some syscall traces completely from the final trace where the PT trace could
     // not be converted.
     bool pt2ir_best_effort_ = false;
+
+    std::string
+    read_v2p_file();
+    std::string v2p_file_;
+    std::vector<v2p_record_t> v2p_records_;
 };
 
 } // namespace drmemtrace
