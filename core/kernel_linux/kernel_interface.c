@@ -607,21 +607,29 @@ static unsigned long
 query_kernel_page(unsigned long addr, unsigned int *prot)
 {
     *prot = 0;
-    pgd_t pgd = pgdp_get(pgd_offset(init_mm_ptr, addr));
+    pgd_t *pgdp = pgd_offset(init_mm_ptr, addr);
+    pgd_t pgd = pgdp_get(pgdp);
     if (pgd_none(pgd) || pgd_bad(pgd)) {
         return ALIGN_BACKWARD(addr, PGDIR_SIZE) + PGDIR_SIZE;
     }
 
-    p4d_t p4d = p4dp_get(p4d_offset(&pgd, addr));
+    /* Since Linux 6.9, an arm64 kernel built for 52-bit VA (LPA2) that runs on a CPU
+     * without LPA2 folds p4d (4K pages) or pud (16K pages) at runtime. A folded level's
+     * entry is located from the address of the entry above it, not from its contents,
+     * so pass the real table pointer rather than a local copy. pmd and pte are never
+     * folded at runtime, so reading them through copies below is fine.
+     */
+    p4d_t *p4dp = p4d_offset_lockless(pgdp, pgd, addr);
+    p4d_t p4d = p4dp_get(p4dp);
     if (p4d_none(p4d) || p4d_bad(p4d)) {
         return ALIGN_BACKWARD(addr, P4D_SIZE) + P4D_SIZE;
     }
 
-    pud_t pud = pudp_get(pud_offset(&p4d, addr));
+    pud_t pud = pudp_get(pud_offset_lockless(p4dp, p4d, addr));
     if (pud_none(pud)) {
         return ALIGN_BACKWARD(addr, PUD_SIZE) + PUD_SIZE;
     }
-    /* pud_bad() is also true for block mappings, so check pud_leaf() first. */
+    /* pud_bad() is also true for valid block mappings, so check pud_leaf() first. */
     if (pud_leaf(pud)) {
         *prot = pte_to_kernel_memprot(__pte(pud_val(pud)));
         return ALIGN_BACKWARD(addr, PUD_SIZE) + PUD_SIZE;
