@@ -573,6 +573,9 @@ struct v2p_shadow_page_table_t {
         // True while mapped by a single 2 MB THP PMD (so `__split_huge_pmd` ignores
         // ranges already mapped as 4 KB PTEs).
         bool is_huge_2m = false;
+        // True when backed by the kernel's shared 2 MB huge zero page (splitting
+        // switches PTEs to the 4 KB zero page rather than keeping 2 MB sub-frames).
+        bool is_huge_zero = false;
         // Caller-defined tag (`raw2trace` stores the last `MAP` record index here).
         uint64_t meta = 0;
     };
@@ -613,10 +616,12 @@ struct v2p_shadow_page_table_t {
     }
 
     // Carves out any portion of spans overlapping `[start_va, end_va)`, re-inserting
-    // surviving left/right remainders and notifying `on_carved` for `UNMAP` emission.
-    template <typename OnCarvedFn>
+    // surviving left/right remainders and notifying `on_span` (for physical-to-virtual
+    // reverse-index updates) and `on_carved` (for `UNMAP` emission).
+    template <typename OnSpanFn, typename OnCarvedFn>
     void
-    carve(uint64_t start_va, uint64_t end_va, bool preserve_huge, OnCarvedFn &&on_carved)
+    carve(uint64_t start_va, uint64_t end_va, bool preserve_huge, OnSpanFn &&on_span,
+          OnCarvedFn &&on_carved)
     {
         ++generation;
         for (auto it = find_overlapping(start_va);
@@ -628,14 +633,16 @@ struct v2p_shadow_page_table_t {
             // Erase the overlapped span and re-insert any surviving left/right slices.
             uint64_t m_lo = (std::max)(s_va, start_va);
             uint64_t m_hi = (std::min)(s_end, end_va);
+            on_span(s_va, s, false);
             it = spans.erase(it);
             const uint64_t rems[2][2] = { { s_va, m_lo }, { m_hi, s_end } };
             for (const auto &rem : rems) {
                 if (rem[0] < rem[1]) {
                     span_t r { s.paddr_base + (rem[0] - s_va),
                                static_cast<uint32_t>((rem[1] - rem[0]) / kPageSize4K),
-                               preserve_huge && s.is_huge_2m, s.meta };
+                               preserve_huge && s.is_huge_2m, false, s.meta };
                     spans.emplace(rem[0], r);
+                    on_span(rem[0], r, true);
                 }
             }
             on_carved(m_lo, m_hi);
@@ -650,10 +657,12 @@ struct v2p_shadow_page_table_t {
             (rec.type != V2P_RECORD_MAP && rec.type != V2P_RECORD_UNMAP)) {
             return;
         }
-        carve(rec.vaddr, end_of(rec.vaddr, rec.page_count), false,
-              [](uint64_t, uint64_t) {});
+        carve(
+            rec.vaddr, end_of(rec.vaddr, rec.page_count), false,
+            [](uint64_t, const span_t &, bool) {}, [](uint64_t, uint64_t) {});
         if (rec.type == V2P_RECORD_MAP) {
-            spans.emplace(rec.vaddr, span_t { rec.paddr, rec.page_count, false, meta });
+            spans.emplace(rec.vaddr,
+                          span_t { rec.paddr, rec.page_count, false, false, meta });
         }
     }
 };

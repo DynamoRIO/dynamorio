@@ -74,6 +74,7 @@ constexpr uint64_t kDrUtcToEpochMicros = 11644473600ULL * 1000000ULL;
 constexpr uint64_t kPagemapPresentBit = 1ULL << 63;
 constexpr uint64_t kPagemapPfnMask = (1ULL << 55) - 1;
 constexpr uint64_t kKpfThp = 1ULL << 22;
+constexpr uint64_t kKpfZeroPage = 1ULL << 24;
 
 // Writes a 32-byte `v2p_record_t` entry to `out_fd`, retrying on `EINTR` or short writes
 // so fixed-stride binary records are never misaligned.
@@ -122,6 +123,21 @@ lookup_pagemap_pfn(pid_t pid, uint64_t vaddr)
     return ok ? (entry & kPagemapPfnMask) : 0;
 }
 
+// Faults a temporary read-only anonymous page to discover the PFN of the kernel's
+// shared 4 KB zero page from `/proc/self/pagemap`.
+uint64_t
+calibrate_zero_pfn()
+{
+    void *page = mmap_temp_page(PROT_READ);
+    if (page == nullptr)
+        return 0;
+    volatile uint8_t sink = *static_cast<volatile const uint8_t *>(page);
+    (void)sink;
+    uint64_t zero_pfn = lookup_pagemap_pfn(getpid(), reinterpret_cast<uint64_t>(page));
+    syscall(SYS_munmap, page, kPageSize4K);
+    return zero_pfn;
+}
+
 } // namespace
 
 /* -------------------------------------------------------------------------
@@ -134,9 +150,10 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
     stop();
     target_pid_ = pid;
     vmemmap_base_ = 0;
+    zero_pfn_ = 0;
     tracked_mm_ = 0;
     pipe_remainder_.clear();
-    shadow_table_ = {};
+    clear_shadow_tables();
     hooks_.clear();
 
     // Require 4 KB base pages and at least Linux version 5.4.
@@ -169,6 +186,7 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
     out_fd_ = open(output_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
     if (out_fd_ < 0)
         return false;
+    zero_pfn_ = calibrate_zero_pfn();
 
     auto fail = [this]() {
         cleanup_kernel_tracing();
@@ -450,14 +468,16 @@ v2p_tracker_t::snapshot_pagemap()
                 is_2m_contig = (entries[i] & kPagemapPresentBit) != 0 &&
                     (entries[i] & kPagemapPfnMask) == base_pfn + i;
             }
-            if (is_2m_contig && vma.has_pmd_thp && kpf_fd >= 0 &&
+            if (is_2m_contig && kpf_fd >= 0 &&
                 pread(kpf_fd, &kpf, sizeof(kpf),
-                      static_cast<off_t>(base_pfn * sizeof(uint64_t))) == sizeof(kpf) &&
-                (kpf & kKpfThp) != 0) {
-                bind_pages(0, va, base_pfn * kPageSize4K, kPagesPer2M,
-                           /*is_huge_2m=*/true);
-                va += kPageSize2M;
-                continue;
+                      static_cast<off_t>(base_pfn * sizeof(uint64_t))) == sizeof(kpf)) {
+                bool is_huge_zero = (kpf & kKpfZeroPage) != 0;
+                if ((kpf & kKpfThp) != 0 && (is_huge_zero || vma.has_pmd_thp)) {
+                    bind_pages(0, va, base_pfn * kPageSize4K, kPagesPer2M,
+                               /*is_huge_2m=*/true, is_huge_zero);
+                    va += kPageSize2M;
+                    continue;
+                }
             }
 
             // Otherwise bind each resident 4 KB page in the batch individually.
@@ -517,19 +537,99 @@ v2p_tracker_t::is_tracked_mm(uint64_t mm, pid_t tid)
     return mm == tracked_mm_;
 }
 
-// Unmaps `[start_vaddr, end_vaddr)` and emits coalesced `V2P_RECORD_UNMAP` records.
+// Resets both the virtual shadow page table and the physical-to-virtual reverse index.
 void
-v2p_tracker_t::unbind_range(uint64_t timestamp_us, uint64_t start_vaddr,
-                            uint64_t end_vaddr)
+v2p_tracker_t::clear_shadow_tables()
 {
-    if (end_vaddr > start_vaddr) {
-        carve_range(timestamp_us, start_vaddr, end_vaddr, /*emit_unmap=*/true,
-                    /*preserve_huge=*/true);
+    shadow_table_ = {};
+    paddr_spans_[0].clear();
+    paddr_spans_[1].clear();
+    max_multi_span_bytes_ = 0;
+}
+
+// Clears `is_huge_2m` across `[aligned_2m_va, +2 MB)` once a PMD is split into 4 KB
+// PTEs so a later `__split_huge_pmd` call on that range does not treat 4 KB pages as a
+// 2 MB PMD.
+void
+v2p_tracker_t::clear_huge_2m_window(uint64_t aligned_2m_va)
+{
+    for (auto it = shadow_table_.find_overlapping(aligned_2m_va);
+         it != shadow_table_.spans.end() && it->first < aligned_2m_va + kPageSize2M;
+         ++it) {
+        it->second.is_huge_2m = false;
     }
 }
 
-// Carves `[start_vaddr, end_vaddr)` out of `shadow_table_`, optionally emitting
-// coalesced `V2P_RECORD_UNMAP` records for all previously mapped sub-ranges.
+// Rebinds `[start_va, end_va)` to individual 4 KB `zero_pfn_` PTEs (or unmaps if
+// `zero_pfn_` is unknown) after a 2 MB shared huge zero page is split.
+void
+v2p_tracker_t::rebind_zero_ptes(uint64_t timestamp_us, uint64_t start_va, uint64_t end_va)
+{
+    if (zero_pfn_ == 0) {
+        unbind_range(timestamp_us, start_va, end_va);
+        return;
+    }
+    uint64_t zero_pa = zero_pfn_ * kPageSize4K;
+    for (uint64_t va = start_va; va < end_va; va += kPageSize4K)
+        bind_pages(timestamp_us, va, zero_pa, 1, /*is_huge_2m=*/false);
+}
+
+// When a 4 KB write fault or partial unmap touches part of a 2 MB shared huge zero
+// page, the kernel splits that 2 MB PMD and points the remaining 4 KB PTEs at the 4 KB
+// shared zero page (not at 4 KB sub-frames of the 2 MB zero page); apply that split in
+// `shadow_table_` before updating `[lo, hi)`.
+void
+v2p_tracker_t::split_overlapping_huge_zero(uint64_t timestamp_us, uint64_t lo,
+                                           uint64_t hi, bool partial_only)
+{
+    for (;;) {
+        uint64_t hzero_base_2m = ~0ULL;
+        for (auto it = shadow_table_.find_overlapping(lo);
+             it != shadow_table_.spans.end() && it->first < hi; ++it) {
+            if (it->second.is_huge_2m && it->second.is_huge_zero) {
+                uint64_t base_2m = it->first & ~(kPageSize2M - 1);
+                if (!partial_only || lo > base_2m || hi < base_2m + kPageSize2M) {
+                    hzero_base_2m = base_2m;
+                    break;
+                }
+            }
+        }
+        if (hzero_base_2m == ~0ULL)
+            break;
+        split_huge_pmd(timestamp_us, hzero_base_2m, /*is_anon=*/true);
+    }
+}
+
+// Updates the in-memory `paddr_base -> vaddr_start` map (`paddr_spans_`) used by
+// `rebind_migrated_folio` to locate virtual pages backed by a migrated physical frame.
+// Shared zero pages are excluded because the kernel never migrates them.
+void
+v2p_tracker_t::update_span_reverse(uint64_t vaddr_start, const shadow_span_t &span,
+                                   bool insert)
+{
+    if (span.page_count == 0 || span.is_huge_zero ||
+        (span.page_count == 1 && zero_pfn_ != 0 &&
+         span.paddr_base == zero_pfn_ * kPageSize4K)) {
+        return;
+    }
+    // Split single-page (`bucket = 0`) and multi-page (`bucket = 1`) spans so multi-page
+    // spans do not widen `lower_bound` lookback on 4 KB page migrations.
+    size_t bucket = span.page_count > 1 ? 1 : 0;
+    paddr_ref_t ref { span.paddr_base, vaddr_start };
+    if (insert) {
+        paddr_spans_[bucket].insert(ref);
+        if (bucket == 1) {
+            max_multi_span_bytes_ =
+                std::max(max_multi_span_bytes_,
+                         static_cast<uint64_t>(span.page_count) * kPageSize4K);
+        }
+    } else {
+        paddr_spans_[bucket].erase(ref);
+    }
+}
+
+// Carves `[start_vaddr, end_vaddr)` out of `shadow_table_`, keeping `paddr_spans_`
+// synchronized and optionally emitting coalesced `V2P_RECORD_UNMAP` records.
 void
 v2p_tracker_t::carve_range(uint64_t timestamp_us, uint64_t start_vaddr,
                            uint64_t end_vaddr, bool emit_unmap, bool preserve_huge)
@@ -538,6 +638,9 @@ v2p_tracker_t::carve_range(uint64_t timestamp_us, uint64_t start_vaddr,
     uint32_t run_pages = 0;
     shadow_table_.carve(
         start_vaddr, end_vaddr, preserve_huge,
+        [this](uint64_t va, const shadow_span_t &s, bool ins) {
+            update_span_reverse(va, s, ins);
+        },
         // Coalesce contiguous carved virtual ranges into a single `UNMAP` record.
         [&](uint64_t m_lo, uint64_t m_hi) {
             if (!emit_unmap)
@@ -560,11 +663,40 @@ v2p_tracker_t::carve_range(uint64_t timestamp_us, uint64_t start_vaddr,
         write_record(out_fd_, timestamp_us, run_start, 0, run_pages, V2P_RECORD_UNMAP);
 }
 
+// Merges adjacent `(vaddr, paddr)` slices that remain contiguous in both virtual and
+// physical memory so migrating a multi-page range emits a single `V2P_RECORD_MAP`
+// record rather than one record per 4 KB page.
+void
+v2p_tracker_t::bind_coalesced_slices(uint64_t timestamp_us,
+                                     const std::vector<rebound_slice_t> &slices)
+{
+    for (size_t i = 0; i < slices.size();) {
+        const rebound_slice_t &s = slices[i];
+        uint32_t count = s.page_count;
+        size_t j = i + 1;
+        // Merge runs that are contiguous in both virtual and physical space.
+        while (j < slices.size() &&
+               slices[j].page_count <= (std::numeric_limits<uint32_t>::max)() - count &&
+               slices[j].vaddr == s.vaddr + static_cast<uint64_t>(count) * kPageSize4K &&
+               slices[j].paddr == s.paddr + static_cast<uint64_t>(count) * kPageSize4K &&
+               slices[j].is_huge_2m == s.is_huge_2m &&
+               slices[j].is_huge_zero == s.is_huge_zero) {
+            count += slices[j++].page_count;
+        }
+        bool keep_huge =
+            s.is_huge_2m && count == kPagesPer2M && (s.vaddr & (kPageSize2M - 1)) == 0;
+        bind_pages(timestamp_us, s.vaddr, s.paddr, count, keep_huge,
+                   keep_huge && s.is_huge_zero);
+        i = j;
+    }
+}
+
 // Installs `[aligned_vaddr, +page_count * 4 KB) -> aligned_paddr` in `shadow_table_`
-// and writes a `V2P_RECORD_MAP` record whenever the mapping changed.
+// and the physical reverse index, emitting a `V2P_RECORD_MAP` if the mapping changed.
 void
 v2p_tracker_t::bind_pages(uint64_t timestamp_us, uint64_t aligned_vaddr,
-                          uint64_t aligned_paddr, uint32_t page_count, bool is_huge_2m)
+                          uint64_t aligned_paddr, uint32_t page_count, bool is_huge_2m,
+                          bool is_huge_zero)
 {
     if (page_count == 0)
         return;
@@ -578,7 +710,8 @@ v2p_tracker_t::bind_pages(uint64_t timestamp_us, uint64_t aligned_vaddr,
          ++it) {
         if (it->second.paddr_base + (covered - it->first) !=
                 aligned_paddr + (covered - aligned_vaddr) ||
-            it->second.is_huge_2m != is_huge_2m) {
+            it->second.is_huge_2m != is_huge_2m ||
+            it->second.is_huge_zero != is_huge_zero) {
             break;
         }
         covered = std::min(
@@ -587,62 +720,141 @@ v2p_tracker_t::bind_pages(uint64_t timestamp_us, uint64_t aligned_vaddr,
     if (covered == end_va)
         return;
 
-    // A 4 KB mapping inside a 2 MB window means that PMD is now split into 4 KB PTEs.
+    // Overwriting part of a 2 MB PMD with 4 KB PTEs first splits any shared huge-zero
+    // PMD into 4 KB `zero_pfn_` PTEs and clears `is_huge_2m` across that 2 MB window.
     if (!is_huge_2m) {
-        for (auto it = shadow_table_.find_overlapping(aligned_vaddr & ~(kPageSize2M - 1));
-             it != shadow_table_.spans.end() &&
-             it->first < ((end_va + kPageSize2M - 1) & ~(kPageSize2M - 1));
-             ++it) {
-            it->second.is_huge_2m = false;
+        split_overlapping_huge_zero(timestamp_us, aligned_vaddr, end_va,
+                                    /*partial_only=*/false);
+        for (auto it = shadow_table_.find_overlapping(aligned_vaddr);
+             it != shadow_table_.spans.end() && it->first < end_va; ++it) {
+            if (it->second.is_huge_2m)
+                clear_huge_2m_window(it->first & ~(kPageSize2M - 1));
         }
     }
 
     carve_range(timestamp_us, aligned_vaddr, end_va, /*emit_unmap=*/false,
                 /*preserve_huge=*/false);
-    shadow_table_.spans.emplace(
-        aligned_vaddr,
-        v2p_shadow_page_table_t::span_t { aligned_paddr, page_count, is_huge_2m });
+    shadow_span_t span { aligned_paddr, page_count, is_huge_2m, is_huge_zero };
+    shadow_table_.spans.emplace(aligned_vaddr, span);
+    update_span_reverse(aligned_vaddr, span, /*insert=*/true);
     write_record(out_fd_, timestamp_us, aligned_vaddr, aligned_paddr, page_count,
                  V2P_RECORD_MAP);
 }
 
+// Rebinds every virtual span overlapping `[src_paddr, src_paddr + folio_pages * 4 KB)`
+// to `dst_paddr` at the same relative folio offset.
+void
+v2p_tracker_t::rebind_migrated_folio(uint64_t timestamp_us, uint64_t src_paddr,
+                                     uint64_t dst_paddr, uint32_t folio_pages)
+{
+    if (folio_pages == 0 || src_paddr == dst_paddr)
+        return;
+    uint64_t src_end = src_paddr + static_cast<uint64_t>(folio_pages) * kPageSize4K;
+    const uint64_t max_bytes[2] = { 0, max_multi_span_bytes_ };
+    std::vector<rebound_slice_t> slices;
+
+    // Query both physical reverse-index buckets (single-page `b=0` and multi-page `b=1`
+    // bounded by `max_multi_span_bytes_`) so system-wide migration probes run in O(log
+    // N).
+    for (size_t b = 0; b < 2; ++b) {
+        if (paddr_spans_[b].empty())
+            continue;
+        uint64_t min_pa = src_paddr > max_bytes[b] ? src_paddr - max_bytes[b] : 0;
+        for (auto it = paddr_spans_[b].lower_bound({ min_pa, 0 });
+             it != paddr_spans_[b].end() && it->first < src_end; ++it) {
+            auto sit = shadow_table_.spans.find(it->second);
+            if (sit == shadow_table_.spans.end() || sit->second.paddr_base != it->first)
+                continue;
+            uint64_t s_pa_end =
+                it->first + static_cast<uint64_t>(sit->second.page_count) * kPageSize4K;
+            if (s_pa_end <= src_paddr)
+                continue;
+            uint64_t ov_pa_lo = std::max(it->first, src_paddr);
+            uint64_t ov_pa_hi = std::min(s_pa_end, src_end);
+            slices.push_back({ it->second + (ov_pa_lo - it->first),
+                               dst_paddr + (ov_pa_lo - src_paddr),
+                               static_cast<uint32_t>((ov_pa_hi - ov_pa_lo) / kPageSize4K),
+                               sit->second.is_huge_2m, false });
+        }
+    }
+    if (slices.empty())
+        return;
+
+    // Sort translated slices by virtual address so adjacent PTEs coalesce into one `MAP`.
+    std::sort(slices.begin(), slices.end(),
+              [](const rebound_slice_t &a, const rebound_slice_t &b) {
+                  return a.vaddr < b.vaddr;
+              });
+    bind_coalesced_slices(timestamp_us, slices);
+}
+
+// Unmaps `[start_vaddr, end_vaddr)`, pre-splitting any partially unmapped 2 MB shared
+// huge zero page while preserving `is_huge_2m` on partial file-THP zaps until
+// `split_pmd`.
+void
+v2p_tracker_t::unbind_range(uint64_t timestamp_us, uint64_t start_vaddr,
+                            uint64_t end_vaddr)
+{
+    if (end_vaddr <= start_vaddr)
+        return;
+    split_overlapping_huge_zero(timestamp_us, start_vaddr, end_vaddr,
+                                /*partial_only=*/true);
+    carve_range(timestamp_us, start_vaddr, end_vaddr, /*emit_unmap=*/true,
+                /*preserve_huge=*/true);
+}
+
 // Handles `__split_huge_pmd` on `[aligned_2m_va, +2 MB)`:
-// - Anonymous 2 MB THP: physical frames stay in place at 4 KB PTE granularity
-//   (`V2P_RECORD_SPLIT`).
-// - File/shmem 2 MB THP (`!is_anon`): `__split_huge_pmd_locked` clears the PMD without
-//   installing 4 KB PTEs, so unmap the 2 MB range (`V2P_RECORD_UNMAP`).
+// - Shared 2 MB huge zero PMD: rebinds surviving PTEs to `zero_pfn_`.
+// - Anonymous 2 MB THP: converts in place to 4 KB granularity (`V2P_RECORD_SPLIT`).
+// - File/shmem 2 MB THP (`!is_anon`): zaps the PMD (`V2P_RECORD_UNMAP`).
 void
 v2p_tracker_t::split_huge_pmd(uint64_t timestamp_us, uint64_t aligned_2m_va, bool is_anon)
 {
     uint64_t end_2m = aligned_2m_va + kPageSize2M;
-    uint64_t base_pa = 0;
-    size_t huge_spans = 0;
-    bool full_2m = false;
+    std::vector<std::pair<uint64_t, uint64_t>> huge_ranges;
+    uint64_t base_paddr = 0;
+    bool any_huge_zero = false;
     for (auto it = shadow_table_.find_overlapping(aligned_2m_va);
          it != shadow_table_.spans.end() && it->first < end_2m; ++it) {
         if (!it->second.is_huge_2m)
             continue;
-        if (huge_spans++ == 0) {
-            base_pa = it->second.paddr_base + (aligned_2m_va - it->first);
-            full_2m = it->first == aligned_2m_va &&
-                v2p_shadow_page_table_t::end_of(it->first, it->second.page_count) ==
-                    end_2m;
-        }
-        if (is_anon)
-            it->second.is_huge_2m = false;
+        uint64_t lo = std::max(it->first, aligned_2m_va);
+        uint64_t hi = std::min(
+            v2p_shadow_page_table_t::end_of(it->first, it->second.page_count), end_2m);
+        if (huge_ranges.empty())
+            base_paddr = it->second.paddr_base + (aligned_2m_va - it->first);
+        any_huge_zero = any_huge_zero || it->second.is_huge_zero;
+        huge_ranges.push_back({ lo, hi });
     }
-    if (huge_spans == 0)
+    if (huge_ranges.empty())
         return;
 
+    // 1. Shared 2 MB huge zero PMD: Linux populates 512 4 KB `my_zero_pfn` PTEs.
+    if (any_huge_zero) {
+        clear_huge_2m_window(aligned_2m_va);
+        if (zero_pfn_ != 0) {
+            for (const auto &rng : huge_ranges)
+                rebind_zero_ptes(timestamp_us, rng.first, rng.second);
+        } else {
+            unbind_range(timestamp_us, aligned_2m_va, end_2m);
+        }
+        return;
+    }
+
+    // 2. Anonymous 2 MB THP: physical frames stay in place at 4 KB PTE granularity.
     if (is_anon) {
-        if (huge_spans == 1 && full_2m) {
-            write_record(out_fd_, timestamp_us, aligned_2m_va, base_pa, kPagesPer2M,
+        clear_huge_2m_window(aligned_2m_va);
+        if (huge_ranges.size() == 1 && huge_ranges[0].first == aligned_2m_va &&
+            huge_ranges[0].second == end_2m) {
+            write_record(out_fd_, timestamp_us, aligned_2m_va, base_paddr, kPagesPer2M,
                          V2P_RECORD_SPLIT);
         }
-    } else {
-        carve_range(timestamp_us, aligned_2m_va, end_2m, /*emit_unmap=*/true,
-                    /*preserve_huge=*/true);
+        return;
     }
+
+    // 3. File/shmem 2 MB THP: `__split_huge_pmd_locked` clears the PMD without
+    // installing PTEs (subsequent accesses fault 4 KB pages back in on demand).
+    unbind_range(timestamp_us, aligned_2m_va, end_2m);
 }
 
 // Sums ring-buffer `overrun:` counts across `per_cpu/cpu*/stats` in the instance.

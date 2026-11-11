@@ -300,6 +300,9 @@ v2p_btf_checker_t::parse_and_check_base(const std::string &raw)
     else
         plan_.pg_head_bit = static_cast<uint32_t>(enum_val);
 
+    if (find_enum_value("FAULT_FLAG_WRITE", enum_val) && enum_val != 0)
+        plan_.fault_flag_write = static_cast<uint32_t>(enum_val);
+
     if (find_struct_field("folio", "_folio_order", off, ftype) &&
         is_int_of_size(ftype, 1)) {
         plan_.folio_order_byte_off = off;

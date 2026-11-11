@@ -64,19 +64,25 @@ public:
     enum class event_type_t {
         kUnknown,
 
+        // Shared zero-page read-fault detection (`handle_mm_fault` entry/return):
+        kHandleMmFaultEntry,  // handle_mm_fault entry: fault vaddr & R/W flags.
+        kGetHugeZeroReturn,   // mm_get_huge_zero_folio/page return: 2M zero folio.
+        kHandleMmFaultReturn, // handle_mm_fault return: commits silent zero page.
+
         // Anonymous reverse-mapping (`rmap`) page and 2 MB THP installations:
         kAnonRmapNew,  // folio/page_add_new_anon_rmap: new anon folio/page.
         kAnonRmapPtes, // folio_add_anon_rmap_ptes / page_add_anon_rmap.
         kAnonRmapPmd,  // folio_add_anon_rmap_pmd: 2 MB anonymous THP PMD.
 
         // 2 MB file/shmem THP PMD installations (`do_set_pmd` or file-rmap fallback):
-        kDoSetPmdEntry,       // do_set_pmd entry: candidate 2 MB file/shmem PMD.
-        kDoSetPmdReturn,      // do_set_pmd return (ret == 0): commits 2M file PMD.
-        kHandleMmFaultEntry,  // handle_mm_fault entry: saves 2M file fault vaddr.
-        kHandleMmFaultReturn, // handle_mm_fault return: clears saved file fault vaddr.
-        kCollapseThpEntry,    // collapse_pte_mapped_thp entry: saves 2 MB vaddr.
-        kFileRmapPmd,         // folio_add_file_rmap_pmd / page_add_file_rmap.
-        kCollapseThpReturn,   // collapse_pte_mapped_thp return: clears 2M vaddr.
+        kDoSetPmdEntry,     // do_set_pmd entry: candidate 2 MB file/shmem PMD.
+        kDoSetPmdReturn,    // do_set_pmd return (ret == 0): commits 2M file PMD.
+        kCollapseThpEntry,  // collapse_pte_mapped_thp entry: saves 2 MB vaddr.
+        kFileRmapPmd,       // folio_add_file_rmap_pmd / page_add_file_rmap.
+        kCollapseThpReturn, // collapse_pte_mapped_thp return: clears 2M vaddr.
+
+        // Physical page migration (`remove_migration_ptes`).
+        kRemoveMigrationPtes,
 
         // Explicit virtual range invalidations (`munmap`, `MADV_DONTNEED`, `MADV_FREE`).
         kUnmapPageRange,
@@ -91,7 +97,7 @@ public:
     static void
     check_all_hooks(v2p_btf_checker_t &btf, v2p_kernel_plan_t &plan);
 
-    // Clears all in-flight per-thread PMD and THP collapse state.
+    // Clears all in-flight per-thread fault, PMD, and THP collapse state.
     void
     clear();
 
@@ -105,16 +111,28 @@ public:
 private:
     struct trace_event_t;
 
+    // Tracks `handle_mm_fault` entry -> return on anonymous VMAs (`vm_ops == nullptr`)
+    // so an unhandled read fault (`ret == 0`) identifies silent zero-page installs.
+    struct pending_fault_t {
+        uint64_t vaddr = 0;
+        uint64_t huge_zero_ptr = 0;
+        bool is_write = false;
+        bool handled = false;
+    };
+
     // Tracks `do_set_pmd` entry -> return (`ret == 0` commits a 2 MB file/shmem PMD).
     struct pending_pmd_t {
         uint64_t vaddr = 0;
         uint64_t paddr = 0;
     };
 
+    void
+    mark_fault_handled(pid_t tid);
     bool
     install_pages(const trace_event_t &trace_event, v2p_tracker_t &tracker, uint32_t nr,
                   bool is_huge_2m);
 
+    std::unordered_map<pid_t, pending_fault_t> pending_faults_;
     std::unordered_map<pid_t, pending_pmd_t> pending_set_pmd_;
     // 2 MB-aligned fault/collapse address for legacy file-PMD rmap hooks lacking `vaddr`.
     std::unordered_map<pid_t, uint64_t> pending_collapse_vaddr_;

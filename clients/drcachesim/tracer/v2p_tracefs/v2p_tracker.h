@@ -46,7 +46,9 @@
 #    include <sys/types.h>
 #    include <atomic>
 #    include <cstdint>
+#    include <set>
 #    include <string>
+#    include <utility>
 #    include <vector>
 
 #    include "dr_api.h"
@@ -83,6 +85,19 @@ public:
     stop();
 
     // Shadow page-table helpers called by `v2p_tracefs_hooks_t` from the reader thread.
+    uint64_t
+    zero_pfn() const
+    {
+        return zero_pfn_;
+    }
+    bool
+    has_shadow_mapping(uint64_t va, uint32_t pages = 1) const
+    {
+        auto it =
+            const_cast<v2p_shadow_page_table_t &>(shadow_table_).find_overlapping(va);
+        return pages > 0 && it != shadow_table_.spans.end() &&
+            it->first < v2p_shadow_page_table_t::end_of(va, pages);
+    }
     bool
     page_ptr_to_paddr(uint64_t page_ptr, uint64_t &paddr_out) const;
     // Returns whether `mm` belongs to `target_pid_` (learning `tracked_mm_` on
@@ -91,13 +106,29 @@ public:
     is_tracked_mm(uint64_t mm, pid_t tid);
     void
     bind_pages(uint64_t timestamp_us, uint64_t aligned_vaddr, uint64_t aligned_paddr,
-               uint32_t page_count, bool is_huge_2m = false);
+               uint32_t page_count, bool is_huge_2m = false, bool is_huge_zero = false);
+    // Rebinds all virtual spans overlapping `src_paddr` to `dst_paddr` after migration.
+    void
+    rebind_migrated_folio(uint64_t timestamp_us, uint64_t src_paddr, uint64_t dst_paddr,
+                          uint32_t folio_pages);
     void
     unbind_range(uint64_t timestamp_us, uint64_t start_vaddr, uint64_t end_vaddr);
     void
     split_huge_pmd(uint64_t timestamp_us, uint64_t aligned_2m_va, bool is_anon);
 
 private:
+    using shadow_span_t = v2p_shadow_page_table_t::span_t;
+    // `(paddr_base, vaddr_start)` entry in the physical-to-virtual reverse index.
+    using paddr_ref_t = std::pair<uint64_t, uint64_t>;
+
+    struct rebound_slice_t {
+        uint64_t vaddr = 0;
+        uint64_t paddr = 0;
+        uint32_t page_count = 0;
+        bool is_huge_2m = false;
+        bool is_huge_zero = false;
+    };
+
     bool
     set_event(const std::string &rel_dir, bool enable,
               const std::string *filter = nullptr) const;
@@ -112,8 +143,22 @@ private:
     void
     cleanup_kernel_tracing();
     void
+    clear_shadow_tables();
+    void
+    clear_huge_2m_window(uint64_t aligned_2m_va);
+    void
+    rebind_zero_ptes(uint64_t timestamp_us, uint64_t start_va, uint64_t end_va);
+    void
+    split_overlapping_huge_zero(uint64_t timestamp_us, uint64_t lo, uint64_t hi,
+                                bool partial_only);
+    void
+    update_span_reverse(uint64_t vaddr_start, const shadow_span_t &span, bool insert);
+    void
     carve_range(uint64_t timestamp_us, uint64_t start_vaddr, uint64_t end_vaddr,
                 bool emit_unmap, bool preserve_huge);
+    void
+    bind_coalesced_slices(uint64_t timestamp_us,
+                          const std::vector<rebound_slice_t> &slices);
 
     uint64_t
     read_total_overflows() const;
@@ -135,6 +180,8 @@ private:
     uint64_t clock_offset_us_ = 0;
     // KASLR-randomized base of the kernel's 64-byte `struct page` array (`vmemmap`).
     uint64_t vmemmap_base_ = 0;
+    // PFN of the kernel's shared 4 KB zero page.
+    uint64_t zero_pfn_ = 0;
     // Kernel `mm_struct *` pointer of `target_pid_`.
     uint64_t tracked_mm_ = 0;
     int out_fd_ = -1;
@@ -145,6 +192,14 @@ private:
     std::atomic<bool> thread_running_ { false };
     std::atomic<bool> thread_exited_ { false };
     v2p_shadow_page_table_t shadow_table_;
+    // In-memory physical-to-virtual map (`paddr_base -> vaddr_start`) mirroring
+    // `shadow_table_`. Needed because `remove_migration_ptes` reports only the old and
+    // new physical frames without a virtual address or process, so we look up migrated
+    // physical frames here to find and update any affected virtual pages in our process.
+    // Bucket 0 holds single 4 KB pages and bucket 1 holds multi-page spans (bounded by
+    // `max_multi_span_bytes_`) so large spans never widen 4 KB migration lookups.
+    std::set<paddr_ref_t> paddr_spans_[2];
+    uint64_t max_multi_span_bytes_ = 0;
     v2p_tracefs_hooks_t hooks_;
 };
 

@@ -111,10 +111,12 @@ probe_name_map()
         { "set_pmd_in", event_type_t::kDoSetPmdEntry },
         { "set_pmd_out", event_type_t::kDoSetPmdReturn },
         { "fault_in", event_type_t::kHandleMmFaultEntry },
+        { "huge_zero_out", event_type_t::kGetHugeZeroReturn },
         { "fault_out", event_type_t::kHandleMmFaultReturn },
         { "collapse_in", event_type_t::kCollapseThpEntry },
         { "file_rmap_pmd", event_type_t::kFileRmapPmd },
         { "collapse_out", event_type_t::kCollapseThpReturn },
+        { "mig_ptes", event_type_t::kRemoveMigrationPtes },
         { "unmap_range", event_type_t::kUnmapPageRange },
         { "unmap_vmas", event_type_t::kUnmapVmas },
         { "unmap_zap", event_type_t::kZapVmaRange },
@@ -141,7 +143,26 @@ pop_pending(Map &map, pid_t tid, Val &out)
 void
 v2p_tracefs_hooks_t::check_all_hooks(v2p_btf_checker_t &btf, v2p_kernel_plan_t &plan)
 {
-    // 1. Anonymous reverse-mapping (`rmap`) page and 2 MB THP installations:
+    // 1. Shared 4 KB and 2 MB zero-page read-fault installations:
+    // The kernel installs the shared 4 KB zero page or 2 MB huge zero folio during
+    // `handle_mm_fault` without calling any reverse-mapping function, so we bracket
+    // `handle_mm_fault` (and hook `mm_get_huge_zero_folio` / `mm_get_huge_zero_page`)
+    // to cover anonymous 4 KB and 2 MB zero-page read faults.
+    const bool fault_ok = btf.check_hook(
+        "handle_mm_fault", "vm_area_struct*, u64, u32",
+        { { "fault_in",
+            vma_mm("$arg1") +
+                " vm_ops={vm_area_struct.vm_ops:vm_operations_struct*}($arg1):x64 "
+                "vaddr=$arg2:x64 flags=$arg3:u32" },
+          { "fault_out", "ret=$retval:u32", true, "ret == 0" } });
+    v2p_probe_spec_t hz_probe("huge_zero_out", "ret=$retval:x64", true, "ret != 0");
+    btf.check_hook("mm_get_huge_zero_folio/page",
+                   { { "mm_get_huge_zero_folio", "mm_struct*", { hz_probe }, 1 },
+                     { "mm_get_huge_zero_page", "mm_struct*", { hz_probe }, 1 } });
+    if (!fault_ok)
+        erase_probes(plan.probes, { "huge_zero_out" });
+
+    // 2. Anonymous reverse-mapping (`rmap`) page and 2 MB THP installations:
     // - The kernel calls `folio_add_new_anon_rmap` (or `page_add_new_anon_rmap` on older
     //   kernels) whenever it maps a newly allocated anonymous page into a process, so we
     //   hook it to cover first-touch heap/stack/`MAP_ANONYMOUS` faults, Copy-on-Write
@@ -181,28 +202,18 @@ v2p_tracefs_hooks_t::check_all_hooks(v2p_btf_checker_t &btf, v2p_kernel_plan_t &
         }
     }
 
-    // 2. 2 MB file-backed and shared-memory (`tmpfs`/`shmem`) THP PMD installations:
+    // 3. 2 MB file-backed and shared-memory (`tmpfs`/`shmem`) THP PMD installations:
     // The kernel calls `do_set_pmd` (or `folio_add_file_rmap_pmd` / `page_add_file_rmap`
     // when `do_set_pmd` is inlined) whenever it installs a 2 MB file or shmem PMD, so we
     // hook it (paired with `handle_mm_fault` and `collapse_pte_mapped_thp` for the 2 MB
     // virtual address when `do_set_pmd` is inlined) to cover 2 MB file/shmem THP demand
     // faults and `khugepaged` / `MADV_COLLAPSE` file THP collapses.
-    bool added_fallback_ctx = false;
-    if (!btf.has_func("do_set_pmd")) {
-        added_fallback_ctx = btf.check_hook(
-            "handle_mm_fault", "vm_area_struct*, u64, u32",
-            { { "fault_in",
-                vma_mm("$arg1") +
-                    " vm_ops={vm_area_struct.vm_ops:vm_operations_struct*}($arg1):x64 "
-                    "vaddr=$arg2:x64" },
-              { "fault_out", "", true } });
-        if (btf.has_func("collapse_pte_mapped_thp")) {
-            added_fallback_ctx =
-                btf.check_hook("collapse_pte_mapped_thp", "mm_struct*, u64",
-                               { { "collapse_in", "mm=$arg1:x64 vaddr=$arg2:x64" },
-                                 { "collapse_out", "", true } }) ||
-                added_fallback_ctx;
-        }
+    bool added_collapse = false;
+    if (!btf.has_func("do_set_pmd") && btf.has_func("collapse_pte_mapped_thp")) {
+        added_collapse =
+            btf.check_hook("collapse_pte_mapped_thp", "mm_struct*, u64",
+                           { { "collapse_in", "mm=$arg1:x64 vaddr=$arg2:x64" },
+                             { "collapse_out", "", true } });
     }
     v2p_probe_spec_t pmd_out("set_pmd_out", "ret=$retval:u32", true, "ret == 0");
     const bool file_pmd_ok = btf.check_hook(
@@ -223,12 +234,18 @@ v2p_tracefs_hooks_t::check_all_hooks(v2p_btf_checker_t &btf, v2p_kernel_plan_t &
             "page=$arg1:x64 " + vma_mm("$arg2") + " comp=$arg3:u8", -1, "comp != 0" },
           { "page_add_file_rmap", "page*, u8", "file_rmap_pmd",
             "page=$arg1:x64 comp=$arg2:u8", -1, "comp != 0" } });
-    if (added_fallback_ctx && !file_pmd_ok) {
-        erase_probes(plan.probes,
-                     { "fault_in", "fault_out", "collapse_in", "collapse_out" });
-    }
+    if (added_collapse && !file_pmd_ok)
+        erase_probes(plan.probes, { "collapse_in", "collapse_out" });
 
-    // 3. Explicit virtual range invalidation:
+    // 4. Physical page migration:
+    // The kernel calls `remove_migration_ptes` whenever it finishes copying a physical
+    // folio to a new frame and rewrites PTEs to point to the destination, so we hook it
+    // to cover physical page migrations across memory compaction, NUMA balancing,
+    // `move_pages`, and memory tiering.
+    btf.check_hook("remove_migration_ptes", "folio|page*, folio|page*", "mig_ptes",
+                   std::string("src=$arg1:x64 dst=$arg2:x64 ") + kFolioOrdArg1);
+
+    // 5. Explicit virtual range invalidation:
     // The kernel calls `unmap_page_range` (or `unmap_vmas` and `zap_vma_range_batched`
     // on Linux 6.12+ where `unmap_page_range` is inlined) whenever it tears down
     // virtual page-table entries for a range, so we hook it to cover explicit unmappings
@@ -246,7 +263,7 @@ v2p_tracefs_hooks_t::check_all_hooks(v2p_btf_checker_t &btf, v2p_kernel_plan_t &
                        std::string(kTlbMm) + "start=$arg3:x64 size=$arg4:u64");
     }
 
-    // 4. 2 MB transparent hugepage PMD split:
+    // 6. 2 MB transparent hugepage PMD split:
     // The kernel calls `__split_huge_pmd` whenever it breaks a 2 MB PMD mapping down
     // into 4 KB PTEs (or zaps a file/shmem PMD), so we hook it to cover in-place
     // anonymous 2 MB THP splits (`V2P_RECORD_SPLIT`) and file/shmem PMD invalidations
@@ -354,11 +371,21 @@ struct v2p_tracefs_hooks_t::trace_event_t {
 void
 v2p_tracefs_hooks_t::clear()
 {
+    pending_faults_.clear();
     pending_set_pmd_.clear();
     pending_collapse_vaddr_.clear();
 }
 
-// Commits a single-event `(mm, vaddr, page)` PTE/PMD installation.
+void
+v2p_tracefs_hooks_t::mark_fault_handled(pid_t tid)
+{
+    auto it = pending_faults_.find(tid);
+    if (it != pending_faults_.end())
+        it->second.handled = true;
+}
+
+// Commits a single-event `(mm, vaddr, page)` PTE/PMD installation and marks any
+// enclosing `handle_mm_fault` on `trace_event.tid` as handled.
 bool
 v2p_tracefs_hooks_t::install_pages(const trace_event_t &trace_event,
                                    v2p_tracker_t &tracker, uint32_t nr, bool is_huge_2m)
@@ -369,6 +396,7 @@ v2p_tracefs_hooks_t::install_pages(const trace_event_t &trace_event,
         trace_event.extract_page_paddr(tracker, paddr)) {
         uint64_t mask = is_huge_2m ? (kPageSize2M - 1) : (kPageSize4K - 1);
         tracker.bind_pages(trace_event.ts, vaddr & ~mask, paddr & ~mask, nr, is_huge_2m);
+        mark_fault_handled(trace_event.tid);
     }
     return true;
 }
@@ -422,22 +450,67 @@ v2p_tracefs_hooks_t::handle_event(const std::string &line, size_t event_pos, pid
             trace_event.extract_field("ret=", ret) && ret == 0) {
             tracker.bind_pages(trace_event.ts, pmd.vaddr, pmd.paddr, kPagesPer2M,
                                /*is_huge_2m=*/true);
+            mark_fault_handled(tid);
         }
         return true;
     }
+    // Shared zero-page read faults (`vm_ops == 0` returning `ret == 0` without calling
+    // an rmap hook) and file-VMA fault context (`vm_ops != 0`).
     case event_type_t::kHandleMmFaultEntry: {
-        uint64_t vm_ops = 0, vaddr = 0;
-        if (trace_event.is_target_mm(tracker) &&
-            trace_event.extract_field("vm_ops=", vm_ops, 16) &&
-            trace_event.extract_field("vaddr=", vaddr, 16)) {
-            if (vm_ops != 0)
-                pending_collapse_vaddr_[tid] = vaddr & ~(kPageSize2M - 1);
-            else
-                pending_collapse_vaddr_.erase(tid);
+        uint64_t vm_ops = 0, vaddr = 0, flags = 0;
+        if (!trace_event.is_target_mm(tracker) ||
+            !trace_event.extract_field("vm_ops=", vm_ops, 16) ||
+            !trace_event.extract_field("vaddr=", vaddr, 16)) {
+            return true;
+        }
+        if (vm_ops == 0) {
+            pending_collapse_vaddr_.erase(tid);
+            if (trace_event.extract_field("flags=", flags)) {
+                pending_faults_[tid] = { vaddr, 0, (flags & plan.fault_flag_write) != 0,
+                                         false };
+            }
+        } else {
+            pending_faults_.erase(tid);
+            pending_collapse_vaddr_[tid] = vaddr & ~(kPageSize2M - 1);
         }
         return true;
     }
-    case event_type_t::kHandleMmFaultReturn:
+    case event_type_t::kGetHugeZeroReturn: {
+        auto it = pending_faults_.find(tid);
+        uint64_t ptr = 0;
+        if (it != pending_faults_.end() && trace_event.extract_field("ret=", ptr, 16) &&
+            ptr != 0) {
+            it->second.huge_zero_ptr = ptr;
+        }
+        return true;
+    }
+    case event_type_t::kHandleMmFaultReturn: {
+        pending_collapse_vaddr_.erase(tid);
+        pending_fault_t fault;
+        uint64_t ret = 1, paddr = 0;
+        if (!pop_pending(pending_faults_, tid, fault) ||
+            !trace_event.extract_field("ret=", ret) || ret != 0 || fault.is_write ||
+            fault.handled) {
+            return true;
+        }
+        if (fault.huge_zero_ptr != 0 &&
+            tracker.page_ptr_to_paddr(fault.huge_zero_ptr, paddr)) {
+            uint64_t aligned_2m = fault.vaddr & ~(kPageSize2M - 1);
+            if (!tracker.has_shadow_mapping(aligned_2m, kPagesPer2M)) {
+                tracker.bind_pages(trace_event.ts, aligned_2m, paddr & ~(kPageSize2M - 1),
+                                   kPagesPer2M, /*is_huge_2m=*/true,
+                                   /*is_huge_zero=*/true);
+            }
+        } else {
+            uint64_t vpage = fault.vaddr & ~(kPageSize4K - 1);
+            if (tracker.zero_pfn() != 0 && !tracker.has_shadow_mapping(vpage)) {
+                tracker.bind_pages(trace_event.ts, vpage,
+                                   tracker.zero_pfn() * kPageSize4K, 1,
+                                   /*is_huge_2m=*/false, /*is_huge_zero=*/false);
+            }
+        }
+        return true;
+    }
     case event_type_t::kCollapseThpReturn:
         pending_collapse_vaddr_.erase(tid);
         return true;
@@ -463,7 +536,20 @@ v2p_tracefs_hooks_t::handle_event(const std::string &line, size_t event_pos, pid
         return true;
     }
 
-    // 3. Explicit virtual range invalidations (`unmap_range`, `unmap_vmas`, `unmap_zap`).
+    // 3. Physical page migration (`remove_migration_ptes`): rebinds spans mapped to
+    // `src`.
+    case event_type_t::kRemoveMigrationPtes: {
+        uint64_t src_pa = 0, dst_pa = 0;
+        if (trace_event.extract_page_paddr(tracker, src_pa, "src=") &&
+            trace_event.extract_page_paddr(tracker, dst_pa, "dst=") && src_pa != dst_pa) {
+            tracker.rebind_migrated_folio(
+                trace_event.ts, src_pa, dst_pa,
+                trace_event.extract_folio_pages(plan.pg_head_bit));
+        }
+        return true;
+    }
+
+    // 4. Explicit virtual range invalidations (`unmap_range`, `unmap_vmas`, `unmap_zap`).
     case event_type_t::kUnmapPageRange:
     case event_type_t::kUnmapVmas:
     case event_type_t::kZapVmaRange: {
@@ -475,7 +561,7 @@ v2p_tracefs_hooks_t::handle_event(const std::string &line, size_t event_pos, pid
         return true;
     }
 
-    // 4. 2 MB PMD split (`split_pmd`): `vm_ops == 0` identifies anonymous VMAs.
+    // 5. 2 MB PMD split (`split_pmd`): `vm_ops == 0` identifies anonymous VMAs.
     case event_type_t::kSplitHugePmd: {
         uint64_t vm_ops = 0, vaddr = 0;
         if (trace_event.is_target_mm(tracker) &&
