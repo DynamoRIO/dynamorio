@@ -139,7 +139,6 @@ kernel_is_readable_without_fault(const void *addr, size_t size);
  * Stops at the first nonzero return value and returns it, and returns 0 if every call
  * succeeded. Each call runs in a kernel worker thread bound to that CPU.
  * This function sleeps and must be called from sleepable context.
- * The caller must hold cpus_read_lock() so the set of online CPUs remains unchanged.
  */
 int
 kernel_run_on_each_online_cpu(int (*fn)(void *), void *arg);
