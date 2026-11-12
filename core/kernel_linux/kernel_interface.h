@@ -76,6 +76,18 @@ kernel_get_online_processor_count(void);
 unsigned int
 kernel_get_timestamp_counter_khz(void);
 
+#ifdef CONFIG_ARM64
+/* Reports the smallest dcache and icache line sizes in bytes across all CPUs. */
+void
+kernel_get_cache_line_sizes(size_t *dcache_line_size, size_t *icache_line_size);
+
+/* Makes instructions written to [start, end) visible to instruction fetch on all
+ * online CPUs. Must be called with IRQs enabled.
+ */
+void
+kernel_flush_icache_range(void *start, void *end);
+#endif
+
 /* Reports the per-CPU buffer capacity and alignment in bytes. Both output pointers
  * must be non-NULL. Does not require preemption to be disabled.
  */
@@ -91,11 +103,13 @@ kernel_get_cpu_local_state_layout(size_t *size, size_t *alignment);
 void *
 kernel_get_cpu_local_state(void);
 
+#ifdef CONFIG_X86
 /* Returns the gs-relative displacement of the buffer returned by
  * kernel_get_cpu_local_state(). That is its raw __percpu address on x86-64 SMP.
  */
 int
 kernel_get_cpu_local_state_segment_offset(void);
+#endif
 
 size_t
 kernel_get_page_size(void);
@@ -121,7 +135,7 @@ kernel_get_module_text_end(void);
 void
 kernel_walk_module_regions(kernel_memory_region_callback_t callback, void *arg);
 
-/* Walks the present pages between the kernel image base and the end of the modules area,
+/* Walks the present pages in the kernel virtual address range that holds kernel code
  * excluding DR's own heap. Calls |callback| once for each maximal run of virtually
  * contiguous pages that have identical KERNEL_MEMPROT_* protection.
  */
@@ -161,6 +175,10 @@ kernel_query_time_seconds(void);
 
 unsigned long long
 kernel_query_time_nanos(void);
+
+/* Returns a random value from the kernel's CRNG. */
+unsigned int
+kernel_get_random_u32(void);
 
 __attribute__((format(__printf__, 1, 2))) void
 kernel_printk(const char *fmt, ...);

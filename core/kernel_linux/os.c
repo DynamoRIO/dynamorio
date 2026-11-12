@@ -160,15 +160,17 @@ d_r_os_init(void)
     }
 #ifdef X86
     /* Generated code accesses local state as gs:[disp32] off the kernel's per-CPU base.
-     * TODO i#8021: Move x86-specific TLS code to an arch-specific file when AArch64
-     * support starts.
+     * TODO i#8021: Move arch-specific TLS code to arch-specific files.
      */
     tls_local_state_seg_offs = kernel_get_cpu_local_state_segment_offset();
-#else
-    ASSERT_NOT_PORTED(false);
-#endif
     /* Ensures os_tls_offset() cannot overflow. */
     ASSERT(tls_local_state_seg_offs <= INT_MAX - (int)sizeof(local_state_extended_t));
+#elif defined(AARCH64)
+    /* AArch64 has no segment addressing, so offsets are from the local-state base. */
+    tls_local_state_seg_offs = 0;
+#else
+#    error "Unsupported architecture"
+#endif
     os_state_ready = true;
     DOCHECK(1, { check_tls_segment_mapping(); });
     DOCHECK(1, { check_safe_read(); });
@@ -176,6 +178,17 @@ d_r_os_init(void)
     VMVECTOR_ALLOC_VECTOR(d_r_rseq_areas, GLOBAL_DCONTEXT,
                           VECTOR_SHARED | VECTOR_NEVER_MERGE, rseq_areas);
 }
+
+#ifdef AARCH64
+/* Returns this CPU's TLS slot at tls_offs. Callers must keep preemption disabled. */
+static void **
+local_state_slot(int tls_offs)
+{
+    ASSERT(tls_offs >= 0 &&
+           (size_t)tls_offs <= sizeof(local_state_extended_t) - sizeof(void *));
+    return (void **)((byte *)kernel_get_cpu_local_state() + tls_offs);
+}
+#endif
 
 void *
 d_r_get_tls(int tls_offs)
@@ -188,9 +201,10 @@ d_r_get_tls(int tls_offs)
                  : "r"((ptr_int_t)tls_offs)
                  : "memory");
     return value;
+#elif defined(AARCH64)
+    return *local_state_slot(tls_offs);
 #else
-    ASSERT_NOT_PORTED(false);
-    return NULL;
+#    error "Unsupported architecture"
 #endif
 }
 
@@ -203,8 +217,10 @@ d_r_set_tls(int tls_offs, void *value)
                  :
                  : "r"(value), "r"((ptr_int_t)tls_offs)
                  : "memory");
+#elif defined(AARCH64)
+    *local_state_slot(tls_offs) = value;
 #else
-    ASSERT_NOT_PORTED(false);
+#    error "Unsupported architecture"
 #endif
 }
 
@@ -260,8 +276,8 @@ os_get_app_tls_reg_offset(reg_id_t reg)
 thread_id_t
 d_r_get_thread_id(void)
 {
-    /* kernel_get_cpu_id is reentrant and fast because it just reads
-     * gs:[&per_cpu_var(cpu_number)].
+    /* kernel_get_cpu_id is reentrant and fast because it just reads the per-CPU
+     * cpu_number variable.
      * Avoid INVALID_THREAD_ID (0) which is used for unowned locks by returning CPU ID
      * plus one.
      *
@@ -833,6 +849,22 @@ get_timer_frequency(void)
     return kernel_get_timestamp_counter_khz();
 }
 
+#ifdef AARCH64
+bool
+get_cache_line_size(DR_PARAM_OUT size_t *dcache_line_size,
+                    DR_PARAM_OUT size_t *icache_line_size)
+{
+    kernel_get_cache_line_sizes(dcache_line_size, icache_line_size);
+    return true;
+}
+
+void
+clear_icache(void *beg, void *end)
+{
+    kernel_flush_icache_range(beg, end);
+}
+#endif
+
 uint
 query_time_seconds(void)
 {
@@ -859,9 +891,7 @@ query_time_micros(void)
 uint
 os_random_seed(void)
 {
-    uint64 cycles;
-    RDTSC_LL(cycles);
-    return (uint)cycles;
+    return kernel_get_random_u32();
 }
 
 bool
