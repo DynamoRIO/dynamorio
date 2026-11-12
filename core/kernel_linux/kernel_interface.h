@@ -148,6 +148,13 @@ bool
 kernel_is_user_address(const void *addr);
 bool
 kernel_query_page(const void *addr, kernel_memory_region_t *region);
+/* Calls |fn|(|arg|) once on each online CPU, sequentially in ascending CPU ID order.
+ * Stops at the first nonzero return value and returns it, and returns 0 if every call
+ * succeeded. Each call runs in a kernel worker thread bound to that CPU.
+ * This function sleeps and must be called from sleepable context.
+ */
+int
+kernel_run_on_each_online_cpu(int (*fn)(void *), void *arg);
 
 unsigned int
 kernel_query_time_seconds(void);
