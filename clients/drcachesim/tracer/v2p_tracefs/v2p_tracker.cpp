@@ -262,7 +262,18 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
         (real_ts.tv_sec * 1000000ULL + real_ts.tv_nsec / 1000ULL + kDrUtcToEpochMicros) -
         (clk_ts.tv_sec * 1000000ULL + clk_ts.tv_nsec / 1000ULL);
 
-    // Register anonymous page-fault and background `khugepaged` THP collapse kprobes.
+    // Register kprobes for all anonymous page-table installations:
+    //   - `anon_new` (`folio_add_new_anon_rmap`, or legacy `page_add_new_anon_rmap`):
+    //     newly allocated anonymous memory, covering 4 KB and 2 MB first-touch demand
+    //     faults, Copy-on-Write allocations, and background `khugepaged` (or
+    //     `MADV_COLLAPSE`) 2 MB THP collapses. There is no separate `khugepaged` probe
+    //     because `khugepaged` allocates a fresh 2 MB page, copies the 512 4 KB pages
+    //     into it, and registers it through this same entry point from the `khugepaged`
+    //     kernel thread (captured via the `mm == tracked_mm_` filter below).
+    //   - `anon_ptes` (`folio_add_anon_rmap_ptes`, or legacy `page_add_anon_rmap`) and
+    //     `anon_pmd` (`folio_add_anon_rmap_pmd`): already-allocated anonymous 4 KB
+    //     pages or 2 MB THPs being mapped into the page table (such as swap-in, KSM
+    //     deduplication, or remapping an existing 2 MB THP across `fork` or migration).
     // On Linux 6.1+ (Maple Tree VMA layout), `vm_area_struct::vm_mm` is at `+16`; on
     // Linux 5.4-5.19 (rbtree VMA layout), `vm_area_struct::vm_mm` is at `+64`.
     const std::string mm_off = (kmaj > 6 || (kmaj == 6 && kmin >= 1)) ? "+16" : "+64";
