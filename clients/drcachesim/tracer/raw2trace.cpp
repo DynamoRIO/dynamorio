@@ -1346,6 +1346,9 @@ raw2trace_t::do_conversion()
     error = read_syscall_template_file();
     if (!error.empty())
         return error;
+    error = read_v2p_file();
+    if (!error.empty())
+        return error;
     // XXX i#3286: Add a %-completed progress message by looking at the file sizes.
     if (worker_count_ == 0) {
         for (size_t i = 0; i < thread_data_.size(); ++i) {
@@ -3817,6 +3820,7 @@ raw2trace_t::open_new_chunk(raw2trace_thread_data_t *tdata)
     tdata->last_encoding_emitted = nullptr;
     // Similarly, tell v2p to start repeating.
     tdata->v2p.start_repeating();
+    tdata->v2p_emitted.clear();
 
     return true;
 }
@@ -3880,6 +3884,39 @@ raw2trace_t::observe_entry_output(raw2trace_thread_data_t *tls,
     // Nothing to do for us: this is for subclasses.
 }
 
+// Loads timestamped page-mapping records from `v2p_file_` (`raw/v2p.bin`) and sorts
+// them chronologically so `write_with_repeats()` can replay them alongside thread time.
+std::string
+raw2trace_t::read_v2p_file()
+{
+    v2p_records_.clear();
+    if (v2p_file_ == nullptr)
+        return "";
+    if (!*v2p_file_)
+        return "Failed to read v2p stream";
+
+    // Read fixed-stride 32-byte records and verify the trailing `V2P_RECORD_END`
+    // sentinel so truncated logs produce a warning.
+    bool saw_end = false;
+    for (v2p_record_t r = {}; v2p_file_->read(reinterpret_cast<char *>(&r), sizeof(r));) {
+        if (r.type == V2P_RECORD_MAP && r.page_count > 0)
+            v2p_records_.push_back(r);
+        else if (r.type == V2P_RECORD_END)
+            saw_end = true;
+    }
+
+    // Sort chronologically (`stable_sort` preserves ring-buffer order on ties).
+    std::stable_sort(v2p_records_.begin(), v2p_records_.end(),
+                     [](const v2p_record_t &a, const v2p_record_t &b) {
+                         return a.timestamp_us < b.timestamp_us;
+                     });
+    if (!saw_end) {
+        WARN("v2p stream (%s) is missing its END sentinel (truncated log)",
+             DRMEMTRACE_V2P_LOG_FILENAME);
+    }
+    return "";
+}
+
 bool
 raw2trace_t::write_with_repeats(raw2trace_thread_data_t *tdata,
                                 const trace_entry_t *start, const trace_entry_t *end)
@@ -3912,6 +3949,126 @@ raw2trace_t::write_with_repeats(raw2trace_thread_data_t *tdata,
                                         toadd.size() * sizeof(trace_entry_t))) {
                 tdata->error = "Failed to write to output file";
                 return false;
+            }
+        }
+    }
+    if (!v2p_records_.empty()) {
+        constexpr uint64_t kPageSize4K = 4096;
+        std::vector<trace_entry_t> toadd;
+
+        // Appends a physical/virtual marker pair (or not-available marker) to `toadd`
+        // whenever `vaddr`'s 4 KB page has not yet been emitted in the current chunk or
+        // its physical frame changed since it was last emitted.
+        auto add_v2p = [&](addr_t vaddr) {
+            uint64_t vpage = vaddr & ~(kPageSize4K - 1);
+            auto it_p = tdata->v2p_pages.find(vpage);
+            uint64_t ppage = (it_p != tdata->v2p_pages.end()) ? it_p->second : UINT64_MAX;
+
+            // Raw trace buffers carry a single opening timestamp, so a page first faulted
+            // in mid-buffer has a kprobe timestamp slightly ahead of
+            // `tdata->v2p_time_us`. Scan ahead to find its initial `V2P_RECORD_MAP`
+            // record.
+            if (ppage == UINT64_MAX) {
+                for (size_t i = tdata->v2p_idx; i < v2p_records_.size(); ++i) {
+                    const v2p_record_t &r = v2p_records_[i];
+                    if (vpage >= r.vaddr &&
+                        vpage - r.vaddr <
+                            static_cast<uint64_t>(r.page_count) * kPageSize4K) {
+                        ppage = r.paddr + (vpage - r.vaddr);
+                        break;
+                    }
+                }
+            }
+
+            // Skip if this exact `(vpage -> ppage)` state was already emitted in this
+            // chunk.
+            auto it_em = tdata->v2p_emitted.find(vpage);
+            if (it_em != tdata->v2p_emitted.end() && it_em->second == ppage)
+                return;
+            tdata->v2p_emitted[vpage] = ppage;
+
+            // Build the `(PHYSICAL_ADDRESS, VIRTUAL_ADDRESS)` pair, preserving the 12-bit
+            // page offset required by `invariant_checker`, or emit `NOT_AVAILABLE`.
+            if (ppage != UINT64_MAX) {
+                addr_t pa = static_cast<addr_t>(ppage | (vaddr & (kPageSize4K - 1)));
+                toadd.push_back(
+                    { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS, { pa } });
+                toadd.push_back(
+                    { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, { vaddr } });
+            } else {
+                toadd.push_back({ TRACE_TYPE_MARKER,
+                                  TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE,
+                                  { vaddr } });
+            }
+        };
+
+        // Hold back `[ENCODING*, BRANCH_TARGET?]` prefixes in `pkt` so translation
+        // markers are emitted before the whole instruction packet rather than inside it.
+        const trace_entry_t *pkt = nullptr;
+        for (const trace_entry_t *it = start; it < end; ++it) {
+            // Advance per-thread replay time when crossing a trace timestamp marker.
+            if (it->type == TRACE_TYPE_MARKER &&
+                it->size == TRACE_MARKER_TYPE_TIMESTAMP &&
+                it->addr > tdata->v2p_time_us) {
+                tdata->v2p_time_us = it->addr;
+            }
+
+            // Apply all `v2p.bin` mapping records up to the current thread timestamp.
+            while (tdata->v2p_idx < v2p_records_.size() &&
+                   v2p_records_[tdata->v2p_idx].timestamp_us <= tdata->v2p_time_us) {
+                const v2p_record_t &r = v2p_records_[tdata->v2p_idx++];
+                for (uint32_t i = 0; i < r.page_count; ++i) {
+                    tdata->v2p_pages[r.vaddr + static_cast<uint64_t>(i) * kPageSize4K] =
+                        r.paddr + static_cast<uint64_t>(i) * kPageSize4K;
+                }
+            }
+
+            // Defer pre-instruction encoding and branch-target prefix entries.
+            trace_type_t type = static_cast<trace_type_t>(it->type);
+            if (type == TRACE_TYPE_ENCODING ||
+                (type == TRACE_TYPE_MARKER &&
+                 it->size == TRACE_MARKER_TYPE_BRANCH_TARGET)) {
+                if (pkt == nullptr)
+                    pkt = it;
+                continue;
+            }
+            const trace_entry_t *pos = pkt != nullptr ? pkt : it;
+            pkt = nullptr;
+
+            // Only address-carrying instruction fetches and data memrefs need markers.
+            if (!type_has_address(type) || (type_is_instr(type) && it->size == 0))
+                continue;
+
+            // Collect markers for the base address and any additional spanned 4 KB pages.
+            toadd.clear();
+            add_v2p(it->addr);
+            addr_t end_b = it->size > 1 ? it->addr + it->size - 1 : it->addr;
+            for (uint64_t p = it->addr & ~(kPageSize4K - 1);
+                 end_b >= it->addr && p < (end_b & ~(kPageSize4K - 1));) {
+                p += kPageSize4K;
+                add_v2p(static_cast<addr_t>(p));
+            }
+
+            // Flush buffered trace entries prior to `pos`, emit the injected V2P markers,
+            // and update per-chunk memref accounting.
+            if (!toadd.empty()) {
+                for (const trace_entry_t &rec : toadd) {
+                    observe_entry_output(tdata, &rec);
+                    if (tdata->out_archive != nullptr) {
+                        tdata->cur_chunk_ref_count +=
+                            tdata->memref_counter.entry_memref_count(&rec);
+                    }
+                }
+                size_t pre = static_cast<size_t>(pos - start) * sizeof(*start);
+                if ((pre > 0 &&
+                     !tdata->out_file->write(reinterpret_cast<const char *>(start),
+                                             pre)) ||
+                    !tdata->out_file->write(reinterpret_cast<const char *>(toadd.data()),
+                                            toadd.size() * sizeof(trace_entry_t))) {
+                    tdata->error = "Failed to write to output file";
+                    return false;
+                }
+                start = pos;
             }
         }
     }
