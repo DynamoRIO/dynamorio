@@ -596,12 +596,12 @@ kernel_run_on_each_online_cpu(int (*fn)(void *), void *arg)
     {
         int ret = smp_call_on_cpu(cpu, fn, arg, /* phys = */ false);
         if (ret != 0) {
-            return ret;
+            break;
         }
     }
     cpus_read_unlock();
 
-    return 0;
+    return ret;
 }
 
 unsigned int
