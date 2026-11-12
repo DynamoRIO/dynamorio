@@ -1001,7 +1001,11 @@ os_check_option_compatibility(void)
      * future, which requires revisiting interrupt patching, unlink/relink coordination
      * across CPUs, and TLS bootstrapping at kernel entry points.
      */
+#ifndef AARCH64 /* SPIKE: AArch64 IBL gencode needs the tables in TLS, which are only
+                 * filled for shared IB targets; use DR's default shared caches there.
+                 */
     FORCE_OPTION_VALUE(shared_bbs, false);
+#endif
 
     /* Coarse units require shared BBs and would otherwise re-enable them during
      * recursive compatibility checking.
@@ -1009,7 +1013,9 @@ os_check_option_compatibility(void)
     FORCE_OPTION_VALUE(coarse_units, false);
 
     /* Shared traces have the same unsupported interrupt-handling races. */
+#ifndef AARCH64 /* SPIKE */
     FORCE_OPTION_VALUE(shared_traces, false);
+#endif
 
     /* Full state reconstruction from a PC in a separate direct-exit stub remains
      * unsupported, so keep exit stubs with their owning fragments.

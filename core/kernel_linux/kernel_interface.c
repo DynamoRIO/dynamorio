@@ -567,8 +567,14 @@ kernel_get_cache_line_sizes(size_t *dcache_line_size, size_t *icache_line_size)
 void
 kernel_flush_icache_range(void *start, void *end)
 {
-    /* flush_icache_range() IPIs all online CPUs, which requires IRQs to be enabled. */
-    KERNEL_ASSERT(!irqs_disabled());
+    /* SPIKE: flush_icache_range() IPIs all online CPUs, which requires IRQs to be
+     * enabled.  With IRQs disabled, skip the IPI: the cache maintenance itself is
+     * broadcast, and only this CPU executes the new code in the spike.
+     */
+    if (irqs_disabled()) {
+        caches_clean_inval_pou((unsigned long)start, (unsigned long)end);
+        return;
+    }
     flush_icache_range((unsigned long)start, (unsigned long)end);
 }
 #endif
@@ -825,7 +831,6 @@ kernel_is_user_address(const void *addr)
 bool
 kernel_query_page(const void *addr, kernel_memory_region_t *region)
 {
-#ifdef CONFIG_X86_64
     unsigned long a = (unsigned long)addr;
     if (a < TASK_SIZE_MAX) {
         return false;
@@ -836,9 +841,6 @@ kernel_query_page(const void *addr, kernel_memory_region_t *region)
     region->size = PAGE_SIZE;
     region->prot = prot;
     return true;
-#else
-    return false;
-#endif
 }
 
 size_t

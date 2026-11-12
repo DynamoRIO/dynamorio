@@ -35,6 +35,7 @@
 #include "instr_create_shared.h"
 #include "instrlist.h"
 #include "instrument.h"
+#include "ir_utils.h" /* SPIKE */
 
 #define APP instrlist_meta_append
 #define PRE instrlist_meta_preinsert
@@ -46,6 +47,21 @@ static void
 insert_load_dr_tls_base(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                         reg_id_t reg_base)
 {
+#if defined(LINUX_KERNEL) && defined(AARCH64)
+    /* SPIKE: in the kernel, tpidr_el0 is the user thread's TLS pointer, not ours.
+     * DR's TLS base is the per-CPU local state, which the dcontext records.  The only
+     * caller is the fcache_enter prologue, where REG_DCXT holds the dcontext.
+     */
+    insert_mov_immed_ptrsz(dcontext, (ptr_int_t)offsetof(dcontext_t, local_state),
+                           opnd_create_reg(reg_base), ilist, where, NULL, NULL);
+    PRE(ilist, where,
+        XINST_CREATE_add_2src(dcontext, opnd_create_reg(reg_base),
+                              opnd_create_reg(REG_DCXT), opnd_create_reg(reg_base)));
+    PRE(ilist, where,
+        XINST_CREATE_load(dcontext, opnd_create_reg(dr_reg_stolen),
+                          OPND_CREATE_MEMPTR(reg_base, 0)));
+    return;
+#endif
 #ifdef AARCH64
     /* Load TLS base from user-mode thread pointer/ID register:
      * mrs reg_base, tpidr_el0
