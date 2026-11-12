@@ -583,6 +583,22 @@ kernel_is_readable_without_fault(const void *addr, size_t size)
     }
 }
 
+int
+kernel_run_on_each_online_cpu(int (*fn)(void *), void *arg)
+{
+    KERNEL_ASSERT(!in_atomic() && !irqs_disabled());
+
+    unsigned int cpu;
+    for_each_online_cpu(cpu) {
+        int ret = smp_call_on_cpu(cpu, fn, arg, /* phys = */ false);
+        if (ret != 0) {
+            return ret;
+        }
+    }
+
+    return 0;
+}
+
 unsigned int
 kernel_query_time_seconds(void)
 {
