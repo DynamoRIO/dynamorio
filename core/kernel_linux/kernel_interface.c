@@ -598,6 +598,9 @@ kernel_is_readable_without_fault(const void *addr, size_t size)
     }
 }
 
+/* XXX i#8021: As with kernel_is_readable_without_fault(), a device MMIO address is
+ * really read, which can have side effects.
+ */
 size_t
 kernel_read_without_fault(const void *addr, size_t size, void *out)
 {
