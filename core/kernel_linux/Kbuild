@@ -162,10 +162,10 @@ quiet_cmd_dr_stubs = GEN     $@
     cut -f2 $(dr_symvers); \
     echo __this_module; } | sort -u > $@.def; \
   { echo '/* Auto-generated weak stubs for unported DynamoRIO symbols */'; \
-    echo '\#include <linux/bug.h>'; \
+    echo '\#include <linux/printk.h>'; \
     echo; \
     comm -23 $@.undef $@.def | \
-      sed 's/.*/void &(void); void __attribute__((weak)) &(void) { BUG(); }/'; } > $@; \
+      sed 's/.*/long &(void); long __attribute__((weak)) &(void) { static int hit; if (!hit) { hit = 1; printk(KERN_WARNING "SPIKE-STUB-HIT &\\n"); } return 0; }/'; } > $@; \
   rm -f $@.nm $@.undef $@.def
 else
 KBUILD_MODPOST_WARN := 1

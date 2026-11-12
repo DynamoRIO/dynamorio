@@ -1356,7 +1356,10 @@ rel32_reachable_from_vmcode(byte *tgt)
         : (heap_allowable_region_end - tgt);
     ASSERT(vmcode_get_start() >= heap_allowable_region_start ||
            !DYNAMO_OPTION(vm_reserve));
-    ASSERT(vmcode_get_end() <= heap_allowable_region_end + 1 /*closed*/ ||
+    /* SPIKE: "end + 1" wraps to 0 when the allowable range ends at POINTER_MAX, as
+     * it does for kernel addresses.
+     */
+    ASSERT(vmcode_get_end() - 1 <= heap_allowable_region_end /*closed*/ ||
            !DYNAMO_OPTION(vm_reserve));
     return REL32_REACHABLE_OFFS(new_offs);
 #else

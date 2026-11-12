@@ -59,4 +59,7 @@ struct dynamorio_init_args {
 /* _IOW means user space writes the argument and the kernel reads it. */
 #define DYNAMORIO_IOCTL_INIT _IOW(DYNAMORIO_IOCTL_MAGIC, 0, struct dynamorio_init_args)
 
+/* SPIKE: runs the test function from the spike test module under DR. */
+#define DYNAMORIO_IOCTL_SPIKE _IO(DYNAMORIO_IOCTL_MAGIC, 1)
+
 #endif /* _DYNAMORIO_IOCTL_H_ */

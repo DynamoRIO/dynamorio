@@ -39,11 +39,13 @@
 #include <linux/capability.h>
 #include <linux/err.h>
 #include <linux/fs.h>
+#include <linux/irqflags.h>
 #include <linux/miscdevice.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/preempt.h>
 #include <linux/slab.h>
+#include <linux/smp.h>
 #include <linux/string.h>
 #include <linux/uaccess.h>
 
@@ -66,6 +68,79 @@ MODULE_PARM_DESC(dr_heap_size, "DynamoRIO module heap size in bytes (read-only)"
  */
 static DEFINE_MUTEX(session_lock);
 static enum { SESSION_NONE, SESSION_INITIALIZED, SESSION_FAILED } session_state;
+
+/* SPIKE: runs drk_spike_entry() from the spike test module, which enters DR with
+ * dr_app_start(), runs a test function, and leaves DR with dr_app_stop().
+ */
+static int spike_init_cpu = -1;
+
+/* Leaves IRQs enabled (preemption still disabled) while running under DR. */
+static bool spike_irqs_on;
+module_param(spike_irqs_on, bool, 0444);
+/* Runs a test function that lives inside this module instead of the test module. */
+static bool spike_internal;
+module_param(spike_internal, bool, 0444);
+
+static noinline int
+spike_internal_fib(int n)
+{
+    if (n < 2)
+        return n;
+    return spike_internal_fib(n - 1) + spike_internal_fib(n - 2);
+}
+
+static noinline int
+spike_internal_entry(void (*start)(void), void (*stop)(void))
+{
+    volatile int n = 10;
+    volatile int res;
+    start();
+    res = spike_internal_fib(n);
+    stop();
+    return res == 55 ? 1 : 2;
+}
+
+static long
+dynamorio_ioctl_spike(void)
+{
+    int (*entry)(void (*)(void), void (*)(void)) =
+        spike_internal ? spike_internal_entry
+                       : kernel_find_symbol("drk_spike_entry", NULL);
+    if (entry == NULL) {
+        pr_err("spike: drk_spike_entry not found; load the spike test module\n");
+        return -ENOENT;
+    }
+
+    long ret;
+    unsigned long flags;
+    mutex_lock(&session_lock);
+    if (session_state != SESSION_INITIALIZED) {
+        ret = -EINVAL;
+        goto out;
+    }
+    preempt_disable();
+    if (!spike_irqs_on)
+        local_irq_save(flags);
+    if (smp_processor_id() != spike_init_cpu) {
+        if (!spike_irqs_on)
+            local_irq_restore(flags);
+        preempt_enable();
+        pr_err("spike: not on the initialized CPU\n");
+        ret = -EXDEV;
+        goto out;
+    }
+    pr_info("spike: entering DR, entry=%px\n", entry);
+    ret = entry(dr_app_start, dr_app_stop);
+    pr_info("spike: back to native, result=%ld irqs_on=%d internal=%d\n", ret,
+            spike_irqs_on, spike_internal);
+    if (!spike_irqs_on)
+        local_irq_restore(flags);
+    preempt_enable();
+    spike_report();
+out:
+    mutex_unlock(&session_lock);
+    return ret;
+}
 
 /* XXX i#8115: Define support for per-process options, including how to reuse the
  * existing configuration infrastructure.
@@ -107,6 +182,7 @@ dynamorio_ioctl_init(const struct dynamorio_init_args __user *uargs)
      * breaking lock ownership checks.
      */
     preempt_disable();
+    spike_init_cpu = smp_processor_id(); /* SPIKE */
     ret = dynamorio_app_init();
     preempt_enable();
     if (ret != 0) {
@@ -136,6 +212,7 @@ dynamorio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
     switch (cmd) {
     case DYNAMORIO_IOCTL_INIT:
         return dynamorio_ioctl_init((const struct dynamorio_init_args __user *)arg);
+    case DYNAMORIO_IOCTL_SPIKE: return dynamorio_ioctl_spike(); /* SPIKE */
     /* TODO i#8021: Implement an exit ioctl that ends the tracing session. */
     default: return -ENOTTY;
     }

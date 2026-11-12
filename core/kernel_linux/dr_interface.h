@@ -40,4 +40,12 @@
 int
 dynamorio_app_init(void);
 
+/* SPIKE */
+void
+dr_app_start(void);
+void
+dr_app_stop(void);
+void
+spike_report(void);
+
 #endif /* _DR_INTERFACE_H_ */

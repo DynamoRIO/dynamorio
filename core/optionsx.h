@@ -413,11 +413,16 @@ OPTION_COMMAND_INTERNAL(liststring_t, ALT_CLIENT_LIB_NAME, EMPTY_STRING,
  * regular loader list
  */
 /* XXX i#1285: MacOS private loader is NYI */
+#    ifdef LINUX_KERNEL /* SPIKE: no private loader in the kernel. */
+OPTION_DEFAULT_INTERNAL(bool, private_loader, false,
+                        "use private loader for clients and dependents")
+#    else
 OPTION_DEFAULT_INTERNAL(bool, private_loader,
                         /* i#2117: for UNIX static DR we disable TLS swaps. */
                         IF_STATIC_LIBRARY_ELSE(IF_WINDOWS_ELSE(true, false),
                                                IF_MACOS_ELSE(false, true)),
                         "use private loader for clients and dependents")
+#    endif
 #    ifdef UNIX
 /* We cannot know the total tls size when allocating tls in os_tls_init,
  * so use the runtime option to control the tls size.
@@ -587,9 +592,14 @@ OPTION_DEFAULT(bool, cleancall_ignore_eflags, true,
  * mangle the app's segment usage.
  * It cannot be used with DGC_DIAGNOSTICS.
  */
+#    ifdef LINUX_KERNEL /* SPIKE: DR and the kernel share gs on purpose. */
+OPTION_DEFAULT_INTERNAL(bool, mangle_app_seg, false,
+                        "mangle application's segment usage.")
+#    else
 OPTION_DEFAULT_INTERNAL(bool, mangle_app_seg,
                         IF_WINDOWS_ELSE(false, IF_LINUX_ELSE(true, false)),
                         "mangle application's segment usage.")
+#    endif
 #endif /* X86 */
 #ifdef X64
 #    ifdef WINDOWS

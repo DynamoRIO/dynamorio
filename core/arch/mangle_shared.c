@@ -40,6 +40,12 @@
 /* file "mangle_shared.c" */
 
 #include "../globals.h"
+/* SPIKE: no rseq in the kernel; d_r_rseq_areas has no definition there. */
+#ifdef LINUX_KERNEL
+#    define IF_LINUX_KERNEL_SPIKE_FALSE false &&
+#else
+#    define IF_LINUX_KERNEL_SPIKE_FALSE
+#endif
 #include "arch.h"
 #include "instr_create_shared.h"
 #include "instrument.h"  /* for insert_get_mcontext_base */
@@ -1984,7 +1990,7 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags DR_PARAM_INOUT,
          * solve.  We expect the vmvector_empty check to be fast enough for the common
          * case.
          */
-        if (instr_is_app(instr) &&
+        if (IF_LINUX_KERNEL_SPIKE_FALSE instr_is_app(instr) &&
             !instr_is_our_mangling(instr) /* avoid synthetic exit jump*/ &&
             !vmvector_empty(d_r_rseq_areas)) {
             app_pc pc = get_app_instr_xl8(instr);

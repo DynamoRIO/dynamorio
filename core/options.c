@@ -2315,7 +2315,7 @@ check_option_compatibility_helper(int recurse_count)
     }
 #    endif
 
-#    ifdef UNIX
+#    if defined(UNIX) && !defined(LINUX_KERNEL) /* SPIKE */
 #        if (defined(ARM) || defined(LINUX)) && !defined(STATIC_LIBRARY)
     if (!INTERNAL_OPTION(private_loader)) {
         /* On ARM, to make DR work in gdb, we must use private loader to make

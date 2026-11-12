@@ -81,11 +81,26 @@ cmd_init(int argc, const char *argv[])
     return EXIT_SUCCESS;
 }
 
+/* SPIKE */
+static int
+cmd_spike(int argc, const char *argv[])
+{
+    int fd = open_device();
+    int res = ioctl(fd, DYNAMORIO_IOCTL_SPIKE, 0);
+    if (res < 0) {
+        err(EXIT_FAILURE, "spike");
+    }
+    printf("spike result: %d\n", res);
+    close(fd);
+    return EXIT_SUCCESS;
+}
+
 static const struct {
     const char *name;
     int (*fn)(int argc, const char *argv[]);
 } commands[] = {
     { "init", cmd_init },
+    { "spike", cmd_spike },
 };
 
 int

@@ -143,6 +143,12 @@ kernel_is_readable_without_fault(const void *addr, size_t size);
 size_t
 kernel_read_without_fault(const void *addr, size_t size, void *out);
 
+/* SPIKE */
+bool
+kernel_is_user_address(const void *addr);
+bool
+kernel_query_page(const void *addr, kernel_memory_region_t *region);
+
 unsigned int
 kernel_query_time_seconds(void);
 

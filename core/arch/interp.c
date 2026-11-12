@@ -3281,9 +3281,11 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
              IF_X64(|| DYNAMO_OPTION(coarse_split_riprel) || DYNAMO_OPTION(x86_to_x64)) ||
         INTERNAL_OPTION(full_decode)
         /* We separate rseq regions into their own blocks to make this check easier. */
-        IF_LINUX(||
-                 (!vmvector_empty(d_r_rseq_areas) &&
-                  vmvector_overlap(d_r_rseq_areas, bb->start_pc, bb->start_pc + 1))))
+#if defined(LINUX) && !defined(LINUX_KERNEL) /* SPIKE */
+        || (!vmvector_empty(d_r_rseq_areas) &&
+            vmvector_overlap(d_r_rseq_areas, bb->start_pc, bb->start_pc + 1))
+#endif
+    )
         bb->full_decode = true;
     else {
 #ifdef CHECK_RETURNS_SSE2
@@ -3696,7 +3698,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             }
         }
 #else
-#    if defined(X86) && defined(LINUX)
+#    if defined(X86) && defined(LINUX) && !defined(LINUX_KERNEL) /* SPIKE */
         if (instr_get_prefix_flag(bb->instr,
                                   (SEG_TLS == SEG_GS) ? PREFIX_SEG_GS : PREFIX_SEG_FS)
             /* __errno_location is interpreted when global, though it's hidden in TOT */

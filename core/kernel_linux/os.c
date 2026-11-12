@@ -40,6 +40,7 @@
 #include "kernel_interface.h"
 #include "module_shared.h"
 #include "native_exec.h"
+#include "vmareas.h"
 
 /* Kernel code has no standard streams of its own. These synthetic handles use
  * conventional descriptor numbers for compatibility with shared DR code.
@@ -50,6 +51,10 @@ DR_API file_t our_stderr = 2;
 
 app_pc vsyscall_syscall_end_pc = NULL;
 app_pc vsyscall_sysenter_return_pc = NULL;
+/* SPIKE: data symbols that were being stubbed as functions. */
+app_pc vsyscall_page_start = NULL;
+app_pc vsyscall_sysenter_displaced_pc = NULL;
+vm_area_vector_t *d_r_rseq_areas;
 
 static bool heap_already_reserved = false;
 static int num_online_processors = 0;
@@ -167,6 +172,9 @@ d_r_os_init(void)
     os_state_ready = true;
     DOCHECK(1, { check_tls_segment_mapping(); });
     DOCHECK(1, { check_safe_read(); });
+    /* SPIKE: shared code reads this vector; keep it allocated and empty. */
+    VMVECTOR_ALLOC_VECTOR(d_r_rseq_areas, GLOBAL_DCONTEXT,
+                          VECTOR_SHARED | VECTOR_NEVER_MERGE, rseq_areas);
 }
 
 void *
@@ -653,6 +661,92 @@ bool
 d_r_safe_read(const void *base, size_t size, void *out_buf)
 {
     return safe_read_ex(base, size, out_buf, NULL);
+}
+
+/* SPIKE: crude ports, each logging its first use. */
+#define SPIKE_HIT()                                                    \
+    do {                                                               \
+        static bool spike_hit;                                         \
+        if (!spike_hit) {                                              \
+            spike_hit = true;                                          \
+            kernel_printk("SPIKE-PORTED-HIT %s\n", __func__);         \
+        }                                                              \
+    } while (0)
+
+bool
+query_memory_ex_from_os(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info)
+{
+    SPIKE_HIT();
+    kernel_memory_region_t region;
+    if (!kernel_query_page(pc, &region)) {
+        info->type = DR_MEMTYPE_ERROR;
+        return false;
+    }
+    info->base_pc = region.base;
+    info->size = region.size;
+    info->prot = region.prot;
+    info->type = region.prot == 0 ? DR_MEMTYPE_FREE : DR_MEMTYPE_DATA;
+    return true;
+}
+
+bool
+query_memory_ex(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info)
+{
+    SPIKE_HIT();
+    return query_memory_ex_from_os(pc, info);
+}
+
+bool
+query_memory_cur_base(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info)
+{
+    SPIKE_HIT();
+    return query_memory_ex_from_os(pc, info);
+}
+
+bool
+get_memory_info_from_os(const byte *pc, byte **base_pc, size_t *size, uint *prot)
+{
+    SPIKE_HIT();
+    dr_mem_info_t info;
+    if (!query_memory_ex_from_os(pc, &info) || info.type == DR_MEMTYPE_FREE)
+        return false;
+    if (base_pc != NULL)
+        *base_pc = info.base_pc;
+    if (size != NULL)
+        *size = info.size;
+    if (prot != NULL)
+        *prot = info.prot;
+    return true;
+}
+
+bool
+get_memory_info(const byte *pc, byte **base_pc, size_t *size, uint *prot)
+{
+    SPIKE_HIT();
+    return get_memory_info_from_os(pc, base_pc, size, prot);
+}
+
+/* SPIKE: proof that the code really ran from the code cache. */
+void
+spike_report(void)
+{
+    kernel_printk("SPIKE-STATS bbs=%d traces=%d fcache_exits=%d\n",
+                  (int)GLOBAL_STAT(num_bbs), (int)GLOBAL_STAT(num_traces),
+                  (int)GLOBAL_STAT(num_exits));
+}
+
+app_pc
+get_image_entry(void)
+{
+    SPIKE_HIT();
+    return NULL;
+}
+
+bool
+is_user_address(byte *pc)
+{
+    SPIKE_HIT();
+    return kernel_is_user_address(pc);
 }
 
 void

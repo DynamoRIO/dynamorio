@@ -601,6 +601,32 @@ kernel_is_readable_without_fault(const void *addr, size_t size)
 /* XXX i#8021: As with kernel_is_readable_without_fault(), a device MMIO address is
  * really read, which can have side effects.
  */
+/* SPIKE: crude single-page memory query, x86-64 only. */
+bool
+kernel_is_user_address(const void *addr)
+{
+    return (unsigned long)addr < TASK_SIZE_MAX;
+}
+
+bool
+kernel_query_page(const void *addr, kernel_memory_region_t *region)
+{
+#ifdef CONFIG_X86_64
+    unsigned long a = (unsigned long)addr;
+    if (a < TASK_SIZE_MAX) {
+        return false;
+    }
+    unsigned int prot;
+    query_kernel_page(a, &prot);
+    region->base = (unsigned char *)ALIGN_BACKWARD(a, PAGE_SIZE);
+    region->size = PAGE_SIZE;
+    region->prot = prot;
+    return true;
+#else
+    return false;
+#endif
+}
+
 size_t
 kernel_read_without_fault(const void *addr, size_t size, void *out)
 {
