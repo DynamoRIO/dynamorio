@@ -49,6 +49,7 @@
 #include <linux/kprobes.h>
 #include <linux/ktime.h>
 #include <linux/limits.h>
+#include <linux/minmax.h>
 #include <linux/module.h>
 #include <linux/panic.h>
 #include <linux/percpu.h>
@@ -536,6 +537,27 @@ kernel_walk_code_regions(kernel_memory_region_callback_t callback, void *arg)
 #endif
 }
 
+/* Copies |size| bytes from |src| to |dst| without faulting.  The range must be non-empty
+ * and must not cross a page boundary.  Returns 0 on success and a negative errno if the
+ * bytes cannot be read.
+ */
+static long
+copy_from_nofault_within_page(void *dst, unsigned long src, size_t size)
+{
+    KERNEL_ASSERT(size > 0);
+    /* The first and last bytes must be on the same page. */
+    KERNEL_ASSERT((src & PAGE_MASK) == ((src + size - 1) & PAGE_MASK));
+    /* copy_from_user_nofault rejects kernel addresses while copy_from_kernel_nofault
+     * rejects user addresses, so we split on the boundary the kernel itself uses.
+     * TASK_SIZE_MAX is page-aligned, so a range within one page never straddles the
+     * split.
+     */
+    KERNEL_ASSERT((TASK_SIZE_MAX & ~PAGE_MASK) == 0);
+    return src < TASK_SIZE_MAX
+        ? copy_from_user_nofault(dst, (const void __user *)src, size)
+        : copy_from_kernel_nofault(dst, (const void *)src, size);
+}
+
 /* Returns whether the |size| bytes at |addr| can be read without faulting.  Probes one
  * byte per page, as read protections are page-granular.  The kernel's no-fault accessors
  * disable page faults and rely on the exception tables to recover, so this requires no
@@ -564,14 +586,7 @@ kernel_is_readable_without_fault(const void *addr, size_t size)
     char dummy;
     unsigned long page = ALIGN_BACKWARD(cur, PAGE_SIZE);
     while (true) {
-        /* copy_from_user_nofault rejects kernel addresses while copy_from_kernel_nofault
-         * rejects user addresses, so we split on the boundary the kernel itself uses.
-         * TASK_SIZE_MAX is page-aligned, so a page never straddles the split.
-         */
-        long res = cur < TASK_SIZE_MAX
-            ? copy_from_user_nofault(&dummy, (const void __user *)cur, 1)
-            : copy_from_kernel_nofault(&dummy, (const void *)cur, 1);
-        if (res != 0) {
+        if (copy_from_nofault_within_page(&dummy, cur, 1) != 0) {
             return false;
         }
         if (page == last_page) {
@@ -581,6 +596,40 @@ kernel_is_readable_without_fault(const void *addr, size_t size)
         page += PAGE_SIZE;
         cur = page;
     }
+}
+
+/* XXX i#8021: As with kernel_is_readable_without_fault(), a device MMIO address is
+ * really read, which can have side effects.
+ */
+size_t
+kernel_read_without_fault(const void *addr, size_t size, void *out)
+{
+    /* Pointer overflow is undefined behavior and may be optimized away,
+     * so we convert the pointer to integer first.
+     */
+    const unsigned long start = (unsigned long)addr;
+    /* Clamp a range that would overflow to end at the top of the address space, so that
+     * the copy stops there instead of wrapping around to address 0.
+     */
+    if (start + size < start) {
+        size = ULONG_MAX - start + 1;
+    }
+
+    /* The no-fault accessors only report success or failure.  Read protections are
+     * page-granular, so copying one page-bounded chunk at a time and stopping at the
+     * first chunk that fails yields the number of readable bytes.
+     */
+    size_t copied = 0;
+    while (copied < size) {
+        const unsigned long cur = start + copied;
+        const size_t to_page_end = PAGE_SIZE - (cur & ~PAGE_MASK);
+        const size_t chunk = min(size - copied, to_page_end);
+        if (copy_from_nofault_within_page((char *)out + copied, cur, chunk) != 0) {
+            break;
+        }
+        copied += chunk;
+    }
+    return copied;
 }
 
 unsigned int
