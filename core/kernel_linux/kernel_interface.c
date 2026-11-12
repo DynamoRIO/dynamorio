@@ -589,7 +589,7 @@ kernel_run_on_each_online_cpu(int (*fn)(void *), void *arg)
 {
     KERNEL_ASSERT(!in_atomic() && !irqs_disabled());
 
-    int ret;
+    int ret = 0;
     unsigned int cpu;
     /* Prevent a CPU from going offline while the callback is running on it. */
     cpus_read_lock();
