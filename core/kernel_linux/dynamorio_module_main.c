@@ -71,7 +71,7 @@ static int
 dynamorio_cpu_init(void *arg)
 {
     int init_cpu = *(int *)arg;
-    /* The CPU that dynamorio_app_init() already has its dcontext initialized. */
+    /* The CPU that ran dynamorio_app_init() already has its dcontext initialized. */
     if (smp_processor_id() == init_cpu) {
         return 0;
     }

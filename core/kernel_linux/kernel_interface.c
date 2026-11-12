@@ -594,7 +594,7 @@ kernel_run_on_each_online_cpu(int (*fn)(void *), void *arg)
     cpus_read_lock();
     for_each_online_cpu(cpu)
     {
-        int ret = smp_call_on_cpu(cpu, fn, arg, /* phys = */ false);
+        int ret = smp_call_on_cpu(cpu, fn, arg, false /* !phys */);
         if (ret != 0) {
             break;
         }
