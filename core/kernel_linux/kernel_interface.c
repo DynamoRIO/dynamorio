@@ -536,6 +536,27 @@ kernel_walk_code_regions(kernel_memory_region_callback_t callback, void *arg)
 #endif
 }
 
+/* Copies |size| bytes from |src| to |dst| without faulting.  The range must be non-empty
+ * and must not cross a page boundary.  Returns 0 on success and a negative errno if the
+ * bytes cannot be read.
+ */
+static long
+copy_from_nofault_within_page(void *dst, unsigned long src, size_t size)
+{
+    KERNEL_ASSERT(size > 0);
+    /* The first and last bytes must be on the same page. */
+    KERNEL_ASSERT((src & PAGE_MASK) == ((src + size - 1) & PAGE_MASK));
+    /* copy_from_user_nofault rejects kernel addresses while copy_from_kernel_nofault
+     * rejects user addresses, so we split on the boundary the kernel itself uses.
+     * TASK_SIZE_MAX is page-aligned, so a range within one page never straddles the
+     * split.
+     */
+    KERNEL_ASSERT((TASK_SIZE_MAX & ~PAGE_MASK) == 0);
+    return src < TASK_SIZE_MAX
+        ? copy_from_user_nofault(dst, (const void __user *)src, size)
+        : copy_from_kernel_nofault(dst, (const void *)src, size);
+}
+
 /* Returns whether the |size| bytes at |addr| can be read without faulting.  Probes one
  * byte per page, as read protections are page-granular.  The kernel's no-fault accessors
  * disable page faults and rely on the exception tables to recover, so this requires no
@@ -564,14 +585,7 @@ kernel_is_readable_without_fault(const void *addr, size_t size)
     char dummy;
     unsigned long page = ALIGN_BACKWARD(cur, PAGE_SIZE);
     while (true) {
-        /* copy_from_user_nofault rejects kernel addresses while copy_from_kernel_nofault
-         * rejects user addresses, so we split on the boundary the kernel itself uses.
-         * TASK_SIZE_MAX is page-aligned, so a page never straddles the split.
-         */
-        long res = cur < TASK_SIZE_MAX
-            ? copy_from_user_nofault(&dummy, (const void __user *)cur, 1)
-            : copy_from_kernel_nofault(&dummy, (const void *)cur, 1);
-        if (res != 0) {
+        if (copy_from_nofault_within_page(&dummy, cur, 1) != 0) {
             return false;
         }
         if (page == last_page) {
