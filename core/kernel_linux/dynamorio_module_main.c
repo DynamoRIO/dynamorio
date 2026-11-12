@@ -63,7 +63,8 @@ module_param(dr_heap_size, ulong, 0444);
 MODULE_PARM_DESC(dr_heap_size, "DynamoRIO module heap size in bytes (read-only)");
 
 /* Serializes session state changes, which includes setting the options environment
- * variable and running dynamorio_app_init(): neither is safe to run concurrently.
+ * variable, running dynamorio_app_init(), and initializing the remaining CPUs: none of
+ * these is safe to run concurrently.
  */
 static DEFINE_MUTEX(session_lock);
 static enum { SESSION_NONE, SESSION_INITIALIZED, SESSION_FAILED } session_state;
@@ -135,6 +136,12 @@ dynamorio_ioctl_init(const struct dynamorio_init_args __user *uargs)
         goto out;
     }
 
+    /* Give every other online CPU a dcontext.
+     * XXX i#8021: CPU hotplug is not handled yet: a CPU brought online after this has
+     * no dcontext, and one taken offline leaves a stale dcontext and thread record.
+     * Either block hotplug for the whole session, starting before dynamorio_app_init(),
+     * or handle it with hotplug callbacks.
+     */
     ret = kernel_run_on_each_online_cpu(dynamorio_cpu_init, &init_cpu);
     if (ret != 0) {
         pr_err("Per-CPU initialization failed: %ld\n", ret);

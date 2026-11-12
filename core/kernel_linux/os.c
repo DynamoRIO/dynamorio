@@ -814,7 +814,7 @@ os_check_option_compatibility(void)
         changed_options = true;
     }
 
-    /* SMP takeover requires CPUs to initialize and enter DR concurrently; the
+    /* SMP takeover requires CPUs to enter DR concurrently; the
      * global single-thread-in-DR mode would serialize them.
      */
     FORCE_OPTION_VALUE(single_thread_in_DR, false);
