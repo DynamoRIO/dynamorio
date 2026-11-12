@@ -592,7 +592,8 @@ kernel_run_on_each_online_cpu(int (*fn)(void *), void *arg)
     unsigned int cpu;
     /* Prevent a CPU from going offline while the callback is running on it. */
     cpus_read_lock();
-    for_each_online_cpu(cpu) {
+    for_each_online_cpu(cpu)
+    {
         int ret = smp_call_on_cpu(cpu, fn, arg, /* phys = */ false);
         if (ret != 0) {
             return ret;
