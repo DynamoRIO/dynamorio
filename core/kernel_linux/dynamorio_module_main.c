@@ -44,6 +44,7 @@
 #include <linux/mutex.h>
 #include <linux/preempt.h>
 #include <linux/slab.h>
+#include <linux/smp.h>
 #include <linux/string.h>
 #include <linux/uaccess.h>
 
