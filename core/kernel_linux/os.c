@@ -595,6 +595,25 @@ is_readable_without_exception_query_os_noblock(byte *pc, size_t size)
     return kernel_is_readable_without_fault(pc, size);
 }
 
+bool
+safe_read_ex(const void *base, size_t size, void *out_buf, size_t *bytes_read)
+{
+    STATS_INC(num_safe_reads);
+
+    size_t ret = kernel_read_without_fault(base, size, out_buf);
+    if (bytes_read != NULL) {
+        *bytes_read = ret;
+    }
+
+    return ret == size;
+}
+
+bool
+d_r_safe_read(const void *base, size_t size, void *out_buf)
+{
+    return safe_read_ex(base, size, out_buf, NULL);
+}
+
 void
 all_memory_areas_lock(void)
 {
