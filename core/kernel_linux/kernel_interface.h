@@ -136,8 +136,7 @@ bool
 kernel_is_readable_without_fault(const void *addr, size_t size);
 
 /* Copies up to |size| bytes from |addr| to |out| without faulting and returns the
- * number of bytes copied.  Returns the number of bytes copied.
- * Acquires no locks and never sleeps.
+ * number of bytes copied.  Acquires no locks and never sleeps.
  */
 size_t
 kernel_read_without_fault(const void *addr, size_t size, void *out);
