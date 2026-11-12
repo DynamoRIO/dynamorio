@@ -6462,15 +6462,18 @@ if (UNIX)
     set(linux.rseq_no_reg_compat)
     tobuild(linux.rseq linux/rseq.cpp)
     disable_glibc_rseq(linux.rseq)
+    link_with_pthread(linux.rseq)
     # Test the other sections.  Unfortunately we need a separate binary for each.
     tobuild(linux.rseq_table linux/rseq.cpp)
     append_property_list(TARGET linux.rseq_table
       COMPILE_DEFINITIONS "RSEQ_TEST_USE_OLD_SECTION_NAME")
     disable_glibc_rseq(linux.rseq_table)
+    link_with_pthread(linux.rseq_table)
     tobuild(linux.rseq_noarray linux/rseq.cpp)
     append_property_list(TARGET linux.rseq_noarray
       COMPILE_DEFINITIONS "RSEQ_TEST_USE_NO_ARRAY")
     disable_glibc_rseq(linux.rseq_noarray)
+    link_with_pthread(linux.rseq_noarray)
     # Test attaching, which has a separate lazy rseq check.
     # We build with static DR to also test client interactions.
     tobuild_api(api.rseq linux/rseq.cpp "" "" OFF ON OFF)

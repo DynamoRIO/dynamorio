@@ -43,9 +43,11 @@
 #ifdef RSEQ_TEST_ATTACH
 #    include "thread.h"
 #    include "condvar.h"
-#    include <atomic>
 #    include "drmemtrace/drmemtrace.h"
 #endif
+#include <atomic>
+#include <thread>
+
 #ifndef LINUX
 #    error Only Linux is supported.
 #endif
@@ -708,27 +710,57 @@ test_rseq_native_fault(void)
     assert(restarts > 0);
 }
 
+#ifdef DEBUG
+static std::atomic<int> set_affinity_requested;
+
+static void
+change_affinity(pthread_t test_thread)
+{
+    /* Force a migration by setting the affinity mask to two different singleton
+     * CPUs.
+     */
+    while (set_affinity_requested.load(std::memory_order_acquire) != 1) {
+        std::this_thread::yield();
+    }
+
+    cpu_set_t mask;
+    CPU_ZERO(&mask);
+    CPU_SET(0, &mask);
+
+    int res = pthread_setaffinity_np(test_thread, sizeof(mask), &mask);
+    assert(res == 0);
+
+    CPU_ZERO(&mask);
+    CPU_SET(1, &mask);
+
+    res = pthread_setaffinity_np(test_thread, sizeof(mask), &mask);
+    assert(res == 0);
+}
+#endif
+
 /* Tests that DR handles an rseq abort from migration or context switch (a signal
  * is tested in test_rseq_native_fault()) in the native rseq execution.
  * We again cheat and take advantage of DR not restoring SIMD state to have different
  * behavior in the two DR executions of the rseq code.
  * The only reliable way we can force a context switch or migration is to use
- * a system call, which is officially disallowed.  We have special exceptions in
- * the code which look for the names of the tests built from this file (see the
- * check_filter() calls in core/unix/rseq_linux.c and core/arch/mangle_shared.c)
- * and are limited to DEBUG.
+ * a system call, which is officially disallowed so the rseq code notifies a second
+ * thread to perform the syscall.  We have special exceptions in the code which look for
+ * the names of the tests built from this file (see the check_filter() calls in
+ * core/unix/rseq_linux.c and core/arch/mangle_shared.c) and are limited to DEBUG.
  */
 static void
 test_rseq_native_abort(void)
 {
     volatile struct rseq *reg_rseq = get_my_rseq();
 #ifdef DEBUG /* See above: special code in core/ is DEBUG-only> */
+    set_affinity_requested.store(0, std::memory_order_release);
+    std::thread change_affinity_thread(change_affinity, pthread_self());
     in_rseq_migration_test = true;
     int restarts = 0;
 #    ifdef X86
     __asm__ __volatile__(
         /* clang-format off */ /* (avoid indenting next few lines) */
-        RSEQ_ADD_TABLE_ENTRY(abort, 2f, 3f, 4f)
+        RSEQ_ADD_TABLE_ENTRY(abort, 2f, 4f, 5f)
         /* clang-format on */
 
         "6:\n\t"
@@ -746,56 +778,43 @@ test_rseq_native_abort(void)
          */
         "paddq %%xmm1,%%xmm0\n\t"
         "movq %%xmm0, %%rax\n\t"
-        /* Only raise the signal on the 2nd run == native run. */
+        /* Only force the abort on the 2nd run == native run. */
         "cmp $2, %%rax\n\t"
         "jne 11f\n\t"
-        /* Force a migration by setting the affinity mask to two different singleton
-         * CPU's.
-         */
-        "mov $0, %%rdi\n\t"
-        "mov %[cpu_mask_size], %%rsi\n\t"
-        "leaq sched_mask_1(%%rip), %%rdx\n\t"
-        "mov %[sysnum_setaffinity], %%eax\n\t"
-        "syscall\n\t"
-        "mov $0, %%rdi\n\t"
-        "mov %[cpu_mask_size], %%rsi\n\t"
-        "leaq sched_mask_2(%%rip), %%rdx\n\t"
-        "mov %[sysnum_setaffinity], %%eax\n\t"
-        "syscall\n\t"
+        /* Request the other thread to change our affinity mask. */
+        "movl $1, %[set_affinity_requested]\n\t"
+        "3:\n\t"
+        "pause\n\t"
+        "jmp 3b\n\t"
+
         "11:\n\t"
         "nop\n\t"
 
         /* Post-commit. */
-        "3:\n\t"
-        "jmp 5f\n\t"
+        "4:\n\t"
+        "jmp 6f\n\t"
 
         /* Abort handler. */
         /* clang-format off */ /* (avoid indenting next few lines) */
         ".long " STRINGIFY(RSEQ_SIG) "\n\t"
-        "4:\n\t"
+        "5:\n\t"
         ".global test_rseq_native_abort_handler\n\t"
         "test_rseq_native_abort_handler:\n\t"
         "addl $1, %[restarts]\n\t"
         "jmp 2b\n\t"
 
-        "sched_mask_1:\n\t"
-        ".long 0x1, 0, 0, 0\n\t" /* cpu #1 */
-        "sched_mask_2:\n\t"
-        ".long 0x2, 0, 0, 0\n\t" /* cpu #2 */
-
         /* Clear the ptr. */
-        "5:\n\t"
+        "6:\n\t"
         "movq $0, %[rseq_cs]\n\t"
         /* clang-format on */
 
         : [rseq_cs] "=m"(reg_rseq->rseq_cs), [restarts] "=m"(restarts)
-        : [cpu_mask_size] "i"(sizeof(cpu_set_t)),
-          [sysnum_setaffinity] "i"(SYS_sched_setaffinity)
-        : "rax", "rcx", "rdx", "rsi", "rdi", "xmm0", "xmm1", "memory");
+        : [set_affinity_requested] "m"(set_affinity_requested)
+        : "rax", "rcx", "xmm0", "xmm1", "memory");
 #    elif defined(AARCH64)
     __asm__ __volatile__(
         /* clang-format off */ /* (avoid indenting next few lines) */
-        RSEQ_ADD_TABLE_ENTRY(abort, 2f, 3f, 4f)
+        RSEQ_ADD_TABLE_ENTRY(abort, 2f, 4f, 5f)
         /* clang-format on */
 
         "6:\n\t"
@@ -817,32 +836,24 @@ test_rseq_native_abort(void)
         /* Only force the abort on the 2nd run == native run. */
         "cmp x0, #2\n\t"
         "b.ne 11f\n\t"
-        /* Force a migration by setting the affinity mask to two different singleton
-         * CPU's.
-         */
-        "mov x0, #0\n\t"
-        "mov w1, #%[cpu_mask_size]\n\t"
-        "adrp x2, sched_mask_1\n\t"
-        "add x2, x2, :lo12:sched_mask_1\n\t"
-        "mov w8, #%[sysnum_setaffinity]\n\t"
-        "svc #0\n\t"
-        "mov x0, #0\n\t"
-        "mov w1, #%[cpu_mask_size]\n\t"
-        "adrp x2, sched_mask_2\n\t"
-        "add x2, x2, :lo12:sched_mask_2\n\t"
-        "mov w8, #%[sysnum_setaffinity]\n\t"
-        "svc #0\n\t"
+        /* Request the other thread to change our affinity mask. */
+        "mov w0, #1\n\t"
+        "stlr w0, %[set_affinity_requested]\n\t"
+        "3:\n\t"
+        "yield\n\t"
+        "b 3b\n\t"
+
         "11:\n\t"
         "nop\n\t"
 
         /* Post-commit. */
-        "3:\n\t"
-        "b 5f\n\t"
+        "4:\n\t"
+        "b 6f\n\t"
 
         /* Abort handler. */
         /* clang-format off */ /* (avoid indenting next few lines) */
         ".long " STRINGIFY(RSEQ_SIG) "\n\t"
-        "4:\n\t"
+        "5:\n\t"
         ".global test_rseq_native_abort_handler\n\t"
         "test_rseq_native_abort_handler:\n\t"
         "ldr x1, %[restarts]\n\t"
@@ -850,27 +861,21 @@ test_rseq_native_abort(void)
         "str x1, %[restarts]\n\t"
         "b 2b\n\t"
 
-        ".balign 32\n\t"
-        "sched_mask_1:\n\t"
-        ".long 0x1, 0, 0, 0\n\t" /* cpu #1 */
-        "sched_mask_2:\n\t"
-        ".long 0x2, 0, 0, 0\n\t" /* cpu #2 */
-
         /* Clear the ptr. */
-        "5:\n\t"
+        "6:\n\t"
         "str xzr, %[rseq_cs]\n\t"
         /* clang-format on */
 
         : [rseq_cs] "=m"(reg_rseq->rseq_cs), [restarts] "=m"(restarts)
-        : [cpu_mask_size] "i"(sizeof(cpu_set_t)),
-          [sysnum_setaffinity] "i"(SYS_sched_setaffinity)
-        : "x0", "x1", "x2", "x8", "q0", "q1", "memory");
+        : [set_affinity_requested] "m"(set_affinity_requested)
+        : "x0", "x1", "x2", "q0", "q1", "memory");
 #    else
 #        error Unsupported arch
 #    endif
     in_rseq_migration_test = false;
     /* This is expected to fail on a native run where restarts will be 0. */
     assert(restarts > 0);
+    change_affinity_thread.join();
 #endif /* DEBUG */
 }
 
