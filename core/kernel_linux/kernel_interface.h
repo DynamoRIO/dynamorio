@@ -135,6 +135,13 @@ kernel_walk_code_regions(kernel_memory_region_callback_t callback, void *arg);
 bool
 kernel_is_readable_without_fault(const void *addr, size_t size);
 
+/* Copies up to |size| bytes from |addr| to |out| without faulting and returns the
+ * number of bytes copied.  Returns the number of bytes copied.
+ * Acquires no locks and never sleeps.
+ */
+size_t
+kernel_read_without_fault(const void *addr, size_t size, void *out);
+
 unsigned int
 kernel_query_time_seconds(void);
 

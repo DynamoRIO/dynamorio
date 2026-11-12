@@ -49,6 +49,7 @@
 #include <linux/kprobes.h>
 #include <linux/ktime.h>
 #include <linux/limits.h>
+#include <linux/minmax.h>
 #include <linux/module.h>
 #include <linux/panic.h>
 #include <linux/percpu.h>
@@ -595,6 +596,37 @@ kernel_is_readable_without_fault(const void *addr, size_t size)
         page += PAGE_SIZE;
         cur = page;
     }
+}
+
+size_t
+kernel_read_without_fault(const void *addr, size_t size, void *out)
+{
+    /* Pointer overflow is undefined behavior and may be optimized away,
+     * so we convert the pointer to integer first.
+     */
+    const unsigned long start = (unsigned long)addr;
+    /* Clamp a range that would overflow to end at the top of the address space, so that
+     * the copy stops there instead of wrapping around to address 0.
+     */
+    if (start + size < start) {
+        size = ULONG_MAX - start + 1;
+    }
+
+    /* The no-fault accessors only report success or failure.  Read protections are
+     * page-granular, so copying one page-bounded chunk at a time and stopping at the
+     * first chunk that fails yields the number of readable bytes.
+     */
+    size_t copied = 0;
+    while (copied < size) {
+        const unsigned long cur = start + copied;
+        const size_t to_page_end = PAGE_SIZE - (cur & ~PAGE_MASK);
+        const size_t chunk = min(size - copied, to_page_end);
+        if (copy_from_nofault_within_page((char *)out + copied, cur, chunk) != 0) {
+            break;
+        }
+        copied += chunk;
+    }
+    return copied;
 }
 
 unsigned int
