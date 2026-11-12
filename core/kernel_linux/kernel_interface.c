@@ -45,6 +45,7 @@
 #elif defined(CONFIG_ARM64)
 #    include <asm/arch_timer.h> /* For arch_timer_get_cntfrq(). */
 #endif
+#include <linux/cpu.h>
 #include <linux/cpumask.h>
 #include <linux/kprobes.h>
 #include <linux/ktime.h>
