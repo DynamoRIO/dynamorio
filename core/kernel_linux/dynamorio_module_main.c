@@ -67,6 +67,23 @@ MODULE_PARM_DESC(dr_heap_size, "DynamoRIO module heap size in bytes (read-only)"
 static DEFINE_MUTEX(session_lock);
 static enum { SESSION_NONE, SESSION_INITIALIZED, SESSION_FAILED } session_state;
 
+
+static int
+dynamorio_cpu_init(void *arg)
+{
+    int init_cpu = *(int *)arg;
+    /* The CPU that dynamorio_app_init() already has its dcontext initialized. */
+    if (smp_processor_id() == init_cpu) {
+        return 0;
+    }
+
+    preempt_disable();
+    int res = dynamo_thread_init(NULL, NULL, NULL, false);
+    preempt_enable();
+
+    return res == 0 ? 0 : -EINVAL;
+}
+
 /* XXX i#8115: Define support for per-process options, including how to reuse the
  * existing configuration infrastructure.
  */
@@ -107,6 +124,7 @@ dynamorio_ioctl_init(const struct dynamorio_init_args __user *uargs)
      * breaking lock ownership checks.
      */
     preempt_disable();
+    int init_cpu = smp_processor_id();
     ret = dynamorio_app_init();
     preempt_enable();
     if (ret != 0) {
@@ -114,6 +132,13 @@ dynamorio_ioctl_init(const struct dynamorio_init_args __user *uargs)
         pr_err("dynamorio_app_init() failed: %ld\n", ret);
         session_state = SESSION_FAILED;
         ret = -EINVAL;
+        goto out;
+    }
+
+    ret = kernel_run_on_each_online_cpu(dynamorio_cpu_init, &init_cpu);
+    if (ret != 0) {
+        pr_err("Per-CPU initialization failed: %ld\n", ret);
+        session_state = SESSION_FAILED;
         goto out;
     }
 
