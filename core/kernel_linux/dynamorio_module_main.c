@@ -67,7 +67,6 @@ MODULE_PARM_DESC(dr_heap_size, "DynamoRIO module heap size in bytes (read-only)"
 static DEFINE_MUTEX(session_lock);
 static enum { SESSION_NONE, SESSION_INITIALIZED, SESSION_FAILED } session_state;
 
-
 static int
 dynamorio_cpu_init(void *arg)
 {
