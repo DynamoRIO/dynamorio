@@ -782,7 +782,7 @@ instrument_init(void)
                                  * bugs if the app wants to interpret part of
                                  * its code section (xref PR 504629).
                                  */
-                                MEMPROT_READ, DR_MEMTYPE_IMAGE);
+                                MEMPROT_READ, DR_MEMTYPE_IMAGE, /*is_shared=*/false);
         all_memory_areas_unlock();
 
         /* i#1736: parse the options up front */
@@ -3076,12 +3076,13 @@ raw_mem_alloc(size_t size, uint prot, void *addr, dr_alloc_flags_t flags)
     if (p != NULL) {
         if (TESTANY(DR_ALLOC_NON_DR, flags)) {
             all_memory_areas_lock();
-            update_all_memory_areas(p, p + size, prot, DR_MEMTYPE_DATA);
+            update_all_memory_areas(p, p + size, prot, DR_MEMTYPE_DATA,
+                                    /*is_shared=*/false);
             all_memory_areas_unlock();
         } else {
             /* this routine updates allmem for us: */
-            add_dynamo_vm_area((app_pc)p, ((app_pc)p) + size, prot,
-                               true _IF_DEBUG("fls cb in private lib"));
+            add_dynamo_vm_area((app_pc)p, ((app_pc)p) + size, prot, true,
+                               /*is_shared=*/false _IF_DEBUG("fls cb in private lib"));
         }
         RSTATS_ADD_PEAK(client_raw_mmap_size, size);
     }
@@ -3554,7 +3555,7 @@ dr_load_aux_library(const char *name, byte **lib_start /*OPTIONAL OUT*/,
                                 /* XXX: see comment in instrument_init()
                                  * on walking the sections and what prot to use
                                  */
-                                MEMPROT_READ, DR_MEMTYPE_IMAGE);
+                                MEMPROT_READ, DR_MEMTYPE_IMAGE, /*is_shared=*/false);
         all_memory_areas_unlock();
     } else {
         unload_shared_library(lib);
@@ -3598,7 +3599,8 @@ dr_unload_aux_library(dr_auxlib_handle_t lib)
         vmvector_remove(client_aux_libs, start, end);
         unload_shared_library(lib);
         all_memory_areas_lock();
-        update_all_memory_areas(start, end, MEMPROT_NONE, DR_MEMTYPE_FREE);
+        update_all_memory_areas(start, end, MEMPROT_NONE, DR_MEMTYPE_FREE,
+                                /*is_shared=*/false);
         all_memory_areas_unlock();
         return true;
     } else {

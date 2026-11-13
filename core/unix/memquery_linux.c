@@ -355,6 +355,7 @@ memquery_from_os(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info,
             info->base_pc = iter.vm_start;
             info->size = (iter.vm_end - iter.vm_start);
             info->prot = iter.prot;
+            info->is_shared = iter.is_shared;
             /* On early (pre-Fedora 2) kernels the vsyscall page is listed
              * with no permissions at all in the maps file.  Here's RHEL4:
              *   ffffe000-fffff000 ---p 00000000 00:00 0
@@ -388,6 +389,7 @@ memquery_from_os(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info,
         info->size = (next_start - last_end);
         info->prot = MEMPROT_NONE;
         info->type = DR_MEMTYPE_FREE;
+        info->is_shared = false;
         *have_type = true;
     }
     return true;

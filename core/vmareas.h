@@ -534,8 +534,8 @@ free_nonexec_coarse_and_unlock(void);
 
 /* add dynamo-internal area to the dynamo-internal area list */
 bool
-add_dynamo_vm_area(app_pc start, app_pc end, uint prot,
-                   bool from_unmod_image _IF_DEBUG(const char *comment));
+add_dynamo_vm_area(app_pc start, app_pc end, uint prot, bool from_unmod_image,
+                   bool is_shared _IF_DEBUG(const char *comment));
 bool
 is_dynamo_area_buffer(byte *heap_pc);
 
@@ -588,7 +588,7 @@ vm_area_fragment_self_write(dcontext_t *dcontext, app_pc tag);
 /* newly allocated or mapped in memory region */
 bool
 app_memory_allocation(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
-                      bool image _IF_DEBUG(const char *comment));
+                      bool image, bool is_shared _IF_DEBUG(const char *comment));
 
 /* de-allocated or un-mapped memory region */
 void
@@ -773,6 +773,10 @@ is_address_on_stack(dcontext_t *dcontext, app_pc address);
  * not a strict opposite of is_user_address() */
 bool
 is_driver_address(app_pc addr);
+
+/* Returns true if an executable area has shared backing. */
+bool
+is_shared_mapping(app_pc addr);
 
 /* XXX clean up: safe_apc_or_thread_target, apc_thread_policy_helper and
  * aslr_report_violation should all be ifdef WINDOWS, and may be in a
