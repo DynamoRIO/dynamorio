@@ -493,12 +493,18 @@ translate_walk_track_post_instr(dcontext_t *tdcontext, instr_t *inst,
                 ASSERT(spill || (!spill && walk->reg_spilled[r]));
                 ASSERT(spill || walk->reg_tls[r] == spill_tls);
                 if (spill) {
-                    walk->reg_spill_offs[r] = offs;
+                    /* i#8270: A store of an already spilled register holds a DR value
+                     * (e.g., the x64 trace cmp's target), not the app value, so we only
+                     * keep the first spill.  Only x86 is known to need this.
+                     */
+                    if (IF_X86_ELSE(!walk->reg_spilled[r], true)) {
+                        walk->reg_spill_offs[r] = offs;
+                        walk->reg_tls[r] = spill_tls;
+                    }
                     walk->reg_spilled[r] = true;
                 } else {
                     walk->reg_spilled[r] = false;
                 }
-                walk->reg_tls[r] = spill_tls;
                 LOG(THREAD_GET, LOG_INTERP, 4, "\tspill update: %s %s %s offs=%d\n",
                     spill ? "spill" : "restore", spill_tls ? "tls" : "mcontext",
                     reg_names[reg], offs);
@@ -2217,7 +2223,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
 /* END TRANSLATION CODE ***********************************************************/
 
 #if defined(STANDALONE_UNIT_TEST) && defined(X86)
-/* i#8270: Once a register is spilled, a later store of it to another slot may not hold
+/* i#8270: Once a register is spilled, a later store of it to another slot does not hold
  * the app value and should not replace the first spill.  The x64 trace cmp does this: it
  * spills xax to PREFIX_XAX_SPILL_SLOT and then stores the expected target via xax into
  * INDIRECT_STUB_SPILL_SLOT.
