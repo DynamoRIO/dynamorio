@@ -81,6 +81,9 @@ module_param(spike_irqs_on, bool, 0444);
 /* Runs a test function that lives inside this module instead of the test module. */
 static bool spike_internal;
 module_param(spike_internal, bool, 0444);
+/* Kernel symbol (e.g., a syscall handler) to pass to the test module's workload 9. */
+static char *spike_sym;
+module_param(spike_sym, charp, 0444);
 
 static noinline int
 spike_internal_fib(int n)
@@ -91,7 +94,7 @@ spike_internal_fib(int n)
 }
 
 static noinline int
-spike_internal_entry(void (*start)(void), void (*stop)(void))
+spike_internal_entry(void (*start)(void), void (*stop)(void), void *fn)
 {
     volatile int n = 10;
     volatile int res;
@@ -104,12 +107,22 @@ spike_internal_entry(void (*start)(void), void (*stop)(void))
 static long
 dynamorio_ioctl_spike(void)
 {
-    int (*entry)(void (*)(void), void (*)(void)) =
+    int (*entry)(void (*)(void), void (*)(void), void *) =
         spike_internal ? spike_internal_entry
                        : kernel_find_symbol("drk_spike_entry", NULL);
     if (entry == NULL) {
         pr_err("spike: drk_spike_entry not found; load the spike test module\n");
         return -ENOENT;
+    }
+
+    void *fn = NULL;
+    if (spike_sym != NULL && spike_sym[0] != 0) {
+        fn = kernel_find_symbol(spike_sym, NULL);
+        if (fn == NULL) {
+            pr_err("spike: symbol %s not found\n", spike_sym);
+            return -ENOENT;
+        }
+        pr_info("spike: %s=%px\n", spike_sym, fn);
     }
 
     long ret;
@@ -131,7 +144,7 @@ dynamorio_ioctl_spike(void)
         goto out;
     }
     pr_info("spike: entering DR, entry=%px\n", entry);
-    ret = entry(dr_app_start, dr_app_stop);
+    ret = entry(dr_app_start, dr_app_stop, fn);
     pr_info("spike: back to native, result=%ld irqs_on=%d internal=%d\n", ret,
             spike_irqs_on, spike_internal);
     if (!spike_irqs_on)
