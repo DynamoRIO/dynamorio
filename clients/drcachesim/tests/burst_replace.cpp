@@ -55,6 +55,8 @@ namespace drmemtrace {
 
 #define MAGIC_VALUE ((void *)(ptr_uint_t)0xdeadbeefUL)
 
+char target_window[MAXIMUM_PATH];
+
 bool
 my_setenv(const char *var, const char *value)
 {
@@ -113,8 +115,10 @@ local_write_file(file_t file, const void *data, size_t size)
                count, size, data, file, res);
     /* Assuming it is a single-threaded app, we do not worry about
      * racy access on count.
+     * We replace after one call to avoid flakiness across platforms in how
+     * many writes occur in the first window.
      */
-    if (count++ == 1) {
+    if (count++ == 0) {
         dr_fprintf(STDERR, "restore the write file function\n");
         drmemtrace_replace_file_ops(NULL, NULL, dr_write_file, NULL, NULL);
     }
@@ -183,11 +187,36 @@ free_cb(void *data)
 }
 
 static void
-post_process()
+window_start(void *user_data)
 {
+    static int window_count = 0;
+    assert(user_data == MAGIC_VALUE);
     const char *raw_dir;
     drmemtrace_status_t mem_res = drmemtrace_get_output_path(&raw_dir);
     assert(mem_res == DRMEMTRACE_SUCCESS);
+    if (window_count++ == 1) {
+        dr_snprintf(target_window, BUFFER_SIZE_ELEMENTS(target_window), "%s", raw_dir);
+        NULL_TERMINATE_BUFFER(target_window);
+    }
+    dr_fprintf(STDERR, "%s for path %s\n", __FUNCTION__, raw_dir);
+}
+
+static void
+window_end(void *user_data)
+{
+    assert(user_data == MAGIC_VALUE);
+    const char *raw_dir;
+    drmemtrace_status_t mem_res = drmemtrace_get_output_path(&raw_dir);
+    assert(mem_res == DRMEMTRACE_SUCCESS);
+    dr_fprintf(STDERR, "%s for path %s\n", __FUNCTION__, raw_dir);
+}
+
+static void
+post_process()
+{
+    // To test the window events, target the 2nd window seen in the window_start event.
+    const char *raw_dir = target_window;
+    assert(raw_dir[0] != '\0');
     void *dr_context = dr_standalone_init();
     {
         /* First, test just the module parsing w/o writing a final trace, in a separate
@@ -246,7 +275,11 @@ test_main(int argc, const char *argv[])
     // Set the main buffer to 4K as our output is tuned to that for the count
     // of writes.
     if (!my_setenv("DYNAMORIO_OPTIONS",
-                   "-stderr_mask 0xc -client_lib ';;-offline -main_buf_records 4K'"))
+                   "-stderr_mask 0xc -client_lib ';;-offline -main_buf_records 4K "
+                   // Enable windows to test bounds callbacks.
+                   // We expect over 100K instrs, so these cadences should give us
+                   // at least 4 windows.
+                   "-trace_for_instrs 25K -retrace_every_instrs 25K'"))
         std::cerr << "failed to set env var!\n";
 
     std::cerr << "replace all file functions\n";
@@ -256,6 +289,9 @@ test_main(int argc, const char *argv[])
     assert(res == DRMEMTRACE_SUCCESS);
     std::cerr << "add custom module data\n";
     res = drmemtrace_custom_module_data(load_cb, print_cb, free_cb);
+    assert(res == DRMEMTRACE_SUCCESS);
+    // Test window bound events.
+    res = drmemtrace_boundary_events(window_start, window_end, MAGIC_VALUE);
     assert(res == DRMEMTRACE_SUCCESS);
     std::cerr << "pre-DR init\n";
     dr_app_setup();

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -479,6 +479,9 @@ raw2trace_directory_t::tracedir_from_rawdir(const std::string &rawdir_in)
         rawdir.compare(rawdir.size() - trace_sub.size(), trace_sub.size(), trace_sub) ==
             0)
         return window_subdir_if_present(rawdir);
+    // If it ends in "/trace" plus a window subdir, use it directly.
+    if (is_window_subdir(rawdir) && rawdir.rfind(trace_sub) != std::string::npos)
+        return rawdir;
     // If it ends in "/raw" or a window subdir, replace with "/trace".
     if ((rawdir.size() > raw_sub.size() &&
          rawdir.compare(rawdir.size() - raw_sub.size(), raw_sub.size(), raw_sub) == 0) ||
