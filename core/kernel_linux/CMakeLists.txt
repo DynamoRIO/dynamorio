@@ -41,6 +41,27 @@ set_target_properties(drkernel_ctl PROPERTIES
 # Must match obj-m in Kbuild.
 set(dynamorio_module_name dynamorio_module)
 
+# Derive Kbuild's ARCH and CROSS_COMPILE from the CMake toolchain when cross-compiling.
+set(dynamorio_module_make_args)
+if (CMAKE_CROSSCOMPILING)
+  if (AARCH64)
+    set(kernel_arch arm64)
+  else ()
+    set(kernel_arch x86_64)
+  endif ()
+
+  if (NOT CMAKE_C_COMPILER MATCHES "^(.*-)gcc(-[0-9]+)?$")
+    message(FATAL_ERROR "Cannot derive the Kbuild CROSS_COMPILE prefix from "
+      "${CMAKE_C_COMPILER}; only gcc cross toolchains are supported")
+  endif ()
+  set(kernel_cross_compile "${CMAKE_MATCH_1}")
+
+  list(APPEND dynamorio_module_make_args
+    ARCH=${kernel_arch} CROSS_COMPILE=${kernel_cross_compile})
+  message(STATUS "Cross-compiling kernel module with ARCH=${kernel_arch} "
+    "CROSS_COMPILE=${kernel_cross_compile}")
+endif ()
+
 # Linux kernel OS-specific sources. Combine with CORE_SRCS and ARCH_SRCS from
 # core/CMakeLists.txt to generate the Kbuild.sources object list. Paths here should be
 # relative to core/, matching CORE_SRCS and ARCH_SRCS.
@@ -105,7 +126,8 @@ set(dynamorio_module_ko "${CMAKE_CURRENT_BINARY_DIR}/${dynamorio_module_name}.ko
 
 # Always invoke kbuild and let it decide what needs rebuilding.
 add_custom_target(dynamorio_module ALL
-  COMMAND ${MAKE_PROGRAM} -C ${KERNEL_DIR} M=${CMAKE_CURRENT_BINARY_DIR} modules
+  COMMAND ${MAKE_PROGRAM} -C ${KERNEL_DIR} M=${CMAKE_CURRENT_BINARY_DIR}
+    ${dynamorio_module_make_args} modules
   # Ensure generated inputs are ready before kbuild runs.
   DEPENDS
     ${dynamorio_module_kbuild_sources_file}
@@ -123,5 +145,6 @@ add_dependencies(dynamorio_module drkernel_ctl)
 # Standard `make clean` cannot remove Kbuild bookkeeping files.
 # Run `make clean_dynamorio_module` to invoke Kbuild's clean target.
 add_custom_target(clean_dynamorio_module
-  COMMAND ${MAKE_PROGRAM} -C ${KERNEL_DIR} M=${CMAKE_CURRENT_BINARY_DIR} clean
+  COMMAND ${MAKE_PROGRAM} -C ${KERNEL_DIR} M=${CMAKE_CURRENT_BINARY_DIR}
+    ${dynamorio_module_make_args} clean
 )
