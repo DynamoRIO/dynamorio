@@ -1,6 +1,7 @@
 /* *******************************************************************************
  * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
+ * Copyright (c) 2026 Arm Limited.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -38,13 +39,16 @@
 /* Copyright (c) 2000-2001 Hewlett-Packard Company */
 
 /*
- * memquery_linux.c - memory querying via /proc/self/maps
+ * memquery_linux.c - memory querying via PROCMAP_QUERY, with a /proc maps fallback
  */
 
 #include "../globals.h"
 #include "memquery.h"
 #include "os_private.h"
 #include "module_private.h"
+#include "include/procmap.h"
+#include "include/syscall.h"
+#include <errno.h>
 #include <sys/mman.h>
 
 #ifndef LINUX
@@ -65,17 +69,14 @@ typedef struct _maps_iter_t {
     int bufwant;
     char *buf;
     char *comment_buffer;
+    app_pc query_addr;
+    bool use_ioctl;
 } maps_iter_t;
 
 /* lock to guard reads from /proc/self/maps in get_memory_info_from_os(). */
 static mutex_t memory_info_buf_lock = INIT_LOCK_FREE(memory_info_buf_lock);
 /* lock for iterator where user needs to allocate memory */
 static mutex_t maps_iter_buf_lock = INIT_LOCK_FREE(maps_iter_buf_lock);
-
-/* On all supported linux kernels /proc/self/maps -> /proc/$pid/maps
- * However, what we want is /proc/$tid/maps, so we can't use "self"
- */
-#define PROC_SELF_MAPS "/proc/self/maps"
 
 /* these are defined in /usr/src/linux/fs/proc/array.c */
 #define MAPS_LINE_LENGTH 4096
@@ -107,6 +108,9 @@ static char comment_buf_scratch[BUFSIZE];
  */
 static char buf_iter[BUFSIZE];
 static char comment_buf_iter[BUFSIZE];
+
+/* Assume we can use ioctl(PROCMAP_QUERY) until proven otherwise. */
+static bool ioctl_supports_procmap_query = true;
 
 void
 memquery_init(void)
@@ -170,14 +174,14 @@ memquery_iterator_start(memquery_iter_t *iter, app_pc start, bool may_alloc)
 
     mi->newline = NULL;
     mi->bufread = 0;
+    mi->use_ioctl = ioctl_supports_procmap_query;
+    mi->query_addr = start;
     iter->comment = mi->comment_buffer;
 
     iter->may_alloc = may_alloc;
 
-    /* XXX: it's quite difficult to start at the region containing "start":
-     * we either need to support walking backward a line (complicated by
-     * the incremental os_read() scheme) or make two passes.
-     * Thus, the interface doesn't promise we'll start there.
+    /* PROCMAP_QUERY can start at the requested address.  The text fallback
+     * starts at the beginning, as permitted by the iterator interface.
      */
     iter->vm_start = NULL;
 
@@ -197,16 +201,13 @@ memquery_iterator_stop(memquery_iter_t *iter)
         d_r_mutex_unlock(&memory_info_buf_lock);
 }
 
-bool
-memquery_iterator_next(memquery_iter_t *iter)
+static bool
+memquery_iterator_next_using_read(memquery_iter_t *iter)
 {
     maps_iter_t *mi = (maps_iter_t *)&iter->internal;
     char perm[16];
     char *line;
     int len;
-    app_pc prev_start = iter->vm_start;
-    ASSERT((iter->may_alloc && OWN_MUTEX(&maps_iter_buf_lock)) ||
-           (!iter->may_alloc && OWN_MUTEX(&memory_info_buf_lock)));
     if (mi->newline == NULL) {
         mi->bufwant = BUFSIZE - 1;
         mi->bufread = os_read(mi->maps, mi->buf, mi->bufwant);
@@ -264,6 +265,107 @@ memquery_iterator_next(memquery_iter_t *iter)
                  (unsigned long *)&iter->vm_start, (unsigned long *)&iter->vm_end, perm,
                  (unsigned long *)&iter->offset, &iter->device_major, &iter->device_minor,
                  &iter->inode, mi->comment_buffer);
+
+    if (len < 8)
+        mi->comment_buffer[0] = '\0';
+    iter->prot = permstr_to_memprot(perm);
+    iter->is_shared = len >= 3 && perm[0] != '\0' && perm[1] != '\0' && perm[2] != '\0' &&
+        perm[3] == 's';
+
+    return true;
+}
+
+static bool
+memquery_iterator_next_using_ioctl(memquery_iter_t *iter)
+{
+    app_pc prev_start = iter->vm_start;
+    maps_iter_t *mi = (maps_iter_t *)&iter->internal;
+    struct procmap_query query = { 0 };
+    ptr_int_t res;
+    query.size = sizeof(query);
+    query.query_flags = PROCMAP_QUERY_COVERING_OR_NEXT_VMA;
+    query.query_addr = (ptr_uint_t)mi->query_addr;
+    query.vma_name_size = BUFSIZE;
+    query.vma_name_addr = (ptr_uint_t)mi->comment_buffer;
+    mi->comment_buffer[0] = '\0';
+    do {
+        res = dynamorio_syscall(SYS_ioctl, 3, mi->maps, PROCMAP_QUERY, &query);
+    } while (res == -EINTR);
+
+    if (res != 0) {
+        if (res == -ENOENT) {
+            /* No entry for this address. We have reached the end of the iterator. */
+            return false;
+        }
+
+        if (res == -ENOTTY) {
+            /* Kernels older than 6.11 do not support PROCMAP_QUERY and return -ENOTTY.
+             * Fall back to parsing the text version.
+             */
+            ioctl_supports_procmap_query = false;
+            ASSERT(prev_start == NULL);
+        }
+
+        /* vma_name is limited to PATH_SIZE and our buffer is larger than that so
+         * we shouldn't ever get an -ENAMETOOLONG error.
+         */
+        ASSERT(BUFSIZE >= PATH_MAX && res != -ENAMETOOLONG);
+
+        /* Catch programming errors we might be able to fix on DEBUG builds. */
+        ASSERT(res != -EINVAL && res != -E2BIG && res != -EFAULT);
+
+        /* Fall back to parsing the text version on any other errors.
+         * Reset the iterator into text mode and skip forwards until we reach the
+         * current position.
+         */
+        mi->use_ioctl = false;
+        iter->vm_start = NULL;
+
+        while (memquery_iterator_next_using_read(iter)) {
+            if (prev_start == NULL || iter->vm_start > prev_start)
+                return true;
+        }
+        return false;
+    }
+
+    iter->vm_start = (app_pc)(ptr_uint_t)query.vma_start;
+    iter->vm_end = (app_pc)(ptr_uint_t)query.vma_end;
+    iter->prot = MEMPROT_NONE;
+    if (TESTANY(PROCMAP_QUERY_VMA_READABLE, query.vma_flags))
+        iter->prot |= MEMPROT_READ;
+    if (TESTANY(PROCMAP_QUERY_VMA_WRITABLE, query.vma_flags))
+        iter->prot |= MEMPROT_WRITE;
+    if (TESTANY(PROCMAP_QUERY_VMA_EXECUTABLE, query.vma_flags))
+        iter->prot |= MEMPROT_EXEC;
+    iter->is_shared = TESTANY(PROCMAP_QUERY_VMA_SHARED, query.vma_flags);
+    iter->offset = (size_t)query.vma_offset;
+    iter->inode = query.inode;
+    iter->device_major = query.dev_major;
+    iter->device_minor = query.dev_minor;
+#ifdef ANDROID
+    if (iter->comment[0] != '\0')
+        iter->prot |= MEMPROT_HAS_COMMENT;
+#endif
+    mi->query_addr = iter->vm_end;
+    return true;
+}
+
+bool
+memquery_iterator_next(memquery_iter_t *iter)
+{
+    app_pc prev_start = iter->vm_start;
+    ASSERT((iter->may_alloc && OWN_MUTEX(&maps_iter_buf_lock)) ||
+           (!iter->may_alloc && OWN_MUTEX(&memory_info_buf_lock)));
+
+    maps_iter_t *mi = (maps_iter_t *)&iter->internal;
+    if (mi->use_ioctl) {
+        if (!memquery_iterator_next_using_ioctl(iter))
+            return false;
+    } else {
+        if (!memquery_iterator_next_using_read(iter))
+            return false;
+    }
+
     if (iter->vm_start == iter->vm_end) {
         /* i#366 & i#599: Merge an empty regions caused by stack guard pages
          * into the stack region if the stack region is less than one page away.
@@ -306,11 +408,6 @@ memquery_iterator_next(memquery_iter_t *iter)
         iter->vm_start = prev_start;
         return memquery_iterator_next(iter);
     }
-    if (len < 8)
-        mi->comment_buffer[0] = '\0';
-    iter->prot = permstr_to_memprot(perm);
-    iter->is_shared = len >= 3 && perm[0] != '\0' && perm[1] != '\0' && perm[2] != '\0' &&
-        perm[3] == 's';
 #ifdef ANDROID
     /* i#1861: the Android kernel supports custom comments which can't merge */
     if (iter->comment[0] != '\0')
@@ -350,7 +447,18 @@ memquery_from_os(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info,
     bool found = false;
     ASSERT(info != NULL);
     memquery_iterator_start(&iter, (app_pc)pc, false /*won't alloc*/);
-    while (memquery_iterator_next(&iter)) {
+    maps_iter_t *mi = (maps_iter_t *)&iter.internal;
+    bool have_next = memquery_iterator_next(&iter);
+    if (mi->use_ioctl && (!have_next || pc < iter.vm_start)) {
+        /* The ioctl has no predecessor query.  For an unmapped address, walk
+         * from zero to find the exact start of the free region as well as its
+         * end.  Mapped addresses need only the single lookup above.
+         */
+        mi->query_addr = NULL;
+        iter.vm_start = NULL;
+        have_next = memquery_iterator_next(&iter);
+    }
+    while (have_next) {
         if (pc >= iter.vm_start && pc < iter.vm_end) {
             info->base_pc = iter.vm_start;
             info->size = (iter.vm_end - iter.vm_start);
@@ -381,6 +489,7 @@ memquery_from_os(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info,
             break;
         }
         last_end = iter.vm_end;
+        have_next = memquery_iterator_next(&iter);
     }
     memquery_iterator_stop(&iter);
     if (!found) {
