@@ -493,12 +493,18 @@ translate_walk_track_post_instr(dcontext_t *tdcontext, instr_t *inst,
                 ASSERT(spill || (!spill && walk->reg_spilled[r]));
                 ASSERT(spill || walk->reg_tls[r] == spill_tls);
                 if (spill) {
-                    walk->reg_spill_offs[r] = offs;
+                    /* i#8270: A store of an already spilled register holds a DR value
+                     * (e.g., the x64 trace cmp's target), not the app value, so we only
+                     * keep the first spill.  Only x86 is known to need this.
+                     */
+                    if (IF_X86_ELSE(!walk->reg_spilled[r], true)) {
+                        walk->reg_spill_offs[r] = offs;
+                        walk->reg_tls[r] = spill_tls;
+                    }
                     walk->reg_spilled[r] = true;
                 } else {
                     walk->reg_spilled[r] = false;
                 }
-                walk->reg_tls[r] = spill_tls;
                 LOG(THREAD_GET, LOG_INTERP, 4, "\tspill update: %s %s %s offs=%d\n",
                     spill ? "spill" : "restore", spill_tls ? "tls" : "mcontext",
                     reg_names[reg], offs);
@@ -2217,6 +2223,59 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
 /* END TRANSLATION CODE ***********************************************************/
 
 #if defined(STANDALONE_UNIT_TEST) && defined(X86)
+/* i#8270: Once a register is spilled, a later store of it to another slot does not hold
+ * the app value and should not replace the first spill.  The x64 trace cmp does this: it
+ * spills xax to PREFIX_XAX_SPILL_SLOT and then stores the expected target via xax into
+ * INDIRECT_STUB_SPILL_SLOT.
+ */
+static void
+test_translate_double_spill(dcontext_t *dcontext)
+{
+    local_state_t local_state;
+    dcontext_t tdcontext;
+    priv_mcontext_t mc;
+    translate_walk_t walk;
+    const ushort app_slot = PREFIX_XAX_SPILL_SLOT;
+    const ushort target_slot = INDIRECT_STUB_SPILL_SLOT;
+    /* Distinct non-zero values show which slot a restore read. */
+    const reg_t app_value = 0x12345678;
+    const reg_t target_value = 0x87654321;
+    const int r = REG_XAX - REG_START_SPILL;
+
+    memset(&local_state, 0, sizeof(local_state));
+    memset(&tdcontext, 0, sizeof(tdcontext));
+    memset(&mc, 0, sizeof(mc));
+    tdcontext.local_state = &local_state;
+    *(reg_t *)((byte *)&local_state.spill_space + app_slot) = app_value;
+    *(reg_t *)((byte *)&local_state.spill_space + target_slot) = target_value;
+
+    instr_t *app_spill = instr_create_save_to_tls(dcontext, REG_XAX, app_slot);
+    instr_t *target_store = instr_create_save_to_tls(dcontext, REG_XAX, target_slot);
+    instr_t *app_restore = instr_create_restore_from_tls(dcontext, REG_XAX, app_slot);
+    instr_set_our_mangling(app_spill, true);
+    instr_set_our_mangling(target_store, true);
+    instr_set_our_mangling(app_restore, true);
+
+    translate_walk_init(&walk, NULL, NULL, &mc);
+    translate_walk_track_pre_instr(dcontext, app_spill, &walk);
+    translate_walk_track_post_instr(dcontext, app_spill, &walk);
+    translate_walk_track_pre_instr(dcontext, target_store, &walk);
+    translate_walk_track_post_instr(dcontext, target_store, &walk);
+    /* The walk still points at the app's spill, and restores from it. */
+    EXPECT(walk.reg_spilled[r], true);
+    EXPECT(walk.reg_spill_offs[r], os_tls_offset(app_slot));
+    EXPECT(translate_restore_spilled_registers(&tdcontext, &walk, os_tls_offset(0)),
+           true);
+    EXPECT(reg_get_value_priv(REG_XAX, &mc), app_value);
+    translate_walk_track_pre_instr(dcontext, app_restore, &walk);
+    translate_walk_track_post_instr(dcontext, app_restore, &walk);
+    EXPECT(walk.reg_spilled[r], false);
+
+    instr_destroy(dcontext, app_spill);
+    instr_destroy(dcontext, target_store);
+    instr_destroy(dcontext, app_restore);
+}
+
 void
 unit_test_tls_translate(dcontext_t *dcontext)
 {
@@ -2277,6 +2336,9 @@ unit_test_tls_translate(dcontext_t *dcontext)
     EXPECT(walk.reg_spilled[r], false);
     instr_destroy(dcontext, spill);
     instr_destroy(dcontext, restore);
+
+    test_translate_double_spill(dcontext);
+
 #    if defined(UNIX) && !defined(MACOS64)
     /* macOS x64 shares GS with the app instead of saving separate FS/GS bases. */
     instr_t *seg_load = instr_create_restore_from_tls(dcontext, REG_XAX,
