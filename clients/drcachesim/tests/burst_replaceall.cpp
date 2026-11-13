@@ -130,15 +130,17 @@ local_open_file(const char *fname, uint mode_flags, thread_id_t thread_id,
         /* This is where we initialize because DR is now initialized. */
         drvector_init(&all_buffers, ALL_BUFFERS_INIT_SIZE, false, free_entry);
     }
-    const char *mod_name, *func_name, *enc_name;
+    const char *mod_name, *func_name, *enc_name, *v2p_name;
     if (drmemtrace_get_modlist_path(&mod_name) != DRMEMTRACE_SUCCESS ||
         drmemtrace_get_funclist_path(&func_name) != DRMEMTRACE_SUCCESS ||
-        drmemtrace_get_encoding_path(&enc_name) != DRMEMTRACE_SUCCESS)
+        drmemtrace_get_encoding_path(&enc_name) != DRMEMTRACE_SUCCESS ||
+        drmemtrace_get_v2p_path(&v2p_name) != DRMEMTRACE_SUCCESS)
         ASSERT(false);
     if (strncmp(fname, mod_name, MAXIMUM_PATH) == 0)
         return (file_t)MODULE_FILENO;
     if (strncmp(fname, func_name, MAXIMUM_PATH) == 0 ||
-        strncmp(fname, enc_name, MAXIMUM_PATH) == 0)
+        strncmp(fname, enc_name, MAXIMUM_PATH) == 0 ||
+        (v2p_name[0] != '\0' && strncmp(fname, v2p_name, MAXIMUM_PATH) == 0))
         return (file_t)IGNORE_FILENO;
     return (file_t)thread_id;
 }
@@ -399,6 +401,11 @@ test_main(int argc, const char *argv[])
     assert(res == DRMEMTRACE_SUCCESS);
     assert(kpath[0] == '\0');
 #endif
+
+    const char *v2p_path;
+    res = drmemtrace_get_v2p_path(&v2p_path);
+    assert(res == DRMEMTRACE_SUCCESS);
+    assert(v2p_path[0] == '\0');
 
     uint64 wrote = drmemtrace_get_bytes_written();
     assert(wrote == bytes_written);

@@ -516,6 +516,7 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
                     dir.in_kfiles_map_, dir.kcoredir_, dir.kallsymsdir_,
                     std::move(dir.syscall_template_file_reader_),
                     op_pt2ir_best_effort.get_value());
+                raw2trace.set_v2p_file(dir.v2p_file_);
                 std::string error = raw2trace.do_conversion();
                 if (!error.empty()) {
                     this->success_ = false;

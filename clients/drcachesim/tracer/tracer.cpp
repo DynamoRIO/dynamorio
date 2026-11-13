@@ -73,6 +73,9 @@
 #include "reader.h"
 #include "trace_entry.h"
 #include "utils.h"
+#if defined(LINUX) && defined(X64) && !defined(RISCV64)
+#    include "v2p_tracefs/v2p_tracker.h"
+#endif
 
 #ifdef ARM
 #    include "../../../core/unix/include/syscall_linux_arm.h" // for SYS_cacheflush
@@ -119,6 +122,9 @@ char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
 static file_t module_file;
 static file_t funclist_file = INVALID_FILE;
 static file_t encoding_file = INVALID_FILE;
+#if defined(LINUX) && defined(X64) && !defined(RISCV64)
+static v2p_tracker_t v2p_tracker;
+#endif
 
 /* The redzone is allocated right after the trace buffer.
  * We fill the redzone with a sentinel value to detect when the redzone
@@ -239,6 +245,7 @@ struct file_ops_func_t file_ops_func;
 static char modlist_path[MAXIMUM_PATH];
 static char funclist_path[MAXIMUM_PATH];
 static char encoding_path[MAXIMUM_PATH];
+static char v2p_path[MAXIMUM_PATH];
 
 #ifdef BUILD_PT_TRACER
 static char kallsyms_path[MAXIMUM_PATH];
@@ -2560,6 +2567,10 @@ event_exit(void)
     instru = nullptr;
 
     if (op_offline.get_value()) {
+#if defined(LINUX) && defined(X64) && !defined(RISCV64)
+        if (op_enable_v2p_tracefs.get_value())
+            v2p_tracker.stop();
+#endif
         if (module_file != INVALID_FILE)
             file_ops_func.close_file(module_file);
         if (funclist_file != INVALID_FILE)
@@ -2623,6 +2634,7 @@ init_offline_dir(void)
     const std::string &outdir = op_outdir.get_value();
 
     // Check if we are in "-outdir none" mode: no directories, no files, no I/O.
+    v2p_path[0] = '\0';
     if (outdir_is_none(outdir)) {
         logsubdir[0] = '\0';
         modlist_path[0] = '\0';
@@ -2715,6 +2727,24 @@ init_offline_dir(void)
     NULL_TERMINATE_BUFFER(encoding_path);
     encoding_file = file_ops_func.open_process_file(
         encoding_path, DR_FILE_WRITE_REQUIRE_NEW IF_UNIX(| DR_FILE_CLOSE_ON_FORK));
+
+#if defined(LINUX) && defined(X64) && !defined(RISCV64)
+    if (op_enable_v2p_tracefs.get_value()) {
+        dr_snprintf(v2p_path, BUFFER_SIZE_ELEMENTS(v2p_path), "%s%s%s", logsubdir, DIRSEP,
+                    DRMEMTRACE_V2P_LOG_FILENAME);
+        NULL_TERMINATE_BUFFER(v2p_path);
+        if (!v2p_tracker.start(
+                dr_get_process_id(), v2p_path, op_v2p_buffer_size_kb.get_value(),
+                [](const char *fname, uint mode_flags) {
+                    return file_ops_func.open_process_file(fname, mode_flags);
+                },
+                file_ops_func.write_file, file_ops_func.close_file)) {
+            FATAL("Failed to start tracefs v2p tracker at %s: check privileges and "
+                  "kernel version (at least Linux version 5.4 required).\n",
+                  v2p_path);
+        }
+    }
+#endif
 
     return (module_file != INVALID_FILE && funclist_file != INVALID_FILE &&
             encoding_file != INVALID_FILE);
@@ -2912,6 +2942,15 @@ drmemtrace_get_encoding_path(DR_PARAM_OUT const char **path)
 }
 
 drmemtrace_status_t
+drmemtrace_get_v2p_path(DR_PARAM_OUT const char **path)
+{
+    if (path == NULL)
+        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+    *path = v2p_path;
+    return DRMEMTRACE_SUCCESS;
+}
+
+drmemtrace_status_t
 drmemtrace_custom_module_data(void *(*load_cb)(module_data_t *module, int seg_idx),
                               int (*print_cb)(void *data, char *dst, size_t max_len),
                               void (*free_cb)(void *data))
@@ -3005,6 +3044,16 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     if (op_use_physical.get_value() || op_L0I_filter.get_value() ||
         op_L0D_filter.get_value() || op_L0_filter_until_instrs.get_value())
         op_disable_optimizations.set_value(true);
+    if (op_enable_v2p_tracefs.get_value()) {
+        if (!op_offline.get_value()) {
+            FATAL("Usage error: -enable_v2p_tracefs is only supported with "
+                  "-offline.\n");
+        }
+        if (op_use_physical.get_value()) {
+            FATAL("Usage error: -enable_v2p_tracefs cannot be combined with "
+                  "-use_physical during tracing.\n");
+        }
+    }
 
     init_record_syscall();
     event_inscount_init(id);

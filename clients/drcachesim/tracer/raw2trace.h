@@ -616,6 +616,16 @@ public:
     virtual std::string
     do_conversion();
 
+    /**
+     * Sets the optional stream for reading #DRMEMTRACE_V2P_LOG_FILENAME page-mapping
+     * records captured with -enable_v2p_tracefs during post-processing.
+     */
+    void
+    set_v2p_file(std::istream *v2p_file)
+    {
+        v2p_file_ = v2p_file;
+    }
+
     static std::string
     check_thread_file(std::istream *f);
 
@@ -793,6 +803,12 @@ protected:
         bitset_hash_table_t<app_pc> encoding_emitted;
         app_pc last_encoding_emitted = nullptr;
 
+        // Per-shard state for replaying timestamped `v2p.bin` page-mapping records.
+        uint64_t v2p_time_us = 0;
+        size_t v2p_idx = 0;
+        std::unordered_map<uint64_t, uint64_t> v2p_pages;
+        std::unordered_map<uint64_t, uint64_t> v2p_emitted;
+
         schedule_file_t::per_shard_t sched_data;
 
         // State for rolling back rseq aborts and side exits.
@@ -966,6 +982,13 @@ protected:
      */
     std::string
     read_syscall_template_file();
+
+    /**
+     * Reads timestamped page-mapping records from the #DRMEMTRACE_V2P_LOG_FILENAME
+     * stream passed to set_v2p_file().
+     */
+    std::string
+    read_v2p_file();
 
     /**
      * Returns the app pc of the first instruction in the given system call template.
@@ -1464,6 +1487,9 @@ private:
     // some syscall traces completely from the final trace where the PT trace could
     // not be converted.
     bool pt2ir_best_effort_ = false;
+
+    std::istream *v2p_file_ = nullptr;
+    std::vector<v2p_record_t> v2p_records_;
 };
 
 } // namespace drmemtrace

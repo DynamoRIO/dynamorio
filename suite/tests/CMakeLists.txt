@@ -4952,6 +4952,12 @@ if (BUILD_CLIENTS)
       torunonly_drcacheoff(phys_vdso_filter_SUDO ${ci_shared_app}
         "-use_physical -L0_filter" "@${test_mode_flag}@-tool@basic_counts" "")
     endif ()
+    if (LINUX AND DR_HOST_X64 AND (DR_HOST_X86 OR DR_HOST_AARCH64))
+      set(tool.drcacheoff.v2p_tracefs_SUDO_sudo ON)
+      set(tool.drcacheoff.v2p_tracefs_SUDO_expectbase "offline-phys_vdso")
+      torunonly_drcacheoff(v2p_tracefs_SUDO ${ci_shared_app}
+        "-enable_v2p_tracefs" "@${test_mode_flag}@-tool@basic_counts" "")
+    endif ()
 
     # The checked-in file is for x86_64 so we have to limit the test to that.
     if (UNIX AND ZLIB_FOUND AND X64)

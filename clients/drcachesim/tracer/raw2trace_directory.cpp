@@ -160,7 +160,8 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
     // Skip the auxiliary files.
     if (strcmp(basename, DRMEMTRACE_MODULE_LIST_FILENAME) == 0 ||
         strcmp(basename, DRMEMTRACE_FUNCTION_LIST_FILENAME) == 0 ||
-        strcmp(basename, DRMEMTRACE_ENCODING_FILENAME) == 0)
+        strcmp(basename, DRMEMTRACE_ENCODING_FILENAME) == 0 ||
+        strcmp(basename, DRMEMTRACE_V2P_LOG_FILENAME) == 0)
         return "";
     // Skip any non-.raw in case someone put some other file in there.
     const char *basename_dot = strrchr(basename, '.');
@@ -563,6 +564,14 @@ raw2trace_directory_t::initialize(const std::string &indir, const std::string &o
             return "Failed to open encoding file " + encoding_filename;
     }
 
+    std::string v2p_filename =
+        modfile_dir + std::string(DIRSEP) + DRMEMTRACE_V2P_LOG_FILENAME;
+    if (dr_file_exists(v2p_filename.c_str())) {
+        v2p_file_ = new std::ifstream(v2p_filename, std::ifstream::binary);
+        if (!*v2p_file_)
+            return "Failed to open v2p file " + v2p_filename;
+    }
+
     // Open the schedule output files.
     err = open_serial_schedule_file();
     if (!err.empty())
@@ -628,6 +637,8 @@ raw2trace_directory_t::~raw2trace_directory_t()
         dr_close_file(modfile_);
     if (encoding_file_ != INVALID_FILE)
         dr_close_file(encoding_file_);
+    if (v2p_file_ != nullptr)
+        delete v2p_file_;
     for (std::vector<std::istream *>::iterator fi = in_files_.begin();
          fi != in_files_.end(); ++fi) {
         delete *fi;

@@ -361,7 +361,7 @@ run_raw2trace(void *drcontext, const std::vector<offline_entry_t> raw, instrlist
               int chunk_instr_count = 0,
               const std::vector<test_multi_module_mapper_t::bounds_t> &modules = {},
               std::unique_ptr<record_reader_t> syscall_tmpl = nullptr,
-              bool verbose = false)
+              bool verbose = false, std::istream *v2p_file = nullptr)
 {
     // We need an istream so we use istringstream.
     std::ostringstream raw_out;
@@ -385,6 +385,8 @@ run_raw2trace(void *drcontext, const std::vector<offline_entry_t> raw, instrlist
         // Run raw2trace with our subclass supplying our decodings.
         // Pass in our chunk instr count.
         raw2trace_test_t raw2trace(input, output, *ilist, drcontext, chunk_instr_count);
+        if (v2p_file != nullptr)
+            raw2trace.set_v2p_file(v2p_file);
         std::string error = raw2trace.do_conversion();
         CHECK(error.empty(), error);
         result = result_stream.str();
@@ -399,6 +401,8 @@ run_raw2trace(void *drcontext, const std::vector<offline_entry_t> raw, instrlist
         // Run raw2trace with our subclass supplying module bounds.
         raw2trace_test_t raw2trace(input, output, *ilist, drcontext,
                                    std::move(syscall_tmpl));
+        if (v2p_file != nullptr)
+            raw2trace.set_v2p_file(v2p_file);
         std::string error = raw2trace.do_conversion();
         CHECK(error.empty(), error);
         result = result_stream.str();
@@ -411,6 +415,8 @@ run_raw2trace(void *drcontext, const std::vector<offline_entry_t> raw, instrlist
 
         // Run raw2trace with our subclass supplying our decodings.
         raw2trace_test_t raw2trace(input, output, *ilist, drcontext);
+        if (v2p_file != nullptr)
+            raw2trace.set_v2p_file(v2p_file);
         std::string error = raw2trace.do_conversion();
         CHECK(error.empty(), error);
         result = result_stream.str();
@@ -423,6 +429,8 @@ run_raw2trace(void *drcontext, const std::vector<offline_entry_t> raw, instrlist
 
         // Run raw2trace with our subclass supplying module bounds.
         raw2trace_test_t raw2trace(input, output, modules, drcontext);
+        if (v2p_file != nullptr)
+            raw2trace.set_v2p_file(v2p_file);
         std::string error = raw2trace.do_conversion();
         CHECK(error.empty(), error);
         result = result_stream.str();
@@ -6410,6 +6418,171 @@ test_gpr_elision(void *drcontext)
     return true;
 }
 
+// Verifies `v2p.bin` marker injection across 7 instructions (2 per chunk):
+//
+//   v2p.bin events: t=0 map code  t=150 map data  t=250 unmap  t=350 remap  t=450 THP
+//   Trace buffers:  [Buf1 t=100]  [Buf2 t=120]   [Buf3 t=300]  [Buf4 t=500 x4]
+//   Chunks:         |------ Chunk 0 ------|      |-- Chunk 1 --|-- Chunk 2 --|-- C3 --|
+//   Expected V2P:   emit (1st)    cached (0)     remap + THP   indjmp+2page  unmapped
+bool
+test_v2p_tracefs_markers(void *drcontext)
+{
+    std::cerr << "\n===============\nTesting v2p.bin marker injection\n";
+    instrlist_t *ilist = instrlist_create(drcontext);
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *load =
+        XINST_CREATE_load(drcontext, opnd_create_reg(REG1), OPND_CREATE_MEMPTR(REG2, 0));
+    instr_t *jump_reg = XINST_CREATE_jump_reg(drcontext, opnd_create_reg(REG1));
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, load);
+    instrlist_append(ilist, jump_reg);
+    size_t offs_nop = 0;
+    size_t offs_load = offs_nop + instr_length(drcontext, nop);
+    size_t offs_jump_reg = offs_load + instr_length(drcontext, load);
+
+    constexpr addr_t DATA_ADDR = 0x40018;
+    constexpr addr_t DATA_VPAGE = 0x40000;
+    constexpr addr_t STRADDLE_ADDR = 0x40ffe;
+    constexpr addr_t UNMAPPED_ADDR = 0x300020;
+
+    // Build a synthetic `v2p.bin` stream in memory with map, CoW overwrite, and 2 MB
+    // THP collapse events.
+    std::ostringstream v2p_out(std::ios::binary);
+    auto write_rec = [&](uint64_t ts, uint64_t va, uint64_t pa, uint32_t pages,
+                         uint32_t type) {
+        v2p_record_t r = { ts, va, pa, pages, type };
+        v2p_out.write(reinterpret_cast<const char *>(&r), sizeof(r));
+    };
+
+    // Startup snapshot for code page 0x0 -> PFN 0x100.
+    write_rec(0, 0x0, 0x100000, 1, V2P_RECORD_MAP);
+
+    // First-touch fault at t=150 (after buffer timestamp t=100) for DATA_VPAGE ->
+    // PFN 0x200.
+    write_rec(150, DATA_VPAGE, 0x200000, 1, V2P_RECORD_MAP);
+
+    // CoW overwrite at t=280 (before buffer timestamp t=300) -> PFN 0x300.
+    write_rec(280, DATA_VPAGE, 0x300000, 1, V2P_RECORD_MAP);
+
+    // khugepaged 2 MB collapse at t=450 covering 0x0..0x200000 -> base PFN 0x800
+    // (so DATA_VPAGE = 0x40000 maps to PFN 0x840 = paddr 0x840000).
+    write_rec(450, 0x0, 0x800000, 512, V2P_RECORD_MAP);
+    write_rec(0, 0, 0, 0, V2P_RECORD_END);
+    std::istringstream v2p_in(v2p_out.str(), std::ios::binary);
+
+    // Build the raw offline trace across 4 timestamped trace buffers.
+    std::vector<offline_entry_t> raw;
+    raw.push_back(make_header());
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+
+    // Buffer 1 at t=100: first touch of code (0x0) and DATA_ADDR (0x40018).
+    raw.push_back(make_timestamp(100));
+    raw.push_back(make_core());
+    raw.push_back(make_block(offs_load, 1));
+    raw.push_back(make_memref(DATA_ADDR));
+
+    // Buffer 2 at t=120 (< 280): hits cached mapping for both code and DATA_ADDR.
+    raw.push_back(make_timestamp(120));
+    raw.push_back(make_core());
+    raw.push_back(make_block(offs_load, 1));
+    raw.push_back(make_memref(DATA_ADDR));
+
+    // Buffer 3 at t=300 (after CoW overwrite at 280 -> PFN 0x300).
+    raw.push_back(make_timestamp(300));
+    raw.push_back(make_core());
+    raw.push_back(make_block(offs_load, 1));
+    raw.push_back(make_memref(DATA_ADDR));
+
+    // Buffer 4 at t=500 (after 2 MB collapse at 450 -> code PFN 0x800, data PFN 0x840,
+    // an indirect jump whose `[ENCODING, BRANCH_TARGET, INSTR_INDIRECT_JUMP]` packet
+    // must remain unbroken, a page-straddling load spanning 0x40000 and 0x41000, and an
+    // unmapped load to UNMAPPED_ADDR).
+    raw.push_back(make_timestamp(500));
+    raw.push_back(make_core());
+    raw.push_back(make_block(offs_load, 1));
+    raw.push_back(make_memref(DATA_ADDR));
+    raw.push_back(make_block(offs_jump_reg, 1));
+    raw.push_back(make_block(offs_load, 1));
+    raw.push_back(make_memref(STRADDLE_ADDR));
+    raw.push_back(make_block(offs_load, 1));
+    raw.push_back(make_memref(UNMAPPED_ADDR));
+    raw.push_back(make_exit());
+
+    // Run raw2trace with `chunk_instr_count=2` and the synthetic `v2p.bin` stream.
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, ilist, entries, nullptr,
+                       /*chunk_instr_count=*/2, {}, nullptr, /*verbose=*/false,
+                       &v2p_in)) {
+        return false;
+    }
+
+    // Extract emitted V2P markers and verify indirect-branch packet integrity.
+    std::vector<std::pair<addr_t, addr_t>> phys_virt_pairs;
+    std::vector<addr_t> not_avail_addrs;
+    bool seen_branch_target = false;
+    for (size_t i = 0; i < entries.size(); ++i) {
+        if (entries[i].type == TRACE_TYPE_MARKER &&
+            entries[i].size == TRACE_MARKER_TYPE_BRANCH_TARGET) {
+            if (i == 0 || i + 1 >= entries.size() ||
+                entries[i - 1].type != TRACE_TYPE_ENCODING ||
+                entries[i + 1].type != TRACE_TYPE_INSTR_INDIRECT_JUMP) {
+                return false;
+            }
+            seen_branch_target = true;
+        } else if (entries[i].type == TRACE_TYPE_MARKER &&
+                   entries[i].size == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS) {
+            if (i + 1 >= entries.size() || entries[i + 1].type != TRACE_TYPE_MARKER ||
+                entries[i + 1].size != TRACE_MARKER_TYPE_VIRTUAL_ADDRESS) {
+                return false;
+            }
+
+            // Bottom 12 bits of physical and virtual must match (invariant_checker
+            // rule).
+            if ((entries[i].addr & 0xfff) != (entries[i + 1].addr & 0xfff))
+                return false;
+            addr_t phys_addr = entries[i].addr;
+            addr_t virt_addr = entries[i + 1].addr;
+            phys_virt_pairs.push_back(std::make_pair(phys_addr, virt_addr));
+        } else if (entries[i].type == TRACE_TYPE_MARKER &&
+                   entries[i].size == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE) {
+            addr_t unmapped_addr = entries[i].addr;
+            not_avail_addrs.push_back(unmapped_addr);
+        }
+    }
+
+    // Verify expected pairs across the 7 instructions (with chunk_instr_count=2):
+    // - Instr 1 (t=100, chunk 0): code -> 0x100000 | offs_load, data -> 0x200018
+    // - Instr 2 (t=120, chunk 0): cached (no markers)
+    // - Instr 3 (t=300, chunk 1): new chunk re-emits code -> 0x100000 | offs_load,
+    //   and munmap+reuse remaps data -> 0x300018
+    // - Instr 4 (t=500, chunk 1): 2 MB collapse remaps code -> 0x800000 | offs_load,
+    //   and data -> 0x840018
+    // - Instr 5 (t=500, chunk 2): indirect jump at chunk start emits code ->
+    //   0x800000 | offs_jump_reg before `[ENCODING, BRANCH_TARGET, INSTR_INDIRECT_JUMP]`
+    // - Instr 6 (t=500, chunk 2): page-straddling load at 0x40ffe emits pairs for both
+    //   spanned pages (0x840ffe and 0x841000)
+    // - Instr 7 (t=500, chunk 3): new chunk re-emits code -> 0x800000 | offs_load,
+    //   and UNMAPPED_ADDR emits PHYSICAL_ADDRESS_NOT_AVAILABLE.
+    if (!seen_branch_target || phys_virt_pairs.size() != 10 ||
+        not_avail_addrs.size() != 1)
+        return false;
+    return (phys_virt_pairs[0] == std::make_pair(0x100000 + offs_load, offs_load) &&
+            phys_virt_pairs[1] == std::make_pair(addr_t(0x200018), DATA_ADDR) &&
+            phys_virt_pairs[2] == std::make_pair(0x100000 + offs_load, offs_load) &&
+            phys_virt_pairs[3] == std::make_pair(addr_t(0x300018), DATA_ADDR) &&
+            phys_virt_pairs[4] == std::make_pair(0x800000 + offs_load, offs_load) &&
+            phys_virt_pairs[5] == std::make_pair(addr_t(0x840018), DATA_ADDR) &&
+            phys_virt_pairs[6] ==
+                std::make_pair(0x800000 + offs_jump_reg, offs_jump_reg) &&
+            phys_virt_pairs[7] == std::make_pair(addr_t(0x840ffe), STRADDLE_ADDR) &&
+            phys_virt_pairs[8] ==
+                std::make_pair(addr_t(0x841000), addr_t(DATA_VPAGE + 0x1000)) &&
+            phys_virt_pairs[9] == std::make_pair(0x800000 + offs_load, offs_load) &&
+            not_avail_addrs[0] == UNMAPPED_ADDR);
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -6439,7 +6612,7 @@ test_main(int argc, const char *argv[])
         !test_missing_memref(drcontext) || !test_skipped_memrefs(drcontext) ||
         !test_stack_elision(drcontext) || !test_filter_endpoint(drcontext) ||
         !test_repstr_firstlast(drcontext) || !test_gpr_elision(drcontext) ||
-        !test_large_base_delta(drcontext))
+        !test_large_base_delta(drcontext) || !test_v2p_tracefs_markers(drcontext))
         return 1;
     return 0;
 }

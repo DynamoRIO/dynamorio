@@ -365,6 +365,16 @@ drmemtrace_get_encoding_path(DR_PARAM_OUT const char **path);
 
 DR_EXPORT
 /**
+ * Retrieves the full path to the file in -offline mode where virtual-to-physical
+ * page-mapping records are written when -enable_v2p_tracefs is enabled.  The
+ * basename of the file is #DRMEMTRACE_V2P_LOG_FILENAME.  It contains binary data
+ * read by the raw2trace tool.
+ */
+drmemtrace_status_t
+drmemtrace_get_v2p_path(DR_PARAM_OUT const char **path);
+
+DR_EXPORT
+/**
  * Adds custom data stored with each module in the module list produced for
  * offline trace post-processing.  The \p load_cb is called for each segment
  * of each new module (with \p seg_idx indicating the segment number, starting at 0),
