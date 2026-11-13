@@ -33,11 +33,17 @@
 #ifndef _DR_INTERFACE_H_
 #define _DR_INTERFACE_H_
 
+#include "globals_shared.h"
+
 /* Interface exposed by DynamoRIO core to the kernel module entry and lifecycle
  * management code (dynamorio_module_main.c).
  */
 
 int
 dynamorio_app_init(void);
+
+int
+dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc, void *os_data,
+                   bool client_thread);
 
 #endif /* _DR_INTERFACE_H_ */
