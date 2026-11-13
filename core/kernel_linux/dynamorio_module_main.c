@@ -136,7 +136,7 @@ dynamorio_ioctl_init(const struct dynamorio_init_args __user *uargs)
         goto out;
     }
 
-    /* Give every other online CPU a dcontext.
+    /* Give all other online CPUs a dcontext.
      * XXX i#8021: CPU hotplug is not handled yet: a CPU brought online after this has
      * no dcontext, and one taken offline leaves a stale dcontext and thread record.
      * Either block hotplug for the whole session, starting before dynamorio_app_init(),
