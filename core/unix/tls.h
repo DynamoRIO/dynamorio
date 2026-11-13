@@ -402,6 +402,9 @@ int
 tls_min_index(void);
 
 #    if defined(LINUX) && defined(X64)
+int
+tls_handle_pre_arch_set_gs(dcontext_t *dcontext, reg_t base);
+
 void
 tls_handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base);
 #    endif
