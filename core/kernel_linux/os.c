@@ -100,7 +100,7 @@ check_tls_segment_mapping(void)
 
 /* Verifies that a safe read copies readable memory, and that it fails without faulting
  * on an unreadable address in both the user and the kernel range.
- * XXX i#8021: Move this to a dedicated test once the module has a test entry point.
+ * TODO i#8021: Move this to a dedicated test once the module has a test entry point.
  */
 static void
 check_safe_read(void)
