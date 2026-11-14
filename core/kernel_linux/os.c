@@ -97,6 +97,38 @@ check_tls_segment_mapping(void)
     *first_slot = 0;
     *last_slot = 0;
 }
+
+/* Verifies that a safe read copies readable memory, and that it fails without faulting
+ * on an unreadable address in both the user and the kernel range.
+ * TODO i#8021: Move this to a dedicated test once the module has a test entry point.
+ */
+static void
+check_safe_read(void)
+{
+    const ptr_uint_t src = 0x0123456789abcdef;
+    ptr_uint_t dst = 0;
+    size_t bytes_read = 0;
+
+    bool ok = safe_read_ex(&src, sizeof(src), &dst, &bytes_read);
+    ASSERT(ok && bytes_read == sizeof(src) && dst == src);
+
+    dst = 0;
+    ok = d_r_safe_read(&src, sizeof(src), &dst);
+    ASSERT(ok && dst == src);
+
+    /* Address 0 is in the user range and is not mapped. */
+    bytes_read = sizeof(dst);
+    ok = safe_read_ex(NULL, sizeof(dst), &dst, &bytes_read);
+    ASSERT(!ok && bytes_read == 0);
+
+    /* The last page of the address space is in the kernel range and is never mapped:
+     * its addresses are the ERR_PTR() values.
+     */
+    bytes_read = sizeof(dst);
+    ok = safe_read_ex((void *)ALIGN_BACKWARD(PTR_UINT_MINUS_1, PAGE_SIZE), sizeof(dst),
+                      &dst, &bytes_read);
+    ASSERT(!ok && bytes_read == 0);
+}
 #endif
 
 void
@@ -134,6 +166,7 @@ d_r_os_init(void)
     ASSERT(tls_local_state_seg_offs <= INT_MAX - (int)sizeof(local_state_extended_t));
     os_state_ready = true;
     DOCHECK(1, { check_tls_segment_mapping(); });
+    DOCHECK(1, { check_safe_read(); });
 }
 
 void *
@@ -601,6 +634,25 @@ bool
 is_readable_without_exception_query_os_noblock(byte *pc, size_t size)
 {
     return kernel_is_readable_without_fault(pc, size);
+}
+
+bool
+safe_read_ex(const void *base, size_t size, void *out_buf, size_t *bytes_read)
+{
+    STATS_INC(num_safe_reads);
+
+    size_t ret = kernel_read_without_fault(base, size, out_buf);
+    if (bytes_read != NULL) {
+        *bytes_read = ret;
+    }
+
+    return ret == size;
+}
+
+bool
+d_r_safe_read(const void *base, size_t size, void *out_buf)
+{
+    return safe_read_ex(base, size, out_buf, NULL);
 }
 
 void
