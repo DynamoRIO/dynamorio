@@ -45,6 +45,7 @@
 #elif defined(CONFIG_ARM64)
 #    include <asm/arch_timer.h> /* For arch_timer_get_cntfrq(). */
 #endif
+#include <linux/cpu.h>
 #include <linux/cpumask.h>
 #include <linux/kprobes.h>
 #include <linux/ktime.h>
@@ -630,6 +631,27 @@ kernel_read_without_fault(const void *addr, size_t size, void *out)
         copied += chunk;
     }
     return copied;
+}
+
+int
+kernel_run_on_each_online_cpu(int (*fn)(void *), void *arg)
+{
+    KERNEL_ASSERT(!in_atomic() && !irqs_disabled());
+
+    int ret = 0;
+    unsigned int cpu;
+    /* Prevent a CPU from going offline while the callback is running on it. */
+    cpus_read_lock();
+    for_each_online_cpu(cpu)
+    {
+        ret = smp_call_on_cpu(cpu, fn, arg, false /* !phys */);
+        if (ret != 0) {
+            break;
+        }
+    }
+    cpus_read_unlock();
+
+    return ret;
 }
 
 unsigned int

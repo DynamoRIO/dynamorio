@@ -699,12 +699,6 @@ dynamorio_app_init_part_two_finalize(void)
             find_dynamo_library_vm_areas();
             dynamo_vm_areas_unlock();
         }
-#ifdef LINUX_KERNEL
-        /* TODO i#8021: Remove this early return as the remainder of part two is ported.
-         * Move it further down for each incremental step.
-         */
-        return SUCCESS;
-#endif
 
 #ifdef ANNOTATIONS
         annotation_init();

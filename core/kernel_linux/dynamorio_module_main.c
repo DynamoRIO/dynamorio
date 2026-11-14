@@ -44,6 +44,7 @@
 #include <linux/mutex.h>
 #include <linux/preempt.h>
 #include <linux/slab.h>
+#include <linux/smp.h>
 #include <linux/string.h>
 #include <linux/uaccess.h>
 
@@ -62,10 +63,27 @@ module_param(dr_heap_size, ulong, 0444);
 MODULE_PARM_DESC(dr_heap_size, "DynamoRIO module heap size in bytes (read-only)");
 
 /* Serializes session state changes, which includes setting the options environment
- * variable and running dynamorio_app_init(): neither is safe to run concurrently.
+ * variable, running dynamorio_app_init(), and initializing the remaining CPUs: none of
+ * these is safe to run concurrently.
  */
 static DEFINE_MUTEX(session_lock);
 static enum { SESSION_NONE, SESSION_INITIALIZED, SESSION_FAILED } session_state;
+
+static int
+dynamorio_cpu_init(void *arg)
+{
+    int init_cpu = *(int *)arg;
+    /* The CPU that ran dynamorio_app_init() already has its dcontext initialized. */
+    if (smp_processor_id() == init_cpu) {
+        return 0;
+    }
+
+    preempt_disable();
+    int res = dynamo_thread_init(NULL, NULL, NULL, false);
+    preempt_enable();
+
+    return res == 0 ? 0 : -EINVAL;
+}
 
 /* XXX i#8115: Define support for per-process options, including how to reuse the
  * existing configuration infrastructure.
@@ -107,6 +125,7 @@ dynamorio_ioctl_init(const struct dynamorio_init_args __user *uargs)
      * breaking lock ownership checks.
      */
     preempt_disable();
+    int init_cpu = smp_processor_id();
     ret = dynamorio_app_init();
     preempt_enable();
     if (ret != 0) {
@@ -114,6 +133,19 @@ dynamorio_ioctl_init(const struct dynamorio_init_args __user *uargs)
         pr_err("dynamorio_app_init() failed: %ld\n", ret);
         session_state = SESSION_FAILED;
         ret = -EINVAL;
+        goto out;
+    }
+
+    /* Give all other online CPUs a dcontext.
+     * XXX i#8021: CPU hotplug is not handled yet: a CPU brought online after this has
+     * no dcontext, and one taken offline leaves a stale dcontext and thread record.
+     * Either block hotplug for the whole session, starting before dynamorio_app_init(),
+     * or handle it with hotplug callbacks.
+     */
+    ret = kernel_run_on_each_online_cpu(dynamorio_cpu_init, &init_cpu);
+    if (ret != 0) {
+        pr_err("Per-CPU initialization failed: %ld\n", ret);
+        session_state = SESSION_FAILED;
         goto out;
     }
 
