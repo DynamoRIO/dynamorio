@@ -301,7 +301,7 @@ typedef struct _post_call_entry_t {
      */
 #define POST_CALL_PRIOR_BYTES_STORED 6 /* max normal call size */
     byte prior[POST_CALL_PRIOR_BYTES_STORED];
-    byte prior_size;
+    size_t prior_size;
 } post_call_entry_t;
 
 /* Support for external post-call caching */
@@ -340,8 +340,8 @@ post_call_entry_add(app_pc postcall, bool external)
         /* Avoid reading an inaccessible page before a short call. */
         size_t page_offset = (ptr_uint_t)postcall % dr_page_size();
         if (page_offset < e->prior_size)
-            e->prior_size = (byte)page_offset;
-        if (e->prior_size == 0 ||
+            e->prior_size = page_offset;
+        if (e->prior_size > 0 &&
             !fast_safe_read(postcall - e->prior_size, e->prior_size, e->prior))
             e->prior_size = 0;
     }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) Bryan Berns  All rights reserved.
+ * Copyright (c) 2026 Bryan Berns  All rights reserved.
  * **********************************************************/
 
 /*
@@ -62,7 +62,8 @@ prepare_pre(void *wrapcxt, void **user_data)
 static void
 module_load(void *drcontext, const module_data_t *module, bool loaded)
 {
-    app_pc prepare = (app_pc)dr_get_proc_address(module->handle, "prepare_boundary");
+    app_pc prepare = (app_pc)dr_get_proc_address(module->handle,
+                                                 "client_wrapped_to_communicate_target");
     if (prepare != NULL)
         CHECK(drwrap_wrap(prepare, prepare_pre, NULL), "setup wrap failed");
 }
