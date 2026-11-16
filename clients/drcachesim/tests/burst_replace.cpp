@@ -191,6 +191,7 @@ window_start(int64 window_index, void *user_data)
 {
     static int window_count = 0;
     assert(user_data == MAGIC_VALUE);
+    assert(window_index == window_count);
     const char *raw_dir;
     drmemtrace_status_t mem_res = drmemtrace_get_output_path(&raw_dir);
     assert(mem_res == DRMEMTRACE_SUCCESS);
@@ -199,7 +200,6 @@ window_start(int64 window_index, void *user_data)
         NULL_TERMINATE_BUFFER(target_window);
     }
     dr_fprintf(STDERR, "%s for path %s\n", __FUNCTION__, raw_dir);
-    assert(window_index == window_count);
 }
 
 static void
