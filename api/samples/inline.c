@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
