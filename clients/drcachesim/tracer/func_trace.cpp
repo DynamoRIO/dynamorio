@@ -267,7 +267,7 @@ instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
         drvector_append(&vec_pcs, (void *)f_pc);
         dr_mutex_lock(funcs_wrapped_lock);
         int id = 0;
-        int existing_id = (int)(ptr_int_t)hashtable_lookup(&pc2idplus1, (void *)f_pc);
+        int existing_id = (int)(ptr_int_t)drhashtable_lookup(&pc2idplus1, (void *)f_pc);
         if (existing_id != 0) {
             // Another symbol mapping to the same pc is already wrapped.
             // The number of args will be the minimum count for all those registered,
@@ -282,7 +282,7 @@ instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
             id = wrap_id++;
             drvector_append(&funcs_wrapped,
                             create_func_metadata(f->name, id, f->arg_num, f->noret));
-            if (!hashtable_add(&pc2idplus1, (void *)f_pc, (void *)(ptr_int_t)(id + 1)))
+            if (!drhashtable_add(&pc2idplus1, (void *)f_pc, (void *)(ptr_int_t)(id + 1)))
                 DR_ASSERT(false && "Failed to maintain pc2idplus1 internal hashtable");
         }
         // With the lock restrictions for calling drwrap_wrap_ex(), we can't hold a
@@ -310,7 +310,7 @@ instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
     dr_mutex_lock(funcs_wrapped_lock);
     for (size_t i = 0; i < vec_pcs.entries; ++i) {
         app_pc f_pc = (app_pc)drvector_get_entry(&vec_pcs, (uint)i);
-        int id = (int)(ptr_int_t)hashtable_lookup(&pc2idplus1, (void *)f_pc);
+        int id = (int)(ptr_int_t)drhashtable_lookup(&pc2idplus1, (void *)f_pc);
         DR_ASSERT(id != 0 && "Failed to maintain pc2idplus1 internal hashtable");
         --id; // Table stores +1.
         func_metadata_t *f_traced =
@@ -357,7 +357,7 @@ instru_funcs_module_unload(void *drcontext, const module_data_t *mod)
         // To support a different library with a to-trace symbol being mapped at the
         // same pc, we remove from pc2idplus1.  If the same library is re-loaded, we'll
         // give a new id to the same symbol in the new incarnation.
-        hashtable_remove(&pc2idplus1, (void *)f_pc);
+        drhashtable_remove(&pc2idplus1, (void *)f_pc);
         if (drwrap_unwrap(f_pc, func_pre_hook, f->noret ? nullptr : func_post_hook)) {
             NOTIFY(1, "Removed hooks for %s!%s @%p\n", mod_name, f->name, f_pc);
         } else {
@@ -510,8 +510,8 @@ func_trace_init(func_trace_append_entry_vec_t append_entry_vec_,
                         create_func_metadata(name.c_str(), 0, arg_num, noret));
     }
 
-    hashtable_init_ex(&pc2idplus1, 8, HASH_INTPTR, false /*!strdup*/, false /*!synch*/,
-                      nullptr, nullptr, nullptr);
+    drhashtable_init_ex(&pc2idplus1, 8, HASH_INTPTR, false /*!strdup*/, false /*!synch*/,
+                        nullptr, nullptr, nullptr);
 
     if (!op_record_dynsym_only.get_value()) {
         if (!(drsym_init(0) == DRSYM_SUCCESS)) {
@@ -567,7 +567,7 @@ func_trace_exit()
     /* Clear for re-attach. */
     funcs_str.clear();
     funcs_str_sep.clear();
-    hashtable_delete(&pc2idplus1);
+    drhashtable_delete(&pc2idplus1);
     if (!drvector_delete(&funcs_wrapped) || !drvector_delete(&func_names))
         DR_ASSERT(false);
     dr_mutex_destroy(funcs_wrapped_lock);

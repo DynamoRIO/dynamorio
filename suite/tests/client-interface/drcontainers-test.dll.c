@@ -193,83 +193,85 @@ static void
 test_hashtable_apply_all(void)
 {
     hashtable_t hash_table;
-    hashtable_init(&hash_table, 8, HASH_INTPTR, false);
+    drhashtable_init(&hash_table, 8, HASH_INTPTR, false);
 
     c = 0;
     total = 0;
 
-    hashtable_add_replace(&hash_table, (void *)1, (void *)1);
-    hashtable_add_replace(&hash_table, (void *)2, (void *)2);
-    hashtable_add_replace(&hash_table, (void *)3, (void *)3);
+    drhashtable_add_replace(&hash_table, (void *)1, (void *)1);
+    drhashtable_add_replace(&hash_table, (void *)2, (void *)2);
+    drhashtable_add_replace(&hash_table, (void *)3, (void *)3);
 
-    hashtable_apply_to_all_payloads(&hash_table, count);
-    hashtable_apply_to_all_payloads(&hash_table, sum);
+    drhashtable_apply_to_all_payloads(&hash_table, count);
+    drhashtable_apply_to_all_payloads(&hash_table, sum);
 
-    CHECK(c == hash_table.entries, "hashtable_apply_to_all_payloads (count test) failed");
-    CHECK(total == 6, "hashtable_apply_to_all_payloads (sum test) failed");
+    CHECK(c == hash_table.entries,
+          "drhashtable_apply_to_all_payloads (count test) failed");
+    CHECK(total == 6, "drhashtable_apply_to_all_payloads (sum test) failed");
 
-    hashtable_delete(&hash_table);
+    drhashtable_delete(&hash_table);
 }
 
 static void
 test_hashtable_apply_all_user_data(void)
 {
     hashtable_t hash_table;
-    hashtable_init(&hash_table, 8, HASH_INTPTR, false);
+    drhashtable_init(&hash_table, 8, HASH_INTPTR, false);
 
     /* Begin Data Tests */
     c = 0;
     total = 0;
 
-    hashtable_add_replace(&hash_table, (void *)1, (void *)1);
-    hashtable_add_replace(&hash_table, (void *)2, (void *)2);
-    hashtable_add_replace(&hash_table, (void *)3, (void *)3);
+    drhashtable_add_replace(&hash_table, (void *)1, (void *)1);
+    drhashtable_add_replace(&hash_table, (void *)2, (void *)2);
+    drhashtable_add_replace(&hash_table, (void *)3, (void *)3);
 
-    hashtable_apply_to_all_payloads_user_data(&hash_table, count_user_data,
-                                              (void *)apply_payload_user_data_test);
-    hashtable_apply_to_all_payloads_user_data(&hash_table, sum_user_data, (void *)1);
+    drhashtable_apply_to_all_payloads_user_data(&hash_table, count_user_data,
+                                                (void *)apply_payload_user_data_test);
+    drhashtable_apply_to_all_payloads_user_data(&hash_table, sum_user_data, (void *)1);
     CHECK(c == hash_table.entries,
-          "hashtable_apply_to_all_payloads_user_data (count test) failed");
+          "drhashtable_apply_to_all_payloads_user_data (count test) failed");
     CHECK(total == (6 + hash_table.entries),
-          "hashtable_apply_to_all_payloads_user_data (sum test) failed");
+          "drhashtable_apply_to_all_payloads_user_data (sum test) failed");
 
     /* Begin NULL Tests */
     c = 0;
     total = 0;
 
-    hashtable_apply_to_all_payloads_user_data(&hash_table, count_null_user_data, NULL);
-    hashtable_apply_to_all_payloads_user_data(&hash_table, sum_user_data, NULL);
+    drhashtable_apply_to_all_payloads_user_data(&hash_table, count_null_user_data, NULL);
+    drhashtable_apply_to_all_payloads_user_data(&hash_table, sum_user_data, NULL);
     CHECK(c == hash_table.entries,
-          "hashtable_apply_to_all_payloads_user_data (count null test) failed");
-    CHECK(total == 6, "hashtable_apply_to_all_payloads_user_data (sum null test) failed");
+          "drhashtable_apply_to_all_payloads_user_data (count null test) failed");
+    CHECK(total == 6,
+          "drhashtable_apply_to_all_payloads_user_data (sum null test) failed");
 
-    hashtable_delete(&hash_table);
+    drhashtable_delete(&hash_table);
 }
 
 static void
 test_hashtable_apply_all_key_payload_pairs_user_data(void)
 {
     hashtable_t hash_table;
-    hashtable_init(&hash_table, 8, HASH_INTPTR, false);
+    drhashtable_init(&hash_table, 8, HASH_INTPTR, false);
 
-    hashtable_add_replace(&hash_table, (void *)1, (void *)1);
-    hashtable_add_replace(&hash_table, (void *)2, (void *)2);
-    hashtable_add_replace(&hash_table, (void *)3, (void *)3);
+    drhashtable_add_replace(&hash_table, (void *)1, (void *)1);
+    drhashtable_add_replace(&hash_table, (void *)2, (void *)2);
+    drhashtable_add_replace(&hash_table, (void *)3, (void *)3);
 
     accumulators_t counters = { .key_acc = 0, .payload_acc = 0 };
-    hashtable_apply_to_all_key_payload_pairs_user_data(
+    drhashtable_apply_to_all_key_payload_pairs_user_data(
         &hash_table, count_key_payload_user_data, (void *)&counters);
     accumulators_t sums = { .key_acc = 0, .payload_acc = 0 };
-    hashtable_apply_to_all_key_payload_pairs_user_data(
+    drhashtable_apply_to_all_key_payload_pairs_user_data(
         &hash_table, sum_key_payload_user_data, (void *)&sums);
 
     CHECK((counters.key_acc == (uintptr_t)hash_table.entries) &&
               (counters.payload_acc == (uintptr_t)hash_table.entries),
-          "hashtable_apply_to_all_key_payload_pairs_user_data (count test) failed");
+          "drhashtable_apply_to_all_key_payload_pairs_user_data (count test) failed");
     CHECK((sums.key_acc == 6) && (sums.payload_acc == 6),
-          "hashtable_apply_to_all_key_payload_pairs_user_data (sum test) failed");
+          "drhashtable_apply_to_all_key_payload_pairs_user_data (sum test) failed");
 
-    hashtable_delete(&hash_table);
+    drhashtable_delete(&hash_table);
 }
 
 #define KEY 42

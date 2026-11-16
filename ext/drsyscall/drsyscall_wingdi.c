@@ -229,7 +229,7 @@ wingdi_get_secondary_syscall_num(void *drcontext, const char *name, uint primary
     drsys_sysnum_t num;
     const char *skip_primary;
 
-    num.secondary = (uint)(ptr_uint_t)hashtable_lookup(&usercall_table, (void *)name);
+    num.secondary = (uint)(ptr_uint_t)drhashtable_lookup(&usercall_table, (void *)name);
     if (num.secondary == 0) {
         LOG(drcontext, SYSCALL_VERBOSE, "WARNING: could not find usercall %s\n", name);
         return -1;
@@ -256,14 +256,14 @@ wingdi_add_usercall(void *drcontext, const char *name, int num)
     /* We might be called from sysnum file parsing prior to drsyscall_wingdi_init: */
     if (usercall_table.table == NULL) {
         /* We duplicate all strings to handle synum files (i#1908) */
-        hashtable_init(&usercall_table, USERCALL_TABLE_HASH_BITS, HASH_STRING,
-                       true /*strdup*/);
+        drhashtable_init(&usercall_table, USERCALL_TABLE_HASH_BITS, HASH_STRING,
+                         true /*strdup*/);
     }
     LOG(drcontext, SYSCALL_VERBOSE + 1, "name2num usercall: adding %s => %d\n", name,
         num);
     IF_DEBUG(ok =)
-    hashtable_add(&usercall_table, (void *)name,
-                  (void *)(ptr_uint_t)(num + 1 /*avoid 0*/));
+    drhashtable_add(&usercall_table, (void *)name,
+                    (void *)(ptr_uint_t)(num + 1 /*avoid 0*/));
     DOLOG(1, {
         if (!ok)
             LOG(drcontext, 1, "Dup usercall entry for %s\n", name);
@@ -278,8 +278,8 @@ drsyscall_wingdi_init(void *drcontext, app_pc ntdll_base, dr_os_version_info_t *
     uint i;
     const int *usercalls;
     if (usercall_table.table == NULL) { /* may be initialized earlier */
-        hashtable_init(&usercall_table, USERCALL_TABLE_HASH_BITS, HASH_STRING,
-                       true /*strdup*/);
+        drhashtable_init(&usercall_table, USERCALL_TABLE_HASH_BITS, HASH_STRING,
+                         true /*strdup*/);
     }
     if (!use_usercall_table) {
         /* i#1908: while the usercall numbers don't change as much, they do
@@ -328,7 +328,7 @@ drsyscall_wingdi_init(void *drcontext, app_pc ntdll_base, dr_os_version_info_t *
 void
 drsyscall_wingdi_exit(void)
 {
-    hashtable_delete(&usercall_table);
+    drhashtable_delete(&usercall_table);
 }
 
 void

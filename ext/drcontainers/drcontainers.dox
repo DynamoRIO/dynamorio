@@ -57,7 +57,7 @@ That will automatically set up the include path and library dependence.
 
 The hashtable supports integer, string, and custom hash keys, and has
 synchronization and memory allocation and deallocation parametrized for
-flexible usage.  See hashtable_init_ex() and related functions.
+flexible usage.  See drhashtable_init_ex() and related functions.
 
 \section sec_drcontainers_vector DrVector
 

@@ -181,7 +181,7 @@ typedef struct _wrap_entry_t {
 static hashtable_t wrap_table;
 /* We need recursive locking on the table to support drwrap_unwrap
  * being called from a post event so we use this lock instead of
- * hashtable_lock(&wrap_table)
+ * drhashtable_lock(&wrap_table)
  */
 static void *wrap_lock;
 
@@ -339,7 +339,7 @@ post_call_entry_add(app_pc postcall, bool external)
         /* notify client somehow?  we'll carry on and invalidate on next bb */
         memset(e->prior, 0, sizeof(e->prior));
     }
-    if (!hashtable_add(&post_call_table, (void *)postcall, (void *)e)) {
+    if (!drhashtable_add(&post_call_table, (void *)postcall, (void *)e)) {
         NOTIFY(2, "%s: failed to add %p external=%d\n", __FUNCTION__, postcall, external);
         post_call_entry_free(e);
         return NULL;
@@ -381,7 +381,7 @@ post_call_lookup(app_pc pc)
 {
     bool res = false;
     dr_rwlock_read_lock(post_call_rwlock);
-    res = (hashtable_lookup(&post_call_table, (void *)pc) != NULL);
+    res = (drhashtable_lookup(&post_call_table, (void *)pc) != NULL);
     dr_rwlock_read_unlock(post_call_rwlock);
     return res;
 }
@@ -394,7 +394,7 @@ post_call_lookup_for_instru(app_pc pc)
     bool res = false;
     post_call_entry_t *e;
     dr_rwlock_read_lock(post_call_rwlock);
-    e = (post_call_entry_t *)hashtable_lookup(&post_call_table, (void *)pc);
+    e = (post_call_entry_t *)drhashtable_lookup(&post_call_table, (void *)pc);
     if (e != NULL) {
         res = post_call_consistent(pc, e);
         if (!res) {
@@ -405,7 +405,7 @@ post_call_lookup_for_instru(app_pc pc)
             dr_rwlock_write_lock(post_call_rwlock);
             /* might not be found now if racily removed: but that's fine */
             NOTIFY(2, "%s: removing %p\n", __FUNCTION__, pc);
-            hashtable_remove(&post_call_table, (void *)pc);
+            drhashtable_remove(&post_call_table, (void *)pc);
             /* invalidate cache */
             for (i = 0; i < POSTCALL_CACHE_SIZE; i++) {
                 if (pc == postcall_cache[i])
@@ -977,16 +977,17 @@ drwrap_init(void)
     if (!drmgr_register_restore_state_ex_event(drwrap_event_restore_state_ex))
         return false;
 
-    hashtable_init(&replace_table, REPLACE_TABLE_HASH_BITS, HASH_INTPTR,
-                   false /*!strdup*/);
-    hashtable_init_ex(&replace_native_table, REPLACE_NATIVE_TABLE_HASH_BITS, HASH_INTPTR,
-                      false /*!strdup*/, false /*!synch*/, replace_native_free, NULL,
-                      NULL);
-    hashtable_init_ex(&wrap_table, WRAP_TABLE_HASH_BITS, HASH_INTPTR, false /*!str_dup*/,
-                      false /*!synch*/, wrap_entry_free, NULL, NULL);
-    hashtable_init_ex(&post_call_table, POST_CALL_TABLE_HASH_BITS, HASH_INTPTR,
-                      false /*!str_dup*/, false /*!synch*/, post_call_entry_free, NULL,
-                      NULL);
+    drhashtable_init(&replace_table, REPLACE_TABLE_HASH_BITS, HASH_INTPTR,
+                     false /*!strdup*/);
+    drhashtable_init_ex(&replace_native_table, REPLACE_NATIVE_TABLE_HASH_BITS,
+                        HASH_INTPTR, false /*!strdup*/, false /*!synch*/,
+                        replace_native_free, NULL, NULL);
+    drhashtable_init_ex(&wrap_table, WRAP_TABLE_HASH_BITS, HASH_INTPTR,
+                        false /*!str_dup*/, false /*!synch*/, wrap_entry_free, NULL,
+                        NULL);
+    drhashtable_init_ex(&post_call_table, POST_CALL_TABLE_HASH_BITS, HASH_INTPTR,
+                        false /*!str_dup*/, false /*!synch*/, post_call_entry_free, NULL,
+                        NULL);
     post_call_rwlock = dr_rwlock_create();
     /* This lock may have been set up by drwrap_set_global_flags() (in this thread). */
     if (wrap_lock == NULL)
@@ -1066,10 +1067,10 @@ drwrap_exit(void)
         disabled_count = 0;
     }
 
-    hashtable_delete(&replace_table);
-    hashtable_delete(&replace_native_table);
-    hashtable_delete(&wrap_table);
-    hashtable_delete(&post_call_table);
+    drhashtable_delete(&replace_table);
+    drhashtable_delete(&replace_native_table);
+    drhashtable_delete(&wrap_table);
+    drhashtable_delete(&post_call_table);
     dr_rwlock_destroy(post_call_rwlock);
     dr_recurlock_destroy(wrap_lock);
     wrap_lock = NULL; /* For early drwrap_set_global_flags() after re-attach. */
@@ -1264,7 +1265,7 @@ DR_EXPORT
 bool
 drwrap_is_replaced(app_pc func)
 {
-    return hashtable_lookup(&replace_table, func) != NULL;
+    return drhashtable_lookup(&replace_table, func) != NULL;
 }
 
 DR_EXPORT
@@ -1272,9 +1273,9 @@ bool
 drwrap_is_replaced_native(app_pc func)
 {
     bool res = false;
-    hashtable_lock(&replace_native_table);
-    res = hashtable_lookup(&replace_native_table, func) != NULL;
-    hashtable_unlock(&replace_native_table);
+    drhashtable_lock(&replace_native_table);
+    res = drhashtable_lookup(&replace_native_table, func) != NULL;
+    drhashtable_unlock(&replace_native_table);
     return res;
 }
 
@@ -1291,13 +1292,13 @@ drwrap_replace_common(hashtable_t *table, app_pc original, void *payload, bool o
             res = false;
         else {
             flush = true;
-            res = hashtable_remove(table, (void *)original);
+            res = drhashtable_remove(table, (void *)original);
         }
     } else {
         if (override) {
-            flush = (hashtable_add_replace(table, (void *)original, payload) != NULL);
+            flush = (drhashtable_add_replace(table, (void *)original, payload) != NULL);
         } else
-            res = hashtable_add(table, (void *)original, payload);
+            res = drhashtable_add(table, (void *)original, payload);
     }
     /* XXX: we're assuming void* tag == pc
      * XXX: we're assuming the replace target is not in the middle of a trace
@@ -1352,7 +1353,7 @@ drwrap_replace_native(app_pc original, app_pc replacement, bool at_entry,
         rn->stack_adjust = stack_adjust;
         rn->user_data = user_data;
     }
-    hashtable_lock(&replace_native_table);
+    drhashtable_lock(&replace_native_table);
     res = drwrap_replace_common(&replace_native_table, original, rn, override,
                                 /* i#1438: if we're not at the entry, we'd better
                                  * flush to ensure we replace.  If this is done at
@@ -1360,7 +1361,7 @@ drwrap_replace_native(app_pc original, app_pc replacement, bool at_entry,
                                  * just a few mutexes.
                                  */
                                 !at_entry);
-    hashtable_unlock(&replace_native_table);
+    drhashtable_unlock(&replace_native_table);
     return res;
 }
 
@@ -1641,7 +1642,7 @@ drwrap_event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
         pc = dr_app_pc_as_jump_target(instr_get_isa_mode(inst), instr_get_app_pc(inst));
         /* non-native takes precedence */
         if (replace_table.entries > 0) {
-            replace = hashtable_lookup(&replace_table, pc);
+            replace = drhashtable_lookup(&replace_table, pc);
             if (replace != NULL) {
                 drwrap_replace_bb(drcontext, bb, inst, pc, replace);
                 break;
@@ -1649,8 +1650,8 @@ drwrap_event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
         }
         if (replace_native_table.entries > 0) {
             replace_native_t *rn;
-            hashtable_lock(&replace_native_table);
-            rn = hashtable_lookup(&replace_native_table, pc);
+            drhashtable_lock(&replace_native_table);
+            rn = drhashtable_lookup(&replace_native_table, pc);
             if (rn != NULL) {
                 app_pc topush = NULL;
                 if (!rn->at_entry) {
@@ -1663,10 +1664,10 @@ drwrap_event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
                     }
                 }
                 drwrap_replace_native_bb(drcontext, bb, inst, pc, rn, topush);
-                hashtable_unlock(&replace_native_table);
+                drhashtable_unlock(&replace_native_table);
                 break;
             }
-            hashtable_unlock(&replace_native_table);
+            drhashtable_unlock(&replace_native_table);
         }
     }
     return DR_EMIT_DEFAULT;
@@ -1831,7 +1832,7 @@ drwrap_mark_retaddr_for_instru(void *drcontext, per_thread_t *pt, app_pc decorat
      */
     /* Ensure we have the retaddr instrumented for post-call events */
     dr_rwlock_write_lock(post_call_rwlock);
-    e = (post_call_entry_t *)hashtable_lookup(&post_call_table, (void *)retaddr);
+    e = (post_call_entry_t *)drhashtable_lookup(&post_call_table, (void *)retaddr);
     /* PR 454616: we may have added an entry and started a flush
      * but not finished the flush, so we check not just the entry
      * but also the existing_instrumented flag.
@@ -1874,7 +1875,8 @@ drwrap_mark_retaddr_for_instru(void *drcontext, per_thread_t *pt, app_pc decorat
             /* now we are guaranteed no thread is inside the fragment */
             /* another thread may have done a racy competing flush: should be fine */
             dr_rwlock_read_lock(post_call_rwlock);
-            e = (post_call_entry_t *)hashtable_lookup(&post_call_table, (void *)retaddr);
+            e = (post_call_entry_t *)drhashtable_lookup(&post_call_table,
+                                                        (void *)retaddr);
             if (e != NULL) /* selfmod could disappear once have PR 408529 */
                 e->existing_instrumented = true;
             /* XXX DrMem i#553: if e==NULL, recursion count could get off */
@@ -1903,11 +1905,11 @@ drwrap_mark_retaddr_for_instru(void *drcontext, per_thread_t *pt, app_pc decorat
 static wrap_entry_t *
 wrap_table_lookup_normalized_pc(app_pc pc)
 {
-    wrap_entry_t *wrap = hashtable_lookup(&wrap_table, (void *)pc);
+    wrap_entry_t *wrap = drhashtable_lookup(&wrap_table, (void *)pc);
 #ifdef ARM
     if (wrap == NULL && !TESTANY(0x1, (ptr_uint_t)pc)) {
-        wrap = hashtable_lookup(&wrap_table,
-                                (void *)dr_app_pc_as_jump_target(DR_ISA_ARM_THUMB, pc));
+        wrap = drhashtable_lookup(&wrap_table,
+                                  (void *)dr_app_pc_as_jump_target(DR_ISA_ARM_THUMB, pc));
     }
 #endif
     return wrap;
@@ -1962,7 +1964,7 @@ drwrap_ensure_postcall(void *drcontext, per_thread_t *pt, wrap_entry_t *wrap,
         postcall_cache_idx = 0;
     postcall_cache[postcall_cache_idx] = retaddr;
 
-    if (hashtable_lookup(&post_call_table, (void *)retaddr) == NULL) {
+    if (drhashtable_lookup(&post_call_table, (void *)retaddr) == NULL) {
         bool enabled = wrap->enabled;
         /* this function may not return: but in that case it will redirect
          * and we'll come back here to do the wrapping.
@@ -2038,7 +2040,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(IF_RISCV64_ELSE(reg_t ra, reg
 
     if (!TESTANY(DRWRAP_NO_FRILLS, global_flags)) {
         dr_recurlock_lock(wrap_lock);
-        wrap = hashtable_lookup(&wrap_table, (void *)pc);
+        wrap = drhashtable_lookup(&wrap_table, (void *)pc);
         ASSERT(wrap != NULL, "failed to find wrap info");
     }
 
@@ -2280,11 +2282,11 @@ drwrap_after_callee_func(void *drcontext, per_thread_t *pt, dr_mcontext_t *mc, i
                                  * let's flush it
                                  */
                                 drvector_append(&toflush, (void *)wrap->func);
-                                hashtable_remove(&wrap_table, (void *)wrap->func);
+                                drhashtable_remove(&wrap_table, (void *)wrap->func);
                                 wrap = NULL; /* don't double-free */
                             } else {
-                                hashtable_add_replace(&wrap_table, (void *)wrap->func,
-                                                      (void *)next);
+                                drhashtable_add_replace(&wrap_table, (void *)wrap->func,
+                                                        (void *)next);
                             }
                         } else
                             prev->next = next;
@@ -2452,7 +2454,7 @@ drwrap_event_bb_insert_where(void *drcontext, void *tag, instrlist_t *bb, instr_
          * been reached before the callee hook can mark it.
          */
         dr_recurlock_lock(wrap_lock);
-        wrap = hashtable_lookup(&wrap_table, (void *)pc);
+        wrap = drhashtable_lookup(&wrap_table, (void *)pc);
         if (wrap != NULL) {
             void *arg1 =
                 TESTANY(DRWRAP_NO_FRILLS, global_flags) ? (void *)wrap : (void *)pc;
@@ -2502,7 +2504,7 @@ drwrap_event_bb_insert_where(void *drcontext, void *tag, instrlist_t *bb, instr_
         app_pc target = dr_app_pc_as_jump_target(instr_get_isa_mode(inst),
                                                  opnd_get_pc(instr_get_target(inst)));
         dr_recurlock_lock(wrap_lock);
-        wrap = hashtable_lookup(&wrap_table, (void *)target);
+        wrap = drhashtable_lookup(&wrap_table, (void *)target);
         bool add_post = wrap != NULL && wrap->post_cb != NULL &&
             !TESTANY(DRWRAP_REPLACE_RETADDR, wrap->flags);
         dr_recurlock_unlock(wrap_lock);
@@ -2536,7 +2538,7 @@ drwrap_event_module_unload(void *drcontext, const module_data_t *info)
      */
     NOTIFY(2, "%s: removing %p..%p\n", __FUNCTION__, info->start, info->end);
     dr_rwlock_write_lock(post_call_rwlock);
-    hashtable_remove_range(&post_call_table, (void *)info->start, (void *)info->end);
+    drhashtable_remove_range(&post_call_table, (void *)info->start, (void *)info->end);
     /* Invalidate cache. */
     for (int i = 0; i < POSTCALL_CACHE_SIZE; i++) {
         if (postcall_cache[i] >= info->start && postcall_cache[i] < info->end)
@@ -2654,7 +2656,7 @@ drwrap_wrap_ex(app_pc func,
         wrap_new->callconv = DRWRAP_CALLCONV_DEFAULT;
 
     dr_recurlock_lock(wrap_lock);
-    wrap_cur = hashtable_lookup(&wrap_table, (void *)func);
+    wrap_cur = drhashtable_lookup(&wrap_table, (void *)func);
     if (wrap_cur != NULL) {
         /* we add in reverse order (documented in interface) */
         wrap_entry_t *e;
@@ -2685,10 +2687,10 @@ drwrap_wrap_ex(app_pc func,
             wrap_cur = NULL;
         }
         wrap_new->next = wrap_cur;
-        hashtable_add_replace(&wrap_table, (void *)func, (void *)wrap_new);
+        drhashtable_add_replace(&wrap_table, (void *)func, (void *)wrap_new);
     } else {
         wrap_new->next = NULL;
-        hashtable_add(&wrap_table, (void *)func, (void *)wrap_new);
+        drhashtable_add(&wrap_table, (void *)func, (void *)wrap_new);
         /* XXX: we're assuming void* tag == pc */
         if (dr_fragment_exists_at(dr_get_current_drcontext(), func)) {
             dr_atomic_add_stat_return_sum(&drwrap_stats.flush_count, 1);
@@ -2723,7 +2725,7 @@ drwrap_unwrap(app_pc func,
         return false;
 
     dr_recurlock_lock(wrap_lock);
-    wrap = hashtable_lookup(&wrap_table, (void *)func);
+    wrap = drhashtable_lookup(&wrap_table, (void *)func);
     for (; wrap != NULL; wrap = wrap->next) {
         if (wrap->pre_cb == pre_func_cb && wrap->post_cb == post_func_cb) {
             /* We use lazy removal and flushing to avoid complications of
@@ -2752,7 +2754,7 @@ drwrap_is_wrapped(app_pc func,
         return false;
 
     dr_recurlock_lock(wrap_lock);
-    wrap = hashtable_lookup(&wrap_table, (void *)func);
+    wrap = drhashtable_lookup(&wrap_table, (void *)func);
     for (; wrap != NULL; wrap = wrap->next) {
         if (wrap->enabled && wrap->pre_cb == pre_func_cb &&
             wrap->post_cb == post_func_cb) {
@@ -2772,7 +2774,7 @@ drwrap_is_post_wrap(app_pc pc)
     if (pc == NULL)
         return false;
     dr_rwlock_read_lock(post_call_rwlock);
-    res = (hashtable_lookup(&post_call_table, (void *)pc) != NULL);
+    res = (drhashtable_lookup(&post_call_table, (void *)pc) != NULL);
     dr_rwlock_read_unlock(post_call_rwlock);
     return res;
 }

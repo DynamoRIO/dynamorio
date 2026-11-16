@@ -1907,14 +1907,14 @@ init_record_syscall()
 {
     // We only modify the table at init time and do not want a lock for runtime
     // lookups.
-    hashtable_init_ex(&syscall2args, 8, HASH_INTPTR, /*strdup=*/false, /*synch=*/false,
-                      nullptr, nullptr, nullptr);
+    drhashtable_init_ex(&syscall2args, 8, HASH_INTPTR, /*strdup=*/false, /*synch=*/false,
+                        nullptr, nullptr, nullptr);
 #ifdef LINUX
     // We trace futex by default.  Add it first so a use can disable.
     static constexpr int FUTEX_ARG_COUNT = 6;
-    if (!hashtable_add(&syscall2args,
-                       reinterpret_cast<void *>(static_cast<ptr_int_t>(SYS_futex)),
-                       reinterpret_cast<void *>(static_cast<ptr_int_t>(FUTEX_ARG_COUNT))))
+    if (!drhashtable_add(
+            &syscall2args, reinterpret_cast<void *>(static_cast<ptr_int_t>(SYS_futex)),
+            reinterpret_cast<void *>(static_cast<ptr_int_t>(FUTEX_ARG_COUNT))))
         DR_ASSERT(false && "Failed to add to syscall2args internal hashtable");
 #endif
     auto op_values =
@@ -1936,16 +1936,16 @@ init_record_syscall()
             FATAL("Error: -record_syscall invalid parameter count %d\n", args);
         dr_log(NULL, DR_LOG_ALL, 1, "Tracing syscall #%d args=%d\n", num, args);
         NOTIFY(1, "Tracing syscall #%d args=%d\n", num, args);
-        hashtable_add_replace(&syscall2args,
-                              reinterpret_cast<void *>(static_cast<ptr_int_t>(num)),
-                              reinterpret_cast<void *>(static_cast<ptr_int_t>(args)));
+        drhashtable_add_replace(&syscall2args,
+                                reinterpret_cast<void *>(static_cast<ptr_int_t>(num)),
+                                reinterpret_cast<void *>(static_cast<ptr_int_t>(args)));
     }
 }
 
 static void
 exit_record_syscall()
 {
-    hashtable_delete(&syscall2args);
+    drhashtable_delete(&syscall2args);
 }
 
 #ifdef BUILD_PT_TRACER
@@ -2014,7 +2014,7 @@ event_pre_syscall(void *drcontext, int sysnum)
             BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_SYSCALL, sysnum);
 
         // Record parameter values, if requested.
-        int args = static_cast<int>(reinterpret_cast<ptr_int_t>(hashtable_lookup(
+        int args = static_cast<int>(reinterpret_cast<ptr_int_t>(drhashtable_lookup(
             &syscall2args, reinterpret_cast<void *>(static_cast<ptr_int_t>(sysnum)))));
         if (args > 0) {
             BUF_PTR(data->seg_base) += instru->append_marker(
@@ -2104,9 +2104,9 @@ event_post_syscall(void *drcontext, int sysnum)
 
 #ifdef LINUX
     if (!op_L0I_filter.get_value()) { /* No syscall data unless full instr trace. */
-        if (hashtable_lookup(&syscall2args,
-                             reinterpret_cast<void *>(static_cast<ptr_int_t>(sysnum))) !=
-            nullptr) {
+        if (drhashtable_lookup(
+                &syscall2args,
+                reinterpret_cast<void *>(static_cast<ptr_int_t>(sysnum))) != nullptr) {
             dr_syscall_result_info_t info = {};
             info.size = sizeof(info);
             info.use_errno = true;

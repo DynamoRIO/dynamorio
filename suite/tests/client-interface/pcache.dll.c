@@ -74,12 +74,14 @@ event_persist_ro_size(void *drcontext, void *perscxt, size_t file_offs,
                       void **user_data DR_PARAM_OUT)
 {
     return sizeof(mybase) +
-        hashtable_persist_size(drcontext, &sample_pointer_table, sizeof(size_t), perscxt,
-                               DR_HASHPERS_REBASE_KEY | DR_HASHPERS_ONLY_IN_RANGE |
-                                   DR_HASHPERS_ONLY_PERSISTED) +
-        hashtable_persist_size(drcontext, &sample_inlined_table, sizeof(size_t), perscxt,
-                               DR_HASHPERS_REBASE_KEY | DR_HASHPERS_ONLY_IN_RANGE |
-                                   DR_HASHPERS_ONLY_PERSISTED);
+        drhashtable_persist_size(drcontext, &sample_pointer_table, sizeof(size_t),
+                                 perscxt,
+                                 DR_HASHPERS_REBASE_KEY | DR_HASHPERS_ONLY_IN_RANGE |
+                                     DR_HASHPERS_ONLY_PERSISTED) +
+        drhashtable_persist_size(drcontext, &sample_inlined_table, sizeof(size_t),
+                                 perscxt,
+                                 DR_HASHPERS_REBASE_KEY | DR_HASHPERS_ONLY_IN_RANGE |
+                                     DR_HASHPERS_ONLY_PERSISTED);
 }
 
 static bool
@@ -104,13 +106,13 @@ event_persist_ro(void *drcontext, void *perscxt, file_t fd, void *user_data)
         return false;
 
     ok = ok &&
-        hashtable_persist(drcontext, &sample_pointer_table, sizeof(size_t), fd, perscxt,
-                          DR_HASHPERS_PAYLOAD_IS_POINTER | DR_HASHPERS_REBASE_KEY |
-                              DR_HASHPERS_ONLY_IN_RANGE | DR_HASHPERS_ONLY_PERSISTED);
+        drhashtable_persist(drcontext, &sample_pointer_table, sizeof(size_t), fd, perscxt,
+                            DR_HASHPERS_PAYLOAD_IS_POINTER | DR_HASHPERS_REBASE_KEY |
+                                DR_HASHPERS_ONLY_IN_RANGE | DR_HASHPERS_ONLY_PERSISTED);
     ok = ok &&
-        hashtable_persist(drcontext, &sample_inlined_table, sizeof(size_t), fd, perscxt,
-                          DR_HASHPERS_REBASE_KEY | DR_HASHPERS_ONLY_IN_RANGE |
-                              DR_HASHPERS_ONLY_PERSISTED);
+        drhashtable_persist(drcontext, &sample_inlined_table, sizeof(size_t), fd, perscxt,
+                            DR_HASHPERS_REBASE_KEY | DR_HASHPERS_ONLY_IN_RANGE |
+                                DR_HASHPERS_ONLY_PERSISTED);
 
     return ok;
 }
@@ -134,14 +136,14 @@ event_resurrect_ro(void *drcontext, void *perscxt, byte **map DR_PARAM_OUT)
     }
 
     ok = ok &&
-        hashtable_resurrect(drcontext, map, &sample_pointer_table, sizeof(size_t),
-                            perscxt,
-                            DR_HASHPERS_PAYLOAD_IS_POINTER | DR_HASHPERS_REBASE_KEY |
-                                DR_HASHPERS_CLONE_PAYLOAD,
-                            NULL);
+        drhashtable_resurrect(drcontext, map, &sample_pointer_table, sizeof(size_t),
+                              perscxt,
+                              DR_HASHPERS_PAYLOAD_IS_POINTER | DR_HASHPERS_REBASE_KEY |
+                                  DR_HASHPERS_CLONE_PAYLOAD,
+                              NULL);
     ok = ok &&
-        hashtable_resurrect(drcontext, map, &sample_inlined_table, sizeof(size_t),
-                            perscxt, DR_HASHPERS_REBASE_KEY, NULL);
+        drhashtable_resurrect(drcontext, map, &sample_inlined_table, sizeof(size_t),
+                              perscxt, DR_HASHPERS_REBASE_KEY, NULL);
 
     /* we stored the 1st byte of every bb */
     for (i = 0; i < HASHTABLE_SIZE(sample_pointer_table.table_bits); i++) {
@@ -202,9 +204,9 @@ event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
         void *payload = dr_global_alloc(sizeof(size_t));
         app_pc pc = dr_fragment_app_pc(tag);
         *(byte *)payload = *pc; /* not bothering w/ safe_read */
-        if (!hashtable_add(&sample_pointer_table, (void *)pc, payload))
+        if (!drhashtable_add(&sample_pointer_table, (void *)pc, payload))
             free_payload(payload);
-        hashtable_add(&sample_inlined_table, (void *)pc, (void *)(ptr_uint_t)(*pc));
+        drhashtable_add(&sample_inlined_table, (void *)pc, (void *)(ptr_uint_t)(*pc));
     }
 
     return DR_EMIT_DEFAULT | DR_EMIT_PERSISTABLE;
@@ -215,8 +217,8 @@ event_exit(void)
 {
     if (resurrect_success > 0)
         dr_fprintf(STDERR, "successfully resurrected at least one pcache\n");
-    hashtable_delete(&sample_inlined_table);
-    hashtable_delete(&sample_pointer_table);
+    drhashtable_delete(&sample_inlined_table);
+    drhashtable_delete(&sample_pointer_table);
 }
 
 DR_EXPORT
@@ -233,7 +235,7 @@ dr_init(client_id_t id)
     if (!dr_register_persist_patch(event_persist_patch))
         dr_fprintf(STDERR, "failed to register patch");
 
-    hashtable_init(&sample_inlined_table, 4, HASH_INTPTR, false /*!strdup*/);
-    hashtable_init_ex(&sample_pointer_table, 4, HASH_INTPTR, false /*!strdup*/,
-                      true /*sync*/, free_payload, NULL, NULL);
+    drhashtable_init(&sample_inlined_table, 4, HASH_INTPTR, false /*!strdup*/);
+    drhashtable_init_ex(&sample_pointer_table, 4, HASH_INTPTR, false /*!strdup*/,
+                        true /*sync*/, free_payload, NULL, NULL);
 }
