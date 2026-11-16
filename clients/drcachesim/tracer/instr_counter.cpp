@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -252,6 +252,10 @@ hit_instr_count_threshold(app_pc next_pc)
     }
     if (!reached_trace_after_instrs.load(std::memory_order_acquire)) {
         reached_trace_after_instrs.store(true, std::memory_order_release);
+    }
+    if (started_tracing_func != nullptr) {
+        started_tracing_func(tracing_window.load(std::memory_order_acquire),
+                             tracing_func_arg);
     }
     // Reset for -retrace_every_instrs.
 #ifdef X64
