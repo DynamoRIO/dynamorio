@@ -1699,6 +1699,8 @@ option(BUILD_CLIENTS "build client tools" ON)
 
 option(BUILD_KERNEL_MODULE "build DynamoRIO as a kernel module (experimental)" OFF)
 
+option(KERNEL_MODULE_SELF_CHECKS "enable self-checks for the DynamoRIO kernel module" OFF)
+
 if (ANDROID)
   # TODO i#1874: Android does not build drcachesim or drcpusim, which have
   # references spread throughout the docs.
@@ -1753,7 +1755,9 @@ if (BUILD_KERNEL_MODULE)
   endif()
 
   message(STATUS "DynamoRIO Linux kernel module enabled using KERNEL_DIR=${KERNEL_DIR}")
-endif()
+elseif (KERNEL_MODULE_SELF_CHECKS)
+  message(FATAL_ERROR "KERNEL_MODULE_SELF_CHECKS requires BUILD_KERNEL_MODULE")
+endif ()
 
 if (BUILD_CORE)
   add_subdirectory(core)
