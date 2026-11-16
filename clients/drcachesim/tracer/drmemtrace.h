@@ -248,6 +248,7 @@ drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
  * subdirectory returned by drmemtrace_get_output_path()).
  *
  * @param[in] user_arg  The \p user_arg passed to drmemtrace_boundary_events().
+ * @param[in] window_index  The traced window ordinal.
  */
 typedef void (*drmemtrace_started_tracing_func_t)(int64 window_index, void *user_arg);
 
