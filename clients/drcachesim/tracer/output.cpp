@@ -1136,10 +1136,10 @@ process_buffer_for_physaddr(void *drcontext, per_thread_t *data, size_t header_s
             if (op_offline.get_value()) {
                 // We do not have the size so we have to guess.  It is ok to emit an
                 // unused translation so we err on the side of caution.  We do not use
-                // the maximum possible instruction sizes since for x86 that's 17 *
-                // 256 (max_bb_instrs) that's >4096.  The average x86 instr length is
-                // <4 but we use 8 to be conservative while not as extreme as 17 which
-                // will lead to too many unused markers.
+                // the maximum possible instruction sizes since for x86 that's 17 * 256
+                // (max_bb_instrs) that's >4096.  The average x86 instr length is <4 but
+                // we use 8 to be conservative while not as extreme as 17 which will
+                // lead to too many unused markers.
                 static constexpr size_t PREDICT_INSTR_SIZE_BOUND = IF_X86_ELSE(8, 4);
                 mem_ref_size = instr_count * PREDICT_INSTR_SIZE_BOUND;
             } else
@@ -1475,8 +1475,8 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap, bool at_thread_ex
         num_filter_refs_racy += current_num_refs;
     }
     // When -L0_filter_until_instrs is used with -exit_after_tracing, the
-    // exit_after_tracing limit applies to the full trace and not the filtered trace
-    // so we can skip this check in filter mode.
+    // exit_after_tracing limit applies to the full trace and not the filtered trace so we
+    // can skip this check in filter mode.
     if (mode != BBDUP_MODE_L0_FILTER && op_exit_after_tracing.get_value() > 0 &&
         (num_refs_racy - num_filter_refs_racy) > op_exit_after_tracing.get_value()) {
         dr_mutex_lock(mutex);
@@ -1640,7 +1640,7 @@ exit_thread_io(void *drcontext)
         (is_in_tracing_mode(tracing_mode.load(std::memory_order_acquire)) ||
          // For attach+detach we switch to BBDUP_MODE_NOP but still need to finalize
          // each (non-empty) thread.
-         align_attach_detach_endpoints());
+         (!has_tracing_windows() && align_attach_detach_endpoints()));
 
     if (has_prior_window_data || is_not_empty) {
         if (op_offline.get_value()) {
