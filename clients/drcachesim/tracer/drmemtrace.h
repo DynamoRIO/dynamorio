@@ -242,11 +242,14 @@ drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
 /**
  * Function for commencement of tracing.  This is called at the start
  * of any tracing mode, which may be delayed or may repeat depending on
- * parameters.
+ * parameters. For multiple tracing "window" from options like -trace_for_instrs or
+ * -retrace_every_instrs, this will be called multiple times, with the window ordinal
+ * passed as "window_index". (For -split_windows, the same ordinal will appear in the
+ * subdirectory returned by drmemtrace_get_output_path()).
  *
  * @param[in] user_arg  The \p user_arg passed to drmemtrace_boundary_events().
  */
-typedef void (*drmemtrace_started_tracing_func_t)(void *user_arg);
+typedef void (*drmemtrace_started_tracing_func_t)(int64 window_index, void *user_arg);
 
 /**
  * Function for termination of tracing.  This is called at the end

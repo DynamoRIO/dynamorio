@@ -694,12 +694,12 @@ event_post_attach()
         tracing_mode.store(BBDUP_MODE_COUNT, std::memory_order_release);
     } else if (op_L0_filter_until_instrs.get_value()) {
         if (started_tracing_func != nullptr)
-            started_tracing_func(tracing_func_arg);
+            started_tracing_func(0, tracing_func_arg);
         NOTIFY(1, "Switching to filter mode after attach\n");
         tracing_mode.store(BBDUP_MODE_L0_FILTER, std::memory_order_release);
     } else {
         if (started_tracing_func != nullptr)
-            started_tracing_func(tracing_func_arg);
+            started_tracing_func(0, tracing_func_arg);
         NOTIFY(1, "Switching to tracing mode after attach\n");
         tracing_mode.store(BBDUP_MODE_TRACE, std::memory_order_release);
     }

@@ -187,7 +187,7 @@ free_cb(void *data)
 }
 
 static void
-window_start(void *user_data)
+window_start(int64 window_index, void *user_data)
 {
     static int window_count = 0;
     assert(user_data == MAGIC_VALUE);
@@ -199,6 +199,7 @@ window_start(void *user_data)
         NULL_TERMINATE_BUFFER(target_window);
     }
     dr_fprintf(STDERR, "%s for path %s\n", __FUNCTION__, raw_dir);
+    assert(window_index == window_count);
 }
 
 static void
