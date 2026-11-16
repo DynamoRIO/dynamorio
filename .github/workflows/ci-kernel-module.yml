@@ -113,6 +113,8 @@ jobs:
         run: |
           MODULE=build/core/kernel_linux/dynamorio_module.ko
           CONTROLLER=build/bin64/drkernel_ctl
+          # Session initialization must give every online CPU a DR thread.
+          NUM_CPUS=$(getconf _NPROCESSORS_ONLN)
 
           # Start from a clean log so the checks below can't match stale
           # messages from a previous boot or run.
@@ -125,6 +127,8 @@ jobs:
           if [ "${{ matrix.debug }}" = "ON" ]; then
             sudo "$CONTROLLER" init "-loglevel 2"
             sudo dmesg | grep -F "DYNAMORIO_OPTIONS: -loglevel 2"
+            # DR logs its thread count as each CPU is initialized.
+            sudo dmesg | grep -F "dynamo_thread_init: $NUM_CPUS thread(s) now"
           else
             sudo "$CONTROLLER" init
           fi
