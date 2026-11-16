@@ -1314,7 +1314,7 @@ annotation using dr_annotation_register_call(). For example:
 void handle_mark_mem_defined_if_addressable(void *p, size_t size)
 {
     size_t *skip_size = dr_global_alloc(sizeof(size_t));
-    hashtable_add_replace(skip_init_check_table, p, skip_size);
+    drhashtable_add_replace(skip_init_check_table, p, skip_size);
 }
 
 DR_EXPORT void

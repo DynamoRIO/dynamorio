@@ -157,6 +157,10 @@ changes:
  - Added #drvector_t.config field which contains additional configuration parameters for
    a #drvector_t. It currently contains #drvector_config_t.zero_alloc that when set to
    true sets every entry pointer of the drvector's storage to 0 using memset().
+ - Renamed all drcontainers hashtable functions from \p hashtable_* to
+   \p drhashtable_* (e.g., drhashtable_init(), drhashtable_lookup(),
+   drhashtable_remove()) to avoid global symbol conflicts when statically
+   linking with other libraries.
 
 The changes between version \DR_VERSION and 11.3.0 include the following minor
 compatibility changes:
