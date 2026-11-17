@@ -40,6 +40,7 @@
 #include "globals.h"
 #include "module_shared.h"
 #include "instrument.h" /* for instrument_client_lib_unloaded */
+#include <limits.h>
 
 /* ok to be in .data w/ no sentinel head node b/c never empties out
  * .ntdll always there for Windows, so no need to unprot.
@@ -970,12 +971,16 @@ redirect_aligned_alloc(size_t alignment, size_t size)
     size_t alloc_size =
         size + ALIGN_FORWARD(header_size, HEAP_ALIGNMENT) + alignment - HEAP_ALIGNMENT;
     /* Our header is the size itself, with the top bits stolen. */
-    if (TESTANY(REDIRECT_HEADER_SHIFTED | REDIRECT_EXTRA_HEADERS, alloc_size)) {
+    if (TESTANY(REDIRECT_HEADER_SHIFTED | REDIRECT_EXTRA_HEADERS, alloc_size) ||
+        /* Check original size to handle overflow. */
+        TESTANY(REDIRECT_HEADER_SHIFTED | REDIRECT_EXTRA_HEADERS, size)) {
         /* We do not support the top bits being set as that conflicts with the bits in
          * our header.  This should be fine as all system allocators we have seen also
          * have size limits that are this size (for 32-bit) or even smaller.
          */
+#ifndef STANDALONE_UNIT_TEST /* Disable to let us test this path more easily. */
         CLIENT_ASSERT(false, "malloc failed: size requested is too large");
+#endif
         return NULL;
     }
     mem = GLOBAL_HEAP_ALLOC(alloc_size HEAPACCT(ACCT_LIBDUP));
@@ -1258,6 +1263,10 @@ unit_test_redirect_heap(void)
     ASSERT(ALIGNED(p, STANDARD_HEAP_ALIGNMENT * 4));
     ASSERT(redirect_malloc_requested_size(p) == STANDARD_HEAP_ALIGNMENT + 2);
     redirect_free(p);
+
+    /* Test a too-large size. */
+    p = redirect_aligned_alloc(STANDARD_HEAP_ALIGNMENT, SIZE_MAX - 1);
+    ASSERT(p == NULL);
 
     /* Test allocation where the backing memory has different HEAP_ALIGNMENT aligned
      * offsets.
