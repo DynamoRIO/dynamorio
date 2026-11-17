@@ -45,7 +45,7 @@
 /* Fails the enclosing self-check if |cond| is false.  Unlike ASSERT, this reports the
  * failure and returns rather than terminating, which in the kernel is a panic.
  */
-#    define EXPECT(cond)                                                         \
+#    define CHECK(cond)                                                          \
         do {                                                                     \
             if (!(cond)) {                                                       \
                 print_file(STDERR, "Self-check failed at %s:%d: %s\n", __func__, \
