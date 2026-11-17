@@ -8964,7 +8964,7 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
     if (size == 0)
         return;
     bool image = false;
-    bool is_shared = IF_LINUX_ELSE(TESTANY(MAP_SHARED, flags), false);
+    bool is_shared = TESTANY(MAP_SHARED, flags);
     uint memprot = osprot_to_memprot(prot);
 #ifdef ANDROID
     /* i#1861: avoid merging file-backed w/ anon regions */
@@ -9312,13 +9312,13 @@ post_system_call(dcontext_t *dcontext)
             DEBUG_DECLARE(ok =)
             query_memory_ex_from_os(addr, &info);
             ASSERT(ok);
-            app_memory_allocation(
-                dcontext, addr, len, info.prot, info.type == DR_MEMTYPE_IMAGE,
-                IF_LINUX_ELSE(info.is_shared, false) _IF_DEBUG("failed munmap"));
+            app_memory_allocation(dcontext, addr, len, info.prot,
+                                  info.type == DR_MEMTYPE_IMAGE,
+                                  info.is_shared _IF_DEBUG("failed munmap"));
             IF_NO_MEMQUERY(memcache_update_locked(
                 (app_pc)ALIGN_BACKWARD(addr, PAGE_SIZE),
                 (app_pc)ALIGN_FORWARD(addr + len, PAGE_SIZE), info.prot, info.type,
-                false /*add back*/, IF_LINUX_ELSE(info.is_shared, false)));
+                false /*add back*/, info.is_shared));
         }
         break;
     }
@@ -10516,8 +10516,7 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
                 iter->vm_start, iter->vm_end, iter->prot);
             memcache_update_locked(iter->vm_start, iter->vm_end, iter->prot,
                                    image ? DR_MEMTYPE_IMAGE : DR_MEMTYPE_DATA,
-                                   false /*!exists*/,
-                                   IF_LINUX_ELSE(iter->is_shared, false));
+                                   false /*!exists*/, iter->is_shared);
         }
 #    endif
 
@@ -10527,9 +10526,9 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
          */
         if (!skip /* i#479, hide private module and match Windows's behavior */ &&
             add_modules &&
-            app_memory_allocation(
-                NULL, iter->vm_start, (iter->vm_end - iter->vm_start), iter->prot, image,
-                IF_LINUX_ELSE(iter->is_shared, false) _IF_DEBUG(map_type))) {
+            app_memory_allocation(NULL, iter->vm_start, (iter->vm_end - iter->vm_start),
+                                  iter->prot, image,
+                                  iter->is_shared _IF_DEBUG(map_type))) {
             count++;
         }
     }
