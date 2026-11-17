@@ -1531,8 +1531,13 @@ OPTION_COMMAND(
     },
     "always sandbox non-text writable regions", STATIC, OP_PCACHE_GLOBAL)
 
+/* TODO: i#7664: Make -shandbox_shared work with -sandbox_writes and enable by default on
+ * x86.
+ * TODO: i#8288: Implement shared mapping for all OSes and enable -sandbox_shared.
+ */
 OPTION_COMMAND(bool, sandbox_shared, IF_AARCH64_ELSE(true, false), "sandbox_shared", {},
-               "always sandbox shared regions (Linux only)", STATIC, OP_PCACHE_GLOBAL)
+               "always sandbox shared regions (currently Linux only)", STATIC,
+               OP_PCACHE_GLOBAL)
 
 /* XXX: separate for bb and trace shared caches? */
 OPTION_DEFAULT(bool, cache_shared_free_list, true,
