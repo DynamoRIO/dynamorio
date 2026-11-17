@@ -37,14 +37,16 @@
 #include <stdint.h>
 #include <string.h>
 
+/* Must only be used inside a function that returns bool. */
 #define CHECK_RESULT(expr, message)                         \
     do {                                                    \
         if ((expr) != 0) {                                  \
             print("%s:%u %s", __FILE__, __LINE__, message); \
-            return 1;                                       \
+            return false;                                   \
         }                                                   \
     } while (0)
 
+/* Must only be used inside a function that returns bool. */
 #define EXPECT(lhs_expr, rhs_expr)                                                \
     do {                                                                          \
         uint16_t lhs = lhs_expr;                                                  \
@@ -52,7 +54,7 @@
         if (!((lhs) == (rhs))) {                                                  \
             print("%s:%u Expected " #lhs_expr " == " #rhs_expr " but %u != %u\n", \
                   __FILE__, __LINE__, lhs, rhs);                                  \
-            return 1;                                                             \
+            return false;                                                         \
         }                                                                         \
     } while (0)
 
@@ -72,7 +74,7 @@ write_code(byte *buf, uint16_t value)
 #endif
 }
 
-static int
+static bool
 test_dual_mapping(int fd, byte *rw)
 {
     byte *rx = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_EXEC, MAP_SHARED, fd, 0);
@@ -131,10 +133,10 @@ test_dual_mapping(int fd, byte *rw)
     EXPECT(func(), 13);
 
     CHECK_RESULT(munmap(rx, PAGE_SIZE), "munmap(rx) failed.");
-    return 0;
+    return true;
 }
 
-static int
+static bool
 test_mixed_mprotect(int fd, byte *rw)
 {
     /* A single protection change can span both private and shared mappings.
@@ -173,10 +175,10 @@ test_mixed_mprotect(int fd, byte *rw)
     EXPECT(func(), 21);
 
     CHECK_RESULT(munmap(mixed, 2 * PAGE_SIZE), "munmap(mixed) failed.");
-    return 0;
+    return true;
 }
 
-static int
+static bool
 test_map_fixed(int fd, byte *rw)
 {
     /* MAP_FIXED replaces the mapping even when the permissions do not change.
@@ -230,10 +232,10 @@ test_map_fixed(int fd, byte *rw)
 
         CHECK_RESULT(munmap(private_pages, 3 * PAGE_SIZE), "munmap(private) failed.");
     }
-    return 0;
+    return true;
 }
 
-static int
+static bool
 test_mremap_fixed(int fd, byte *rw)
 {
     /* MREMAP_FIXED replaces its destination just like MAP_FIXED.  A failed remap
@@ -265,10 +267,10 @@ test_mremap_fixed(int fd, byte *rw)
     write_code(rw, 39);
     EXPECT(func(), 39);
     CHECK_RESULT(munmap(remap_target, PAGE_SIZE), "munmap(remap target) failed.");
-    return 0;
+    return true;
 }
 
-static int
+static bool
 test_map_fixed_range(int fd)
 {
     /* Only the second page changes sharing in the final replacement.  Check the
@@ -284,7 +286,7 @@ test_map_fixed_range(int fd)
                              MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
     assert(replacement == mixed);
     CHECK_RESULT(munmap(mixed, 2 * PAGE_SIZE), "munmap(mixed) failed.");
-    return 0;
+    return true;
 }
 
 int
@@ -293,21 +295,25 @@ main(void)
     int fd = memfd_create("dual_mapping", /*flags=*/0);
     assert(fd >= 0);
 
-    CHECK_RESULT(ftruncate(fd, PAGE_SIZE), "ftruncate() failed.");
+    int res = ftruncate(fd, PAGE_SIZE);
+    assert(res == 0);
 
     byte *rw = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     assert(rw != MAP_FAILED);
 
-    CHECK_RESULT(test_dual_mapping(fd, rw), "test_dual_mapping() failed.");
-    CHECK_RESULT(test_mixed_mprotect(fd, rw), "test_mixed_mprotect() failed.");
-    CHECK_RESULT(test_map_fixed(fd, rw), "test_map_fixed() failed.");
-    CHECK_RESULT(test_mremap_fixed(fd, rw), "test_mremap_fixed() failed.");
-    CHECK_RESULT(test_map_fixed_range(fd), "test_map_fixed_range() failed.");
+    bool success = test_dual_mapping(fd, rw) && test_mixed_mprotect(fd, rw) &&
+        test_map_fixed(fd, rw) && test_mremap_fixed(fd, rw) && test_map_fixed_range(fd);
 
-    CHECK_RESULT(munmap(rw, PAGE_SIZE), "munmap(rw) failed.");
+    res = munmap(rw, PAGE_SIZE);
+    assert(res == 0);
 
-    CHECK_RESULT(close(fd), "Failed to close fd.");
+    res = close(fd);
+    assert(res == 0);
 
-    print("Test passed\n");
-    return 0;
+    if (success) {
+        print("Test passed\n");
+        return 0;
+    } else {
+        return 1;
+    }
 }
