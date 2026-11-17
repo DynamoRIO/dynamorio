@@ -5217,7 +5217,8 @@ set_protection(byte *pc, size_t length, uint prot /*MEMPROT_*/)
         app_pc start_page = (app_pc)PAGE_START(pc);
         uint num_bytes = ALIGN_FORWARD(length + (pc - start_page), PAGE_SIZE);
         memcache_update_locked(start_page, start_page + num_bytes, prot,
-                               -1 /*type unchanged*/, true /*exists*/, false);
+                               -1 /*type and is_shared unchanged*/, true /*exists*/,
+                               /*is_shared=*/false);
     }
 #endif
     return true;
@@ -5269,9 +5270,9 @@ make_writable(byte *pc, size_t size)
 #ifndef HAVE_MEMINFO_QUERY
     /* update all_memory_areas list with the protection change */
     if (memcache_initialized()) {
-        memcache_update_locked(start_page, start_page + prot_size,
-                               osprot_to_memprot(prot), -1 /*type unchanged*/,
-                               true /*exists*/, false);
+        memcache_update_locked(
+            start_page, start_page + prot_size, osprot_to_memprot(prot),
+            -1 /*type and is_shared unchanged*/, true /*exists*/, /*is_shared=*/false);
     }
 #endif
     return true;
@@ -7735,7 +7736,8 @@ pre_system_call(dcontext_t *dcontext)
         } else {
             /* XXX Store state for undo if the syscall fails. */
             IF_NO_MEMQUERY(memcache_update_locked(addr, addr + len, new_memprot,
-                                                  -1 /*type unchanged*/, exists, false));
+                                                  -1 /*type and is_shared unchanged*/,
+                                                  exists, /*is_shared=*/false));
         }
         break;
     }
@@ -9410,9 +9412,9 @@ post_system_call(dcontext_t *dcontext)
                  * each mprotect syscall to guard against a rare theoretical bug.
                  */
                 ASSERT_CURIOSITY(!dcontext->mprot_multi_areas);
-                IF_NO_MEMQUERY(memcache_update_locked(base, base + size, memprot,
-                                                      -1 /*type unchanged*/,
-                                                      true /*exists*/, false));
+                IF_NO_MEMQUERY(memcache_update_locked(
+                    base, base + size, memprot, -1 /*type and is_shared unchanged*/,
+                    true /*exists*/, /*is_shared=*/false));
             }
         }
         break;
@@ -9436,8 +9438,9 @@ post_system_call(dcontext_t *dcontext)
                 " comment=%s\n",
                 addr, len, comment == NULL ? "<null>" : comment);
             IF_NO_MEMQUERY(memcache_update_locked(addr, addr + len, memprot,
-                                                  -1 /*type unchanged*/, true /*exists*/,
-                                                  false));
+                                                  -1 /*type and is_shared unchanged*/,
+                                                  true /*exists*/,
+                                                  /*is_shared=*/false));
         }
         break;
     }
@@ -10260,7 +10263,7 @@ static void
 add_to_memcache(byte *region_start, byte *region_end, void *user_data)
 {
     memcache_update_locked(region_start, region_end, MEMPROT_NONE, DR_MEMTYPE_DATA,
-                           false /*!exists*/, false);
+                           false /*!exists*/, /*is_shared=*/false);
 }
 #endif
 
