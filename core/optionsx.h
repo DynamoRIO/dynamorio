@@ -1505,6 +1505,10 @@ OPTION_DEFAULT(uint, cache_coarse_align, 1, "alignment of coarse bb cache slots"
 
 OPTION_DEFAULT(uint, ro2sandbox_threshold, 10,
                "#write faults in a region before switching to sandboxing, 0 to disable")
+
+/* Part of the codemod-dual-mapping test loops to cross this threshold. If the default is
+ * changed the test should be updated.
+ */
 OPTION_DEFAULT(
     uint, sandbox2ro_threshold, 20,
     "#executions in a sandboxed region before switching to page prot, 0 to disable")
