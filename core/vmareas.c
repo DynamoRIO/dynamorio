@@ -7017,7 +7017,6 @@ app_memory_protection_change_internal(dcontext_t *dcontext, bool update_areas,
 
                 /* A protection change can span private and shared mappings.
                  * Determine sandboxing separately for each mapping.
-                 *
                  */
                 app_pc region_start = base;
                 app_pc end = base + size;
