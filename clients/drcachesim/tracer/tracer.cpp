@@ -2780,7 +2780,7 @@ drmemtrace_replace_file_ops(drmemtrace_open_file_func_t open_file_func,
         file_ops_func.read_file = read_file_func;
     if (write_file_func != NULL) {
         file_ops_func.write_file = write_file_func;
-        if (instru != nullptr) {
+        if (op_offline.get_value() && instru != nullptr) {
             reinterpret_cast<offline_instru_t *>(instru)->set_write_file_func(
                 file_ops_func.write_file);
         }
@@ -2807,7 +2807,7 @@ drmemtrace_replace_file_ops_ex(drmemtrace_replace_file_ops_t *ops)
         file_ops_func.read_file = ops->read_file_func;
     if (ops->write_file_func != nullptr) {
         file_ops_func.write_file = ops->write_file_func;
-        if (instru != nullptr) {
+        if (op_offline.get_value() && instru != nullptr) {
             reinterpret_cast<offline_instru_t *>(instru)->set_write_file_func(
                 file_ops_func.write_file);
         }
