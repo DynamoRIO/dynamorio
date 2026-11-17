@@ -37,11 +37,13 @@
  * XXX i#1703, i#2001: add in more optimizations to improve performance.
  */
 
+#define NOMINMAX // Avoid windows.h messing up std::max.
 #include "tracer.h"
 
 #include <string.h>
 #include <sys/types.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cstdarg>
 #include <cstdint>
@@ -109,6 +111,8 @@ using ::dynamorio::droption::DROPTION_SCOPE_ALL;
 using ::dynamorio::droption::DROPTION_SCOPE_CLIENT;
 
 char logsubdir[MAXIMUM_PATH];
+// Used for -split_windows.
+char winsubdir[MAXIMUM_PATH];
 #ifdef BUILD_PT_TRACER
 char kernel_trace_logsubdir[MAXIMUM_PATH];
 #endif
@@ -153,7 +157,9 @@ typedef struct {
 /* For online simulation, we write to a single global pipe */
 named_pipe_t ipc_pipe;
 
-#define MAX_INSTRU_SIZE 256 /* The max instance size of instru_t or its children. */
+// The max instance size of instru_t or its children.
+static constexpr size_t MAX_INSTRU_SIZE =
+    std::max(sizeof(offline_instru_t), sizeof(online_instru_t));
 instru_t *instru;
 
 static client_id_t client_id;
@@ -231,6 +237,9 @@ is_repstr_expansion_enabled()
 std::atomic<ptr_int_t> tracing_window;
 
 struct file_ops_func_t file_ops_func;
+drmemtrace_started_tracing_func_t started_tracing_func;
+drmemtrace_ended_tracing_func_t ended_tracing_func;
+void *tracing_func_arg;
 
 static char modlist_path[MAXIMUM_PATH];
 static char funclist_path[MAXIMUM_PATH];
@@ -688,9 +697,13 @@ event_post_attach()
         NOTIFY(1, "Switching to counting mode after attach\n");
         tracing_mode.store(BBDUP_MODE_COUNT, std::memory_order_release);
     } else if (op_L0_filter_until_instrs.get_value()) {
+        if (started_tracing_func != nullptr)
+            started_tracing_func(0, tracing_func_arg);
         NOTIFY(1, "Switching to filter mode after attach\n");
         tracing_mode.store(BBDUP_MODE_L0_FILTER, std::memory_order_release);
     } else {
+        if (started_tracing_func != nullptr)
+            started_tracing_func(0, tracing_func_arg);
         NOTIFY(1, "Switching to tracing mode after attach\n");
         tracing_mode.store(BBDUP_MODE_TRACE, std::memory_order_release);
     }
@@ -708,6 +721,9 @@ event_pre_detach()
         // possible post-detach timestamp by freezing.
         instru->set_frozen_timestamp(instru_t::get_timestamp());
         tracing_mode.store(BBDUP_MODE_NOP, std::memory_order_release);
+        if (ended_tracing_func != nullptr) {
+            ended_tracing_func(tracing_func_arg);
+        }
     }
 }
 
@@ -2553,6 +2569,7 @@ event_exit(void)
     /* we use placement new for better isolation */
     instru->~instru_t();
     dr_global_free(instru, MAX_INSTRU_SIZE);
+    instru = nullptr;
 
     if (op_offline.get_value()) {
         if (module_file != INVALID_FILE)
@@ -2761,8 +2778,13 @@ drmemtrace_replace_file_ops(drmemtrace_open_file_func_t open_file_func,
         file_ops_func.open_file = open_file_func;
     if (read_file_func != NULL)
         file_ops_func.read_file = read_file_func;
-    if (write_file_func != NULL)
+    if (write_file_func != NULL) {
         file_ops_func.write_file = write_file_func;
+        if (instru != nullptr) {
+            reinterpret_cast<offline_instru_t *>(instru)->set_write_file_func(
+                file_ops_func.write_file);
+        }
+    }
     if (close_file_func != NULL)
         file_ops_func.close_file = close_file_func;
     if (create_dir_func != NULL)
@@ -2783,8 +2805,13 @@ drmemtrace_replace_file_ops_ex(drmemtrace_replace_file_ops_t *ops)
     }
     if (ops->read_file_func != nullptr)
         file_ops_func.read_file = ops->read_file_func;
-    if (ops->write_file_func != nullptr)
+    if (ops->write_file_func != nullptr) {
         file_ops_func.write_file = ops->write_file_func;
+        if (instru != nullptr) {
+            reinterpret_cast<offline_instru_t *>(instru)->set_write_file_func(
+                file_ops_func.write_file);
+        }
+    }
     if (ops->close_file_func != nullptr)
         file_ops_func.close_file = ops->close_file_func;
     if (ops->create_dir_func != nullptr)
@@ -2832,11 +2859,22 @@ drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
 }
 
 drmemtrace_status_t
+drmemtrace_boundary_events(drmemtrace_started_tracing_func_t started_func,
+                           drmemtrace_ended_tracing_func_t ended_func, void *user_arg)
+{
+    started_tracing_func = started_func;
+    ended_tracing_func = ended_func;
+    tracing_func_arg = user_arg;
+    return DRMEMTRACE_SUCCESS;
+}
+
+drmemtrace_status_t
 drmemtrace_get_output_path(DR_PARAM_OUT const char **path)
 {
     if (path == NULL)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
-    *path = logsubdir;
+    *path =
+        (has_tracing_windows() && op_split_windows.get_value()) ? winsubdir : logsubdir;
     return DRMEMTRACE_SUCCESS;
 }
 
@@ -3012,7 +3050,6 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
             FATAL("Failed to create a subdir in %s\n", op_outdir.get_value().c_str());
         }
         /* we use placement new for better isolation */
-        DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(offline_instru_t));
         placement = dr_global_alloc(MAX_INSTRU_SIZE);
         // TODO i#6474, i#2062: Also handle op_L0_filter_until_instrs here when
         // i#6474 is resolved.
@@ -3023,7 +3060,6 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     } else {
         void *placement;
         /* we use placement new for better isolation */
-        DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(online_instru_t));
         placement = dr_global_alloc(MAX_INSTRU_SIZE);
         instru = new (placement) online_instru_t(
             insert_load_buf_ptr, insert_update_buf_ptr, &scratch_reserve_vec);

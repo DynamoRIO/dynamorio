@@ -45,6 +45,8 @@
 
 #include <list>
 #include <map>
+#include <set>
+#include <unordered_map>
 
 #include "dr_api.h"
 #include "drcovlib.h"
@@ -525,6 +527,39 @@ class ir_utils_t {
 public:
     static unsigned short
     instr_to_instr_type(instr_t *instr, bool repstr_expanded = false);
+};
+
+class virtual2physical_repeater_t {
+public:
+    virtual2physical_repeater_t() = default;
+
+    // If no error, returns an empty string with entries to insert *before* "record"
+    // appended to "toadd" (will only append to "toadd" after start_repeating() has been
+    // called).
+    // Must be passed the TRACE_MARKER_TYPE_PAGE_SIZE record in addition to all
+    // TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS*,
+    // and address-carrying records.
+    std::string
+    process_record(const trace_entry_t &record, std::vector<trace_entry_t> &toadd);
+
+    // Commences repeating by adding markers before address-containing records.
+    void
+    start_repeating();
+
+private:
+    // We need to permanently remember the markers the tracer added.
+    std::unordered_map<uint64_t, uint64_t> v2p_;
+    // Remember the v2p_ tags (virtual addresses) of the ones we've locally repeated.
+    std::set<uint64_t> v2p_repeated_;
+    uint64_t page_size_ = 0;
+    // We page-align, so 1 is a sentinel that will never appear otherwise.
+    static constexpr uint64_t INVALID_PHYSICAL_PAGE = 1;
+    uint64_t last_physical_page_ = INVALID_PHYSICAL_PAGE;
+    bool repeat_markers_ = false;
+
+    // Addresses in our tables are all page-aligned so a non-aligned address
+    // works as a sentinel.
+    static constexpr uint64_t NO_PHYS_SENTINEL = 1;
 };
 
 } // namespace drmemtrace

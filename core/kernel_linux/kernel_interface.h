@@ -36,6 +36,19 @@
 
 #include <linux/types.h>
 
+#define KERNEL_MEMPROT_READ 0x1
+#define KERNEL_MEMPROT_WRITE 0x2
+#define KERNEL_MEMPROT_EXEC 0x4
+
+typedef struct {
+    unsigned char *base;
+    size_t size;
+    unsigned int prot; /* KERNEL_MEMPROT_* */
+} kernel_memory_region_t;
+
+typedef void (*kernel_memory_region_callback_t)(const kernel_memory_region_t *region,
+                                                void *arg);
+
 int
 kernel_module_init(size_t dr_heap_size);
 
@@ -57,9 +70,11 @@ kernel_get_cpu_id(void);
 int
 kernel_get_online_processor_count(void);
 
-/* Returns the TSC frequency in kHz, i.e., TSC ticks per millisecond (x86 only). */
+/* Returns the timestamp counter (TSC on x86, CNTVCT_EL0 on arm64) frequency in kHz
+ * (i.e., ticks per millisecond).  Returns 0 if the frequency is unknown.
+ */
 unsigned int
-kernel_get_tsc_khz(void);
+kernel_get_timestamp_counter_khz(void);
 
 /* Reports the per-CPU buffer capacity and alignment in bytes. Both output pointers
  * must be non-NULL. Does not require preemption to be disabled.
@@ -100,12 +115,41 @@ kernel_get_module_text_start(void);
 void *
 kernel_get_module_text_end(void);
 
+/* Calls |callback| for each non-empty core memory region of this module (text, data,
+ * rodata, ro_after_init).
+ */
+void
+kernel_walk_module_regions(kernel_memory_region_callback_t callback, void *arg);
+
+/* Walks the present pages between the kernel image base and the end of the modules area,
+ * excluding DR's own heap. Calls |callback| once for each maximal run of virtually
+ * contiguous pages that have identical KERNEL_MEMPROT_* protection.
+ */
+void
+kernel_walk_code_regions(kernel_memory_region_callback_t callback, void *arg);
+
 /* Returns whether the |size| bytes at |addr| can be read without faulting.  Handles both
- * kernel and user addresses.  Acquires no locks and never sleeps, so it is safe to call
- * in any context.  A zero |size| returns true.
+ * kernel and user addresses.  A user address is interpreted in the current task's
+ * address space.  Acquires no locks and never sleeps, so it is safe to call in any
+ * context.  A zero |size| returns true.
  */
 bool
 kernel_is_readable_without_fault(const void *addr, size_t size);
+
+/* Copies up to |size| bytes from |addr| to |out| without faulting and returns the
+ * number of bytes copied.  Handles both kernel and user addresses.  A user address is
+ * interpreted in the current task's address space.  Acquires no locks and never sleeps.
+ */
+size_t
+kernel_read_without_fault(const void *addr, size_t size, void *out);
+
+/* Calls |fn|(|arg|) once on each online CPU, sequentially in ascending CPU ID order.
+ * Stops at the first nonzero return value and returns it, and returns 0 if every call
+ * succeeded. Each call runs in a kernel worker thread bound to that CPU.
+ * This function sleeps and must be called from sleepable context.
+ */
+int
+kernel_run_on_each_online_cpu(int (*fn)(void *), void *arg);
 
 unsigned int
 kernel_query_time_seconds(void);

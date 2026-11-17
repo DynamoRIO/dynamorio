@@ -168,14 +168,18 @@ reached_traced_instrs_threshold(void *drcontext)
     // (If -retrace_every_instrs is not set and we're not going to trace
     // again, we still use a counting mode for simplicity of not adding
     // yet another mode.)
-    NOTIFY(0, "Hit tracing window #%zd limit: disabling tracing.\n",
-           tracing_window.load(std::memory_order_acquire));
+
     // No need to append TRACE_MARKER_TYPE_WINDOW_ID: the next buffer will have
     // one in its header.
     // If we're counting at exit time, this increment means that the thread
     // exit entries will be the only ones in this new window: but that seems
     // reasonable.
-    tracing_window.fetch_add(1, std::memory_order_release);
+    ptr_int_t prior_window = tracing_window.fetch_add(1, std::memory_order_release);
+
+    NOTIFY(0, "Hit tracing window #%zd limit: disabling tracing.\n", prior_window);
+    if (ended_tracing_func != nullptr) {
+        ended_tracing_func(tracing_func_arg);
+    }
     // We delay creating a new ouput dir until tracing is enabled again, to avoid
     // an empty final dir.
     DR_ASSERT(tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_TRACE);
@@ -451,13 +455,12 @@ open_new_window_dir(ptr_int_t window_num)
     if (outdir_none_mode)
         return;
 
-    char windir[MAXIMUM_PATH];
-    dr_snprintf(windir, BUFFER_SIZE_ELEMENTS(windir), "%s%s" WINDOW_SUBDIR_FORMAT,
+    dr_snprintf(winsubdir, BUFFER_SIZE_ELEMENTS(winsubdir), "%s%s" WINDOW_SUBDIR_FORMAT,
                 logsubdir, DIRSEP, window_num);
-    NULL_TERMINATE_BUFFER(windir);
-    if (!file_ops_func.create_dir(windir))
-        FATAL("Failed to create window subdir %s\n", windir);
-    NOTIFY(2, "Created new window dir %s\n", windir);
+    NULL_TERMINATE_BUFFER(winsubdir);
+    if (!file_ops_func.create_dir(winsubdir))
+        FATAL("Failed to create window subdir %s\n", winsubdir);
+    NOTIFY(2, "Created new window dir %s\n", winsubdir);
 }
 
 static void
@@ -815,6 +818,12 @@ set_local_window(void *drcontext, ptr_int_t value)
             // The initial file is opened at thread init.
             if (data->file != INVALID_FILE && value > 0 && op_split_windows.get_value())
                 close_thread_file(drcontext);
+            if (value > 0 && op_use_physical.get_value() &&
+                op_split_windows.get_value()) {
+                // Ensure we get new physaddr markers in each separate window after
+                // the first one.
+                data->physaddr.clear_cache(drcontext);
+            }
         }
     }
     *(ptr_int_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_WINDOW) = value;
@@ -1023,8 +1032,8 @@ process_entry_for_physaddr(void *drcontext, per_thread_t *data, size_t header_si
     addr_t phys = 0;
     bool success = data->physaddr.virtual2physical(drcontext, virt, &phys, &from_cache);
     ASSERT(emitted != NULL && skip != NULL, "invalid input parameters");
-    NOTIFY(4, "%s: type=%s (%2d) virt=%p phys=%p\n", __FUNCTION__, trace_type_names[type],
-           type, virt, phys);
+    NOTIFY(4, "%s: type=%s (%2d) virt=%p phys=%p cached=%d\n", __FUNCTION__,
+           trace_type_names[type], type, virt, phys, from_cache);
     if (!success) {
         // XXX i#1735: Unfortunately this happens; currently we use the virtual
         // address and continue.
@@ -1392,6 +1401,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap, bool at_thread_ex
                                             get_current_trace_for_instrs_value());
                     // We have to finish this buffer so we'll go a little beyond the
                     // precise requested window length.
+
                     // XXX: For small windows this may be significant: we could go
                     // ~5K beyond if we hit the threshold near the start of a full buffer.
                     // Should we discard the rest of the entries in such a case, at
@@ -1628,7 +1638,7 @@ exit_thread_io(void *drcontext)
         // XXX: We may not need any of the conditions below?  Should revisit
         // whether a current-nop window-up-to-date needs to be excluded here.
         (is_in_tracing_mode(tracing_mode.load(std::memory_order_acquire)) ||
-         // For attach we switch to BBDUP_MODE_NOP but still need to finalize
+         // For attach+detach we switch to BBDUP_MODE_NOP but still need to finalize
          // each (non-empty) thread.
          (!has_tracing_windows() && align_attach_detach_endpoints()));
 

@@ -618,6 +618,7 @@ GLOBAL_LABEL(back_from_native:)
         bl       GLOBAL_REF(unexpected_return) /* TODO i#1569: NYI */
         END_FUNC(back_from_native)
 
+#ifndef LINUX_KERNEL
 /* A static resolver for TLS descriptors, implemented in assembler as
  * it does not use the standard calling convention. In C, it could be:
  *
@@ -626,11 +627,14 @@ GLOBAL_LABEL(back_from_native:)
  * {
  *     return (ptrdiff_t)tlsdesc->arg;
  * }
+ *
+ * The kernel doesn't need this because it has no private loader.
  */
         DECLARE_FUNC(tlsdesc_resolver)
 GLOBAL_LABEL(tlsdesc_resolver:)
         ldr      x0, [x0, #struct_tlsdesc_t_OFFSET_arg]
         ret
+#endif
 
 /* This function is called from the fragment cache when the original code had
  * IC IVAU, Xt. When we enter here:

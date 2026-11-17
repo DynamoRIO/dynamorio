@@ -136,6 +136,11 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         counters->unique_threads.insert(memref.instr.tid);
         per_shard->last_tid_ = memref.instr.tid;
     }
+    if (memref.instr.pid != INVALID_PID && memref.instr.pid != IDLE_PROCESS_ID &&
+        memref.instr.pid != per_shard->last_pid_) {
+        counters->unique_processes.insert(memref.instr.pid);
+        per_shard->last_pid_ = memref.instr.pid;
+    }
     if (type_is_instr(memref.instr.type)) {
         ++counters->instrs;
         if (per_shard->kernel_tracker_.in_kernel_trace()) {
@@ -309,6 +314,10 @@ basic_counts_t::print_counters(const counters_t &counters, const std::string &pr
         prefix == TOTAL_COUNT_PREFIX) {
         std::cerr << std::setw(12) << counters.unique_threads.size() << prefix
                   << " threads\n";
+    }
+    if (counters.unique_processes.size() > 1) {
+        std::cerr << std::setw(12) << counters.unique_processes.size() << prefix
+                  << " processes\n";
     }
     std::cerr << std::setw(12) << counters.sched_markers << prefix
               << " timestamp + cpuid markers\n";

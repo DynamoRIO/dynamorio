@@ -123,6 +123,39 @@ test_hardware_xfer_markers()
 }
 
 static bool
+test_unique_processes()
+{
+    static constexpr memref_tid_t TID_B = 12;
+    static constexpr memref_tid_t TID_C = 13;
+    static constexpr memref_tid_t TID_D = 14;
+    static constexpr memref_pid_t PID_X = 21;
+    static constexpr memref_pid_t PID_Y = 22;
+    std::vector<memref_t> memrefs = {
+        gen_instr(TID_A, PC, /*size=*/1, PID_X),
+        gen_instr(TID_B, PC, /*size=*/1, PID_X),
+        gen_instr(TID_C, PC, /*size=*/1, PID_Y),
+        gen_instr(TID_A, PC + 1, /*size=*/1, PID_X),
+        // A thread whose process is not known is not counted as a process.
+        gen_instr(TID_D, PC, /*size=*/1, INVALID_PID),
+        // An idle core is not counted as a thread or a process.
+        gen_instr(IDLE_THREAD_ID, PC, /*size=*/1, IDLE_PROCESS_ID),
+        gen_exit(TID_A),
+    };
+    basic_counts_t::counters_t counts = run_basic_counts(memrefs);
+    if (counts.unique_threads.size() != 4) {
+        fprintf(stderr, "Expected 4 threads, found %zu\n", counts.unique_threads.size());
+        return false;
+    }
+    if (counts.unique_processes.size() != 2) {
+        fprintf(stderr, "Expected 2 processes, found %zu\n",
+                counts.unique_processes.size());
+        return false;
+    }
+    fprintf(stderr, "test_unique_processes passed\n");
+    return true;
+}
+
+static bool
 check_in_kernel(kernel_tracker_t &tracker, memref_t memref)
 {
     tracker.update(memref);
@@ -204,7 +237,8 @@ test_kernel_tracker()
 int
 test_main(int argc, const char *argv[])
 {
-    if (!test_hardware_xfer_markers() || !test_kernel_tracker())
+    if (!test_hardware_xfer_markers() || !test_unique_processes() ||
+        !test_kernel_tracker())
         return 1;
     fprintf(stderr, "All done!\n");
     return 0;

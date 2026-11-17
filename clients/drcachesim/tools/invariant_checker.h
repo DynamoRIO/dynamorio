@@ -278,7 +278,8 @@ protected:
 
         uint64_t page_size_ = 0;
         // For now we only track whether a translation exists.
-        std::set<addr_t> v2p_;
+        std::set<addr_t> v2p_seen_;
+        bool has_v2p_ = false;
 
         // Resets specific state on context switch to a different thread.
         void
