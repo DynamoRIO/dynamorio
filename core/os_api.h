@@ -598,7 +598,10 @@ typedef struct _dr_mem_info_t {
     uint prot;
     /** Type of region */
     dr_mem_type_t type;
-    /** Whether the region is a shared mapping (Linux; false elsewhere). */
+    /** Whether the region is a shared mapping.
+     * \note This is currently only implemented on Linux and will always be false on other
+     *       platforms.
+     */
     bool is_shared;
 } dr_mem_info_t;
 
