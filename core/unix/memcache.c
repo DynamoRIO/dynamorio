@@ -304,7 +304,7 @@ memcache_update(app_pc start, app_pc end_in, uint prot, int type, bool is_shared
                     if (TESTANY(MEMPROT_WRITE, prot) !=
                         TESTANY(MEMPROT_WRITE, info->prot))
                         cow_shareable_backing = false;
-                    /* re-add so we can merge w/ adjacent non-cow_shareable_backing */
+                    /* Re-add so we can merge w/ adjacent non-cow_shareable_backing. */
                 } else {
                     /* assume we're here b/c was written and now marked +rx or sthg
                      * so no sharing
