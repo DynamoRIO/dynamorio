@@ -5732,6 +5732,7 @@ query_memory_internal(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info,
     byte *alloc_base;
     int num_blocks = 0;
     ASSERT(info != NULL);
+    /* TODO i#8288: Enable tracking shared mappings on Windows. */
     info->is_shared = false;
     if (query_virtual_memory(pb, &mbi, sizeof(mbi)) != sizeof(mbi)) {
         /* Kernel memory returns STATUS_INVALID_PARAMETER.  We want to
