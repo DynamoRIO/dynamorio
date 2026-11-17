@@ -412,20 +412,20 @@ check_query_kernel_page(void)
         return -ENOENT;
     }
 
-    const unsigned int rx = KERNEL_MEMPROT_READ | KERNEL_MEMPROT_EXEC;
-    const unsigned int rw = KERNEL_MEMPROT_READ | KERNEL_MEMPROT_WRITE;
-    const bool strict = IS_ENABLED(CONFIG_STRICT_MODULE_RWX);
+    const unsigned int RX = KERNEL_MEMPROT_READ | KERNEL_MEMPROT_EXEC;
+    const unsigned int RW = KERNEL_MEMPROT_READ | KERNEL_MEMPROT_WRITE;
+    const bool STRICT_RWX = IS_ENABLED(CONFIG_STRICT_MODULE_RWX);
     const struct {
         const char *name;
         const char *addr;
         unsigned int required;
         unsigned int forbidden;
     } probes[] = {
-        { "kernel text", kernel_text, rx, 0 },
-        { "module text", THIS_MODULE->mem[MOD_TEXT].base, rx,
-          strict ? KERNEL_MEMPROT_WRITE : 0 },
-        { "module data", THIS_MODULE->mem[MOD_DATA].base, rw,
-          strict ? KERNEL_MEMPROT_EXEC : 0 },
+        { "kernel text", kernel_text, RX, 0 },
+        { "module text", THIS_MODULE->mem[MOD_TEXT].base, RX,
+          STRICT_RWX ? KERNEL_MEMPROT_WRITE : 0 },
+        { "module data", THIS_MODULE->mem[MOD_DATA].base, RW,
+          STRICT_RWX ? KERNEL_MEMPROT_EXEC : 0 },
     };
 
     for (size_t i = 0; i < ARRAY_SIZE(probes); i++) {
