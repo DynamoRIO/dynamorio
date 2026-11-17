@@ -40,7 +40,7 @@
 #include "globals.h"
 #include "module_shared.h"
 #include "instrument.h" /* for instrument_client_lib_unloaded */
-#include <limits.h>
+#include "limits_wrapper.h"
 
 /* ok to be in .data w/ no sentinel head node b/c never empties out
  * .ntdll always there for Windows, so no need to unprot.
