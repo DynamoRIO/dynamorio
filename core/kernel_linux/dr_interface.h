@@ -46,10 +46,10 @@ int
 dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc, void *os_data,
                    bool client_thread);
 
-/* Runs the module's self-checks, logging the result of each, and returns the number
- * that failed.  Returns a negative value if the module was built without
- * KERNEL_MODULE_SELF_CHECKS.  Requires an initialized session.  The caller must keep
- * preemption disabled for the duration of the call.
+/* Runs the module's self-checks, logging the result of each (PASS, FAIL, or SKIP),
+ * and returns the number that failed.  Returns a negative value if the module was
+ * built without KERNEL_MODULE_SELF_CHECKS. Requires an initialized session. The
+ * caller must keep preemption disabled for the duration of the call.
  */
 int
 dynamorio_run_self_checks(void);
