@@ -257,11 +257,15 @@ struct file_ops_func_t {
     void *exit_arg;
 };
 extern struct file_ops_func_t file_ops_func;
+extern drmemtrace_started_tracing_func_t started_tracing_func;
+extern drmemtrace_ended_tracing_func_t ended_tracing_func;
+extern void *tracing_func_arg;
 
 extern uint64 num_refs_racy; /* racy global memory reference count */
 extern uint64
     num_filter_refs_racy; /* racy global memory reference count in warmup mode */
 extern char logsubdir[MAXIMUM_PATH];
+extern char winsubdir[MAXIMUM_PATH];
 extern char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
 extern size_t buf_hdr_slots_size;
 
