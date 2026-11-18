@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2015-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -1368,8 +1369,8 @@ $ bin64/drrun -t drmemtrace -indir drmemtrace.app.pid.xxxx.dir/trace
 \endcode
 
 If built with the zlib library, the canonical trace files are
-automatically compressed with zip or gzip.  The trace reader supports
-reading zip, gzip, or snappy compressed files.
+automatically compressed with zip or gzip.  The \p -compress option selects
+other formats, such as lz4 or (if built with the zstd library) zstd.
 
 The raw files are also compressed, controlled by the \p -raw_compress
 option.  If built with lz4 support, lz4 is used by default.  The compression level

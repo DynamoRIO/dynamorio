@@ -1,5 +1,6 @@
 # **********************************************************
 # Copyright (c) 2015-2025 Google, Inc.    All rights reserved.
+# Copyright (c) 2026 Meta Platforms, Inc. All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -37,10 +38,11 @@ project(DynamoRIO_drmemtrace)
 
 if (UNIX) # The shipped drmemtrace on Windows has no compression support.
   # The CMake exported target rule for drmemtrace_analyzer includes linking in
-  # external libraries like zlib and lz4, but those libraries may not be on primary
-  # search paths, so we set up those paths if available.
+  # external libraries like zlib, lz4, and zstd, but those libraries may not be on
+  # primary search paths, so we set up those paths if available.
   find_package(ZLIB)
   find_library(liblz4 lz4)
+  find_library(libzstd zstd)
   find_library(libsnappy snappy)
 endif ()
 

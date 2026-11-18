@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2023-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -67,6 +68,9 @@
 #ifdef HAS_LZ4
 #    include "lz4_file_reader.h"
 #endif
+#ifdef HAS_ZSTD
+#    include "zstd_file_reader.h"
+#endif
 #ifdef HAS_ZLIB
 #    include "compressed_file_reader.h"
 #endif
@@ -130,11 +134,15 @@ std::unique_ptr<reader_t>
 scheduler_impl_tmpl_t<memref_t, reader_t>::get_reader(const std::string &path,
                                                       int verbosity)
 {
-#if defined(HAS_SNAPPY) || defined(HAS_ZIP) || defined(HAS_LZ4)
+#if defined(HAS_SNAPPY) || defined(HAS_ZIP) || defined(HAS_LZ4) || defined(HAS_ZSTD)
 #    ifdef HAS_LZ4
     if (ends_with(path, ".lz4")) {
         return std::unique_ptr<reader_t>(new lz4_file_reader_t(path, verbosity));
     }
+#    endif
+#    ifdef HAS_ZSTD
+    if (ends_with(path, ".zst"))
+        return std::unique_ptr<reader_t>(new zstd_file_reader_t(path, verbosity));
 #    endif
 #    ifdef HAS_SNAPPY
     if (ends_with(path, ".sz"))
@@ -507,7 +515,7 @@ scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::get_reader(const std::str
                                                                   int verbosity)
 {
     // TODO i#5675: Add support for other file formats.
-    if (ends_with(path, ".sz"))
+    if (ends_with(path, ".sz") || ends_with(path, ".zst"))
         return nullptr;
 #ifdef HAS_ZIP
     if (ends_with(path, ".zip")) {
