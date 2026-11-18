@@ -168,6 +168,10 @@ dynamorio_ioctl_self_check(void)
         preempt_disable();
         ret = dynamorio_run_self_checks();
         preempt_enable();
+        if (ret < 0) {
+            /* The module was built without KERNEL_MODULE_SELF_CHECKS. */
+            ret = -EOPNOTSUPP;
+        }
     } else if (session_state == SESSION_FAILED) {
         pr_err("Session initialization failed. Reload the module and retry init.\n");
     } else {

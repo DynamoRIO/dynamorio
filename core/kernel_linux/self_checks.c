@@ -38,8 +38,6 @@
 #include "globals.h"
 #include "dr_interface.h"
 
-#include <linux/errno.h>
-
 #ifdef KERNEL_MODULE_SELF_CHECKS
 
 /* Fails the enclosing self-check if |cond| is false.  Unlike ASSERT, this reports the
@@ -152,7 +150,8 @@ dynamorio_run_self_checks(void)
 int
 dynamorio_run_self_checks(void)
 {
-    return -EOPNOTSUPP;
+    /* The caller maps this to an errno. */
+    return -1;
 }
 
 #endif /* KERNEL_MODULE_SELF_CHECKS */
