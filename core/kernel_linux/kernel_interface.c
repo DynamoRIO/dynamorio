@@ -425,7 +425,7 @@ check_query_kernel_page(void)
     /* Probe _stext rather than _text: on AArch64, [_text, _stext) holds the Image
      * header, which map_kernel() leaves unmapped.
      */
-    const char *kernel_text = kernel_find_symbol("_stext", NULL);
+    const void *kernel_text = kernel_find_symbol("_stext", NULL);
     if (kernel_text == NULL) {
         pr_err("Failed to resolve _stext\n");
         return -ENOENT;
@@ -436,7 +436,7 @@ check_query_kernel_page(void)
     const bool STRICT_RWX = IS_ENABLED(CONFIG_STRICT_MODULE_RWX);
     const struct {
         const char *name;
-        const char *addr;
+        const void *addr;
         unsigned int required;
         unsigned int forbidden;
     } probes[] = {
