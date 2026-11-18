@@ -117,6 +117,22 @@ tid_from_memref_tid(memref_tid_t tid)
     return tid & ((1ULL << MEMREF_ID_WORKLOAD_SHIFT) - 1);
 }
 
+/**
+ * The physical location of one piece of a data access or instruction fetch.  An access
+ * is split at virtual page boundaries into pieces that are each physically contiguous.
+ */
+struct _memref_phys_t {
+    /**
+     * The physical address of the first byte of this piece, or
+     * #MEMREF_PHYS_ADDR_UNKNOWN if the trace has no translation for its page.
+     */
+    addr_t addr;
+    uint64_t page_size; /**< The size of the page containing this piece. */
+};
+
+/** The value of _memref_phys_t.addr when a page's translation is not available. */
+static constexpr addr_t MEMREF_PHYS_ADDR_UNKNOWN = ~static_cast<addr_t>(0);
+
 /** A trace entry representing a data load, store, or prefetch. */
 struct _memref_data_t {
     trace_type_t type; /**< #TRACE_TYPE_READ, #TRACE_TYPE_WRITE, or type_is_prefetch(). */
@@ -125,6 +141,23 @@ struct _memref_data_t {
     addr_t addr;       /**< Address of data being loaded or stored. */
     size_t size;       /**< Size of data being loaded or stored. */
     addr_t pc;         /**< Program counter of instruction performing load or store. */
+    /**
+     * The as-traced physical location of the first piece of the access: its addr
+     * field is the physical address of addr.  Only valid if num_phys > 0.
+     * Use memref_phys_piece() to access all pieces.
+     */
+    struct _memref_phys_t phys0;
+    /**
+     * The number of pieces the access is split into at page boundaries.  0 if the
+     * trace contains no virtual-to-physical information.
+     */
+    uint32_t num_phys;
+    /**
+     * Pieces 1 through num_phys-1, or nullptr if num_phys <= 1.  The storage is owned
+     * by the #dynamorio::drmemtrace::reader_t that produced this record and remains
+     * valid for that reader's lifetime.
+     */
+    const struct _memref_phys_t *phys_rest;
 };
 
 /** A trace entry representing an instruction fetch. */
@@ -155,6 +188,12 @@ struct _memref_instr_t {
      * present in trace version #TRACE_ENTRY_VERSION_BRANCH_INFO and higher.
      */
     addr_t indirect_branch_target;
+    /** Same as _memref_data_t.phys0, for the instruction's bytes. */
+    struct _memref_phys_t phys0;
+    /** Same as _memref_data_t.num_phys, for the instruction's bytes. */
+    uint32_t num_phys;
+    /** Same as _memref_data_t.phys_rest, for the instruction's bytes. */
+    const struct _memref_phys_t *phys_rest;
 };
 
 /** A trace entry representing a software-requested explicit cache flush. */
@@ -244,6 +283,26 @@ memref_has_pc(const memref_t &memref, uint64_t &pc)
         return true;
     }
     return false;
+}
+
+/**
+ * Returns the i-th physical piece of a data access (i < data.num_phys), as described
+ * in _memref_data_t.phys0.
+ */
+static inline const _memref_phys_t &
+memref_phys_piece(const _memref_data_t &data, uint32_t i)
+{
+    return i == 0 ? data.phys0 : data.phys_rest[i - 1];
+}
+
+/**
+ * Returns the i-th physical piece of an instruction fetch (i < instr.num_phys), as
+ * described in _memref_data_t.phys0.
+ */
+static inline const _memref_phys_t &
+memref_phys_piece(const _memref_instr_t &instr, uint32_t i)
+{
+    return i == 0 ? instr.phys0 : instr.phys_rest[i - 1];
 }
 
 static_assert(sizeof(memref_t) == MEMREF_T_SIZE_BYTES,

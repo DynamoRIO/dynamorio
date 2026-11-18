@@ -37,6 +37,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include <algorithm>
 #include <queue>
 #include <unordered_map>
 #include <unordered_set>
@@ -130,6 +131,8 @@ reader_t::process_input_entry()
         // The trace stream always has the instr fetch first, which we
         // use to obtain the PC for subsequent data references.
         cur_ref_.data.pc = cur_pc_;
+        set_phys_fields(cur_ref_.data.addr, cur_ref_.data.size, cur_ref_.data.phys0,
+                        cur_ref_.data.num_phys, cur_ref_.data.phys_rest);
         break;
     case TRACE_TYPE_ENCODING:
         if (last_encoding_.size + input_entry_->size > MAX_ENCODING_LENGTH) {
@@ -204,6 +207,9 @@ reader_t::process_input_entry()
             cur_ref_.instr.addr = cur_pc_;
             next_pc_ = cur_pc_ + cur_ref_.instr.size;
             prev_instr_addr_ = input_entry_->addr;
+            set_phys_fields(cur_ref_.instr.addr, cur_ref_.instr.size,
+                            cur_ref_.instr.phys0, cur_ref_.instr.num_phys,
+                            cur_ref_.instr.phys_rest);
             if (cur_ref_.instr.type != TRACE_TYPE_INSTR_NO_FETCH)
                 ++cur_instr_count_;
             // Look for encoding bits that belong to this instr.
@@ -264,6 +270,8 @@ reader_t::process_input_entry()
         cur_pc_ = next_pc_;
         cur_ref_.instr.addr = cur_pc_;
         next_pc_ = cur_pc_ + cur_ref_.instr.size;
+        set_phys_fields(cur_ref_.instr.addr, cur_ref_.instr.size, cur_ref_.instr.phys0,
+                        cur_ref_.instr.num_phys, cur_ref_.instr.phys_rest);
         ++cur_instr_count_;
         // input_entry_->size stores the number of instrs in this bundle
         assert(input_entry_->size <= sizeof(input_entry_->length));
@@ -375,6 +383,19 @@ reader_t::process_input_entry()
             chunk_instr_count_ = cur_ref_.marker.marker_value;
         else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_FOOTER)
             skip_chunk_header_.insert(cur_tid_);
+        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS)
+            last_phys_marker_ = cur_ref_.marker.marker_value;
+        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_VIRTUAL_ADDRESS &&
+                 page_size_ > 0) {
+            // The PHYSICAL_ADDRESS marker precedes its paired VIRTUAL_ADDRESS marker.
+            const addr_t mask = ~static_cast<addr_t>(page_size_ - 1);
+            v2p_map_[cur_ref_.marker.marker_value & mask] = last_phys_marker_ & mask;
+        } else if (cur_ref_.marker.marker_type ==
+                       TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE &&
+                   page_size_ > 0) {
+            const addr_t mask = ~static_cast<addr_t>(page_size_ - 1);
+            v2p_map_[cur_ref_.marker.marker_value & mask] = MEMREF_PHYS_ADDR_UNKNOWN;
+        }
         break;
     case TRACE_TYPE_HEADER:
         // We support complete traces being packaged in archives and then read
@@ -417,6 +438,54 @@ reader_t::process_input_entry()
         kernel_tracker_.update(cur_ref_);
     }
     return have_memref;
+}
+
+addr_t
+reader_t::virt_page_to_phys_page(addr_t virt_page) const
+{
+    const auto it = v2p_map_.find(virt_page);
+    return it == v2p_map_.end() ? MEMREF_PHYS_ADDR_UNKNOWN : it->second;
+}
+
+void
+reader_t::set_phys_fields(addr_t vaddr, size_t size, _memref_phys_t &phys0,
+                          uint32_t &num_phys, const _memref_phys_t *&phys_rest)
+{
+    phys_rest = nullptr;
+    // Core-sharded inputs interleave address spaces, which one map cannot represent.
+    if (v2p_map_.empty() || page_size_ == 0 || size == 0 || core_sharded_) {
+        num_phys = 0;
+        return;
+    }
+    const addr_t page_size = static_cast<addr_t>(page_size_);
+    const addr_t mask = ~(page_size - 1);
+    const addr_t first_page = vaddr & mask;
+    const addr_t last_page = (vaddr + size - 1) & mask;
+    num_phys = static_cast<uint32_t>((last_page - first_page) / page_size + 1);
+    phys0.page_size = page_size_;
+    phys0.addr = virt_page_to_phys_page(first_page);
+    if (phys0.addr != MEMREF_PHYS_ADDR_UNKNOWN)
+        phys0.addr += vaddr - first_page;
+    if (num_phys == 1)
+        return;
+    phys_rest_scratch_.resize(num_phys - 1);
+    for (uint32_t i = 0; i < num_phys - 1; ++i) {
+        phys_rest_scratch_[i].addr =
+            virt_page_to_phys_page(first_page + (i + 1) * page_size);
+        phys_rest_scratch_[i].page_size = page_size_;
+    }
+    // Reuse the stored array for these pages unless the mapping has changed.
+    const std::vector<_memref_phys_t> *&stored =
+        phys_rest_cache_[std::make_pair(first_page + page_size, num_phys - 1)];
+    if (stored == nullptr ||
+        !std::equal(stored->begin(), stored->end(), phys_rest_scratch_.begin(),
+                    [](const _memref_phys_t &a, const _memref_phys_t &b) {
+                        return a.addr == b.addr && a.page_size == b.page_size;
+                    })) {
+        phys_rest_storage_.push_back(phys_rest_scratch_);
+        stored = &phys_rest_storage_.back();
+    }
+    phys_rest = stored->data();
 }
 
 bool
