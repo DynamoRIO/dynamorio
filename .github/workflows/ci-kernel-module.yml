@@ -145,9 +145,12 @@ jobs:
           sudo "$CONTROLLER" self-check
           sudo dmesg | grep -F "Self-check tls_segment_mapping: PASS"
           sudo dmesg | grep -F "Self-check safe_read: PASS"
-          # This self-check only applies to x86-64 and is skipped elsewhere.
-          sudo dmesg | grep -E \
-            "Self-check kernel_image_reachable_from_vmcode: (PASS|SKIP)"
+          # This self-check only applies to x86-64 and is skipped on AArch64.
+          if [ "${{ matrix.runner }}" = "ubuntu-24.04" ]; then
+            sudo dmesg | grep -F "Self-check kernel_image_reachable_from_vmcode: PASS"
+          else
+            sudo dmesg | grep -F "Self-check kernel_image_reachable_from_vmcode: SKIP"
+          fi
 
           echo "Removing dynamorio_module"
           sudo rmmod dynamorio_module
