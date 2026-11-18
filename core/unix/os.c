@@ -7386,13 +7386,13 @@ handle_clone_pre(dcontext_t *dcontext)
 
 /* Check for an mmap/mremap sharedness change which requires fragments to be rebuilt. */
 static void
-pre_mapping_handle_sharedness_change(dcontext_t *dcontext, app_pc base, size_t size,
+pre_mapping_handle_sharedness_change(dcontext_t *dcontext, app_pc start_pc, size_t size,
                                      bool is_fixed, bool is_shared)
 {
-    size_t rounded_size = ALIGN_FORWARD(size, PAGE_SIZE);
-    if (!DYNAMO_OPTION(sandbox_shared) || !is_fixed || !ALIGNED(base, PAGE_SIZE) ||
-        rounded_size == 0 || POINTER_OVERFLOW_ON_ADD(base, rounded_size))
+    if (!DYNAMO_OPTION(sandbox_shared) || !is_fixed)
         return;
+    size_t rounded_size = ALIGN_FORWARD(size, PAGE_SIZE);
+    app_pc base = (app_pc)ALIGN_BACKWARD(start_pc, PAGE_SIZE);
     app_pc pc = base;
     while (pc < base + rounded_size) {
         dr_mem_info_t info;
