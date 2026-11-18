@@ -290,7 +290,7 @@ query_kernel_page(unsigned long addr, unsigned int *prot)
         pte_t pte = ptep_get(ptep);
         size = page_level_size(level);
 
-        if ((pte_flags(pte) & _PAGE_PRESENT) != 0) {
+        if (TESTANY(_PAGE_PRESENT, pte_flags(pte))) {
             *prot = KERNEL_MEMPROT_READ;
             if (pte_write(pte)) {
                 *prot |= KERNEL_MEMPROT_WRITE;
@@ -323,7 +323,7 @@ pte_to_kernel_memprot(pte_t pte)
         prot |= KERNEL_MEMPROT_WRITE;
     }
     /* Kernel execution is controlled by PXN; UXN only applies to EL0. */
-    if ((pte_val(pte) & PTE_PXN) == 0) {
+    if (!TESTALL(PTE_PXN, pte_val(pte))) {
         prot |= KERNEL_MEMPROT_EXEC;
     }
     return prot;
