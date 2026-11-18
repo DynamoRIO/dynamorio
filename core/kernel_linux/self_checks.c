@@ -125,9 +125,22 @@ check_safe_read(void)
     return true;
 }
 
+#    if defined(X86) && defined(X64)
+static bool
+check_kernel_image_reachable_from_vmcode(void)
+{
+    CHECK(rel32_reachable_from_vmcode(get_application_base()));
+    CHECK(rel32_reachable_from_vmcode(get_application_end() - 1));
+    return true;
+}
+#    endif
+
 static const self_check_t self_checks[] = {
     { "tls_segment_mapping", check_tls_segment_mapping },
     { "safe_read", check_safe_read },
+#    if defined(X86) && defined(X64)
+    { "kernel_image_reachable_from_vmcode", check_kernel_image_reachable_from_vmcode},
+#    endif
 };
 
 int
