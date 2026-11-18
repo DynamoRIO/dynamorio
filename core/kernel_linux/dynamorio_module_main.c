@@ -159,6 +159,25 @@ out:
 }
 
 static long
+dynamorio_ioctl_self_check(void)
+{
+    long ret = -EINVAL;
+    mutex_lock(&session_lock);
+    if (session_state == SESSION_INITIALIZED) {
+        /* The checks access the current CPU's DR state. */
+        preempt_disable();
+        ret = dynamorio_run_self_checks();
+        preempt_enable();
+    } else if (session_state == SESSION_FAILED) {
+        pr_err("Session initialization failed. Reload the module and retry init.\n");
+    } else {
+        pr_err("An initialized session is required for running self-checks.\n");
+    }
+    mutex_unlock(&session_lock);
+    return ret;
+}
+
+static long
 dynamorio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
     if (!capable(CAP_SYS_ADMIN)) {
@@ -168,6 +187,7 @@ dynamorio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
     switch (cmd) {
     case DYNAMORIO_IOCTL_INIT:
         return dynamorio_ioctl_init((const struct dynamorio_init_args __user *)arg);
+    case DYNAMORIO_IOCTL_SELF_CHECK: return dynamorio_ioctl_self_check();
     /* TODO i#8021: Implement an exit ioctl that ends the tracing session. */
     default: return -ENOTTY;
     }
