@@ -99,6 +99,17 @@ struct dr_cpu_local_storage {
 
 static DEFINE_PER_CPU_ALIGNED(struct dr_cpu_local_storage, dr_cpu_local_storage);
 
+/* Used only by the page table walk to combine virtually contiguous ranges that have
+ * identical protection, then invoke |callback| once for each maximal run.
+ * Unmapped runs are skipped.  Does not actually change any mappings or allocations.
+ * See kernel_walk_code_regions()/walk_code_range().
+ */
+typedef struct {
+    kernel_memory_region_t pending;
+    kernel_memory_region_callback_t callback;
+    void *arg;
+} kernel_region_callback_coalescer_t;
+
 static size_t
 get_symbol_size(unsigned long address)
 {
@@ -674,14 +685,8 @@ kernel_walk_module_regions(kernel_memory_region_callback_t callback, void *arg)
     }
 }
 
-typedef struct {
-    kernel_memory_region_t pending;
-    kernel_memory_region_callback_t callback;
-    void *arg;
-} kernel_region_coalescer_t;
-
 static void
-region_coalescer_flush(kernel_region_coalescer_t *coalescer)
+region_callback_coalescer_flush(kernel_region_callback_coalescer_t *coalescer)
 {
     kernel_memory_region_t *pending = &coalescer->pending;
     if (pending->prot != 0 && pending->size > 0) {
@@ -691,15 +696,15 @@ region_coalescer_flush(kernel_region_coalescer_t *coalescer)
 }
 
 static void
-region_coalescer_add(kernel_region_coalescer_t *coalescer, unsigned long start,
-                     unsigned long end, unsigned int prot)
+region_callback_coalescer_add(kernel_region_callback_coalescer_t *coalescer,
+                              unsigned long start, unsigned long end, unsigned int prot)
 {
     kernel_memory_region_t *pending = &coalescer->pending;
     if (prot == pending->prot && (unsigned long)pending->base + pending->size == start) {
         pending->size += end - start;
         return;
     }
-    region_coalescer_flush(coalescer);
+    region_callback_coalescer_flush(coalescer);
     *pending = (kernel_memory_region_t) {
         .base = (unsigned char *)start,
         .size = end - start,
@@ -711,7 +716,7 @@ static void
 walk_code_range(unsigned long start, unsigned long end,
                 kernel_memory_region_callback_t callback, void *arg)
 {
-    kernel_region_coalescer_t coalescer = { .callback = callback, .arg = arg };
+    kernel_region_callback_coalescer_t coalescer = { .callback = callback, .arg = arg };
     unsigned long addr = start;
 
     while (addr < end) {
@@ -721,10 +726,10 @@ walk_code_range(unsigned long start, unsigned long end,
         if (next == 0 || next > end) {
             next = end;
         }
-        region_coalescer_add(&coalescer, addr, next, prot);
+        region_callback_coalescer_add(&coalescer, addr, next, prot);
         addr = next;
     }
-    region_coalescer_flush(&coalescer);
+    region_callback_coalescer_flush(&coalescer);
 }
 
 void
