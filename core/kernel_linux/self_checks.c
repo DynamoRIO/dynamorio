@@ -139,7 +139,7 @@ static const self_check_t self_checks[] = {
     { "tls_segment_mapping", check_tls_segment_mapping },
     { "safe_read", check_safe_read },
 #    if defined(X86) && defined(X64)
-    { "kernel_image_reachable_from_vmcode", check_kernel_image_reachable_from_vmcode},
+    { "kernel_image_reachable_from_vmcode", check_kernel_image_reachable_from_vmcode },
 #    endif
 };
 
