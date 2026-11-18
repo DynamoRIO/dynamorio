@@ -157,6 +157,10 @@ changes:
  - Added #drvector_t.config field which contains additional configuration parameters for
    a #drvector_t. It currently contains #drvector_config_t.zero_alloc that when set to
    true sets every entry pointer of the drvector's storage to 0 using memset().
+ - Renamed all drcontainers hashtable functions from \p hashtable_* to
+   \p drhashtable_* (e.g., drhashtable_init(), drhashtable_lookup(),
+   drhashtable_remove()) to avoid global symbol conflicts when statically
+   linking with other libraries.
 
 The changes between version \DR_VERSION and 11.3.0 include the following minor
 compatibility changes:
@@ -280,7 +284,7 @@ Further non-compatibility-affecting changes include:
    PC in the trace, which is from the next instruction or the next
    #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT marker, whichever comes
    first.
- - Added a new #hashtable_t iterator hashtable_apply_to_all_key_payload_pairs_user_data()
+ - Added a new #hashtable_t iterator drhashtable_apply_to_all_key_payload_pairs_user_data()
    that exposes the key of every element in the table.
  - Added a new DynamoRIO client "DrPoints" in clients/drpoints to compute the Basic Block
    Vectors of a program given a user-defined instruction interval.

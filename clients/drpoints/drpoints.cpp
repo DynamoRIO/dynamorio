@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2025-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -313,8 +314,8 @@ save_bbv()
     uint save_bbv_every_value = save_bbv_every.get_value();
     if (save_bbv_every_value > 0) {
         drvector_t *bbv = static_cast<drvector_t *>(drvector_get_entry(&bbvs, bbv_idx));
-        hashtable_apply_to_all_key_payload_pairs_user_data(&bb_count_table, add_to_bbv,
-                                                           bbv);
+        drhashtable_apply_to_all_key_payload_pairs_user_data(&bb_count_table, add_to_bbv,
+                                                             bbv);
         ++bbv_idx;
         if (bbv_idx == save_bbv_every_value) {
             write_bbvs();
@@ -334,14 +335,14 @@ save_bbv()
         drvector_init_ex(bbv, bb_count_table.entries, /*synch=*/false,
                          /*free_data_func=*/nullptr, &config);
         // Iterate over the non-zero elements of bb_count_table and add them to the BBV.
-        hashtable_apply_to_all_key_payload_pairs_user_data(&bb_count_table, add_to_bbv,
-                                                           bbv);
+        drhashtable_apply_to_all_key_payload_pairs_user_data(&bb_count_table, add_to_bbv,
+                                                             bbv);
         // Add the newly formed BBV to the list of BBVs.
         drvector_append(&bbvs, bbv);
     }
 
     // Clear bb_count_table setting all the execution counts to zero.
-    hashtable_apply_to_all_payloads(&bb_count_table, set_count_to_zero);
+    drhashtable_apply_to_all_payloads(&bb_count_table, set_count_to_zero);
 }
 
 #ifndef INLINE_COUNTER_UPDATE
@@ -396,7 +397,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     DR_ASSERT(res == DRCOVLIB_SUCCESS);
     uint64_t offset = static_cast<uint64_t>(bb_pc - modbase);
     modidx_offset_t bb_id_key = { modidx, offset };
-    void *bb_id_ptr = hashtable_lookup(&bb_id_table, &bb_id_key);
+    void *bb_id_ptr = drhashtable_lookup(&bb_id_table, &bb_id_key);
     uint64_t bb_id = reinterpret_cast<uint64_t>(bb_id_ptr);
     if (bb_id_ptr == nullptr) {
         bb_id = unique_bb_count;
@@ -406,20 +407,20 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             static_cast<modidx_offset_t *>(dr_global_alloc(sizeof(*bb_id_key_to_add)));
         bb_id_key_to_add->modidx = modidx;
         bb_id_key_to_add->offset = offset;
-        hashtable_add(&bb_id_table, bb_id_key_to_add, reinterpret_cast<void *>(bb_id));
+        drhashtable_add(&bb_id_table, bb_id_key_to_add, reinterpret_cast<void *>(bb_id));
         ++unique_bb_count;
     }
 
     // Get the BB execution counter.
     uint64_t *bb_count_ptr = static_cast<uint64_t *>(
-        hashtable_lookup(&bb_count_table, reinterpret_cast<void *>(bb_id)));
+        drhashtable_lookup(&bb_count_table, reinterpret_cast<void *>(bb_id)));
     if (bb_count_ptr == nullptr) {
         // If execution count is not mapped to this BB, then add a new count to the table.
         // We cannot save the initial value of 0 directly in the (void *)payload because
         // NULL == 0 is used for lookup failure. Also, we need the counter address.
         uint64_t *bb_count = static_cast<uint64_t *>(dr_global_alloc(sizeof(*bb_count)));
         *bb_count = 0;
-        hashtable_add(&bb_count_table, reinterpret_cast<void *>(bb_id), bb_count);
+        drhashtable_add(&bb_count_table, reinterpret_cast<void *>(bb_id), bb_count);
         bb_count_ptr = bb_count;
     }
 
@@ -564,8 +565,8 @@ event_exit(void)
         dr_close_file(bbvs_file);
 
     // Free DR memory.
-    hashtable_delete(&bb_id_table);
-    hashtable_delete(&bb_count_table);
+    drhashtable_delete(&bb_id_table);
+    drhashtable_delete(&bb_count_table);
     if (!drvector_delete(&bbvs))
         FATAL("ERROR: BBVs drvector not deleted");
 
@@ -619,12 +620,12 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 
     // Currently we only support single-threaded applications, so we don't use any locking
     // mechanism for the following global data structures.
-    hashtable_init_ex(&dynamorio::drpoints::bb_count_table, HASH_BITS_BB_COUNT,
-                      HASH_INTPTR, /*str_dup=*/false, /*synch=*/false,
-                      dynamorio::drpoints::free_count, nullptr, nullptr);
-    hashtable_init_ex(&dynamorio::drpoints::bb_id_table, HASH_BITS_BB_ID, HASH_INTPTR,
-                      /*str_dup=*/false, /*synch=*/false, nullptr,
-                      dynamorio::drpoints::bb_id_hash, dynamorio::drpoints::bb_id_cmp);
+    drhashtable_init_ex(&dynamorio::drpoints::bb_count_table, HASH_BITS_BB_COUNT,
+                        HASH_INTPTR, /*str_dup=*/false, /*synch=*/false,
+                        dynamorio::drpoints::free_count, nullptr, nullptr);
+    drhashtable_init_ex(&dynamorio::drpoints::bb_id_table, HASH_BITS_BB_ID, HASH_INTPTR,
+                        /*str_dup=*/false, /*synch=*/false, nullptr,
+                        dynamorio::drpoints::bb_id_hash, dynamorio::drpoints::bb_id_cmp);
     // We need to configure the hashtable to add free_key_func, as keys are allocated with
     // dr_global_alloc(). We leave the other config parameters with default values.
     hashtable_config_t bb_id_table_config;
@@ -632,7 +633,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     bb_id_table_config.resizable = true;
     bb_id_table_config.resize_threshold = 75;
     bb_id_table_config.free_key_func = dynamorio::drpoints::free_bb_id;
-    hashtable_configure(&dynamorio::drpoints::bb_id_table, &bb_id_table_config);
+    drhashtable_configure(&dynamorio::drpoints::bb_id_table, &bb_id_table_config);
 
     uint bbvs_capacity = dynamorio::drpoints::save_bbv_every.get_value();
     drvector_init(&dynamorio::drpoints::bbvs, bbvs_capacity, /*synch=*/false,

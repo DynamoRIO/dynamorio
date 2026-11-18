@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -1341,21 +1342,21 @@ private:
             // We go ahead and start with a reasonably large capacity.
             // We do not want the built-in mutex: this is per-worker so it can be
             // lockless.
-            hashtable_init_ex(&table, 16, HASH_INTPTR, false, false, free_payload,
-                              nullptr, nullptr);
+            drhashtable_init_ex(&table, 16, HASH_INTPTR, false, false, free_payload,
+                                nullptr, nullptr);
             // We pay a little memory to get a lower load factor, unless we have
             // many duplicated tables.
             hashtable_config_t config = { sizeof(config), true,
                                           worker_count <= 8
                                               ? 40U
                                               : (worker_count <= 16 ? 50U : 60U) };
-            hashtable_configure(&table, &config);
+            drhashtable_configure(&table, &config);
 #endif
         }
 #ifdef X64
         ~block_hashtable_t()
         {
-            hashtable_delete(&table);
+            drhashtable_delete(&table);
         }
 #else
         // Work around a known Visual Studio issue where it complains about deleted copy
@@ -1371,7 +1372,7 @@ private:
         lookup(uint64 modidx, uint64 modoffs)
         {
 #ifdef X64
-            return static_cast<block_summary_t *>(hashtable_lookup(
+            return static_cast<block_summary_t *>(drhashtable_lookup(
                 &table, reinterpret_cast<void *>(hash_key(modidx, modoffs))));
 #else
             return table[hash_key(modidx, modoffs)].get();
@@ -1382,8 +1383,8 @@ private:
         add(uint64 modidx, uint64 modoffs, block_summary_t *block)
         {
 #ifdef X64
-            hashtable_add(&table, reinterpret_cast<void *>(hash_key(modidx, modoffs)),
-                          block);
+            drhashtable_add(&table, reinterpret_cast<void *>(hash_key(modidx, modoffs)),
+                            block);
 #else
             table[hash_key(modidx, modoffs)].reset(block);
 #endif
@@ -1393,7 +1394,7 @@ private:
         clear()
         {
 #ifdef X64
-            hashtable_clear(&table);
+            drhashtable_clear(&table);
 #else
             table.clear();
 #endif

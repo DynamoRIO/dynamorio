@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -190,9 +191,9 @@ drsym_init(const wchar_t *shmid_in)
          * shared memory specified by shmid
          */
     } else {
-        hashtable_init_ex(&modtable, MODTABLE_HASH_BITS, HASH_STRING_NOCASE,
-                          true /*strdup*/, false /*!synch: using symbol_lock*/,
-                          modtable_entry_free, NULL, NULL);
+        drhashtable_init_ex(&modtable, MODTABLE_HASH_BITS, HASH_STRING_NOCASE,
+                            true /*strdup*/, false /*!synch: using symbol_lock*/,
+                            modtable_entry_free, NULL, NULL);
 
         /* XXX i#601: We'd like to honor the mangling flags passed to each
          * search routine, but the demangling process used by SYMOPT_UNDNAME
@@ -228,7 +229,7 @@ drsym_exit(void)
         return DRSYM_ERROR;
 
     if (!IS_SIDELINE) {
-        hashtable_delete(&modtable);
+        drhashtable_delete(&modtable);
         if (!SymCleanup(GetCurrentProcess())) {
             NOTIFY("SymCleanup error %d\n", GetLastError());
             res = DRSYM_ERROR;
@@ -422,7 +423,7 @@ unload_module(HANDLE proc, DWORD64 base)
 static mod_entry_t *
 lookup_or_load(const char *modpath, bool use_dbghelp)
 {
-    mod_entry_t *mod = (mod_entry_t *)hashtable_lookup(&modtable, (void *)modpath);
+    mod_entry_t *mod = (mod_entry_t *)drhashtable_lookup(&modtable, (void *)modpath);
     if (mod == NULL) {
         mod = dr_global_alloc(sizeof(*mod));
         memset(mod, 0, sizeof(*mod));
@@ -441,7 +442,7 @@ lookup_or_load(const char *modpath, bool use_dbghelp)
         } else {
             mod->use_pecoff_symtable = true;
         }
-        hashtable_add(&modtable, (void *)modpath, (void *)mod);
+        drhashtable_add(&modtable, (void *)modpath, (void *)mod);
     }
     return mod;
 }
@@ -1380,7 +1381,7 @@ decode_type(type_query_t *query, ULONG type_idx, uint expand_sub,
      * that the caller holds a big lock.  Thus we can
      * reference hashtable data after the lookup
      */
-    drsym_type_t *recurse = (drsym_type_t *)hashtable_lookup(
+    drsym_type_t *recurse = (drsym_type_t *)drhashtable_lookup(
         &query->type_map_table, (void *)(ptr_uint_t)type_idx);
     if (recurse != NULL) {
         *type_out = recurse;
@@ -1435,7 +1436,7 @@ decode_type(type_query_t *query, ULONG type_idx, uint expand_sub,
     default: res = make_unknown(query, type_out); break;
     }
     if (res == DRSYM_SUCCESS)
-        hashtable_add(&query->type_map_table, (void *)(ptr_uint_t)type_idx, *type_out);
+        drhashtable_add(&query->type_map_table, (void *)(ptr_uint_t)type_idx, *type_out);
     return res;
 }
 
@@ -1565,15 +1566,15 @@ drsym_get_type_by_id(mod_entry_t *mod, uint type_id, uint levels_to_expand, char
      * We could perhaps try to stick this in buf but given the symbol_lock
      * it seems simpler to just use a static data structure.
      */
-    hashtable_init_ex(&query.type_map_table, TYPE_MAP_HASH_BITS, HASH_INTPTR,
-                      false /*!strdup*/, false /*!synch*/, NULL, NULL, NULL);
+    drhashtable_init_ex(&query.type_map_table, TYPE_MAP_HASH_BITS, HASH_INTPTR,
+                        false /*!strdup*/, false /*!synch*/, NULL, NULL, NULL);
 
     pool_init(&query.pool, buf, buf_sz);
     query.base = mod->u.load_base;
 
     r = decode_type(&query, type_id, levels_to_expand, type);
 
-    hashtable_delete(&query.type_map_table);
+    drhashtable_delete(&query.type_map_table);
 
     return r;
 }
@@ -1831,7 +1832,7 @@ drsym_module_has_symbols(const char *modpath)
  * during execution and can result in fragmentation and a failure to
  * load symbols later, we probably do want some kind of internal GC.
  * If we keep the frequency not too high should be ok wrt
- * fragmentation.  Perhaps just hashtable_clear() every time it hits
+ * fragmentation.  Perhaps just drhashtable_clear() every time it hits
  * 25 modules or sthg.
  */
 DR_EXPORT
@@ -1851,7 +1852,7 @@ drsym_free_resources(const char *modpath)
             return DRSYM_ERROR_RECURSIVE;
 
         dr_recurlock_lock(symbol_lock);
-        found = hashtable_remove(&modtable, (void *)modpath);
+        found = drhashtable_remove(&modtable, (void *)modpath);
         dr_recurlock_unlock(symbol_lock);
 
         return (found ? DRSYM_SUCCESS : DRSYM_ERROR);

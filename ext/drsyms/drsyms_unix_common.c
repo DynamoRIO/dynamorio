@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -149,14 +150,14 @@ load_module(const char *modpath)
     /* We have to duplicate most of the strings we add ourselves, so we do not ask for
      * additional duplication and use a key freeing function.
      */
-    hashtable_init_ex(&mod->symtable, SYMTABLE_HASH_BITS, HASH_STRING, false /*strdup*/,
-                      false /*!synch*/, NULL, NULL, NULL);
+    drhashtable_init_ex(&mod->symtable, SYMTABLE_HASH_BITS, HASH_STRING, false /*strdup*/,
+                        false /*!synch*/, NULL, NULL, NULL);
     hashtable_config_t config;
     config.size = sizeof(config);
     config.resizable = true;
     config.resize_threshold = 70;
     config.free_key_func = drsym_free_hash_key;
-    hashtable_configure(&mod->symtable, &config);
+    drhashtable_configure(&mod->symtable, &config);
 
     /* We need to partially initialize in order to get the debug info */
     mod->obj_info = drsym_obj_mod_init_pre(mod->map_base, mod->file_size);
@@ -330,7 +331,7 @@ unload_module(dbg_module_t *mod)
     if (mod->obj_info != NULL)
         drsym_obj_mod_exit(mod->obj_info);
     if (mod->symtable.table != NULL)
-        hashtable_delete(&mod->symtable);
+        drhashtable_delete(&mod->symtable);
     if (mod->map_base != NULL)
         dr_unmap_file(mod->map_base, mod->map_size);
     if (mod->fd != INVALID_FILE)
@@ -525,7 +526,7 @@ drsym_demangle_helper(const char *sym, uint flags)
 static bool
 drsym_add_hash_entry(dbg_module_t *mod, const char *copy, size_t modoffs)
 {
-    if (hashtable_add(&mod->symtable, (void *)copy, (void *)modoffs)) {
+    if (drhashtable_add(&mod->symtable, (void *)copy, (void *)modoffs)) {
         NOTIFY("%s: added %s\n", __FUNCTION__, copy);
         return true;
     }
@@ -662,7 +663,7 @@ drsym_unix_lookup_symbol(void *mod_in, const char *symbol, size_t *modoffs DR_PA
             symsearch_symtab(mod, drsym_fill_symtable_cb, NULL, sizeof(drsym_info_t), mod,
                              DRSYM_LEAVE_MANGLED);
         }
-        *modoffs = (size_t)hashtable_lookup(&mod->symtable, (void *)sym_no_mod);
+        *modoffs = (size_t)drhashtable_lookup(&mod->symtable, (void *)sym_no_mod);
     }
     if (*modoffs == 0)
         return DRSYM_ERROR_SYMBOL_NOT_FOUND;

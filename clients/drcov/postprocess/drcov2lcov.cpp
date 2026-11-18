@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2013-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -562,7 +563,7 @@ module_vec_delete()
             free(table->path);
             free(table->bb_table.bitmap);
             if (op_test_pattern.specified())
-                hashtable_delete(&table->test_htable);
+                drhashtable_delete(&table->test_htable);
             free(table);
         }
     }
@@ -639,7 +640,7 @@ bb_array_add(module_table_t *table, bb_entry_t *entry)
         return false;
     /* check if current bb starts a new test */
     test_name =
-        (char *)hashtable_lookup(&table->test_htable, (void *)(ptr_int_t)entry->start);
+        (char *)drhashtable_lookup(&table->test_htable, (void *)(ptr_int_t)entry->start);
     if (test_name != NULL) {
         PRINT(6, "start new test %s\n", test_name);
         cur_test = test_name;
@@ -704,7 +705,7 @@ search_cb(drsym_info_t *info, drsym_error_t status, void *data)
         char *name = my_strdup(info->name);
         PRINT(5, "function %s: 0x%zx-0x%zx\n", name, info->start_offs, info->end_offs);
         ASSERT(info->start_offs <= table->size, "wrong offset");
-        hashtable_add(&table->test_htable, (void *)info->start_offs, name);
+        drhashtable_add(&table->test_htable, (void *)info->start_offs, name);
     }
     return true; /* continue iteration */
 }
@@ -716,9 +717,9 @@ module_table_search_testcase(const char *module, module_table_t *table)
     uint flags = DRSYM_DEMANGLE | DRSYM_DEMANGLE_PDB_TEMPLATES;
 
     ASSERT(op_test_pattern.specified(), "should not be called");
-    hashtable_init_ex(&table->test_htable, TEST_HASH_TABLE_BITS, HASH_INTPTR,
-                      false /* strdup */, false /* !synch */, free /* free */,
-                      NULL /* hash */, NULL /* cmp */);
+    drhashtable_init_ex(&table->test_htable, TEST_HASH_TABLE_BITS, HASH_INTPTR,
+                        false /* strdup */, false /* !synch */, free /* free */,
+                        NULL /* hash */, NULL /* cmp */);
     symres = drsym_module_has_symbols(module);
     if (symres != DRSYM_SUCCESS)
         WARN(1, "Module %s does not have symbols\n", module);
@@ -1157,11 +1158,11 @@ enum_line_cb(drsym_line_info_t *info, void *data)
         (op_src_skip_filter.specified() &&
          strstr(info->file, op_src_skip_filter.get_value().c_str()) != NULL))
         return true;
-    line_table = (line_table_t *)hashtable_lookup(&line_htable, (void *)info->file);
+    line_table = (line_table_t *)drhashtable_lookup(&line_htable, (void *)info->file);
     if (line_table == NULL) {
         num_line_htable_entries++;
         line_table = line_table_create(info->file);
-        if (!hashtable_add(&line_htable, (void *)info->file, line_table))
+        if (!drhashtable_add(&line_htable, (void *)info->file, line_table))
             ASSERT(false, "Failed to add new source line table");
     }
     status = module_table_bb_lookup(table, info->line_addr, &test_info);
@@ -1398,10 +1399,10 @@ main(int argc, const char *argv[])
         ASSERT(false, "Unable to initialize symbol translation");
         return 1;
     }
-    hashtable_init_ex(&dynamorio::drcov::line_htable, LINE_HASH_TABLE_BITS, HASH_STRING,
-                      true /* strdup */, false /* !synch */,
-                      dynamorio::drcov::line_table_delete /* free */, NULL /* hash */,
-                      NULL /* cmp */);
+    drhashtable_init_ex(&dynamorio::drcov::line_htable, LINE_HASH_TABLE_BITS, HASH_STRING,
+                        true /* strdup */, false /* !synch */,
+                        dynamorio::drcov::line_table_delete /* free */, NULL /* hash */,
+                        NULL /* cmp */);
 
     PRINT(1, "Reading input files...\n");
     if (!dynamorio::drcov::read_drcov_input()) {
@@ -1422,7 +1423,7 @@ main(int argc, const char *argv[])
     }
 
     dynamorio::drcov::module_vec_delete();
-    hashtable_delete(&dynamorio::drcov::line_htable);
+    drhashtable_delete(&dynamorio::drcov::line_htable);
     if (drsym_exit() != DRSYM_SUCCESS) {
         ASSERT(false, "Failed to clean up symbol library\n");
         return 1;

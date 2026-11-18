@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2010-2026 Google, Inc.   All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -578,7 +579,7 @@ our_exit_event(void)
     drmgr_unregister_thread_init_event(our_thread_init_event);
     drmgr_unregister_thread_exit_event(our_thread_exit_event);
 
-    hashtable_delete(&global_opcode_instrum_table);
+    drhashtable_delete(&global_opcode_instrum_table);
     drmgr_bb_exit();
     drmgr_event_exit();
 
@@ -836,8 +837,8 @@ drmgr_destroy_opcode_cb_list(void *opcode_cb_list_opaque)
 static void
 drmgr_init_opcode_hashtable(hashtable_t *opcode_instrum_table)
 {
-    hashtable_init_ex(opcode_instrum_table, 8, HASH_INTPTR, false, false,
-                      drmgr_destroy_opcode_cb_list, NULL, NULL);
+    drhashtable_init_ex(opcode_instrum_table, 8, HASH_INTPTR, false, false,
+                        drmgr_destroy_opcode_cb_list, NULL, NULL);
 }
 
 /* Returns false if opcode instrumentation is not applicable, i.e., no registration.
@@ -863,7 +864,7 @@ drmgr_set_up_local_opcode_table(DR_PARAM_IN instrlist_t *bb,
             continue;
         opcode = instr_get_opcode(inst);
         cb_list_t *opcode_cb_list =
-            hashtable_lookup(&global_opcode_instrum_table, (void *)(intptr_t)opcode);
+            drhashtable_lookup(&global_opcode_instrum_table, (void *)(intptr_t)opcode);
         if (opcode_cb_list != NULL) {
             is_opcode_instrum_applicable = true;
             break;
@@ -893,16 +894,16 @@ drmgr_set_up_local_opcode_table(DR_PARAM_IN instrlist_t *bb,
 
         opcode = instr_get_opcode(inst);
         cb_list_t *opcode_cb_list =
-            hashtable_lookup(&global_opcode_instrum_table, (void *)(intptr_t)opcode);
+            drhashtable_lookup(&global_opcode_instrum_table, (void *)(intptr_t)opcode);
         if (opcode_cb_list != NULL && opcode_cb_list->num_valid != 0) {
             cb_list_t *local_opcode_cb_list =
-                hashtable_lookup(local_opcode_instrum_table, (void *)(intptr_t)opcode);
+                drhashtable_lookup(local_opcode_instrum_table, (void *)(intptr_t)opcode);
             if (local_opcode_cb_list == NULL) {
                 local_opcode_cb_list = dr_global_alloc(sizeof(cb_list_t));
                 cblist_create_global(insert_list, local_opcode_cb_list);
                 cblist_insert_other(local_opcode_cb_list, opcode_cb_list);
-                hashtable_add(local_opcode_instrum_table, (void *)(intptr_t)opcode,
-                              local_opcode_cb_list);
+                drhashtable_add(local_opcode_instrum_table, (void *)(intptr_t)opcode,
+                                local_opcode_cb_list);
             }
         }
     }
@@ -1076,7 +1077,7 @@ drmgr_bb_event_do_instrum_phases(void *drcontext, void *tag, instrlist_t *bb,
         if (is_opcode_instrum_applicable && instr_opcode_valid(inst)) {
             opcode = instr_get_opcode(inst);
             local_info->iter_opcode_insert =
-                hashtable_lookup(&local_opcode_instrum_table, (void *)(intptr_t)opcode);
+                drhashtable_lookup(&local_opcode_instrum_table, (void *)(intptr_t)opcode);
             if (local_info->iter_opcode_insert != NULL) {
                 res |= drmgr_bb_event_do_insertion_per_instr(
                     drcontext, tag, bb, inst, for_trace, translating,
@@ -1128,7 +1129,7 @@ drmgr_bb_event_do_instrum_phases(void *drcontext, void *tag, instrlist_t *bb,
 
     /* Delete table only if opcode events were ever registered by the user. */
     if (local_info->was_opcode_instrum_registered)
-        hashtable_delete(&local_opcode_instrum_table);
+        drhashtable_delete(&local_opcode_instrum_table);
 
     return res;
 }
@@ -1745,13 +1746,13 @@ drmgr_register_opcode_instrumentation_event(drmgr_opcode_insertion_cb_t func, in
 
     dr_rwlock_write_lock(opcode_table_lock);
     cb_list_t *opcode_cb_list =
-        hashtable_lookup(&global_opcode_instrum_table, (void *)(intptr_t)opcode);
+        drhashtable_lookup(&global_opcode_instrum_table, (void *)(intptr_t)opcode);
     if (opcode_cb_list == NULL) {
         /* We need to add a new mapping. */
         opcode_cb_list = dr_global_alloc(sizeof(cb_list_t));
         cblist_init(opcode_cb_list, sizeof(cb_entry_t));
-        hashtable_add(&global_opcode_instrum_table, (void *)(intptr_t)opcode,
-                      opcode_cb_list);
+        drhashtable_add(&global_opcode_instrum_table, (void *)(intptr_t)opcode,
+                        opcode_cb_list);
     }
     dr_rwlock_write_unlock(opcode_table_lock);
 
@@ -1775,7 +1776,7 @@ drmgr_unregister_opcode_instrumentation_event(drmgr_opcode_insertion_cb_t func,
 
     dr_rwlock_write_lock(opcode_table_lock);
     cb_list_t *opcode_cb_list =
-        hashtable_lookup(&global_opcode_instrum_table, (void *)(intptr_t)opcode);
+        drhashtable_lookup(&global_opcode_instrum_table, (void *)(intptr_t)opcode);
     if (opcode_cb_list == NULL)
         return false; /* there should be a cb list present in the table */
     dr_rwlock_write_unlock(opcode_table_lock);

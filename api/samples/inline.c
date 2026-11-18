@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -124,9 +125,9 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     if (!drmgr_init())
         DR_ASSERT(false);
 
-    hashtable_init_ex(&head_table, HASH_BITS, HASH_INTPTR, false /*!strdup*/,
-                      false /*synchronization is external*/, free_trace_head_entry, NULL,
-                      NULL);
+    drhashtable_init_ex(&head_table, HASH_BITS, HASH_INTPTR, false /*!strdup*/,
+                        false /*synchronization is external*/, free_trace_head_entry,
+                        NULL, NULL);
 
     drmgr_register_exit_event(event_exit);
     if (!drmgr_register_bb_instrumentation_event(event_analyze_bb, NULL, NULL))
@@ -163,7 +164,7 @@ event_exit(void)
     msg[sizeof(msg) / sizeof(msg[0]) - 1] = '\0';
     DISPLAY_STRING(msg);
 #endif
-    hashtable_delete(&head_table);
+    drhashtable_delete(&head_table);
     if (!drmgr_unregister_bb_instrumentation_event(event_analyze_bb))
         DR_ASSERT(false);
     drmgr_exit();
@@ -185,16 +186,16 @@ event_analyze_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         /* Blocks containing calls are trace heads. */
         if (instr_is_call(instr)) {
             dr_mark_trace_head(drcontext, tag);
-            hashtable_lock(&head_table);
-            e = hashtable_lookup(&head_table, tag);
+            drhashtable_lock(&head_table);
+            e = drhashtable_lookup(&head_table, tag);
             if (e == NULL) {
                 e = create_trace_head_entry(tag);
-                if (!hashtable_add(&head_table, tag, (void *)e))
+                if (!drhashtable_add(&head_table, tag, (void *)e))
                     DR_ASSERT(false);
             } else
                 e->refcount++;
             e->is_trace_head = true;
-            hashtable_unlock(&head_table);
+            drhashtable_unlock(&head_table);
 #ifdef VERBOSE
             dr_log(drcontext, DR_LOG_ALL, 3,
                    "inline: marking bb " PFX " as call trace head\n", tag);
@@ -202,16 +203,16 @@ event_analyze_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
             /* Doesn't matter what's in rest of the bb. */
             return DR_EMIT_DEFAULT;
         } else if (instr_is_return(instr)) {
-            hashtable_lock(&head_table);
-            e = hashtable_lookup(&head_table, tag);
+            drhashtable_lock(&head_table);
+            e = drhashtable_lookup(&head_table, tag);
             if (e == NULL) {
                 e = create_trace_head_entry(tag);
-                if (!hashtable_add(&head_table, tag, (void *)e))
+                if (!drhashtable_add(&head_table, tag, (void *)e))
                     DR_ASSERT(false);
             } else
                 e->refcount++;
             e->has_ret = true;
-            hashtable_unlock(&head_table);
+            drhashtable_unlock(&head_table);
 #ifdef VERBOSE
             dr_log(drcontext, DR_LOG_ALL, 3,
                    "inline: marking bb " PFX " as return trace head\n", tag);
@@ -226,14 +227,14 @@ static void
 event_fragment_deleted(void *drcontext, void *tag)
 {
     trace_head_entry_t *e;
-    hashtable_lock(&head_table);
-    e = hashtable_lookup(&head_table, tag);
+    drhashtable_lock(&head_table);
+    e = drhashtable_lookup(&head_table, tag);
     if (e != NULL) {
         e->refcount--;
         if (e->refcount == 0)
-            hashtable_remove(&head_table, tag);
+            drhashtable_remove(&head_table, tag);
     }
-    hashtable_unlock(&head_table);
+    drhashtable_unlock(&head_table);
 }
 
 /* Ask whether to end trace prior to adding next_tag fragment.
@@ -253,12 +254,12 @@ query_end_trace(void *drcontext, void *trace_tag, void *next_tag)
      *   terminate the trace now.
      */
     trace_head_entry_t *e;
-    hashtable_lock(&head_table);
-    e = hashtable_lookup(&head_table, trace_tag);
+    drhashtable_lock(&head_table);
+    e = drhashtable_lookup(&head_table, trace_tag);
     if (e == NULL || !e->is_trace_head) {
-        e = hashtable_lookup(&head_table, next_tag);
+        e = drhashtable_lookup(&head_table, next_tag);
         if (e == NULL || !e->is_trace_head) {
-            hashtable_unlock(&head_table);
+            drhashtable_unlock(&head_table);
             return CUSTOM_TRACE_DR_DECIDES;
         } else {
             /* We've found a call: end this trace now so it won't keep going and
@@ -272,7 +273,7 @@ query_end_trace(void *drcontext, void *trace_tag, void *next_tag)
 #ifdef SHOW_RESULTS
             num_traces++;
 #endif
-            hashtable_unlock(&head_table);
+            drhashtable_unlock(&head_table);
             return CUSTOM_TRACE_END_NOW;
         }
     } else if (e->end_next > 0) {
@@ -286,11 +287,11 @@ query_end_trace(void *drcontext, void *trace_tag, void *next_tag)
             num_complete_inlines++;
             num_traces++;
 #endif
-            hashtable_unlock(&head_table);
+            drhashtable_unlock(&head_table);
             return CUSTOM_TRACE_END_NOW;
         }
     } else {
-        trace_head_entry_t *nxte = hashtable_lookup(&head_table, next_tag);
+        trace_head_entry_t *nxte = drhashtable_lookup(&head_table, next_tag);
         uint size = dr_fragment_size(drcontext, next_tag);
         e->size += size;
         if (e->size > INLINE_SIZE_LIMIT) {
@@ -303,7 +304,7 @@ query_end_trace(void *drcontext, void *trace_tag, void *next_tag)
 #ifdef SHOW_RESULTS
             num_traces++;
 #endif
-            hashtable_unlock(&head_table);
+            drhashtable_unlock(&head_table);
             return CUSTOM_TRACE_END_NOW;
         }
         if (nxte != NULL && nxte->has_ret && !nxte->is_trace_head) {
@@ -314,7 +315,7 @@ query_end_trace(void *drcontext, void *trace_tag, void *next_tag)
                    "inline: going to be ending trace " PFX " after " PFX "\n", trace_tag,
                    next_tag);
 #endif
-            hashtable_unlock(&head_table);
+            drhashtable_unlock(&head_table);
             return CUSTOM_TRACE_CONTINUE;
         }
     }
@@ -323,6 +324,6 @@ query_end_trace(void *drcontext, void *trace_tag, void *next_tag)
     dr_log(drcontext, DR_LOG_ALL, 3, "inline: NOT ending trace " PFX " after " PFX "\n",
            trace_tag, next_tag);
 #endif
-    hashtable_unlock(&head_table);
+    drhashtable_unlock(&head_table);
     return CUSTOM_TRACE_CONTINUE;
 }

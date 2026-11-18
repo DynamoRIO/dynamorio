@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -437,7 +438,7 @@ hashtable_delete_with_stats(hashtable_t *table, const char *name)
     /* XXX: add collision data: though would want those stats mid-run
      * for tables that have entries freed during exit before here
      */
-    hashtable_delete(table);
+    drhashtable_delete(table);
 }
 
 #ifdef STATISTICS
@@ -1345,7 +1346,7 @@ hashwrap_assert_fail(const char *msg)
 void
 utils_early_init(void)
 {
-    hashtable_global_config(hashwrap_alloc, hashwrap_free, hashwrap_assert_fail);
+    drhashtable_global_config(hashwrap_alloc, hashwrap_free, hashwrap_assert_fail);
 }
 
 void
