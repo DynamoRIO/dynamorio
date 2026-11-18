@@ -570,8 +570,14 @@ kernel_get_timestamp_counter_khz(void)
 void
 kernel_get_cache_line_sizes(size_t *dcache_line_size, size_t *icache_line_size)
 {
+    /* Use the kernel's sanitised CTR_EL0 rather than reading the register directly.
+     * A direct read returns only the current CPU's value, which can differ across CPUs.
+     */
     u64 ctr = read_sanitised_ftr_reg(SYS_CTR_EL0);
-    /* Cache line size is represented as Log2(words) in CTR_EL0. */
+    /* Cache line size is represented as Log2(words) in CTR_EL0.
+     * XXX i#8021: This decoding duplicates get_cache_info() in drlibc.c, which is not
+     * built into the kernel module.
+     */
     if (dcache_line_size != NULL) {
         *dcache_line_size = 4 << SYS_FIELD_GET(CTR_EL0, DminLine, ctr);
     }
