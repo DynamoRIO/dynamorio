@@ -40,6 +40,12 @@
 
 #ifdef KERNEL_MODULE_SELF_CHECKS
 
+typedef enum {
+    SELF_CHECK_PASS,
+    SELF_CHECK_FAIL,
+    SELF_CHECK_SKIP,
+} self_check_result_t;
+
 /* Fails the enclosing self-check if |cond| is false.  Unlike ASSERT, this reports the
  * failure and returns rather than terminating, which in the kernel is a panic.
  */
@@ -48,20 +54,19 @@
             if (!(cond)) {                                                       \
                 print_file(STDERR, "Self-check failed at %s:%d: %s\n", __func__, \
                            __LINE__, #cond);                                     \
-                return false;                                                    \
+                return SELF_CHECK_FAIL;                                          \
             }                                                                    \
         } while (0)
 
 typedef struct {
     const char *name;
-    /* Returns whether the self-check passed. */
-    bool (*func)(void);
+    self_check_result_t (*func)(void);
 } self_check_t;
 
 /* Verifies that segment accesses through os_tls_offset() and C accesses through the
  * CPU-local state pointer reach the same memory, in both directions.
  */
-static bool
+static self_check_result_t
 check_tls_segment_mapping(void)
 {
     local_state_extended_t *ls = get_local_state_extended();
@@ -90,13 +95,13 @@ check_tls_segment_mapping(void)
     ptr_uint_t observed_last = *last_slot;
     d_r_set_tls(last_offset, saved_last);
     CHECK(observed_last == sentinel2);
-    return true;
+    return SELF_CHECK_PASS;
 }
 
 /* Verifies that a safe read copies readable memory, and that it fails without faulting
  * on an unreadable address in both the user and the kernel range.
  */
-static bool
+static self_check_result_t
 check_safe_read(void)
 {
     const ptr_uint_t src = 0x0123456789abcdef;
@@ -122,25 +127,30 @@ check_safe_read(void)
     ok = safe_read_ex((void *)ALIGN_BACKWARD(PTR_UINT_MINUS_1, PAGE_SIZE), sizeof(dst),
                       &dst, &bytes_read);
     CHECK(!ok && bytes_read == 0);
-    return true;
+    return SELF_CHECK_PASS;
 }
 
-#    if defined(X86) && defined(X64)
-static bool
+/* Verifies that DR's code cache can reach the whole kernel image with a 32-bit
+ * relative offset, which the heap placement in kernel_module_init() guarantees.
+ */
+static self_check_result_t
 check_kernel_image_reachable_from_vmcode(void)
 {
+#    if defined(X86) && defined(X64)
     CHECK(rel32_reachable_from_vmcode(get_application_base()));
+    /* get_application_end() is exclusive. */
     CHECK(rel32_reachable_from_vmcode(get_application_end() - 1));
-    return true;
-}
+    return SELF_CHECK_PASS;
+#    else
+    /* rel32 reachability is only used on x86-64. */
+    return SELF_CHECK_SKIP;
 #    endif
+}
 
 static const self_check_t self_checks[] = {
     { "tls_segment_mapping", check_tls_segment_mapping },
     { "safe_read", check_safe_read },
-#    if defined(X86) && defined(X64)
     { "kernel_image_reachable_from_vmcode", check_kernel_image_reachable_from_vmcode },
-#    endif
 };
 
 int
@@ -149,11 +159,15 @@ dynamorio_run_self_checks(void)
     int num_failed = 0;
     for (size_t i = 0; i < BUFFER_SIZE_ELEMENTS(self_checks); i++) {
         const self_check_t *check = &self_checks[i];
-        bool passed = check->func();
-        print_file(STDERR, "Self-check %s: %s\n", check->name, passed ? "PASS" : "FAIL");
-        if (!passed) {
+        self_check_result_t result = check->func();
+        const char *result_string = "PASS";
+        if (result == SELF_CHECK_FAIL) {
+            result_string = "FAIL";
             num_failed++;
+        } else if (result == SELF_CHECK_SKIP) {
+            result_string = "SKIP";
         }
+        print_file(STDERR, "Self-check %s: %s\n", check->name, result_string);
     }
     return num_failed;
 }
