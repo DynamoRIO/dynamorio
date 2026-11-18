@@ -10516,7 +10516,8 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
                 iter->vm_start, iter->vm_end, iter->prot);
             memcache_update_locked(iter->vm_start, iter->vm_end, iter->prot,
                                    image ? DR_MEMTYPE_IMAGE : DR_MEMTYPE_DATA,
-                                   false /*!exists*/, iter->is_shared);
+                                   false /*!exists*/,
+                                   IF_LINUX_ELSE(iter->is_shared, false));
         }
 #    endif
 
@@ -10526,9 +10527,9 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
          */
         if (!skip /* i#479, hide private module and match Windows's behavior */ &&
             add_modules &&
-            app_memory_allocation(NULL, iter->vm_start, (iter->vm_end - iter->vm_start),
-                                  iter->prot, image,
-                                  iter->is_shared _IF_DEBUG(map_type))) {
+            app_memory_allocation(
+                NULL, iter->vm_start, (iter->vm_end - iter->vm_start), iter->prot, image,
+                IF_LINUX_ELSE(iter->is_shared, false) _IF_DEBUG(map_type))) {
             count++;
         }
     }
