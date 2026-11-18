@@ -36,6 +36,19 @@
 
 #include <linux/types.h>
 
+#define KERNEL_MEMPROT_READ 0x1
+#define KERNEL_MEMPROT_WRITE 0x2
+#define KERNEL_MEMPROT_EXEC 0x4
+
+typedef struct {
+    unsigned char *base;
+    size_t size;
+    unsigned int prot; /* KERNEL_MEMPROT_* */
+} kernel_memory_region_t;
+
+typedef void (*kernel_memory_region_callback_t)(const kernel_memory_region_t *region,
+                                                void *arg);
+
 int
 kernel_module_init(size_t dr_heap_size);
 
@@ -63,6 +76,18 @@ kernel_get_online_processor_count(void);
 unsigned int
 kernel_get_timestamp_counter_khz(void);
 
+#ifdef CONFIG_ARM64
+/* Reports the smallest dcache and icache line sizes in bytes across all CPUs. */
+void
+kernel_get_cache_line_sizes(size_t *dcache_line_size, size_t *icache_line_size);
+
+/* Makes instructions written to [start, end) visible to instruction fetch on all
+ * online CPUs. Must be called with IRQs enabled.
+ */
+void
+kernel_flush_icache_range(void *start, void *end);
+#endif
+
 /* Reports the per-CPU buffer capacity and alignment in bytes. Both output pointers
  * must be non-NULL. Does not require preemption to be disabled.
  */
@@ -78,11 +103,13 @@ kernel_get_cpu_local_state_layout(size_t *size, size_t *alignment);
 void *
 kernel_get_cpu_local_state(void);
 
+#ifdef CONFIG_X86
 /* Returns the gs-relative displacement of the buffer returned by
  * kernel_get_cpu_local_state(). That is its raw __percpu address on x86-64 SMP.
  */
 int
 kernel_get_cpu_local_state_segment_offset(void);
+#endif
 
 size_t
 kernel_get_page_size(void);
@@ -102,18 +129,51 @@ kernel_get_module_text_start(void);
 void *
 kernel_get_module_text_end(void);
 
+/* Calls |callback| for each non-empty core memory region of this module (text, data,
+ * rodata, ro_after_init).
+ */
+void
+kernel_walk_module_regions(kernel_memory_region_callback_t callback, void *arg);
+
+/* Walks the present pages in the kernel virtual address range that holds kernel code
+ * excluding DR's own heap. Calls |callback| once for each maximal run of virtually
+ * contiguous pages that have identical KERNEL_MEMPROT_* protection.
+ */
+void
+kernel_walk_code_regions(kernel_memory_region_callback_t callback, void *arg);
+
 /* Returns whether the |size| bytes at |addr| can be read without faulting.  Handles both
- * kernel and user addresses.  Acquires no locks and never sleeps, so it is safe to call
- * in any context.  A zero |size| returns true.
+ * kernel and user addresses.  A user address is interpreted in the current task's
+ * address space.  Acquires no locks and never sleeps, so it is safe to call in any
+ * context.  A zero |size| returns true.
  */
 bool
 kernel_is_readable_without_fault(const void *addr, size_t size);
+
+/* Copies up to |size| bytes from |addr| to |out| without faulting and returns the
+ * number of bytes copied.  Handles both kernel and user addresses.  A user address is
+ * interpreted in the current task's address space.  Acquires no locks and never sleeps.
+ */
+size_t
+kernel_read_without_fault(const void *addr, size_t size, void *out);
+
+/* Calls |fn|(|arg|) once on each online CPU, sequentially in ascending CPU ID order.
+ * Stops at the first nonzero return value and returns it, and returns 0 if every call
+ * succeeded. Each call runs in a kernel worker thread bound to that CPU.
+ * This function sleeps and must be called from sleepable context.
+ */
+int
+kernel_run_on_each_online_cpu(int (*fn)(void *), void *arg);
 
 unsigned int
 kernel_query_time_seconds(void);
 
 unsigned long long
 kernel_query_time_nanos(void);
+
+/* Returns a random value from the kernel's CRNG. */
+unsigned int
+kernel_get_random_u32(void);
 
 __attribute__((format(__printf__, 1, 2))) void
 kernel_printk(const char *fmt, ...);
