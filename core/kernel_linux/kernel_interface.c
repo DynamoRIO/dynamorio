@@ -450,8 +450,7 @@ check_query_kernel_page(void)
     for (size_t i = 0; i < ARRAY_SIZE(probes); i++) {
         unsigned int prot;
         query_kernel_page((unsigned long)probes[i].addr, &prot);
-        if ((prot & probes[i].required) != probes[i].required ||
-            (prot & probes[i].forbidden) != 0) {
+        if (!TESTALL(probes[i].required, prot) || TESTANY(probes[i].forbidden, prot)) {
             pr_err("Page table walk self-check failed for %s: prot=%#x\n", probes[i].name,
                    prot);
             return -EINVAL;
