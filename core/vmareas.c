@@ -6440,6 +6440,43 @@ replace_executable_vm_areas_for_protection_change(app_pc start, app_pc end, uint
     }
 }
 
+static void
+add_executable_vm_areas_for_protection_change(app_pc base, size_t size, uint vm_flags,
+                                              uint frag_flags
+                                                  _IF_DEBUG(const char *comment))
+{
+    /* A protection change can span private and shared mappings.
+     * Determine sandboxing separately for each mapping.
+     */
+    app_pc region_start = base;
+    app_pc end = base + size;
+    while (region_start < end) {
+        app_pc region_end = end;
+        uint region_vm_flags = vm_flags;
+        uint region_frag_flags = frag_flags;
+        if (DYNAMO_OPTION(sandbox_shared)) {
+            dr_mem_info_t info;
+            if (!query_memory_ex(region_start, &info))
+                break;
+
+            if (!POINTER_OVERFLOW_ON_ADD(info.base_pc, info.size))
+                region_end = MIN(end, info.base_pc + info.size);
+            ASSERT(region_end > region_start);
+            if (info.type == DR_MEMTYPE_FREE) {
+                region_start = region_end;
+                continue;
+            }
+            if (info.is_shared) {
+                region_vm_flags |= VM_SHARED_MAPPING;
+                region_frag_flags |= FRAG_SELFMOD_SANDBOXED;
+            }
+        }
+        add_executable_vm_area(region_start, region_end, region_vm_flags,
+                               region_frag_flags, false /*no lock*/ _IF_DEBUG(comment));
+        region_start = region_end;
+    }
+}
+
 /* Called when memory region base:base+size is about to have privileges prot.
  * Returns a value from the enum in vmareas->h about whether to perform the
  * system call or not and if not what the return code to the app should be.
@@ -7015,37 +7052,9 @@ app_memory_protection_change_internal(dcontext_t *dcontext, bool update_areas,
                 /* XXX : see note at top of function about bug 2833 */
                 ASSERT(!TESTANY(MEMPROT_WRITE, prot)); /* sanity check */
 
-                /* A protection change can span private and shared mappings.
-                 * Determine sandboxing separately for each mapping.
-                 */
-                app_pc region_start = base;
-                app_pc end = base + size;
-                while (region_start < end) {
-                    app_pc region_end = end;
-                    uint region_vm_flags = image ? VM_UNMOD_IMAGE : 0;
-                    uint region_frag_flags = frag_flags_pfx;
-                    if (DYNAMO_OPTION(sandbox_shared)) {
-                        dr_mem_info_t info;
-                        if (!query_memory_ex(region_start, &info))
-                            break;
-
-                        if (!POINTER_OVERFLOW_ON_ADD(info.base_pc, info.size))
-                            region_end = MIN(end, info.base_pc + info.size);
-                        ASSERT(region_end > region_start);
-                        if (info.type == DR_MEMTYPE_FREE) {
-                            region_start = region_end;
-                            continue;
-                        }
-                        if (info.is_shared) {
-                            region_vm_flags |= VM_SHARED_MAPPING;
-                            region_frag_flags |= FRAG_SELFMOD_SANDBOXED;
-                        }
-                    }
-                    add_executable_vm_area(region_start, region_end, region_vm_flags,
-                                           region_frag_flags,
-                                           false /*no lock*/ _IF_DEBUG(comment));
-                    region_start = region_end;
-                }
+                add_executable_vm_areas_for_protection_change(
+                    base, size, image ? VM_UNMOD_IMAGE : 0,
+                    frag_flags_pfx _IF_DEBUG(comment));
             }
 #ifdef WINDOWS
             if (free_iat) {
