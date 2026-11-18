@@ -179,7 +179,7 @@ resolve_kernel_symbols(void)
 
     /* Across 6.6+ LTS kernels, __vmalloc_node_range is the only reliable API to allocate
      * writable memory at a chosen VA range. We use this to allocate our heap within 2GB
-     * reach of the kernel image (see compute_heap_range()). Alternatives:
+     * reach of the kernel image (see compute_allocation_range()). Alternatives:
      * - module_alloc(): Removed in 6.10. Returns RW+NX.
      * - execmem_alloc(): Introduced in 6.10. Returns RW+NX in 6.10-6.12, but
      *   read-only-execute (ROX) in 6.13+.
@@ -384,8 +384,16 @@ query_kernel_page(unsigned long addr, unsigned int *prot)
 #    error "Unsupported architecture"
 #endif
 
+/* Computes the VA range in which to allocate DR's single memory region.
+ * Currently this single memory region backs both vmcode and vmheap (TODO i#8124).
+ * The range is within a signed 32-bit displacement of the whole kernel image.
+ * This matches what vmm_place_vmcode() requests under -vm_base_near_app.
+ * On x86-64, this lets the code cache reach kernel text with rel32 addressing.
+ * AArch64 generated code doesn't rely on the reach, but the range still applies
+ * because vmm_place_vmcode() is shared across both architectures.
+ */
 static int
-compute_heap_range(unsigned long *start, unsigned long *end)
+compute_allocation_range(unsigned long *start, unsigned long *end)
 {
     const unsigned long text = (unsigned long)kernel_image_start;
     const unsigned long last = (unsigned long)kernel_image_end - 1;
@@ -494,7 +502,7 @@ kernel_module_init(size_t dr_heap_size)
      * TODO i#8124: Allocate two separate regions instead for fine-grained W^X protection.
      */
     unsigned long start, end;
-    ret = compute_heap_range(&start, &end);
+    ret = compute_allocation_range(&start, &end);
     if (ret != 0) {
         return ret;
     }
