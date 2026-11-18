@@ -54,22 +54,90 @@
             }                                                                    \
         } while (0)
 
+/* Verifies that segment accesses through os_tls_offset() and C accesses through the
+ * CPU-local state pointer reach the same memory, in both directions.
+ */
+static bool
+check_tls_segment_mapping(void)
+{
+    local_state_extended_t *ls = get_local_state_extended();
+    /* Lowest and highest pointer-sized slots that generated code accesses:
+     * the first register spill slot and the last IBL hashtable pointer.
+     */
+    const ushort first = TLS_REG0_SLOT;
+    const ushort last = TLS_TABLE_SLOT(IBL_BRANCH_TYPE_END - 1);
+    ptr_uint_t *first_slot = (ptr_uint_t *)((byte *)ls + first);
+    ptr_uint_t *last_slot = (ptr_uint_t *)((byte *)ls + last);
+    const ptr_uint_t sentinel1 = 0xdecafbadcafef00d;
+    const ptr_uint_t sentinel2 = 0x0123456789abcdef;
+
+    /* The session is live. Restore each value through the same access path that
+     * wrote it before reporting a failure.
+     */
+    const ptr_uint_t saved_first = *first_slot;
+    *first_slot = sentinel1;
+    ptr_uint_t observed_first = (ptr_uint_t)d_r_get_tls(os_tls_offset(first));
+    *first_slot = saved_first;
+    CHECK(observed_first == sentinel1);
+
+    const int last_offset = os_tls_offset(last);
+    void *saved_last = d_r_get_tls(last_offset);
+    d_r_set_tls(last_offset, (void *)sentinel2);
+    ptr_uint_t observed_last = *last_slot;
+    d_r_set_tls(last_offset, saved_last);
+    CHECK(observed_last == sentinel2);
+    return true;
+}
+
+/* Verifies that a safe read copies readable memory, and that it fails without faulting
+ * on an unreadable address in both the user and the kernel range.
+ */
+static bool
+check_safe_read(void)
+{
+    const ptr_uint_t src = 0x0123456789abcdef;
+    ptr_uint_t dst = 0;
+    size_t bytes_read = 0;
+
+    bool ok = safe_read_ex(&src, sizeof(src), &dst, &bytes_read);
+    CHECK(ok && bytes_read == sizeof(src) && dst == src);
+
+    dst = 0;
+    ok = d_r_safe_read(&src, sizeof(src), &dst);
+    CHECK(ok && dst == src);
+
+    /* Address 0 is in the user range and is not mapped. */
+    bytes_read = sizeof(dst);
+    ok = safe_read_ex(NULL, sizeof(dst), &dst, &bytes_read);
+    CHECK(!ok && bytes_read == 0);
+
+    /* The last page of the address space is in the kernel range and is never mapped:
+     * its addresses are the ERR_PTR() values.
+     */
+    bytes_read = sizeof(dst);
+    ok = safe_read_ex((void *)ALIGN_BACKWARD(PTR_UINT_MINUS_1, PAGE_SIZE), sizeof(dst),
+                      &dst, &bytes_read);
+    CHECK(!ok && bytes_read == 0);
+    return true;
+}
+
 typedef struct {
     const char *name;
     /* Returns whether the self-check passed. */
     bool (*func)(void);
 } self_check_t;
 
-/* Terminated by an entry with a NULL func. */
 static const self_check_t self_checks[] = {
-    { NULL, NULL },
+    { "tls_segment_mapping", check_tls_segment_mapping },
+    { "safe_read", check_safe_read },
 };
 
 int
 dynamorio_run_self_checks(void)
 {
     int num_failed = 0;
-    for (const self_check_t *check = self_checks; check->func != NULL; check++) {
+    for (size_t i = 0; i < BUFFER_SIZE_ELEMENTS(self_checks); i++) {
+        const self_check_t *check = &self_checks[i];
         bool passed = check->func();
         print_file(STDERR, "Self-check %s: %s\n", check->name, passed ? "PASS" : "FAIL");
         if (!passed) {
