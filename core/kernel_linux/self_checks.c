@@ -52,6 +52,12 @@
             }                                                                    \
         } while (0)
 
+typedef struct {
+    const char *name;
+    /* Returns whether the self-check passed. */
+    bool (*func)(void);
+} self_check_t;
+
 /* Verifies that segment accesses through os_tls_offset() and C accesses through the
  * CPU-local state pointer reach the same memory, in both directions.
  */
@@ -118,12 +124,6 @@ check_safe_read(void)
     CHECK(!ok && bytes_read == 0);
     return true;
 }
-
-typedef struct {
-    const char *name;
-    /* Returns whether the self-check passed. */
-    bool (*func)(void);
-} self_check_t;
 
 static const self_check_t self_checks[] = {
     { "tls_segment_mapping", check_tls_segment_mapping },
