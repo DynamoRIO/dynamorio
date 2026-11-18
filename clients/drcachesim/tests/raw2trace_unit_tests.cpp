@@ -103,13 +103,13 @@ class raw2trace_test_t : public raw2trace_t {
 public:
     raw2trace_test_t(const std::vector<std::istream *> &input,
                      const std::vector<std::ostream *> &output, instrlist_t &instrs,
-                     void *drcontext)
+                     void *drcontext, app_pc mod_base = nullptr)
         : raw2trace_t(nullptr, input, output, {}, INVALID_FILE, nullptr, nullptr,
                       drcontext,
                       /*verbosity=*/0)
     {
         module_mapper_ = std::unique_ptr<module_mapper_t>(
-            new test_module_mapper_t(&instrs, drcontext));
+            new test_module_mapper_t(&instrs, drcontext, mod_base));
         set_modmap_(module_mapper_.get());
     }
     raw2trace_test_t(const std::vector<std::istream *> &input,
@@ -132,14 +132,15 @@ public:
     }
     raw2trace_test_t(const std::vector<std::istream *> &input,
                      const std::vector<archive_ostream_t *> &output, instrlist_t &instrs,
-                     void *drcontext, uint64_t chunk_instr_count = 10 * 1000 * 1000)
+                     void *drcontext, uint64_t chunk_instr_count = 10 * 1000 * 1000,
+                     app_pc mod_base = nullptr)
         : raw2trace_t(nullptr, input, {}, output, INVALID_FILE, nullptr, nullptr,
                       drcontext,
                       /*verbosity=*/0, /*worker_count=*/-1,
                       /*alt_module_dir=*/"", chunk_instr_count)
     {
         module_mapper_ = std::unique_ptr<module_mapper_t>(
-            new test_module_mapper_t(&instrs, drcontext));
+            new test_module_mapper_t(&instrs, drcontext, mod_base));
         set_modmap_(module_mapper_.get());
     }
     raw2trace_test_t(const std::vector<std::istream *> &input,
@@ -361,7 +362,8 @@ run_raw2trace(void *drcontext, const std::vector<offline_entry_t> raw, instrlist
               int chunk_instr_count = 0,
               const std::vector<test_multi_module_mapper_t::bounds_t> &modules = {},
               std::unique_ptr<record_reader_t> syscall_tmpl = nullptr,
-              bool verbose = false, std::istream *v2p_file = nullptr)
+              bool verbose = false, std::istream *v2p_file = nullptr,
+              app_pc mod_base = nullptr)
 {
     // We need an istream so we use istringstream.
     std::ostringstream raw_out;
@@ -384,7 +386,8 @@ run_raw2trace(void *drcontext, const std::vector<offline_entry_t> raw, instrlist
 
         // Run raw2trace with our subclass supplying our decodings.
         // Pass in our chunk instr count.
-        raw2trace_test_t raw2trace(input, output, *ilist, drcontext, chunk_instr_count);
+        raw2trace_test_t raw2trace(input, output, *ilist, drcontext, chunk_instr_count,
+                                   mod_base);
         if (v2p_file != nullptr)
             raw2trace.set_v2p_file(v2p_file);
         std::string error = raw2trace.do_conversion();
@@ -414,7 +417,7 @@ run_raw2trace(void *drcontext, const std::vector<offline_entry_t> raw, instrlist
         output.push_back(&result_stream);
 
         // Run raw2trace with our subclass supplying our decodings.
-        raw2trace_test_t raw2trace(input, output, *ilist, drcontext);
+        raw2trace_test_t raw2trace(input, output, *ilist, drcontext, mod_base);
         if (v2p_file != nullptr)
             raw2trace.set_v2p_file(v2p_file);
         std::string error = raw2trace.do_conversion();
@@ -6418,16 +6421,31 @@ test_gpr_elision(void *drcontext)
     return true;
 }
 
-// Verifies `v2p.bin` marker injection across 7 instructions (2 per chunk):
-//
-//   v2p.bin events: t=0 map code  t=150 map data  t=250 unmap  t=350 remap  t=450 THP
-//   Trace buffers:  [Buf1 t=100]  [Buf2 t=120]   [Buf3 t=300]  [Buf4 t=500 x4]
-//   Chunks:         |------ Chunk 0 ------|      |-- Chunk 1 --|-- Chunk 2 --|-- C3 --|
-//   Expected V2P:   emit (1st)    cached (0)     remap + THP   indjmp+2page  unmapped
-bool
-test_v2p_tracefs_markers(void *drcontext)
+// Verifies `v2p.bin` marker injection across 8 instructions (2 per chunk) for a given
+// `page_size` (tested at both 4 KB and 64 KB):
+// - Buffer 1 `[TS_BUF1_OPEN=100, TS_BUF1_CLOSE=200]` (Chunk 0):
+//   - Instr 1 accesses `CODE_VPAGE` (mapped at `TS_SNAPSHOT=0`) and `DATA_ADDR`
+//     (already mapped at `TS_SNAPSHOT=0` -> `PFN_DATA_INIT`), then Instr 2 accesses
+//     unmapped `FAULT_ADDR`, whose demand fault at `TS_FAULT_MID_BUF1=160` also
+//     applies the earlier mid-buffer Copy-on-Write event on `DATA_VPAGE` at
+//     `TS_COW_MID_BUF1=140` (`PFN_DATA_COW`).
+// - Buffer 2 `[TS_BUF2_OPEN=300, TS_BUF2_CLOSE=400]` (Chunk 1):
+//   - A background THP collapse occurs mid-buffer at `TS_THP_MID_BUF2=350`. Because
+//     `CODE_VPAGE` and `DATA_VPAGE` are already mapped, Instr 3 and Instr 4 inside
+//     Buffer 2 keep their pre-collapse frames (`PFN_CODE_INIT` and `PFN_DATA_COW`),
+//     deferring the THP collapse until `TS_BUF2_CLOSE=400`.
+// - Buffer 3 `[TS_BUF3_OPEN=400, TS_BUF3_CLOSE=500]` (Chunks 2 & 3):
+//   - Crossing `TS_BUF3_OPEN=400` applies the THP collapse (`PFN_THP_BASE`).
+//   - Instr 5 (Chunk 2): load on `DATA_ADDR` emits new THP code & data mappings.
+//   - Instr 6 (Chunk 2): indirect jump preserves `[ENCODING, BRANCH_TARGET, INSTR]`.
+//   - Instr 7 (Chunk 3): page-straddling load emits pairs for both spanned pages.
+//   - Instr 8 (Chunk 3): access to `FUTURE_ADDR` (mapped later at `TS_FUTURE_MAP=700`
+//     beyond `TS_BUF3_CLOSE=500`) stops at `TS_BUF3_CLOSE` and emits `NOT_AVAILABLE`.
+static bool
+test_v2p_tracefs_markers_for_page_size(void *drcontext, uint64_t page_size)
 {
-    std::cerr << "\n===============\nTesting v2p.bin marker injection\n";
+    std::cerr << "\n===============\nTesting v2p.bin marker injection (page_size="
+              << page_size << ")\n";
     instrlist_t *ilist = instrlist_create(drcontext);
     instr_t *nop = XINST_CREATE_nop(drcontext);
     instr_t *load =
@@ -6440,66 +6458,94 @@ test_v2p_tracefs_markers(void *drcontext)
     size_t offs_load = offs_nop + instr_length(drcontext, nop);
     size_t offs_jump_reg = offs_load + instr_length(drcontext, load);
 
-    constexpr addr_t DATA_ADDR = 0x40018;
-    constexpr addr_t DATA_VPAGE = 0x40000;
-    constexpr addr_t STRADDLE_ADDR = 0x40ffe;
-    constexpr addr_t UNMAPPED_ADDR = 0x300020;
+    const uint64_t THP_PAGES = page_size / sizeof(uint64_t);
+    const addr_t THP_BASE_VPAGE = static_cast<addr_t>(THP_PAGES * page_size);
+    const addr_t CODE_VPAGE = static_cast<addr_t>(THP_BASE_VPAGE + 32 * page_size);
+    const addr_t DATA_VPAGE = static_cast<addr_t>(THP_BASE_VPAGE + 64 * page_size);
+    const addr_t FAULT_VPAGE = static_cast<addr_t>(THP_BASE_VPAGE + 96 * page_size);
+    const addr_t DATA_ADDR = DATA_VPAGE + 0x18;
+    const addr_t FAULT_ADDR = FAULT_VPAGE + 0x24;
+    const addr_t STRADDLE_ADDR = static_cast<addr_t>(DATA_VPAGE + page_size - 2);
+    const addr_t FUTURE_VPAGE =
+        static_cast<addr_t>(2 * THP_BASE_VPAGE + 88 * page_size);
+    const addr_t FUTURE_ADDR = FUTURE_VPAGE + 0x20;
 
-    // Build a synthetic `v2p.bin` stream in memory with map, CoW overwrite, and 2 MB
-    // THP collapse events.
+    constexpr uint64_t PFN_CODE_INIT = 0x100;
+    constexpr uint64_t PFN_DATA_INIT = 0x200;
+    constexpr uint64_t PFN_DATA_COW = 0x300;
+    constexpr uint64_t PFN_FAULT = 0x400;
+    const uint64_t PFN_THP_BASE = THP_PAGES;
+    const uint64_t PFN_FUTURE = 2 * THP_PAGES + 0x100;
+
+    constexpr uint64_t TS_SNAPSHOT = 0;
+    constexpr uint64_t TS_BUF1_OPEN = 100;
+    constexpr uint64_t TS_COW_MID_BUF1 = 140;
+    constexpr uint64_t TS_FAULT_MID_BUF1 = 160;
+    constexpr uint64_t TS_BUF1_CLOSE = 200;
+    constexpr uint64_t TS_BUF2_OPEN = 300;
+    constexpr uint64_t TS_THP_MID_BUF2 = 350;
+    constexpr uint64_t TS_BUF2_CLOSE = 400;
+    constexpr uint64_t TS_BUF3_OPEN = 400;
+    constexpr uint64_t TS_BUF3_CLOSE = 500;
+    constexpr uint64_t TS_FUTURE_MAP = 700;
+
     std::ostringstream v2p_out(std::ios::binary);
-    auto write_rec = [&](uint64_t ts, uint64_t va, uint64_t pa, uint32_t pages,
-                         uint32_t type) {
-        v2p_record_t r = { ts, va, pa, pages, type };
-        v2p_out.write(reinterpret_cast<const char *>(&r), sizeof(r));
+    auto write_ev = [&](uint64_t ts, uint64_t va, uint64_t pa, uint64_t pages,
+                        v2p_tracefs_event_type_t type) {
+        v2p_tracefs_event_t ev = { ts, va, pa, pages, type };
+        v2p_out.write(reinterpret_cast<const char *>(&ev), sizeof(ev));
     };
 
-    // Startup snapshot for code page 0x0 -> PFN 0x100.
-    write_rec(0, 0x0, 0x100000, 1, V2P_RECORD_MAP);
-
-    // First-touch fault at t=150 (after buffer timestamp t=100) for DATA_VPAGE ->
-    // PFN 0x200.
-    write_rec(150, DATA_VPAGE, 0x200000, 1, V2P_RECORD_MAP);
-
-    // CoW overwrite at t=280 (before buffer timestamp t=300) -> PFN 0x300.
-    write_rec(280, DATA_VPAGE, 0x300000, 1, V2P_RECORD_MAP);
-
-    // khugepaged 2 MB collapse at t=450 covering 0x0..0x200000 -> base PFN 0x800
-    // (so DATA_VPAGE = 0x40000 maps to PFN 0x840 = paddr 0x840000).
-    write_rec(450, 0x0, 0x800000, 512, V2P_RECORD_MAP);
-    write_rec(0, 0, 0, 0, V2P_RECORD_END);
+    write_ev(TS_SNAPSHOT, CODE_VPAGE, PFN_CODE_INIT * page_size, 1,
+             V2P_TRACEFS_EVENT_MAP);
+    write_ev(TS_SNAPSHOT, DATA_VPAGE, PFN_DATA_INIT * page_size, 1,
+             V2P_TRACEFS_EVENT_MAP);
+    write_ev(TS_COW_MID_BUF1, DATA_VPAGE, PFN_DATA_COW * page_size, 1,
+             V2P_TRACEFS_EVENT_MAP);
+    write_ev(TS_FAULT_MID_BUF1, FAULT_VPAGE, PFN_FAULT * page_size, 1,
+             V2P_TRACEFS_EVENT_MAP);
+    write_ev(TS_THP_MID_BUF2, THP_BASE_VPAGE, PFN_THP_BASE * page_size, THP_PAGES,
+             V2P_TRACEFS_EVENT_MAP);
+    write_ev(TS_FUTURE_MAP, FUTURE_VPAGE, PFN_FUTURE * page_size, 1,
+             V2P_TRACEFS_EVENT_MAP);
+    write_ev(0, 0, 0, 0, V2P_TRACEFS_EVENT_END);
     std::istringstream v2p_in(v2p_out.str(), std::ios::binary);
 
-    // Build the raw offline trace across 4 timestamped trace buffers.
     std::vector<offline_entry_t> raw;
     raw.push_back(make_header());
     raw.push_back(make_tid());
     raw.push_back(make_pid());
     raw.push_back(make_line_size());
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, page_size));
 
-    // Buffer 1 at t=100: first touch of code (0x0) and DATA_ADDR (0x40018).
-    raw.push_back(make_timestamp(100));
+    // Buffer 1 `[TS_BUF1_OPEN, TS_BUF1_CLOSE]`: Instr 1 reads `DATA_ADDR` (still
+    // `PFN_DATA_INIT`); Instr 2 faults on `FAULT_ADDR`, applying the earlier
+    // `TS_COW_MID_BUF1` (`DATA_VPAGE -> PFN_DATA_COW`) event as well.
+    raw.push_back(make_timestamp(TS_BUF1_OPEN));
     raw.push_back(make_core());
     raw.push_back(make_block(offs_load, 1));
     raw.push_back(make_memref(DATA_ADDR));
+    raw.push_back(make_block(offs_load, 1));
+    raw.push_back(make_memref(FAULT_ADDR));
+    raw.push_back(make_timestamp(TS_BUF1_CLOSE));
+    raw.push_back(make_core());
 
-    // Buffer 2 at t=120 (< 280): hits cached mapping for both code and DATA_ADDR.
-    raw.push_back(make_timestamp(120));
+    // Buffer 2 `[TS_BUF2_OPEN, TS_BUF2_CLOSE]`: Instr 3 reads `DATA_ADDR` (now seeing
+    // `PFN_DATA_COW`, while `TS_THP_MID_BUF2=350` is deferred until `TS_BUF2_CLOSE`);
+    // Instr 4 reads `DATA_ADDR` again (cached, no markers).
+    raw.push_back(make_timestamp(TS_BUF2_OPEN));
     raw.push_back(make_core());
     raw.push_back(make_block(offs_load, 1));
     raw.push_back(make_memref(DATA_ADDR));
-
-    // Buffer 3 at t=300 (after CoW overwrite at 280 -> PFN 0x300).
-    raw.push_back(make_timestamp(300));
-    raw.push_back(make_core());
     raw.push_back(make_block(offs_load, 1));
     raw.push_back(make_memref(DATA_ADDR));
+    raw.push_back(make_timestamp(TS_BUF2_CLOSE));
+    raw.push_back(make_core());
 
-    // Buffer 4 at t=500 (after 2 MB collapse at 450 -> code PFN 0x800, data PFN 0x840,
-    // an indirect jump whose `[ENCODING, BRANCH_TARGET, INSTR_INDIRECT_JUMP]` packet
-    // must remain unbroken, a page-straddling load spanning 0x40000 and 0x41000, and an
-    // unmapped load to UNMAPPED_ADDR).
-    raw.push_back(make_timestamp(500));
+    // Buffer 3 `[TS_BUF3_OPEN, TS_BUF3_CLOSE]`: THP collapse (`TS_THP_MID_BUF2=350 <=
+    // TS_BUF3_OPEN=400`) is now active; exercises indirect jump, page-straddling load,
+    // and bounded lookahead stopping before `TS_FUTURE_MAP=700`.
+    raw.push_back(make_timestamp(TS_BUF3_OPEN));
     raw.push_back(make_core());
     raw.push_back(make_block(offs_load, 1));
     raw.push_back(make_memref(DATA_ADDR));
@@ -6507,80 +6553,203 @@ test_v2p_tracefs_markers(void *drcontext)
     raw.push_back(make_block(offs_load, 1));
     raw.push_back(make_memref(STRADDLE_ADDR));
     raw.push_back(make_block(offs_load, 1));
-    raw.push_back(make_memref(UNMAPPED_ADDR));
+    raw.push_back(make_memref(FUTURE_ADDR));
+    raw.push_back(make_block(offs_load, 1));
+    raw.push_back(make_memref(FUTURE_ADDR));
+    raw.push_back(make_block(offs_load, 1));
+    raw.push_back(make_memref(FUTURE_ADDR));
+    raw.push_back(make_timestamp(TS_BUF3_CLOSE));
+    raw.push_back(make_core());
     raw.push_back(make_exit());
 
-    // Run raw2trace with `chunk_instr_count=2` and the synthetic `v2p.bin` stream.
     std::vector<trace_entry_t> entries;
     if (!run_raw2trace(drcontext, raw, ilist, entries, nullptr,
-                       /*chunk_instr_count=*/2, {}, nullptr, /*verbose=*/false,
-                       &v2p_in)) {
+                       /*chunk_instr_count=*/2, {}, nullptr, /*verbose=*/false, &v2p_in,
+                       reinterpret_cast<app_pc>(CODE_VPAGE))) {
         return false;
     }
 
-    // Extract emitted V2P markers and verify indirect-branch packet integrity.
-    std::vector<std::pair<addr_t, addr_t>> phys_virt_pairs;
-    std::vector<addr_t> not_avail_addrs;
-    bool seen_branch_target = false;
-    for (size_t i = 0; i < entries.size(); ++i) {
-        if (entries[i].type == TRACE_TYPE_MARKER &&
-            entries[i].size == TRACE_MARKER_TYPE_BRANCH_TARGET) {
-            if (i == 0 || i + 1 >= entries.size() ||
-                entries[i - 1].type != TRACE_TYPE_ENCODING ||
-                entries[i + 1].type != TRACE_TYPE_INSTR_INDIRECT_JUMP) {
-                return false;
-            }
-            seen_branch_target = true;
-        } else if (entries[i].type == TRACE_TYPE_MARKER &&
-                   entries[i].size == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS) {
-            if (i + 1 >= entries.size() || entries[i + 1].type != TRACE_TYPE_MARKER ||
-                entries[i + 1].size != TRACE_MARKER_TYPE_VIRTUAL_ADDRESS) {
-                return false;
-            }
+    const addr_t pc_load = CODE_VPAGE + offs_load;
+    const addr_t pc_jump = CODE_VPAGE + offs_jump_reg;
+    const addr_t pa_code_init =
+        static_cast<addr_t>(PFN_CODE_INIT * page_size + offs_load);
+    const addr_t pa_code_thp_load =
+        static_cast<addr_t>((PFN_THP_BASE + 32) * page_size + offs_load);
+    const addr_t pa_data_init = static_cast<addr_t>(PFN_DATA_INIT * page_size + 0x18);
+    const addr_t pa_data_cow = static_cast<addr_t>(PFN_DATA_COW * page_size + 0x18);
+    const addr_t pa_fault = static_cast<addr_t>(PFN_FAULT * page_size + 0x24);
+    const addr_t pa_data_thp =
+        static_cast<addr_t>((PFN_THP_BASE + 64) * page_size + 0x18);
+    const addr_t pa_straddle_p0 =
+        static_cast<addr_t>((PFN_THP_BASE + 64) * page_size + page_size - 2);
+    const addr_t pa_straddle_p1 = static_cast<addr_t>((PFN_THP_BASE + 65) * page_size);
+    const addr_t va_straddle_p1 = static_cast<addr_t>(DATA_VPAGE + page_size);
 
-            // Bottom 12 bits of physical and virtual must match (invariant_checker
-            // rule).
-            if ((entries[i].addr & 0xfff) != (entries[i + 1].addr & 0xfff))
-                return false;
-            addr_t phys_addr = entries[i].addr;
-            addr_t virt_addr = entries[i + 1].addr;
-            phys_virt_pairs.push_back(std::make_pair(phys_addr, virt_addr));
-        } else if (entries[i].type == TRACE_TYPE_MARKER &&
-                   entries[i].size == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE) {
-            addr_t unmapped_addr = entries[i].addr;
-            not_avail_addrs.push_back(unmapped_addr);
-        }
-    }
+    int idx = 0;
+    return (
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PAGE_SIZE,
+                    page_size) &&
+        // Chunk #0 (Buffer 1 `[TS_BUF1_OPEN, TS_BUF1_CLOSE]`):
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                    TS_BUF1_OPEN) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // Instr 1: load `DATA_ADDR` using initial snapshot mappings.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS,
+                    pa_code_init) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS,
+                    pc_load) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, pc_load) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS,
+                    pa_data_init) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS,
+                    DATA_ADDR) &&
+        check_entry(entries, idx, TRACE_TYPE_READ, sizeof(void *), DATA_ADDR) &&
+        // Instr 2: unmapped miss on `FAULT_ADDR` advances through `TS_FAULT_MID_BUF1`
+        // (applying `TS_COW_MID_BUF1` on `DATA_VPAGE` too).
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, pc_load) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS,
+                    pa_fault) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS,
+                    FAULT_ADDR) &&
+        check_entry(entries, idx, TRACE_TYPE_READ, sizeof(void *), FAULT_ADDR) &&
+        // `raw2trace` opens the next chunk at the end of a non-delayed-branch block
+        // once `cur_chunk_instr_count == chunk_instr_count_`, repeating the active
+        // timestamp (`TS_BUF1_OPEN`) and CPU header before Buffer 1's closing markers.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER) &&
+        // Chunk #1 (Buffer 1 close + Buffer 2 `[TS_BUF2_OPEN, TS_BUF2_CLOSE]`):
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                    TS_BUF1_OPEN) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                    TS_BUF1_CLOSE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                    TS_BUF2_OPEN) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // Instr 3: new chunk re-emits code (`PFN_CODE_INIT`) and rolled-forward CoW
+        // data (`PFN_DATA_COW`), while `TS_THP_MID_BUF2=350` waits until `TS_BUF2_CLOSE`.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS,
+                    pa_code_init) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS,
+                    pc_load) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, pc_load) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS,
+                    pa_data_cow) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS,
+                    DATA_ADDR) &&
+        check_entry(entries, idx, TRACE_TYPE_READ, sizeof(void *), DATA_ADDR) &&
+        // Instr 4: cached within Chunk #1 (THP collapse still deferred to buffer end).
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, pc_load) &&
+        check_entry(entries, idx, TRACE_TYPE_READ, sizeof(void *), DATA_ADDR) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER) &&
+        // Chunk #2 (Buffer 2 close + Buffer 3 `[TS_BUF3_OPEN, TS_BUF3_CLOSE]`):
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                    TS_BUF2_OPEN) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                    TS_BUF2_CLOSE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                    TS_BUF3_OPEN) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // Instr 5: THP collapse applied at `TS_BUF3_OPEN=400`.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS,
+                    pa_code_thp_load) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS,
+                    pc_load) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, pc_load) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS,
+                    pa_data_thp) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS,
+                    DATA_ADDR) &&
+        check_entry(entries, idx, TRACE_TYPE_READ, sizeof(void *), DATA_ADDR) &&
+        // Instr 6: indirect jump on the same code page keeps `[ENCODING, BRANCH_TARGET,
+        // INSTR_INDIRECT_JUMP]` intact (target resolved from next block `pc_load`).
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET,
+                    pc_load) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR_INDIRECT_JUMP, -1, pc_jump) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER) &&
+        // Chunk #3 (remainder of Buffer 3):
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                    TS_BUF3_OPEN) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // Instr 7: page-straddling load emits markers for both spanned pages.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS,
+                    pa_code_thp_load) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS,
+                    pc_load) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, pc_load) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS,
+                    pa_straddle_p0) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS,
+                    STRADDLE_ADDR) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS,
+                    pa_straddle_p1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS,
+                    va_straddle_p1) &&
+        check_entry(entries, idx, TRACE_TYPE_READ, sizeof(void *), STRADDLE_ADDR) &&
+        // Instr 8: access to FUTURE_ADDR stops at TS_BUF3_CLOSE (< TS_FUTURE_MAP).
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, pc_load) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE, FUTURE_ADDR) &&
+        check_entry(entries, idx, TRACE_TYPE_READ, sizeof(void *), FUTURE_ADDR) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER) &&
+        // Chunk #4 (repeated unmapped access in Buffer 3 + trailing exit markers):
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                    TS_BUF3_OPEN) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // Instr 9 & 10: first access to FUTURE_ADDR in Chunk #4 emits NOT_AVAILABLE once,
+        // while the second access in the same chunk/buffer suppresses duplicate
+        // NOT_AVAILABLE output via unmapped_pages_in_buffer.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS,
+                    pa_code_thp_load) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS,
+                    pc_load) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, pc_load) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE, FUTURE_ADDR) &&
+        check_entry(entries, idx, TRACE_TYPE_READ, sizeof(void *), FUTURE_ADDR) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, pc_load) &&
+        check_entry(entries, idx, TRACE_TYPE_READ, sizeof(void *), FUTURE_ADDR) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER) &&
+        // Chunk #5 (trailing buffer-close markers and thread exit):
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                    TS_BUF3_OPEN) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                    TS_BUF3_CLOSE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1) &&
+        idx == static_cast<int>(entries.size()));
+}
 
-    // Verify expected pairs across the 7 instructions (with chunk_instr_count=2):
-    // - Instr 1 (t=100, chunk 0): code -> 0x100000 | offs_load, data -> 0x200018
-    // - Instr 2 (t=120, chunk 0): cached (no markers)
-    // - Instr 3 (t=300, chunk 1): new chunk re-emits code -> 0x100000 | offs_load,
-    //   and munmap+reuse remaps data -> 0x300018
-    // - Instr 4 (t=500, chunk 1): 2 MB collapse remaps code -> 0x800000 | offs_load,
-    //   and data -> 0x840018
-    // - Instr 5 (t=500, chunk 2): indirect jump at chunk start emits code ->
-    //   0x800000 | offs_jump_reg before `[ENCODING, BRANCH_TARGET, INSTR_INDIRECT_JUMP]`
-    // - Instr 6 (t=500, chunk 2): page-straddling load at 0x40ffe emits pairs for both
-    //   spanned pages (0x840ffe and 0x841000)
-    // - Instr 7 (t=500, chunk 3): new chunk re-emits code -> 0x800000 | offs_load,
-    //   and UNMAPPED_ADDR emits PHYSICAL_ADDRESS_NOT_AVAILABLE.
-    if (!seen_branch_target || phys_virt_pairs.size() != 10 ||
-        not_avail_addrs.size() != 1)
-        return false;
-    return (phys_virt_pairs[0] == std::make_pair(0x100000 + offs_load, offs_load) &&
-            phys_virt_pairs[1] == std::make_pair(addr_t(0x200018), DATA_ADDR) &&
-            phys_virt_pairs[2] == std::make_pair(0x100000 + offs_load, offs_load) &&
-            phys_virt_pairs[3] == std::make_pair(addr_t(0x300018), DATA_ADDR) &&
-            phys_virt_pairs[4] == std::make_pair(0x800000 + offs_load, offs_load) &&
-            phys_virt_pairs[5] == std::make_pair(addr_t(0x840018), DATA_ADDR) &&
-            phys_virt_pairs[6] ==
-                std::make_pair(0x800000 + offs_jump_reg, offs_jump_reg) &&
-            phys_virt_pairs[7] == std::make_pair(addr_t(0x840ffe), STRADDLE_ADDR) &&
-            phys_virt_pairs[8] ==
-                std::make_pair(addr_t(0x841000), addr_t(DATA_VPAGE + 0x1000)) &&
-            phys_virt_pairs[9] == std::make_pair(0x800000 + offs_load, offs_load) &&
-            not_avail_addrs[0] == UNMAPPED_ADDR);
+bool
+test_v2p_tracefs_markers(void *drcontext)
+{
+    constexpr uint64_t PAGE_SIZE_4K = 4096;
+    constexpr uint64_t PAGE_SIZE_64K = 65536;
+    return test_v2p_tracefs_markers_for_page_size(drcontext, PAGE_SIZE_4K) &&
+        test_v2p_tracefs_markers_for_page_size(drcontext, PAGE_SIZE_64K);
 }
 
 int

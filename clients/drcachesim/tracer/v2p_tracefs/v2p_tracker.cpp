@@ -32,29 +32,21 @@
 
 #include "v2p_tracker.h"
 
-#if defined(LINUX) && (defined(X64) || defined(__x86_64__) || defined(__aarch64__)) && \
-    !defined(RISCV64) && !defined(__riscv)
-
-#    include <algorithm>
-#    include <ctype.h>
-#    include <errno.h>
-#    include <fcntl.h>
-#    include <inttypes.h>
-#    include <poll.h>
-#    include <stdio.h>
-#    include <stdlib.h>
-#    include <string.h>
-#    include <sys/mman.h>
-#    include <sys/stat.h>
-#    include <sys/syscall.h>
-#    include <sys/utsname.h>
-#    include <sys/wait.h>
-#    include <time.h>
-#    include <unistd.h>
-
-#    ifndef __WCLONE
-#        define __WCLONE 0x80000000
-#    endif
+#include <algorithm>
+#include <ctype.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <inttypes.h>
+#include <poll.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/syscall.h>
+#include <sys/utsname.h>
+#include <time.h>
+#include <unistd.h>
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -64,20 +56,17 @@ namespace {
  * Pagemap, Tracefs Control & Output Record Helpers
  * ------------------------------------------------------------------------- */
 
-constexpr uint64_t kPageSize4K = 4096;
-constexpr uint64_t kPageSize2M = 2 * 1024 * 1024;
-constexpr uint32_t kPagesPer2M = 512;
 // `log2(sizeof(struct page))` for Linux's standard 64-byte `struct page` descriptor.
-constexpr uint64_t kStructPageShift = 6;
+constexpr uint64_t STRUCT_PAGE_SHIFT = 6;
 
 // Offset between Unix epoch (1970) and Windows FILETIME epoch (1601) used by DR
 // raw trace timestamps (`instru_t::get_timestamp()`).
-constexpr uint64_t kDrUtcToEpochMicros = 11644473600ULL * 1000000ULL;
+constexpr uint64_t DR_UTC_TO_EPOCH_MICROS = 11644473600ULL * 1000000ULL;
 
 // `/proc/<pid>/pagemap` entry bits and `/proc/kpageflags` (`KPF_THP`) bit mask.
-constexpr uint64_t kPagemapPresentBit = 1ULL << 63;
-constexpr uint64_t kPagemapPfnMask = (1ULL << 55) - 1;
-constexpr uint64_t kKpfThp = 1ULL << 22;
+constexpr uint64_t PAGEMAP_PRESENT_BIT = 1ULL << 63;
+constexpr uint64_t PAGEMAP_PFN_MASK = (1ULL << 55) - 1;
+constexpr uint64_t KPF_THP_BIT = 1ULL << 22;
 
 // Writes `val` to a tracefs control file at `path` (truncating or appending).
 bool
@@ -113,30 +102,30 @@ posix_close_file(file_t f)
     close(f);
 }
 
-// Allocates one temporary 4 KB anonymous page via raw `SYS_mmap` (bypassing DR's heap
+// Allocates one temporary anonymous page via raw `SYS_mmap` (bypassing DR's heap
 // and syscall wrappers); returns `nullptr` on raw kernel `-errno` (`-4095..-1`).
 void *
-mmap_temp_page(int prot)
+mmap_temp_page(uint64_t page_size, int prot)
 {
     long ret =
-        syscall(SYS_mmap, nullptr, kPageSize4K, prot, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        syscall(SYS_mmap, nullptr, page_size, prot, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     return (ret <= 0 && ret >= -4095L) ? nullptr : reinterpret_cast<void *>(ret);
 }
 
 // Reads `/proc/<pid>/pagemap` for `vaddr` and returns its resident PFN, or 0 if absent.
 uint64_t
-lookup_pagemap_pfn(pid_t pid, uint64_t vaddr)
+lookup_pagemap_pfn(pid_t pid, uint64_t vaddr, uint64_t page_size)
 {
     int fd =
         open(("/proc/" + std::to_string(pid) + "/pagemap").c_str(), O_RDONLY | O_CLOEXEC);
     if (fd < 0)
         return 0;
     uint64_t entry = 0;
-    off_t off = static_cast<off_t>((vaddr / kPageSize4K) * sizeof(uint64_t));
+    off_t off = static_cast<off_t>((vaddr / page_size) * sizeof(uint64_t));
     bool ok = pread(fd, &entry, sizeof(entry), off) == sizeof(entry) &&
-        (entry & kPagemapPresentBit) != 0;
+        (entry & PAGEMAP_PRESENT_BIT) != 0;
     close(fd);
-    return ok ? (entry & kPagemapPfnMask) : 0;
+    return ok ? (entry & PAGEMAP_PFN_MASK) : 0;
 }
 
 // Parses an unsigned 64-bit integer value following whitespace-bounded `key` in `line`.
@@ -183,18 +172,24 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
     write_file_func_ = write_file_func;
     close_file_func_ = close_file_func;
     pipe_remainder_.clear();
-    shadow_pages_.clear();
+    current_page_table_.clear();
 
     if (open_file_func_ == nullptr || write_file_func_ == nullptr ||
         close_file_func_ == nullptr) {
         return false;
     }
 
-    // Require 4 KB base pages and at least Linux version 5.4.
+    // Query the dynamic OS base page size (e.g., 4 KB or 64 KB on ARM64) and PMD THP
+    // span (`page_size / 8` PTE entries per PMD page table = 2 MB on 4 KB, 512 MB on
+    // 64 KB), and require at least Linux version 5.4.
+    page_size_ = dr_page_size();
+    if (page_size_ < sizeof(uint64_t) || !IS_POWER_OF_2(page_size_))
+        return false;
+    pmd_pages_ = page_size_ / sizeof(uint64_t);
+    pmd_size_ = pmd_pages_ * page_size_;
     int kmaj = 0, kmin = 0;
     struct utsname uts = {};
-    if (dr_page_size() != kPageSize4K || uname(&uts) != 0 ||
-        sscanf(uts.release, "%d.%d", &kmaj, &kmin) != 2 ||
+    if (uname(&uts) != 0 || sscanf(uts.release, "%d.%d", &kmaj, &kmin) != 2 ||
         (kmaj < 5 || (kmaj == 5 && kmin < 4))) {
         return false;
     }
@@ -258,22 +253,22 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
         clock_gettime(CLOCK_REALTIME, &real_ts) != 0) {
         return fail();
     }
-    clock_offset_us_ =
-        (real_ts.tv_sec * 1000000ULL + real_ts.tv_nsec / 1000ULL + kDrUtcToEpochMicros) -
+    clock_offset_us_ = (real_ts.tv_sec * 1000000ULL + real_ts.tv_nsec / 1000ULL +
+                        DR_UTC_TO_EPOCH_MICROS) -
         (clk_ts.tv_sec * 1000000ULL + clk_ts.tv_nsec / 1000ULL);
 
     // Register kprobes for all anonymous page-table installations:
-    //   - `anon_new` (`folio_add_new_anon_rmap`, or legacy `page_add_new_anon_rmap`):
-    //     newly allocated anonymous memory, covering 4 KB and 2 MB first-touch demand
-    //     faults, Copy-on-Write allocations, and background `khugepaged` (or
-    //     `MADV_COLLAPSE`) 2 MB THP collapses. There is no separate `khugepaged` probe
-    //     because `khugepaged` allocates a fresh 2 MB page, copies the 512 4 KB pages
-    //     into it, and registers it through this same entry point from the `khugepaged`
-    //     kernel thread (captured via the `mm == tracked_mm_` filter below).
-    //   - `anon_ptes` (`folio_add_anon_rmap_ptes`, or legacy `page_add_anon_rmap`) and
-    //     `anon_pmd` (`folio_add_anon_rmap_pmd`): already-allocated anonymous 4 KB
-    //     pages or 2 MB THPs being mapped into the page table (such as swap-in, KSM
-    //     deduplication, or remapping an existing 2 MB THP across `fork` or migration).
+    //   - anon_new (folio_add_new_anon_rmap, or legacy page_add_new_anon_rmap):
+    //     newly allocated anonymous memory, covering base-page and PMD THP first-touch
+    //     demand faults, Copy-on-Write allocations, and background khugepaged (or
+    //     MADV_COLLAPSE) PMD THP collapses. There is no separate khugepaged probe
+    //     because khugepaged allocates a fresh PMD huge page, copies the constituent
+    //     base pages into it, and registers it through this same entry point from the
+    //     khugepaged kernel thread (captured via the mm == tracked_mm_ filter below).
+    //   - anon_ptes (folio_add_anon_rmap_ptes, or legacy page_add_anon_rmap) and
+    //     anon_pmd (folio_add_anon_rmap_pmd): already-allocated anonymous base pages
+    //     or PMD THPs being mapped into the page table (such as swap-in, KSM
+    //     deduplication, or remapping an existing PMD THP across fork or migration).
     // On Linux 6.1+ (Maple Tree VMA layout), `vm_area_struct::vm_mm` is at `+16`; on
     // Linux 5.4-5.19 (rbtree VMA layout), `vm_area_struct::vm_mm` is at `+64`.
     const std::string mm_off = (kmaj > 6 || (kmaj == 6 && kmin >= 1)) ? "+16" : "+64";
@@ -333,10 +328,10 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
 
     snapshot_pagemap();
 
-    // Spawn the background client reader thread to drain `trace_pipe_fd_` continuously.
+    // Spawn the background client reader thread to drain trace_pipe_fd_ continuously.
     reader_tid_.store(0, std::memory_order_relaxed);
     stop_requested_.store(false, std::memory_order_relaxed);
-    thread_exited_.store(false, std::memory_order_relaxed);
+    thread_drained_.store(false, std::memory_order_relaxed);
     thread_running_.store(true, std::memory_order_release);
     running_.store(true, std::memory_order_release);
     if (!dr_create_client_thread(&v2p_tracker_t::reader_thread_entry, this)) {
@@ -354,9 +349,9 @@ v2p_tracker_t::start(pid_t pid, const std::string &output_path, uint32_t buffer_
 //     number (`page_ptr = vmemmap_base + pfn * 64`). Because KASLR randomizes where that
 //     array starts on every boot, we must measure `vmemmap_base_` at runtime to convert
 //     any hooked page pointer into a physical address.
-//   - How we measure it: fault one temporary 4 KB page on this thread to observe both
-//     its kernel `page=` pointer (from `anon_new`) and its physical frame number (from
-//     `/proc/self/pagemap`), giving `vmemmap_base_ = page_ptr - pfn * 64`.
+//   - How we measure it: fault one temporary base page on this thread to observe both
+//     its kernel page= pointer (from anon_new) and its physical frame number (from
+//     /proc/self/pagemap), giving vmemmap_base_ = page_ptr - pfn * 64.
 bool
 v2p_tracker_t::calibrate_vmemmap_base()
 {
@@ -369,16 +364,16 @@ v2p_tracker_t::calibrate_vmemmap_base()
         return false;
     }
 
-    // Trigger a single 4 KB write fault, freeze `tracing_on` immediately, and look up
+    // Trigger a single write fault, freeze `tracing_on` immediately, and look up
     // the resulting PFN in `/proc/self/pagemap` before unmapping the temporary page.
-    void *cal_page = mmap_temp_page(PROT_READ | PROT_WRITE);
+    void *cal_page = mmap_temp_page(page_size_, PROT_READ | PROT_WRITE);
     uint64_t cal_addr = reinterpret_cast<uint64_t>(cal_page);
     uint64_t cal_pfn = 0;
     if (cal_page != nullptr) {
         *static_cast<volatile uint8_t *>(cal_page) = 1;
         write_tracefs_file(instance_dir_ + "/tracing_on", "0");
-        cal_pfn = lookup_pagemap_pfn(getpid(), cal_addr);
-        syscall(SYS_munmap, cal_page, kPageSize4K);
+        cal_pfn = lookup_pagemap_pfn(getpid(), cal_addr, page_size_);
+        syscall(SYS_munmap, cal_page, page_size_);
     } else {
         write_tracefs_file(instance_dir_ + "/tracing_on", "0");
     }
@@ -394,12 +389,12 @@ v2p_tracker_t::calibrate_vmemmap_base()
 
     uint64_t page = 0, mm = 0, va = 0;
     if (cal_pfn != 0 && extract_u64_field(buf, "vaddr=", va, 16, 0) &&
-        (va & ~(kPageSize4K - 1)) == cal_addr &&
+        ALIGN_BACKWARD(va, page_size_) == cal_addr &&
         extract_u64_field(buf, "page=", page, 16, 0) &&
         extract_u64_field(buf, "mm=", mm, 16, 0) && (mm >> 63) != 0 &&
-        page > (cal_pfn << kStructPageShift)) {
-        uint64_t base = page - (cal_pfn << kStructPageShift);
-        if ((base >> 63) != 0 && (base & ((1ULL << kStructPageShift) - 1)) == 0) {
+        page > (cal_pfn << STRUCT_PAGE_SHIFT)) {
+        uint64_t base = page - (cal_pfn << STRUCT_PAGE_SHIFT);
+        if ((base >> 63) != 0 && (base & ((1ULL << STRUCT_PAGE_SHIFT) - 1)) == 0) {
             vmemmap_base_ = base;
             tracked_mm_ = mm;
         }
@@ -407,7 +402,7 @@ v2p_tracker_t::calibrate_vmemmap_base()
     return vmemmap_base_ != 0 && tracked_mm_ != 0;
 }
 
-// Snapshots already-resident 4 KB and 2 MB THP mappings from `/proc/<pid>/smaps` (or
+// Snapshots already-resident base-page and PMD THP mappings from `/proc/<pid>/smaps` (or
 // `maps`), `/proc/<pid>/pagemap`, and `/proc/kpageflags` at timestamp 0.
 void
 v2p_tracker_t::snapshot_pagemap()
@@ -421,7 +416,7 @@ v2p_tracker_t::snapshot_pagemap()
     int kpf_fd = open("/proc/kpageflags", O_RDONLY | O_CLOEXEC);
 
     // Step 1: Collect user-space VMAs and note which VMAs have PMD-mapped THPs in
-    // `smaps` (falling back to checking every 2 MB contiguous run when `smaps` is
+    // `smaps` (falling back to checking every PMD-sized contiguous run when `smaps` is
     // unavailable).
     struct vma_desc_t {
         uint64_t start = 0;
@@ -446,48 +441,48 @@ v2p_tracker_t::snapshot_pagemap()
         }
     }
 
-    // Step 2: Read `pagemap` in up to 2 MB-aligned batches across each VMA so pre-
-    // existing 2 MB THP PMDs are recorded as `is_huge_2m` spans (matching subsequent
-    // `__split_huge_pmd` events) before falling back to per-4 KB PTE bindings.
-    uint64_t entries[kPagesPer2M];
+    // Step 2: Read `pagemap` in up to PMD-aligned batches across each VMA so pre-
+    // existing PMD THP mappings are recorded as contiguous multi-page spans before
+    // falling back to per-page PTE bindings.
+    std::vector<uint64_t> entries(pmd_pages_);
     for (const vma_desc_t &vma : vmas) {
         for (uint64_t va = vma.start; va < vma.end;) {
             uint64_t batch_end =
-                std::min(vma.end, (va + kPageSize2M) & ~(kPageSize2M - 1));
-            ssize_t bytes =
-                pread(pm_fd, entries, ((batch_end - va) / kPageSize4K) * sizeof(uint64_t),
-                      static_cast<off_t>((va / kPageSize4K) * sizeof(uint64_t)));
+                std::min(vma.end, ALIGN_BACKWARD(va + pmd_size_, pmd_size_));
+            ssize_t bytes = pread(
+                pm_fd, entries.data(), ((batch_end - va) / page_size_) * sizeof(uint64_t),
+                static_cast<off_t>((va / page_size_) * sizeof(uint64_t)));
             if (bytes <= 0)
                 break;
             size_t n = static_cast<size_t>(bytes) / sizeof(uint64_t);
 
-            // Check whether this batch is a 2 MB-aligned run of 512 contiguous PFNs
-            // backed by a `KPF_THP` compound page.
-            uint64_t base_pfn = entries[0] & kPagemapPfnMask;
+            // Check whether this batch is a PMD-aligned run of `pmd_pages_` contiguous
+            // PFNs backed by a `KPF_THP` compound page.
+            uint64_t base_pfn = entries[0] & PAGEMAP_PFN_MASK;
             uint64_t kpf = 0;
-            bool is_2m_contig = n == kPagesPer2M && (va & (kPageSize2M - 1)) == 0 &&
-                (entries[0] & kPagemapPresentBit) != 0 && base_pfn != 0 &&
-                (base_pfn & (kPagesPer2M - 1)) == 0;
-            for (size_t i = 1; is_2m_contig && i < kPagesPer2M; ++i) {
-                is_2m_contig = (entries[i] & kPagemapPresentBit) != 0 &&
-                    (entries[i] & kPagemapPfnMask) == base_pfn + i;
+            bool is_pmd_contig = n == pmd_pages_ && (va & (pmd_size_ - 1)) == 0 &&
+                (entries[0] & PAGEMAP_PRESENT_BIT) != 0 && base_pfn != 0 &&
+                (base_pfn & (pmd_pages_ - 1)) == 0;
+            for (size_t i = 1; is_pmd_contig && i < pmd_pages_; ++i) {
+                is_pmd_contig = (entries[i] & PAGEMAP_PRESENT_BIT) != 0 &&
+                    (entries[i] & PAGEMAP_PFN_MASK) == base_pfn + i;
             }
-            if (is_2m_contig && vma.has_pmd_thp && kpf_fd >= 0 &&
+            if (is_pmd_contig && vma.has_pmd_thp && kpf_fd >= 0 &&
                 pread(kpf_fd, &kpf, sizeof(kpf),
                       static_cast<off_t>(base_pfn * sizeof(uint64_t))) == sizeof(kpf) &&
-                (kpf & kKpfThp) != 0) {
-                bind_pages(0, va, base_pfn * kPageSize4K, kPagesPer2M);
-                va += kPageSize2M;
+                (kpf & KPF_THP_BIT) != 0) {
+                bind_pages(0, va, base_pfn * page_size_, pmd_pages_);
+                va += pmd_size_;
                 continue;
             }
 
-            // Otherwise bind each resident 4 KB page in the batch individually.
+            // Otherwise bind each resident base page in the batch individually.
             for (size_t i = 0; i < n; ++i) {
-                uint64_t pfn = entries[i] & kPagemapPfnMask;
-                if ((entries[i] & kPagemapPresentBit) != 0 && pfn != 0)
-                    bind_pages(0, va + i * kPageSize4K, pfn * kPageSize4K, 1);
+                uint64_t pfn = entries[i] & PAGEMAP_PFN_MASK;
+                if ((entries[i] & PAGEMAP_PRESENT_BIT) != 0 && pfn != 0)
+                    bind_pages(0, va + i * page_size_, pfn * page_size_, 1);
             }
-            va += n * kPageSize4K;
+            va += n * page_size_;
         }
     }
 
@@ -500,44 +495,47 @@ v2p_tracker_t::snapshot_pagemap()
     flush_out_buf();
 }
 
-// Updates `shadow_pages_` for `[aligned_vaddr, +page_count * 4 KB)` and writes a
-// `V2P_RECORD_MAP` record whenever at least one covered 4 KB page changed physical frame.
+// Updates current_page_table_ for [aligned_vaddr, +page_count * page_size_) and writes
+// a V2P_TRACEFS_EVENT_MAP event whenever at least one covered base page changed
+// physical frame.
 void
 v2p_tracker_t::bind_pages(uint64_t timestamp_us, uint64_t aligned_vaddr,
-                          uint64_t aligned_paddr, uint32_t page_count)
+                          uint64_t aligned_paddr, uint64_t page_count)
 {
+    if (page_count == 0)
+        return;
     bool changed = false;
-    for (uint32_t i = 0; i < page_count; ++i) {
-        uint64_t va = aligned_vaddr + static_cast<uint64_t>(i) * kPageSize4K;
-        uint64_t pa = aligned_paddr + static_cast<uint64_t>(i) * kPageSize4K;
-        auto it = shadow_pages_.find(va);
-        if (it == shadow_pages_.end() || it->second != pa) {
-            shadow_pages_[va] = pa;
+    for (uint64_t i = 0; i < page_count; ++i) {
+        uint64_t va = aligned_vaddr + i * page_size_;
+        uint64_t pa = aligned_paddr + i * page_size_;
+        auto it = current_page_table_.find(va);
+        if (it == current_page_table_.end() || it->second != pa) {
+            current_page_table_[va] = pa;
             changed = true;
         }
     }
     if (changed) {
-        emit_record(timestamp_us, aligned_vaddr, aligned_paddr, page_count,
-                    V2P_RECORD_MAP);
+        emit_event(timestamp_us, aligned_vaddr, aligned_paddr, page_count,
+                   V2P_TRACEFS_EVENT_MAP);
     }
 }
 
-// Appends a 32-byte `v2p_record_t` entry to `out_buf_`, flushing to `out_file_` when
-// the 4 KB batch buffer fills.
+// Appends a `v2p_tracefs_event_t` entry to `out_buf_`, flushing to `out_file_` when the
+// batch buffer fills.
 void
-v2p_tracker_t::emit_record(uint64_t ts, uint64_t va, uint64_t pa, uint32_t pages,
-                           uint32_t type)
+v2p_tracker_t::emit_event(uint64_t ts, uint64_t va, uint64_t pa, uint64_t pages,
+                          v2p_tracefs_event_type_t type)
 {
     if (out_file_ == INVALID_FILE)
         return;
     out_buf_[out_buf_count_++] = { ts, va, pa, pages, type };
-    if (out_buf_count_ == kOutBufCap)
+    if (out_buf_count_ == OUT_BUF_CAP)
         flush_out_buf();
 }
 
-// Flushes buffered `v2p_record_t` entries through `write_file_func_`, preserving
+// Flushes buffered `v2p_tracefs_event_t` entries through `write_file_func_`, preserving
 // `errno` across replaceable client file callbacks and retrying on `EINTR` or short
-// writes so fixed-stride binary records are never misaligned.
+// writes so fixed-stride binary events are never misaligned.
 void
 v2p_tracker_t::flush_out_buf()
 {
@@ -547,7 +545,7 @@ v2p_tracker_t::flush_out_buf()
     }
     const int saved_errno = errno;
     const char *ptr = reinterpret_cast<const char *>(out_buf_);
-    size_t rem = out_buf_count_ * sizeof(v2p_record_t);
+    size_t rem = out_buf_count_ * sizeof(v2p_tracefs_event_t);
     out_buf_count_ = 0;
     while (rem > 0) {
         errno = saved_errno;
@@ -589,8 +587,8 @@ v2p_tracker_t::cleanup_kernel_tracing()
     kernel_tracing_active_ = false;
 }
 
-// Stops tracefs collection, joins the reader thread to drain all buffered events, tears
-// down the kernel instance, and appends the trailing `V2P_RECORD_END` sentinel.
+// Stops tracefs collection, waits for the reader thread to drain all buffered events,
+// removes the kernel instance, and appends the trailing V2P_TRACEFS_EVENT_END sentinel.
 void
 v2p_tracker_t::stop()
 {
@@ -618,14 +616,13 @@ v2p_tracker_t::stop()
     if (kernel_tracing_active_)
         write_tracefs_file(instance_dir_ + "/tracing_on", "0");
 
-    // Signal the non-suspendable client reader thread to exit and reap its clone task.
+    // Signal the client reader thread to finish its final drain and park safely so
+    // DynamoRIO's post-exit thread synch terminates and cleans it up cleanly.
     stop_requested_.store(true, std::memory_order_release);
     if (thread_running_.exchange(false, std::memory_order_acq_rel)) {
-        while (!thread_exited_.load(std::memory_order_acquire))
+        while (!thread_drained_.load(std::memory_order_acquire))
             dr_sleep(1);
-        pid_t rtid = reader_tid_.exchange(0, std::memory_order_acq_rel);
-        while (rtid > 0 && waitpid(rtid, nullptr, __WCLONE) < 0 && errno == EINTR) {
-        }
+        reader_tid_.store(0, std::memory_order_release);
     } else if (kernel_tracing_active_) {
         drain_pipe();
     }
@@ -634,7 +631,7 @@ v2p_tracker_t::stop()
 
     // Write the end-of-stream sentinel and flush before closing `raw/v2p.bin`.
     if (out_file_ != INVALID_FILE) {
-        emit_record(0, 0, 0, 0, V2P_RECORD_END);
+        emit_event(0, 0, 0, 0, V2P_TRACEFS_EVENT_END);
         flush_out_buf();
         if (close_file_func_ != nullptr)
             close_file_func_(out_file_);
@@ -664,17 +661,23 @@ v2p_tracker_t::drain_pipe()
     flush_out_buf();
 }
 
-// Initializes offline unit-test state writing `v2p_record_t` output to `output_path`
+// Initializes offline unit-test state writing v2p_tracefs_event_t output to output_path
 // (or custom file callbacks when provided).
 bool
 v2p_tracker_t::init_for_testing(pid_t pid, const std::string &output_path,
                                 uint64_t vmemmap_base, uint64_t tracked_mm,
                                 drmemtrace_open_file_func_t open_file_func,
                                 drmemtrace_write_file_func_t write_file_func,
-                                drmemtrace_close_file_func_t close_file_func)
+                                drmemtrace_close_file_func_t close_file_func,
+                                uint64_t page_size)
 {
     stop();
+    if (page_size < sizeof(uint64_t) || !IS_POWER_OF_2(page_size))
+        return false;
     target_pid_ = pid;
+    page_size_ = page_size;
+    pmd_pages_ = page_size_ / sizeof(uint64_t);
+    pmd_size_ = pmd_pages_ * page_size_;
     vmemmap_base_ = vmemmap_base;
     tracked_mm_ = tracked_mm;
     clock_offset_us_ = 0;
@@ -683,7 +686,7 @@ v2p_tracker_t::init_for_testing(pid_t pid, const std::string &output_path,
     write_file_func_ = write_file_func != nullptr ? write_file_func : posix_write_file;
     close_file_func_ = close_file_func != nullptr ? close_file_func : posix_close_file;
     pipe_remainder_.clear();
-    shadow_pages_.clear();
+    current_page_table_.clear();
     out_file_ = open_file_func_(output_path.c_str(),
                                 DR_FILE_WRITE_OVERWRITE IF_UNIX(| DR_FILE_CLOSE_ON_FORK));
     if (out_file_ == INVALID_FILE)
@@ -694,7 +697,7 @@ v2p_tracker_t::init_for_testing(pid_t pid, const std::string &output_path,
 
 // Parses one `trace_pipe` event line (`<comm>-<tid> [<cpu>] <flags> <secs>.<usecs>:
 // anon_{new,ptes,pmd}_<pid>: ...`), filters by `tracked_mm_`, converts `page=` to its
-// physical frame via `vmemmap_base_`, and binds the 4 KB page run or 2 MB THP folio.
+// physical frame via `vmemmap_base_`, and binds the base-page run or PMD THP folio.
 void
 v2p_tracker_t::process_trace_line(const std::string &line)
 {
@@ -732,33 +735,38 @@ v2p_tracker_t::process_trace_line(const std::string &line)
         !extract_u64_field(line, "vaddr=", vaddr, 16, ev)) {
         return;
     }
-    uint64_t pfn = (page_ptr - vmemmap_base_) >> kStructPageShift;
+    uint64_t pfn = (page_ptr - vmemmap_base_) >> STRUCT_PAGE_SHIFT;
     if (pfn >= (1ULL << 52))
         return;
 
-    // Determine page count: `anon_pmd` is always a 2 MB THP collapse (`512` pages); on
-    // `anon_new` and legacy `anon_ptes`, check `comp=`, `nr=`, or `KPF_THP` in
-    // `/proc/kpageflags` on 2 MB-aligned mappings.
+    // Determine page count: `anon_pmd` is always a PMD THP collapse (`pmd_pages_`
+    // pages); on `anon_new` and legacy `anon_ptes`, check `comp=`, `nr=`, or `KPF_THP`
+    // in `/proc/kpageflags` on PMD-aligned mappings.
     uint64_t comp = 0, nr = 1;
-    bool is_2m = is_pmd;
-    if (!is_2m && is_new && !use_folio_anon_) {
-        is_2m = extract_u64_field(line, "comp=", comp, 0, ev) && comp != 0;
-    } else if (!is_2m && (!is_ptes || !extract_u64_field(line, "nr=", nr, 0, ev)) &&
-               (vaddr & (kPageSize2M - 1)) == 0 && (pfn & (kPagesPer2M - 1)) == 0 &&
+    bool is_pmd_thp = is_pmd;
+    if (!is_pmd_thp && is_new && !use_folio_anon_) {
+        is_pmd_thp = extract_u64_field(line, "comp=", comp, 0, ev) && comp != 0;
+    } else if (!is_pmd_thp && (!is_ptes || !extract_u64_field(line, "nr=", nr, 0, ev)) &&
+               (vaddr & (pmd_size_ - 1)) == 0 && (pfn & (pmd_pages_ - 1)) == 0 &&
                kpageflags_fd_ >= 0) {
         uint64_t kpf = 0;
         off_t off = static_cast<off_t>(pfn * sizeof(uint64_t));
-        is_2m = pread(kpageflags_fd_, &kpf, sizeof(kpf), off) == sizeof(kpf) &&
-            (kpf & kKpfThp) != 0;
+        is_pmd_thp = pread(kpageflags_fd_, &kpf, sizeof(kpf), off) == sizeof(kpf) &&
+            (kpf & KPF_THP_BIT) != 0;
     }
 
-    uint64_t mask = (is_2m ? kPageSize2M : kPageSize4K) - 1;
-    uint32_t pages = is_2m ? kPagesPer2M : static_cast<uint32_t>(nr);
-    bind_pages(ts_us, vaddr & ~mask, (pfn * kPageSize4K) & ~mask, pages);
+    uint64_t align_size = is_pmd_thp ? pmd_size_ : page_size_;
+    uint64_t pages = is_pmd_thp ? pmd_pages_ : nr;
+    bind_pages(ts_us, ALIGN_BACKWARD(vaddr, align_size),
+               ALIGN_BACKWARD(pfn * page_size_, align_size), pages);
 }
 
 // Entry point for the background client reader thread: marks itself non-suspendable by
-// DR synchall, excludes its own TID from tracefs, and polls `trace_pipe` until `stop()`.
+// DR synchall during tracing, excludes its own TID from tracefs, and polls trace_pipe
+// until stop(). Rather than returning at exit (where client_thread_run()'s
+// enter_threadexit() lock acquisition races against DR's post-exit
+// synch_with_threads_at_exit()), it re-enables suspension and parks in dr_sleep() so
+// DR cleanly terminates and cleans up the thread after event_exit.
 void
 v2p_tracker_t::reader_thread_entry(void *arg)
 {
@@ -775,12 +783,15 @@ v2p_tracker_t::reader_thread_entry(void *arg)
             self->drain_pipe();
     }
 
-    // Perform one final drain after `tracing_on` was set to 0 before signaling exit.
+    // Perform one final drain after tracing_on was set to 0, re-enable DR suspension,
+    // signal stop() to finish closing raw/v2p.bin, and park in dr_sleep() until DR
+    // terminates client threads after event_exit.
     self->drain_pipe();
-    self->thread_exited_.store(true, std::memory_order_release);
+    dr_client_thread_set_suspendable(true);
+    self->thread_drained_.store(true, std::memory_order_release);
+    while (true)
+        dr_sleep(1000);
 }
 
 } // namespace drmemtrace
 } // namespace dynamorio
-
-#endif /* LINUX && X64 && !RISCV64 */

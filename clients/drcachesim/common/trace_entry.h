@@ -1830,22 +1830,28 @@ constexpr int DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM = 0x0fffffff;
  */
 #define DRMEMTRACE_V2P_LOG_FILENAME "v2p.bin"
 
-/** Record types stored in #DRMEMTRACE_V2P_LOG_FILENAME. */
-enum v2p_record_type_t {
-    /** Maps one or more contiguous 4 KB virtual pages to a physical frame. */
-    V2P_RECORD_MAP = 1,
-    /** Marks the clean end of the v2p log file. */
-    V2P_RECORD_END = 4,
+// Internal tracefs mapping event types stored in DRMEMTRACE_V2P_LOG_FILENAME.
+enum v2p_tracefs_event_type_t : uint32_t {
+    // Reserved so zero-initialized memory is never mistaken for a valid event.
+    V2P_TRACEFS_EVENT_INVALID = 0,
+    // Maps one or more contiguous virtual pages (of size TRACE_MARKER_TYPE_PAGE_SIZE)
+    // to contiguous physical page frames.
+    V2P_TRACEFS_EVENT_MAP,
+    // Marks the clean end of the v2p log file.
+    V2P_TRACEFS_EVENT_END,
 };
 
-/** Fixed 32-byte record stored in #DRMEMTRACE_V2P_LOG_FILENAME. */
-struct v2p_record_t {
-    uint64_t timestamp_us; /**< Event timestamp in microseconds (0 for snapshot). */
-    uint64_t vaddr;        /**< Base virtual address (4 KB aligned). */
-    uint64_t paddr;        /**< Base physical address for #V2P_RECORD_MAP. */
-    uint32_t page_count;   /**< Number of 4 KB pages covered by this record. */
-    uint32_t type;         /**< Record type from #v2p_record_type_t. */
-};
+// Internal binary tracefs event stored in DRMEMTRACE_V2P_LOG_FILENAME.
+START_PACKED_STRUCTURE
+struct v2p_tracefs_event_t {
+    // Event timestamp in microseconds, or 0 for the initial startup snapshot so
+    // pre-existing mappings sort before every thread's opening trace timestamp.
+    uint64_t timestamp_us;
+    uint64_t vaddr;              // Page-aligned base virtual address.
+    uint64_t paddr;              // Page-aligned base physical address.
+    uint64_t page_count;         // Number of contiguous pages covered by this event.
+    v2p_tracefs_event_type_t type; // Event type.
+} END_PACKED_STRUCTURE;
 
 /**
  * Types of scheduler context switch. Used in the content specified to

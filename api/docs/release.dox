@@ -315,7 +315,7 @@ Further non-compatibility-affecting changes include:
    than 2GB removes the code cache reachability guarantees described in
    \ref sec_64bit_reach.
  - Added the -enable_v2p_tracefs and -v2p_buffer_size_kb options to drmemtrace
-   on Linux (along with drmemtrace_get_v2p_path() and
+   on 64-bit x86_64 and AArch64 Linux (along with drmemtrace_get_v2p_path() and
    #dynamorio::drmemtrace::raw2trace_t::set_v2p_file()) to capture dynamic
    virtual-to-physical page mapping changes via kernel tracefs during offline
    tracing and emit physical and virtual address markers during raw2trace

@@ -493,14 +493,17 @@ print_module_data_fields(char *dst, size_t max_len, const void *custom_data,
  */
 class test_module_mapper_t : public module_mapper_t {
 public:
-    test_module_mapper_t(instrlist_t *instrs, void *drcontext)
+    test_module_mapper_t(instrlist_t *instrs, void *drcontext, app_pc mod_base = nullptr)
         : module_mapper_t(nullptr)
+        , mod_base_(mod_base)
     {
-        // We encode for 1-based addresses for simpler tests with low values while
-        // avoiding null pointer manipulation complaints (xref i#6196).
-        byte *pc = instrlist_encode_to_copy(
-            drcontext, instrs, decode_buf_,
-            reinterpret_cast<byte *>(static_cast<ptr_uint_t>(4)), nullptr, true);
+        // We encode for 1-based addresses by default for simpler tests with low values
+        // while avoiding null pointer manipulation complaints (xref i#6196).
+        byte *target_pc = mod_base_ != nullptr
+            ? mod_base_
+            : reinterpret_cast<byte *>(static_cast<ptr_uint_t>(4));
+        byte *pc = instrlist_encode_to_copy(drcontext, instrs, decode_buf_, target_pc,
+                                            nullptr, true);
         DR_ASSERT(pc != nullptr);
         DR_ASSERT(pc - decode_buf_ < MAX_DECODE_SIZE);
         // Clear do_module_parsing error; we can't cleanly make virtual b/c it's
@@ -512,12 +515,13 @@ protected:
     void
     read_and_map_modules() override
     {
-        modvec_.push_back(module_t("fake_exe", 0, decode_buf_, 0, MAX_DECODE_SIZE,
+        modvec_.push_back(module_t("fake_exe", mod_base_, decode_buf_, 0, MAX_DECODE_SIZE,
                                    MAX_DECODE_SIZE, true));
     }
 
 private:
     static const int MAX_DECODE_SIZE = 1024;
+    app_pc mod_base_ = nullptr;
     byte decode_buf_[MAX_DECODE_SIZE];
 };
 

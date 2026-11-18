@@ -1656,6 +1656,17 @@ exit_thread_io(void *drcontext)
                     BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_MIDBLOCK_END_PC,
                     reinterpret_cast<uintptr_t>(mc.pc));
             }
+            if (op_enable_v2p_tracefs.get_value() &&
+                !is_bytes_written_beyond_trace_max(data)) {
+                // Close the thread's final buffer with an exit timestamp so we
+                // can better limit which tracefs events could have occurred
+                // during this buffer.
+                BUF_PTR(data->seg_base) +=
+                    instru->append_timestamp(BUF_PTR(data->seg_base));
+                BUF_PTR(data->seg_base) += instru->append_marker(
+                    BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_CPU_ID,
+                    instru_t::get_cpu_id());
+            }
         }
         BUF_PTR(data->seg_base) += instru->append_thread_exit(
             BUF_PTR(data->seg_base), dr_get_thread_id(drcontext));

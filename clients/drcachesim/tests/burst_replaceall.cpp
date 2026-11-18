@@ -140,7 +140,7 @@ local_open_file(const char *fname, uint mode_flags, thread_id_t thread_id,
         return (file_t)MODULE_FILENO;
     if (strncmp(fname, func_name, MAXIMUM_PATH) == 0 ||
         strncmp(fname, enc_name, MAXIMUM_PATH) == 0 ||
-        (v2p_name[0] != '\0' && strncmp(fname, v2p_name, MAXIMUM_PATH) == 0))
+        strncmp(fname, v2p_name, MAXIMUM_PATH) == 0)
         return (file_t)IGNORE_FILENO;
     return (file_t)thread_id;
 }

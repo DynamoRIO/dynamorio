@@ -294,15 +294,21 @@ droption_t<bool> op_use_physical(
     "corresponding physical addresses.  If translation fails, a "
     "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE is "
     "inserted. This option may incur significant overhead "
-    "both for the physical translation and as it requires disabling optimizations."
-    "For -offline, this option must be passed to both the tracer (to insert the "
-    "markers) and the simulator (to use the markers).");
+    "both for the physical translation and as it requires disabling optimizations.  "
+    "For -offline, either this option or -enable_v2p_tracefs can be passed to the "
+    "tracer at capture time (to record the mappings), and this option must be passed "
+    "to the simulator at analysis time (to use the markers).");
 
 droption_t<bool> op_enable_v2p_tracefs(
     DROPTION_SCOPE_CLIENT, "enable_v2p_tracefs", false,
     "Capture virtual-to-physical mappings via Linux tracefs in -offline mode",
     "Snapshots /proc/self/pagemap at startup and streams kernel page-fault events "
-    "from tracefs into raw/v2p.bin for offline raw2trace physical marker emission.");
+    "from tracefs into a file in the raw/ subdirectory that is automatically "
+    "post-processed into the markers described under -use_physical in the final "
+    "trace.  Only supported in -offline mode on 64-bit x86_64 and AArch64 Linux "
+    "(5.4+), where it is mutually exclusive with -use_physical at capture time; "
+    "-use_physical must still be passed to the simulator at analysis time to simulate "
+    "physical addresses.");
 
 droption_t<unsigned int> op_v2p_buffer_size_kb(
     DROPTION_SCOPE_CLIENT, "v2p_buffer_size_kb", 16384,

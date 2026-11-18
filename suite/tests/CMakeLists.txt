@@ -4953,10 +4953,41 @@ if (BUILD_CLIENTS)
         "-use_physical -L0_filter" "@${test_mode_flag}@-tool@basic_counts" "")
     endif ()
     if (LINUX AND DR_HOST_X64 AND (DR_HOST_X86 OR DR_HOST_AARCH64))
+      if (DR_HOST_X86)
+        # Uses its own expected-output template rather than offline-phys because
+        # -enable_v2p_tracefs keeps capture-time address-elision optimizations
+        # enabled (changing the trace filetype) and emits each translation marker
+        # immediately before its page's first access rather than upfront.
+        set(tool.drcacheoff.v2p_tracefs_asm_SUDO_sudo ON)
+        set(tool.drcacheoff.v2p_tracefs_asm_SUDO_expectbase "offline-v2p_tracefs_asm")
+        torunonly_drcacheoff(v2p_tracefs_asm_SUDO allasm_repstr
+          "-enable_v2p_tracefs" "@${test_mode_flag}@-tool@view" "")
+
+        set(tool.drcacheoff.v2p_tracefs_windows_SUDO_sudo ON)
+        set(tool.drcacheoff.v2p_tracefs_windows_SUDO_expectbase "offline-phys_windows")
+        torunonly_drcacheoff(v2p_tracefs_windows_SUDO allasm_repstr
+          "-enable_v2p_tracefs -trace_after_instrs 3 -trace_for_instrs 4 -retrace_every_instrs 4"
+          "@-tool@basic_counts" "")
+        set(tool.drcacheoff.v2p_tracefs_windows_SUDO_postcmd2
+          "firstglob@sudo@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0001@-tool@basic_counts")
+        set(tool.drcacheoff.v2p_tracefs_windows_SUDO_postcmd3
+          "firstglob@sudo@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-tool@basic_counts")
+      endif ()
+
       set(tool.drcacheoff.v2p_tracefs_SUDO_sudo ON)
       set(tool.drcacheoff.v2p_tracefs_SUDO_expectbase "offline-phys_vdso")
       torunonly_drcacheoff(v2p_tracefs_SUDO ${ci_shared_app}
         "-enable_v2p_tracefs" "@${test_mode_flag}@-tool@basic_counts" "")
+
+      set(tool.drcacheoff.v2p_tracefs_windows_split_SUDO_sudo ON)
+      set(tool.drcacheoff.v2p_tracefs_windows_split_SUDO_expectbase "offline-v2p_tracefs_windows_split")
+      torunonly_drcacheoff(v2p_tracefs_windows_split_SUDO ${ci_shared_app}
+        "-enable_v2p_tracefs -trace_after_instrs 20K -trace_for_instrs 10K -retrace_every_instrs 30K -main_buf_records 4K"
+        "@-tool@basic_counts" "")
+      set(tool.drcacheoff.v2p_tracefs_windows_split_SUDO_postcmd2
+        "firstglob@sudo@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0001@-tool@basic_counts")
+      set(tool.drcacheoff.v2p_tracefs_windows_split_SUDO_postcmd3
+        "firstglob@sudo@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-tool@basic_counts")
     endif ()
 
     # The checked-in file is for x86_64 so we have to limit the test to that.

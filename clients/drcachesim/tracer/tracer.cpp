@@ -73,7 +73,7 @@
 #include "reader.h"
 #include "trace_entry.h"
 #include "utils.h"
-#if defined(LINUX) && defined(X64) && !defined(RISCV64)
+#ifdef HAS_V2P_TRACEFS
 #    include "v2p_tracefs/v2p_tracker.h"
 #endif
 
@@ -122,7 +122,7 @@ char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
 static file_t module_file;
 static file_t funclist_file = INVALID_FILE;
 static file_t encoding_file = INVALID_FILE;
-#if defined(LINUX) && defined(X64) && !defined(RISCV64)
+#ifdef HAS_V2P_TRACEFS
 static v2p_tracker_t v2p_tracker;
 #endif
 
@@ -2567,7 +2567,7 @@ event_exit(void)
     instru = nullptr;
 
     if (op_offline.get_value()) {
-#if defined(LINUX) && defined(X64) && !defined(RISCV64)
+#ifdef HAS_V2P_TRACEFS
         if (op_enable_v2p_tracefs.get_value())
             v2p_tracker.stop();
 #endif
@@ -2728,7 +2728,7 @@ init_offline_dir(void)
     encoding_file = file_ops_func.open_process_file(
         encoding_path, DR_FILE_WRITE_REQUIRE_NEW IF_UNIX(| DR_FILE_CLOSE_ON_FORK));
 
-#if defined(LINUX) && defined(X64) && !defined(RISCV64)
+#ifdef HAS_V2P_TRACEFS
     if (op_enable_v2p_tracefs.get_value()) {
         dr_snprintf(v2p_path, BUFFER_SIZE_ELEMENTS(v2p_path), "%s%s%s", logsubdir, DIRSEP,
                     DRMEMTRACE_V2P_LOG_FILENAME);
@@ -3045,6 +3045,10 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         op_L0D_filter.get_value() || op_L0_filter_until_instrs.get_value())
         op_disable_optimizations.set_value(true);
     if (op_enable_v2p_tracefs.get_value()) {
+#ifndef HAS_V2P_TRACEFS
+        FATAL("Usage error: -enable_v2p_tracefs is only supported on 64-bit x86_64 "
+              "and AArch64 Linux (5.4+).\n");
+#endif
         if (!op_offline.get_value()) {
             FATAL("Usage error: -enable_v2p_tracefs is only supported with "
                   "-offline.\n");

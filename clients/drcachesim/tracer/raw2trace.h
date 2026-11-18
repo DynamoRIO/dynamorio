@@ -59,6 +59,7 @@
 #include <string>
 #include <type_traits>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -803,11 +804,31 @@ protected:
         bitset_hash_table_t<app_pc> encoding_emitted;
         app_pc last_encoding_emitted = nullptr;
 
-        // Per-shard state for replaying timestamped `v2p.bin` page-mapping records.
-        uint64_t v2p_time_us = 0;
-        size_t v2p_idx = 0;
-        std::unordered_map<uint64_t, uint64_t> v2p_pages;
-        std::unordered_map<uint64_t, uint64_t> v2p_emitted;
+        // Per-shard state for replaying timestamped kernel tracefs mapping events:
+        // - page_size: OS base page size from TRACE_MARKER_TYPE_PAGE_SIZE.
+        // - next_buffer_timestamp_us: next raw trace timestamp ahead of the current
+        //   instruction (the closing timestamp of the current raw buffer or an
+        //   intra-buffer syscall/signal timestamp), read ahead on demand only when an
+        //   unmapped page access occurs.
+        // - v2p_tracefs_event_idx: next unapplied index in v2p_tracefs_events_.
+        // - current_page_table: thread's current virtual-page to physical-page
+        //   mapping table as of the latest applied event in v2p_tracefs_events_.
+        // - page_marked_in_chunk: virtual pages whose current translation marker has
+        //   already been emitted in the active output archive chunk. Output traces are
+        //   partitioned into fixed-instruction-count chunks for parallel seeking, so
+        //   this set is cleared at every new chunk boundary (and individual entries are
+        //   erased whenever apply_v2p_tracefs_event changes a page's mapping) so
+        //   markers are emitted once per chunk and re-emitted on mapping updates.
+        // - unmapped_pages_in_buffer: virtual pages already verified to have no
+        //   mapping event before next_buffer_timestamp_us in the current raw buffer,
+        //   cleared at each new timestamp so unmapped or VDSO pages neither repeat
+        //   lookahead scans nor emit duplicate NOT_AVAILABLE markers within a buffer.
+        uint64_t page_size = 0;
+        uint64_t next_buffer_timestamp_us = 0;
+        size_t v2p_tracefs_event_idx = 0;
+        std::unordered_map<uint64_t, uint64_t> current_page_table;
+        std::unordered_set<uint64_t> page_marked_in_chunk;
+        std::unordered_set<uint64_t> unmapped_pages_in_buffer;
 
         schedule_file_t::per_shard_t sched_data;
 
@@ -1133,6 +1154,43 @@ private:
     bool
     write_with_repeats(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                        const trace_entry_t *end);
+
+    // Updates tdata->current_page_table for all contiguous pages covered by event and
+    // invalidates any changed pages in tdata->page_marked_in_chunk.
+    void
+    apply_v2p_tracefs_event(raw2trace_thread_data_t *tdata,
+                            const v2p_tracefs_event_t &event);
+
+    // Reads ahead on demand in tdata's raw offline stream (restoring all peeked
+    // entries into tdata->pre_read) to populate tdata->next_buffer_timestamp_us
+    // with the next OFFLINE_TYPE_TIMESTAMP (falling back to tdata->last_timestamp_
+    // if a raw file ends without a closing timestamp).
+    void
+    peek_next_buffer_timestamp(raw2trace_thread_data_t *tdata);
+
+    // Returns the next trace timestamp following after in [after, end), or reads
+    // ahead in tdata's raw stream via peek_next_buffer_timestamp() when none is
+    // already buffered in [after, end).
+    uint64_t
+    get_next_buffer_timestamp(raw2trace_thread_data_t *tdata,
+                              const trace_entry_t *after, const trace_entry_t *end);
+
+    // Resolves the physical mapping for vaddr (computing the next buffer timestamp
+    // on demand via get_next_buffer_timestamp() when vaddr's page misses in
+    // tdata->current_page_table) and appends PHYSICAL_ADDRESS / VIRTUAL_ADDRESS
+    // (or PHYSICAL_ADDRESS_NOT_AVAILABLE) markers to toadd when needed.
+    void
+    add_translation_marker_for_addr(raw2trace_thread_data_t *tdata, addr_t vaddr,
+                                    const trace_entry_t *after,
+                                    const trace_entry_t *end,
+                                    std::vector<trace_entry_t> &toadd);
+
+    // Injects virtual-to-physical translation markers from v2p_tracefs_events_
+    // before address-carrying instruction and memory-reference entries in
+    // [start, end) and writes the resulting stream to tdata->out_file.
+    bool
+    write_with_v2p_markers(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
+                           const trace_entry_t *end);
 
     // Writes encoding entries for pc..pc+instr_length to buf.
     bool
@@ -1489,7 +1547,7 @@ private:
     bool pt2ir_best_effort_ = false;
 
     std::istream *v2p_file_ = nullptr;
-    std::vector<v2p_record_t> v2p_records_;
+    std::vector<v2p_tracefs_event_t> v2p_tracefs_events_;
 };
 
 } // namespace drmemtrace

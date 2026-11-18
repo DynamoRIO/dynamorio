@@ -33,33 +33,36 @@
 /* v2p_tracker: Tracefs virtual-to-physical (V2P) page-table tracker.
  *
  * Captures initial /proc/<pid>/pagemap state and live kernel page-table updates
- * into raw/v2p.bin during drmemtrace -offline collection (Linux 5.4+, 4 KB base
- * pages, CAP_SYS_ADMIN).
+ * into raw/v2p.bin during drmemtrace -offline collection (Linux 5.4+, CAP_SYS_ADMIN).
  */
 
 #ifndef _V2P_TRACKER_H_
 #define _V2P_TRACKER_H_
 
-#if defined(LINUX) && (defined(X64) || defined(__x86_64__) || defined(__aarch64__)) && \
-    !defined(RISCV64) && !defined(__riscv)
+// XXX: 64-bit RISC-V Linux is not yet enabled because it is untested and non-NUMA
+// RISC-V kernels can lay out struct page metadata differently (FLATMEM), affecting our
+// struct page pointer to PFN conversion.
+#ifndef HAS_V2P_TRACEFS
+#    error v2p_tracker.h is only supported when HAS_V2P_TRACEFS is defined
+#endif
 
-#    include <sys/types.h>
-#    include <atomic>
-#    include <cstdint>
-#    include <string>
-#    include <unordered_map>
-#    include <vector>
+#include <sys/types.h>
+#include <atomic>
+#include <cstdint>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
-#    include "dr_api.h"
-#    include "drmemtrace.h"
-#    include "trace_entry.h"
+#include "dr_api.h"
+#include "drmemtrace.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-// Manages the isolated kernel tracefs instance and background `trace_pipe` reader,
-// snapshots `/proc/<pid>/pagemap`, maintains the live shadow page table, and emits
-// timestamped `v2p_record_t` records to `raw/v2p.bin`.
+// Manages the isolated kernel tracefs instance and background trace_pipe reader,
+// snapshots /proc/<pid>/pagemap, maintains the live page table, and emits
+// timestamped v2p_tracefs_event_t entries to raw/v2p.bin.
 class v2p_tracker_t {
 public:
     v2p_tracker_t() = default;
@@ -69,30 +72,31 @@ public:
         stop();
     }
 
-    // Enables an isolated tracefs instance for `pid`, calibrates kernel clock and
-    // `vmemmap` constants, snapshots resident pages from `/proc/<pid>/pagemap`, and
-    // starts the background reader thread writing `v2p_record_t` entries to
-    // `output_path` through the replaceable `drmemtrace` file callbacks.
+    // Enables an isolated tracefs instance for pid, calibrates kernel clock and
+    // vmemmap constants, snapshots resident pages from /proc/<pid>/pagemap, and
+    // starts the background reader thread writing v2p_tracefs_event_t entries to
+    // output_path through the replaceable drmemtrace file callbacks.
     bool
     start(pid_t pid, const std::string &output_path, uint32_t buffer_size_kb = 16384,
           drmemtrace_open_file_func_t open_file_func = dr_open_file,
           drmemtrace_write_file_func_t write_file_func = dr_write_file,
           drmemtrace_close_file_func_t close_file_func = dr_close_file);
 
-    // Stops kernel tracing, drains buffered trace lines, writes `V2P_RECORD_END`, and
-    // removes the isolated tracefs instance and registered kprobe.
+    // Stops kernel tracing, drains buffered trace lines, writes V2P_TRACEFS_EVENT_END,
+    // and removes the isolated tracefs instance and registered kprobes.
     void
     stop();
 
-    // Offline unit-test helpers for replaying synthetic `trace_pipe` lines into
-    // `output_path` (or custom file callbacks) without root privileges or a mounted
+    // Offline unit-test helpers for replaying synthetic trace_pipe lines into
+    // output_path (or custom file callbacks) without root privileges or a mounted
     // tracefs filesystem.
     bool
     init_for_testing(pid_t pid, const std::string &output_path, uint64_t vmemmap_base,
                      uint64_t tracked_mm,
                      drmemtrace_open_file_func_t open_file_func = nullptr,
                      drmemtrace_write_file_func_t write_file_func = nullptr,
-                     drmemtrace_close_file_func_t close_file_func = nullptr);
+                     drmemtrace_close_file_func_t close_file_func = nullptr,
+                     uint64_t page_size = 4096);
     void
     feed_trace_line_for_testing(const std::string &line)
     {
@@ -113,9 +117,10 @@ private:
     cleanup_kernel_tracing();
     void
     bind_pages(uint64_t timestamp_us, uint64_t aligned_vaddr, uint64_t aligned_paddr,
-               uint32_t page_count);
+               uint64_t page_count);
     void
-    emit_record(uint64_t ts, uint64_t va, uint64_t pa, uint32_t pages, uint32_t type);
+    emit_event(uint64_t ts, uint64_t va, uint64_t pa, uint64_t pages,
+               v2p_tracefs_event_type_t type);
     void
     flush_out_buf();
     static void
@@ -125,9 +130,12 @@ private:
     void
     process_trace_line(const std::string &line);
 
-    static constexpr size_t kOutBufCap = 128;
+    static constexpr size_t OUT_BUF_CAP = 128;
 
     pid_t target_pid_ = 0;
+    uint64_t page_size_ = 0;
+    uint64_t pmd_pages_ = 0;
+    uint64_t pmd_size_ = 0;
     std::atomic<pid_t> reader_tid_ { 0 };
     std::string tracefs_root_;
     std::string instance_dir_;
@@ -137,27 +145,27 @@ private:
     bool kernel_tracing_active_ = false;
     // Offset added to tracefs clock microseconds to match DR's UTC/FILETIME epoch.
     uint64_t clock_offset_us_ = 0;
-    // KASLR-randomized base of the kernel's 64-byte `struct page` array (`vmemmap`).
+    // KASLR-randomized base of the kernel's 64-byte struct page array (vmemmap).
     uint64_t vmemmap_base_ = 0;
-    // Kernel `mm_struct *` address-space pointer of `target_pid_`.
+    // Kernel mm_struct * address-space pointer of target_pid_.
     uint64_t tracked_mm_ = 0;
     file_t out_file_ = INVALID_FILE;
     drmemtrace_open_file_func_t open_file_func_ = nullptr;
     drmemtrace_write_file_func_t write_file_func_ = nullptr;
     drmemtrace_close_file_func_t close_file_func_ = nullptr;
-    v2p_record_t out_buf_[kOutBufCap] = {};
+    v2p_tracefs_event_t out_buf_[OUT_BUF_CAP] = {};
     size_t out_buf_count_ = 0;
     int trace_pipe_fd_ = -1;
     int kpageflags_fd_ = -1;
     std::atomic<bool> running_ { false };
     std::atomic<bool> stop_requested_ { false };
     std::atomic<bool> thread_running_ { false };
-    std::atomic<bool> thread_exited_ { false };
-    std::unordered_map<uint64_t, uint64_t> shadow_pages_;
+    std::atomic<bool> thread_drained_ { false };
+    // Live virtual-page to physical-page map used to deduplicate unchanged bindings.
+    std::unordered_map<uint64_t, uint64_t> current_page_table_;
 };
 
 } // namespace drmemtrace
 } // namespace dynamorio
 
-#endif /* LINUX && X64 && !RISCV64 */
 #endif /* _V2P_TRACKER_H_ */

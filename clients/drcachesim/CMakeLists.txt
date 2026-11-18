@@ -153,6 +153,14 @@ if (BUILD_DRMEMTRACE_WITH_DR_SYSCALL)
   add_definitions(-DBUILD_DRMEMTRACE_WITH_DR_SYSCALL)
 endif ()
 
+# XXX: 64-bit RISC-V Linux is not yet enabled because it is untested and non-NUMA
+# RISC-V kernels can lay out struct page metadata differently (FLATMEM), affecting our
+# struct page pointer to PFN conversion.
+if (LINUX AND X64 AND (X86 OR AARCH64))
+  add_definitions(-DHAS_V2P_TRACEFS)
+  set(HAS_V2P_TRACEFS ON)
+endif ()
+
 set(client_and_sim_srcs
   common/named_pipe_${os_name}.cpp
   common/options.cpp
@@ -548,7 +556,7 @@ macro(add_drmemtrace name type static_DR no_main)
     tracer/raw2trace_shared.cpp
     ${client_and_sim_srcs}
     )
-  if (LINUX AND X64 AND (X86 OR AARCH64))
+  if (HAS_V2P_TRACEFS)
     set(drmemtrace_srcs ${drmemtrace_srcs}
       tracer/v2p_tracefs/v2p_tracker.cpp
       )
