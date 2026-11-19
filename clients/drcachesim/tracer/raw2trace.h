@@ -1172,8 +1172,8 @@ private:
     // ahead in tdata's raw stream via peek_next_buffer_timestamp() when none is
     // already buffered in [after, end).
     uint64_t
-    get_next_buffer_timestamp(raw2trace_thread_data_t *tdata,
-                              const trace_entry_t *after, const trace_entry_t *end);
+    get_next_buffer_timestamp(raw2trace_thread_data_t *tdata, const trace_entry_t *after,
+                              const trace_entry_t *end);
 
     // Resolves the physical mapping for vaddr (computing the next buffer timestamp
     // on demand via get_next_buffer_timestamp() when vaddr's page misses in
@@ -1181,8 +1181,7 @@ private:
     // (or PHYSICAL_ADDRESS_NOT_AVAILABLE) markers to toadd when needed.
     void
     add_translation_marker_for_addr(raw2trace_thread_data_t *tdata, addr_t vaddr,
-                                    const trace_entry_t *after,
-                                    const trace_entry_t *end,
+                                    const trace_entry_t *after, const trace_entry_t *end,
                                     std::vector<trace_entry_t> &toadd);
 
     // Injects virtual-to-physical translation markers from v2p_tracefs_events_

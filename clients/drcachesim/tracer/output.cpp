@@ -1663,9 +1663,9 @@ exit_thread_io(void *drcontext)
                 // during this buffer.
                 BUF_PTR(data->seg_base) +=
                     instru->append_timestamp(BUF_PTR(data->seg_base));
-                BUF_PTR(data->seg_base) += instru->append_marker(
-                    BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_CPU_ID,
-                    instru_t::get_cpu_id());
+                BUF_PTR(data->seg_base) += instru->append_marker(BUF_PTR(data->seg_base),
+                                                                 TRACE_MARKER_TYPE_CPU_ID,
+                                                                 instru_t::get_cpu_id());
             }
         }
         BUF_PTR(data->seg_base) += instru->append_thread_exit(

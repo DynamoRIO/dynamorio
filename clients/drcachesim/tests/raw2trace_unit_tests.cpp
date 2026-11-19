@@ -6466,8 +6466,7 @@ test_v2p_tracefs_markers_for_page_size(void *drcontext, uint64_t page_size)
     const addr_t DATA_ADDR = DATA_VPAGE + 0x18;
     const addr_t FAULT_ADDR = FAULT_VPAGE + 0x24;
     const addr_t STRADDLE_ADDR = static_cast<addr_t>(DATA_VPAGE + page_size - 2);
-    const addr_t FUTURE_VPAGE =
-        static_cast<addr_t>(2 * THP_BASE_VPAGE + 88 * page_size);
+    const addr_t FUTURE_VPAGE = static_cast<addr_t>(2 * THP_BASE_VPAGE + 88 * page_size);
     const addr_t FUTURE_ADDR = FUTURE_VPAGE + 0x20;
 
     constexpr uint64_t PFN_CODE_INIT = 0x100;

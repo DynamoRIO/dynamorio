@@ -1847,9 +1847,9 @@ struct v2p_tracefs_event_t {
     // Event timestamp in microseconds, or 0 for the initial startup snapshot so
     // pre-existing mappings sort before every thread's opening trace timestamp.
     uint64_t timestamp_us;
-    uint64_t vaddr;              // Page-aligned base virtual address.
-    uint64_t paddr;              // Page-aligned base physical address.
-    uint64_t page_count;         // Number of contiguous pages covered by this event.
+    uint64_t vaddr;                // Page-aligned base virtual address.
+    uint64_t paddr;                // Page-aligned base physical address.
+    uint64_t page_count;           // Number of contiguous pages covered by this event.
     v2p_tracefs_event_type_t type; // Event type.
 } END_PACKED_STRUCTURE;
 

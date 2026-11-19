@@ -3921,11 +3921,10 @@ raw2trace_t::read_v2p_file()
     }
 
     // Sort chronologically (stable_sort preserves ring-buffer order on ties).
-    std::stable_sort(
-        v2p_tracefs_events_.begin(), v2p_tracefs_events_.end(),
-        [](const v2p_tracefs_event_t &a, const v2p_tracefs_event_t &b) {
-            return a.timestamp_us < b.timestamp_us;
-        });
+    std::stable_sort(v2p_tracefs_events_.begin(), v2p_tracefs_events_.end(),
+                     [](const v2p_tracefs_event_t &a, const v2p_tracefs_event_t &b) {
+                         return a.timestamp_us < b.timestamp_us;
+                     });
     if (!saw_end) {
         WARN("v2p stream (%s) is missing its END sentinel (truncated log)",
              DRMEMTRACE_V2P_LOG_FILENAME);
@@ -4185,8 +4184,8 @@ raw2trace_t::write_with_v2p_markers(raw2trace_thread_data_t *tdata,
         while (tdata->v2p_tracefs_event_idx < v2p_tracefs_events_.size() &&
                v2p_tracefs_events_[tdata->v2p_tracefs_event_idx].timestamp_us <=
                    tdata->last_timestamp_) {
-            apply_v2p_tracefs_event(
-                tdata, v2p_tracefs_events_[tdata->v2p_tracefs_event_idx++]);
+            apply_v2p_tracefs_event(tdata,
+                                    v2p_tracefs_events_[tdata->v2p_tracefs_event_idx++]);
         }
 
         // Collect markers for the base address and any additional spanned pages
