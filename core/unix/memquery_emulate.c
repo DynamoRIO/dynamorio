@@ -291,11 +291,11 @@ dl_iterate_get_areas_cb(struct dl_phdr_info *info, size_t size, void *data)
                 "find_executable_vm_areas: adding: " PFX "-" PFX " prot=%d\n", start, end,
                 prot);
             all_memory_areas_lock();
-            update_all_memory_areas(start, end, prot, DR_MEMTYPE_IMAGE);
+            update_all_memory_areas(start, end, prot, DR_MEMTYPE_IMAGE,
+                                    /*is_shared=*/false);
             all_memory_areas_unlock();
-            if (app_memory_allocation(NULL, start, end - start, prot,
-                                      true /*image*/
-                                      _IF_DEBUG("ELF SO")))
+            if (app_memory_allocation(NULL, start, end - start, prot, true /*image*/,
+                                      /*is_shared=*/false _IF_DEBUG("ELF SO")))
                 (*count)++;
         }
     }
@@ -380,10 +380,12 @@ probe_add_region(app_pc *last_start, uint *last_prot, app_pc pc, uint prot, bool
         if (*last_prot != MEMPROT_NONE) {
             all_memory_areas_lock();
             /* images were done separately */
-            update_all_memory_areas(*last_start, pc, *last_prot, DR_MEMTYPE_DATA);
+            update_all_memory_areas(*last_start, pc, *last_prot, DR_MEMTYPE_DATA,
+                                    /*is_shared=*/false);
             all_memory_areas_unlock();
             if (app_memory_allocation(NULL, *last_start, pc - *last_start, *last_prot,
-                                      false /*!image*/ _IF_DEBUG("")))
+                                      false /*!image*/,
+                                      /*is_shared=*/false _IF_DEBUG("")))
                 count++;
         }
         *last_prot = prot;
