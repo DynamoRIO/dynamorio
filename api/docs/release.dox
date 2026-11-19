@@ -319,7 +319,7 @@ Further non-compatibility-affecting changes include:
    \ref sec_64bit_reach.
  - Added -sandbox_shared option to handle JIT applications that use dual mapping.
    -sandbox_shared is enabled by default on AArch64 but should be treated as experimental
-   on x86. It is currently only supported no Linux.
+   on x86. It is currently only supported on Linux.
 
 **************************************************
 <hr>
