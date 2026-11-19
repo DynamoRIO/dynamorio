@@ -516,7 +516,9 @@ dynamorio_app_init_part_two_finalize(void)
         }
         /* Nop. */
     } else if (INTERNAL_OPTION(nullcalls)) {
+#ifdef DEBUG
         print_file(main_logfile, "** nullcalls is set, NOT taking over execution **\n\n");
+#endif
         return SUCCESS;
     } else {
 #ifdef VMX86_SERVER
