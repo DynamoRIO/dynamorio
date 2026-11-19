@@ -48,8 +48,11 @@ DR_API file_t our_stdin = 0;
 DR_API file_t our_stdout = 1;
 DR_API file_t our_stderr = 2;
 
+/* The kernel has no vsyscall page to hook, so these all stay NULL. */
+app_pc vsyscall_page_start = NULL;
 app_pc vsyscall_syscall_end_pc = NULL;
 app_pc vsyscall_sysenter_return_pc = NULL;
+app_pc vsyscall_sysenter_displaced_pc = NULL;
 
 static bool heap_already_reserved = false;
 static int num_online_processors = 0;
