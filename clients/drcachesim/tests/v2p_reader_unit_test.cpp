@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2024 Google, LLC  All rights reserved.
+ * Copyright (c) 2024-2026 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -32,12 +32,22 @@
 
 #include "v2p_reader_unit_test.h"
 
+#include <cerrno>
+#include <cinttypes>
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <iostream>
+#include <sys/stat.h>
 #include <vector>
 
 #include "reader/v2p_reader.h"
+#ifdef HAS_V2P_TRACEFS
+#    include <unistd.h>
+#    include "tracer/v2p_tracefs/v2p_tracker.h"
+#endif
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -58,7 +68,7 @@ check_v2p_info(const v2p_info_t &v2p_info)
     // clients/drcachesim/tests/v2p_example.textproto.
     const std::vector<addr_t> virtual_addresses = { 0x123, 0x456, 0x0, 0x789 };
     const std::vector<addr_t> physical_addresses = { 0x3, 0x4, 0x6, 0x5 };
-    for (int i = 0; i < virtual_addresses.size(); ++i) {
+    for (size_t i = 0; i < virtual_addresses.size(); ++i) {
         auto key_val = v2p_info.v2p_map.find(virtual_addresses[i]);
         if (key_val != v2p_info.v2p_map.end()) {
             if (key_val->second != physical_addresses[i]) {
@@ -74,9 +84,9 @@ check_v2p_info(const v2p_info_t &v2p_info)
     }
 
     // Check page_size.
-    constexpr uint64_t PAGE_SIZE = 0x200000;
-    if (v2p_info.page_size != PAGE_SIZE) {
-        std::cerr << "Incorrect page size. Expected " << PAGE_SIZE << " got "
+    constexpr uint64_t EXPECTED_PAGE_SIZE = 0x200000;
+    if (v2p_info.page_size != EXPECTED_PAGE_SIZE) {
+        std::cerr << "Incorrect page size. Expected " << EXPECTED_PAGE_SIZE << " got "
                   << v2p_info.page_size << ".\n";
         exit(1);
     }
@@ -98,6 +108,175 @@ check_v2p_info(const v2p_info_t &v2p_info)
     }
 }
 
+#ifdef HAS_V2P_TRACEFS
+
+namespace {
+
+// Fails the unit test immediately when cond is false.
+void
+require_cond(bool cond, const std::string &msg)
+{
+    if (!cond) {
+        std::cerr << "v2p_tracefs unit test failure: " << msg << "\n";
+        exit(1);
+    }
+}
+
+// Replays synthetic trace_pipe lines covering 4 KB and 64 KB base-page faults, CoW
+// overwrites, duplicate-mapping suppression, non-matching mm filtering, background
+// khugepaged PMD THP collapses (anon_pmd and anon_ptes), and replaceable drmemtrace
+// file callbacks without touching disk.
+static std::vector<char> g_custom_io_bytes;
+static bool g_custom_io_closed = false;
+
+static file_t
+custom_open_v2p_file(const char *fname, uint mode_flags)
+{
+    require_cond(fname != nullptr && std::string(fname) == "virtual://v2p.bin",
+                 "unexpected custom open fname");
+    require_cond((mode_flags & DR_FILE_WRITE_OVERWRITE) != 0,
+                 "expected DR_FILE_WRITE_OVERWRITE");
+    g_custom_io_bytes.clear();
+    g_custom_io_closed = false;
+    return static_cast<file_t>(77);
+}
+
+static ssize_t
+custom_write_v2p_file(file_t file, const void *buf, size_t count)
+{
+    require_cond(file == static_cast<file_t>(77) && !g_custom_io_closed,
+                 "unexpected file handle in custom_write_v2p_file");
+    require_cond(errno == EAGAIN, "expected incoming errno to be preserved");
+    // Exercise partial writes (16 bytes at a time) and verify `v2p_tracker_t` retries
+    // until all fixed-stride records are written without clobbering `errno`.
+    size_t step = count > 16 ? 16 : count;
+    const char *p = static_cast<const char *>(buf);
+    g_custom_io_bytes.insert(g_custom_io_bytes.end(), p, p + step);
+    errno = ENOENT;
+    return static_cast<ssize_t>(step);
+}
+
+static void
+custom_close_v2p_file(file_t file)
+{
+    require_cond(file == static_cast<file_t>(77) && !g_custom_io_closed,
+                 "unexpected file handle in custom_close_v2p_file");
+    g_custom_io_closed = true;
+}
+
+void
+unit_test_v2p_tracefs_thp(const std::string &v2p_bin_path)
+{
+    constexpr uint64_t kVmemmap = 0xfffffdffc0000840ULL;
+    constexpr uint64_t kTargetMm = 0xffff888012340000ULL;
+    auto page_ptr_hex = [&](uint64_t pfn) {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "0x%llx",
+                 static_cast<unsigned long long>(kVmemmap + (pfn << 6)));
+        return std::string(buf);
+    };
+
+    auto feed_events = [&](v2p_tracker_t &tracker) {
+        // 1. 4 KB first-touch fault, CoW overwrite, duplicate suppression, and foreign
+        //    `mm`.
+        tracker.feed_trace_line_for_testing(
+            " app-1000 [000] ....     0.000010: anon_new_1000: (0x0) page=" +
+            page_ptr_hex(0x100) + " mm=0xffff888012340000 vaddr=0x20123");
+        tracker.feed_trace_line_for_testing(
+            " app-1000 [000] ....     0.000020: anon_new_1000: (0x0) page=" +
+            page_ptr_hex(0x200) + " mm=0xffff888012340000 vaddr=0x20123");
+        tracker.feed_trace_line_for_testing(
+            " app-1000 [000] ....     0.000021: anon_new_1000: (0x0) page=" +
+            page_ptr_hex(0x200) + " mm=0xffff888012340000 vaddr=0x20123");
+        tracker.feed_trace_line_for_testing(
+            " other-2000 [001] ....   0.000025: anon_new_1000: (0x0) page=" +
+            page_ptr_hex(0x999) + " mm=0xffff888099990000 vaddr=0x20000");
+
+        // 2. Background khugepaged PMD THP collapse (anon_pmd on khugepaged PID 55)
+        //    and batched anon_ptes (nr=4).
+        tracker.feed_trace_line_for_testing(
+            " khugepaged-55 [002] .... 0.000030: anon_pmd_1000: (0x0) page=" +
+            page_ptr_hex(0x1000) + " mm=0xffff888012340000 vaddr=0x200000");
+        tracker.feed_trace_line_for_testing(
+            " app-1000 [000] ....     0.000040: anon_ptes_1000: (0x0) page=" +
+            page_ptr_hex(0x300) + " mm=0xffff888012340000 vaddr=0x400000 nr=4");
+    };
+
+    auto verify_events = [&](const std::vector<v2p_tracefs_event_t> &evs) {
+        require_cond(evs.size() == 5,
+                     "expected 5 v2p events, got " + std::to_string(evs.size()));
+        require_cond(evs[0].vaddr == 0x20000 && evs[0].paddr == 0x100000 &&
+                         evs[1].vaddr == 0x20000 && evs[1].paddr == 0x200000 &&
+                         evs[2].vaddr == 0x200000 && evs[2].paddr == 0x1000000 &&
+                         evs[2].page_count == 512 && evs[3].vaddr == 0x400000 &&
+                         evs[3].paddr == 0x300000 && evs[3].page_count == 4 &&
+                         evs[4].type == V2P_TRACEFS_EVENT_END,
+                     "unexpected THP or anon_rmap event contents");
+    };
+
+    // Case A: Default local file output.
+    v2p_tracker_t tracker;
+    require_cond(
+        tracker.init_for_testing(/*pid=*/1000, v2p_bin_path, kVmemmap, kTargetMm),
+        "init_for_testing failed");
+    feed_events(tracker);
+    tracker.finish_for_testing();
+
+    std::ifstream in(v2p_bin_path, std::ios::binary);
+    std::vector<v2p_tracefs_event_t> evs;
+    for (v2p_tracefs_event_t r = {}; in.read(reinterpret_cast<char *>(&r), sizeof(r));)
+        evs.push_back(r);
+    in.close();
+    std::remove(v2p_bin_path.c_str());
+    verify_events(evs);
+
+    // Case B: Replaceable file callbacks redirecting output into memory without touching
+    // local disk (preserving `errno` across partial writes).
+    require_cond(tracker.init_for_testing(/*pid=*/1000, "virtual://v2p.bin", kVmemmap,
+                                          kTargetMm, custom_open_v2p_file,
+                                          custom_write_v2p_file, custom_close_v2p_file),
+                 "init_for_testing with custom file ops failed");
+    errno = EAGAIN;
+    feed_events(tracker);
+    tracker.finish_for_testing();
+    require_cond(errno == EAGAIN && g_custom_io_closed &&
+                     g_custom_io_bytes.size() == 5 * sizeof(v2p_tracefs_event_t),
+                 "custom file ops failed to preserve errno or event count");
+    std::vector<v2p_tracefs_event_t> custom_evs(5);
+    std::memcpy(custom_evs.data(), g_custom_io_bytes.data(), g_custom_io_bytes.size());
+    verify_events(custom_evs);
+
+    // Case C: 64 KB base page size (ARM64 server configuration, where 1 PMD THP spans
+    // `65536 / 8 = 8192` pages = 512 MB).
+    g_custom_io_bytes.clear();
+    require_cond(tracker.init_for_testing(/*pid=*/1000, "virtual://v2p.bin", kVmemmap,
+                                          kTargetMm, custom_open_v2p_file,
+                                          custom_write_v2p_file, custom_close_v2p_file,
+                                          /*page_size=*/65536),
+                 "init_for_testing with 64 KB page size failed");
+    errno = EAGAIN;
+    tracker.feed_trace_line_for_testing(
+        " app-1000 [000] ....     0.000010: anon_new_1000: (0x0) page=" +
+        page_ptr_hex(0x10) + " mm=0xffff888012340000 vaddr=0x20123");
+    tracker.feed_trace_line_for_testing(
+        " khugepaged-55 [002] .... 0.000030: anon_pmd_1000: (0x0) page=" +
+        page_ptr_hex(0x2000) + " mm=0xffff888012340000 vaddr=0x20000000");
+    tracker.finish_for_testing();
+    require_cond(errno == EAGAIN && g_custom_io_closed &&
+                     g_custom_io_bytes.size() == 3 * sizeof(v2p_tracefs_event_t),
+                 "64 KB page-size test produced unexpected event count");
+    std::vector<v2p_tracefs_event_t> evs_64k(3);
+    std::memcpy(evs_64k.data(), g_custom_io_bytes.data(), g_custom_io_bytes.size());
+    require_cond(evs_64k[0].vaddr == 0x20000 && evs_64k[0].paddr == 0x100000 &&
+                     evs_64k[0].page_count == 1 && evs_64k[1].vaddr == 0x20000000 &&
+                     evs_64k[1].paddr == 0x20000000 && evs_64k[1].page_count == 8192 &&
+                     evs_64k[2].type == V2P_TRACEFS_EVENT_END,
+                 "unexpected 64 KB THP or anon_rmap event contents");
+}
+
+} // namespace
+#endif /* HAS_V2P_TRACEFS */
+
 void
 unit_test_v2p_reader(const std::string &testdir)
 {
@@ -118,6 +297,14 @@ unit_test_v2p_reader(const std::string &testdir)
     }
 
     check_v2p_info(v2p_info);
+
+#ifdef HAS_V2P_TRACEFS
+    const char *tmp = std::getenv("TEST_TMPDIR");
+    std::string out = (tmp != nullptr && tmp[0] != '\0')
+        ? (std::string(tmp) + "/v2p_thp_unit.bin")
+        : "v2p_thp_unit.bin";
+    unit_test_v2p_tracefs_thp(out);
+#endif /* HAS_V2P_TRACEFS */
 }
 
 } // namespace drmemtrace

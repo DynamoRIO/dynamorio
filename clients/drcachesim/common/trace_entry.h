@@ -1824,6 +1824,36 @@ constexpr int DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM = 0x0fffffff;
 #define DRMEMTRACE_V2P_FILENAME "v2p.textproto"
 
 /**
+ * The name of the file in -offline mode where virtual to physical page mapping
+ * events captured via tracefs (-enable_v2p_tracefs) are stored.  Use
+ * drmemtrace_get_v2p_path() to obtain the full path.
+ */
+#define DRMEMTRACE_V2P_LOG_FILENAME "v2p.bin"
+
+// Internal tracefs mapping event types stored in DRMEMTRACE_V2P_LOG_FILENAME.
+enum v2p_tracefs_event_type_t : uint32_t {
+    // Reserved so zero-initialized memory is never mistaken for a valid event.
+    V2P_TRACEFS_EVENT_INVALID = 0,
+    // Maps one or more contiguous virtual pages (of size TRACE_MARKER_TYPE_PAGE_SIZE)
+    // to contiguous physical page frames.
+    V2P_TRACEFS_EVENT_MAP,
+    // Marks the clean end of the v2p log file.
+    V2P_TRACEFS_EVENT_END,
+};
+
+// Internal binary tracefs event stored in DRMEMTRACE_V2P_LOG_FILENAME.
+START_PACKED_STRUCTURE
+struct v2p_tracefs_event_t {
+    // Event timestamp in microseconds, or 0 for the initial startup snapshot so
+    // pre-existing mappings sort before every thread's opening trace timestamp.
+    uint64_t timestamp_us;
+    uint64_t vaddr;                // Page-aligned base virtual address.
+    uint64_t paddr;                // Page-aligned base physical address.
+    uint64_t page_count;           // Number of contiguous pages covered by this event.
+    v2p_tracefs_event_type_t type; // Event type.
+} END_PACKED_STRUCTURE;
+
+/**
  * Types of scheduler context switch. Used in the content specified to
  * #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t::
  * kernel_switch_trace_path and kernel_switch_reader.

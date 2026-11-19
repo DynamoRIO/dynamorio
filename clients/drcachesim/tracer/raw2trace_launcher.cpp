@@ -145,6 +145,7 @@ _tmain(int argc, const TCHAR *targv[])
                           op_verbose.get_value(), op_jobs.get_value(),
                           op_alt_module_dir.get_value(), op_chunk_instr_count.get_value(),
                           dir.in_kfiles_map_, dir.kcoredir_, dir.kallsymsdir_);
+    raw2trace.set_v2p_file(dir.v2p_file_);
     std::string error = raw2trace.do_conversion();
     if (!error.empty())
         FATAL_ERROR("Conversion failed: %s", error.c_str());
