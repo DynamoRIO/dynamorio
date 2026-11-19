@@ -156,18 +156,30 @@ static const self_check_t self_checks[] = {
 int
 dynamorio_run_self_checks(void)
 {
+    int num_passed = 0;
     int num_failed = 0;
+    int num_skipped = 0;
     for (size_t i = 0; i < BUFFER_SIZE_ELEMENTS(self_checks); i++) {
         const self_check_t *check = &self_checks[i];
         self_check_result_t result = check->func();
         const char *result_string = "PASS";
-        if (result == SELF_CHECK_FAIL) {
+        if (result == SELF_CHECK_PASS) {
+            num_passed++;
+        } else if (result == SELF_CHECK_FAIL) {
             result_string = "FAIL";
             num_failed++;
         } else if (result == SELF_CHECK_SKIP) {
             result_string = "SKIP";
+            num_skipped++;
         }
         print_file(STDERR, "Self-check %s: %s\n", check->name, result_string);
+    }
+    if (num_failed == 0) {
+        print_file(STDERR, "All self-checks passed (%d passed, %d skipped)\n", num_passed,
+                   num_skipped);
+    } else {
+        print_file(STDERR, "Self-checks failed (%d passed, %d failed, %d skipped)\n",
+                   num_passed, num_failed, num_skipped);
     }
     return num_failed;
 }
