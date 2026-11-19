@@ -172,8 +172,8 @@ offline_instru_t::~offline_instru_t()
     log_(1, "Wrote " UINT64_FORMAT_STRING " bytes to encoding file\n",
          encoding_bytes_written_);
 
-    char *buf;
-    size_t size, wrote;
+    char *buf = nullptr;
+    size_t size = 0, wrote = 0;
     dump_module_info(&buf, &size, &wrote);
     if (modfile_ != INVALID_FILE) {
         ssize_t written = write_file_func_(modfile_, buf, wrote - 1 /*no null*/);
