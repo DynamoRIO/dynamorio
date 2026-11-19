@@ -40,7 +40,10 @@
 #include "globals.h"
 #include "module_shared.h"
 #include "instrument.h" /* for instrument_client_lib_unloaded */
-#include <stdint.h>     /* For SIZE_MAX. */
+#ifndef LINUX_KERNEL
+/* The kernel has no stdint.h and has SIZE_MAX in its base headers. */
+#    include <stdint.h> /* For SIZE_MAX. */
+#endif
 
 /* ok to be in .data w/ no sentinel head node b/c never empties out
  * .ntdll always there for Windows, so no need to unprot.
