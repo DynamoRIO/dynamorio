@@ -40,7 +40,7 @@
 #include "globals.h"
 #include "module_shared.h"
 #include "instrument.h" /* for instrument_client_lib_unloaded */
-#include "limits_wrapper.h"
+#include <stdint.h>     /* For SIZE_MAX. */
 
 /* ok to be in .data w/ no sentinel head node b/c never empties out
  * .ntdll always there for Windows, so no need to unprot.
@@ -1266,6 +1266,12 @@ unit_test_redirect_heap(void)
 
     /* Test a too-large size. */
     p = redirect_aligned_alloc(STANDARD_HEAP_ALIGNMENT, SIZE_MAX - 1);
+    ASSERT(p == NULL);
+    /* Test a non-power-of-2 alignment. */
+    p = redirect_aligned_alloc(STANDARD_HEAP_ALIGNMENT + 1, 8);
+    ASSERT(p == NULL);
+    /* Test a too-large size+alignment. */
+    p = redirect_aligned_alloc(1ULL << IF_X64_ELSE(63, 31), 8);
     ASSERT(p == NULL);
 
     /* Test allocation where the backing memory has different HEAP_ALIGNMENT aligned
