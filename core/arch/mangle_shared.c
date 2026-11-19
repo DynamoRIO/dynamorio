@@ -1138,7 +1138,7 @@ mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
 }
 #endif /* UNIX */
 
-#ifdef LINUX
+#if defined(LINUX) && !defined(LINUX_KERNEL)
 /***************************************************************************
  * Rseq (restartable sequence) mangling.
  */
@@ -1889,7 +1889,7 @@ mangle_rseq_finalize(dcontext_t *dcontext, instrlist_t *ilist, fragment_t *f)
     /* We should have found at least one set of labels. */
     ASSERT(label_sets_found > 0);
 }
-#endif /* LINUX */
+#endif /* LINUX && !LINUX_KERNEL */
 
 /* TOP-LEVEL MANGLE
  * This routine is responsible for mangling a fragment into the form
@@ -1977,7 +1977,7 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags DR_PARAM_INOUT,
             translate_x86_to_x64(dcontext, ilist, &instr);
 #endif
 
-#ifdef LINUX
+#if defined(LINUX) && !defined(LINUX_KERNEL)
         /* Mangle stores inside restartable sequences ("rseq").  We could avoid the
          * per-instr check if we disallowed rseq blocks in traces and prevented
          * fall-through in a bb, but that would lead to more problems than it would
@@ -2402,7 +2402,7 @@ mangle_finalize(dcontext_t *dcontext, instrlist_t *ilist, fragment_t *f)
         finalize_selfmod_sandbox(dcontext, ilist, f);
     }
 #endif
-#ifdef LINUX
+#if defined(LINUX) && !defined(LINUX_KERNEL)
     if (TESTANY(INSTR_RSEQ_ENDPOINT, ilist->flags))
         mangle_rseq_finalize(dcontext, ilist, f);
 #endif
