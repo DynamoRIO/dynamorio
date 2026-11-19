@@ -6595,7 +6595,7 @@ test_v2p_tracefs_markers_for_page_size(void *drcontext, uint64_t page_size)
         check_entry(entries, idx, TRACE_TYPE_MARKER,
                     TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PAGE_SIZE,
-                    page_size) &&
+                    static_cast<addr_t>(page_size)) &&
         // Chunk #0 (Buffer 1 `[TS_BUF1_OPEN, TS_BUF1_CLOSE]`):
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
                     TS_BUF1_OPEN) &&
