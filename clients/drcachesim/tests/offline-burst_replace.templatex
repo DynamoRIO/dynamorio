@@ -22,11 +22,8 @@ open file .*
 Hit tracing window #1 limit: disabling tracing.
 window_end for .*/raw/window.0001
 .*
-pre-DR detach
+pre-DR detach.*
 window_end for .*
-close file .*
-close file .*
-close file .*
 close file .*
 all done
 Cache simulation results:
