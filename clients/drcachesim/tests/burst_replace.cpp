@@ -280,7 +280,9 @@ test_main(int argc, const char *argv[])
                    // Enable windows to test bounds callbacks.
                    // We expect over 100K instrs, so these cadences should give us
                    // at least 4 windows.
-                   "-trace_for_instrs 25K -retrace_every_instrs 25K'"))
+                   "-trace_for_instrs 25K -retrace_every_instrs 25K "
+                   // Ensure the window events are called even w/o align_endpoints.
+                   "-no_align_endpoints'"))
         std::cerr << "failed to set env var!\n";
 
     std::cerr << "replace all file functions\n";
