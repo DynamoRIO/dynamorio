@@ -212,12 +212,17 @@ window_end(void *user_data)
     dr_fprintf(STDERR, "%s for path %s\n", __FUNCTION__, raw_dir);
 
     // Test a mid-run module info dump.
-    char *buf;
-    size_t size, wrote;
+    char *buf = nullptr;
+    size_t size = 0, wrote = 0;
     mem_res = drmemtrace_dump_module_info(&buf, &size, &wrote);
     assert(mem_res == DRMEMTRACE_SUCCESS);
+    assert(buf != nullptr);
+    assert(wrote > 0);
+    assert(size >= wrote);
     // We at least do a sanity check to ensure our executable is in there.
-    buf[wrote] = '\0';
+    // Add a nul char; clobber the end if it's full (executable should be
+    // early in buffer).
+    buf[wrote == size ? wrote - 1 : wrote] = '\0';
     assert(strstr(buf, "burst_replace") != nullptr);
     dr_global_free(buf, size);
 }
