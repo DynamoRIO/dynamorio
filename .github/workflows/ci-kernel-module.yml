@@ -143,8 +143,7 @@ jobs:
           sudo dmesg | grep -F "dynamorio_module: Session initialized"
 
           sudo "$CONTROLLER" self-check
-          sudo dmesg | grep -F "Self-check tls_segment_mapping: PASS"
-          sudo dmesg | grep -F "Self-check safe_read: PASS"
+          sudo dmesg | grep -F "All self-checks passed"
 
           echo "Removing dynamorio_module"
           sudo rmmod dynamorio_module

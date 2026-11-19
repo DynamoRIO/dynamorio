@@ -142,6 +142,13 @@ dynamorio_run_self_checks(void)
             num_failed++;
         }
     }
+    if (num_failed == 0) {
+        print_file(STDERR, "All self-checks passed (" SZFMT " run)\n",
+                   BUFFER_SIZE_ELEMENTS(self_checks));
+    } else {
+        print_file(STDERR, "%d of " SZFMT " self-check(s) failed\n", num_failed,
+                   BUFFER_SIZE_ELEMENTS(self_checks));
+    }
     return num_failed;
 }
 
