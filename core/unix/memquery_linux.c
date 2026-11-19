@@ -302,6 +302,7 @@ memquery_iterator_next_using_ioctl(memquery_iter_t *iter)
             /* Kernels older than 6.11 do not support PROCMAP_QUERY and return -ENOTTY.
              * Fall back to parsing the text version.
              */
+            ASSERT(!dynamo_initialized); /* .data should be +w */
             ioctl_supports_procmap_query = false;
             ASSERT(prev_start == NULL);
         }
