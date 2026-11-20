@@ -1,9 +1,9 @@
 mix up maps
 remap base=0x[0-9a-f]+, offs=0, sz=[1-9][0-9]*
 pre-DR init
-/* Debug may reject the mapping before validating the ELF header. */
+/* Depending on the environment, sometimes we hit an assert, sometimes a segfault */
 #ifdef DEBUG
-.*(check failure: .*expected elf header|Failed to find DynamoRIO library bounds).*
+.*check failure: .*expected elf header.*
 #else
 .*Failed to find DynamoRIO library bounds.*
 #endif

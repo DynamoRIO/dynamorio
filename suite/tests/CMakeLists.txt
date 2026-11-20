@@ -2983,6 +2983,12 @@ if (NOT ANDROID) # XXX i#1874: get working on Android
   target_link_libraries(client.null_instrument client.null_instrument.appdll)
   # We want rpath on Linux so we can load the appdll.
   set_target_properties(client.null_instrument PROPERTIES SKIP_BUILD_RPATH OFF)
+  if (WIN32 AND X86 AND TARGET empty)
+    # Returning from a native DLL with a client loaded requires private thread state.
+    torunonly_ci(client.native-return-state client.null_instrument empty
+      client-interface/null_instrument.c ""
+      "-no_early_inject -native_exec_list client.null_instrument.appdll.dll" "")
+  endif ()
 endif ()
 
 if (NOT ARM) # XXX i#1551: fix bugs on ARM
@@ -3312,16 +3318,6 @@ if (X86 OR AARCH64)
       append_pure_asm_app_link_flags(allasm_dfilter)
     endif ()
   endif ()
-endif ()
-
-if (WIN32 AND X86)
-  tobuild_appdll(client.native-return-state client-interface/native-return-state.c)
-  get_target_path_for_execution(native_return_path client.native-return-state.appdll "${location_suffix}")
-  get_filename_component(native_return_name "${native_return_path}" NAME)
-  set(client.native-return-state_timeout 30)
-  tobuild_ci(client.native-return-state client-interface/native-return-state.c ""
-    "-no_early_inject -native_exec_list ${native_return_name}" "")
-  target_link_libraries(client.native-return-state client.native-return-state.appdll)
 endif ()
 
 if (NOT RISCV64)
