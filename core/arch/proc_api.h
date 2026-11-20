@@ -160,6 +160,7 @@ typedef struct {
     uint ext_flags_edx;  /**< X86 extended feature flags stored in edx */
     uint ext_flags_ecx;  /**< X86 extended feature flags stored in ecx */
     uint sext_flags_ebx; /**< structured X86 extended feature flags stored in ebx */
+    uint sext_flags_ecx; /**< structured X86 extended feature flags stored in ecx */
 } features_t;
 #endif
 /* We avoid using #elif here because otherwise doxygen will be unable to
@@ -301,6 +302,8 @@ typedef enum {
     FEATURE_RTM = 11 + 128,      /**< Restricted Transactional Memory supported (X86) */
     FEATURE_AVX512F = 16 + 128,  /**< AVX-512F instructions supported (X86) */
     FEATURE_AVX512BW = 30 + 128, /**< AVX-512BW instructions supported (X86) */
+    /* structured extended features returned in ecx */
+    FEATURE_LA57 = 16 + 160, /**< 57-bit linear addresses (5-level paging) (X86) */
 } feature_bit_t;
 #endif
 /* We avoid using #elif here because otherwise doxygen will be unable to
@@ -415,6 +418,7 @@ typedef enum {
     FEATURE_FPACCOMBINE =
         DEF_FEAT(AA64ISAR2, 3, 5, FEAT_GR_EQ), /**< Faulting on combined branch pointer
                                                   authentication instructions (AArch64) */
+    FEATURE_SB = DEF_FEAT(AA64ISAR1, 9, 1, FEAT_EQ), /**< SB (AArch64) */
 } feature_bit_t;
 
 #endif

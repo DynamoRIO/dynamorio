@@ -70,35 +70,6 @@ assert_not_ported(const char *file, int line, const char *func)
 #endif
 }
 
-#ifdef DEBUG
-/* Verifies that segment accesses through os_tls_offset() and C accesses through the
- * CPU-local state pointer reach the same memory, in both directions.
- */
-static void
-check_tls_segment_mapping(void)
-{
-    local_state_extended_t *ls = get_local_state_extended();
-    /* Lowest and highest pointer-sized slots that generated code accesses:
-     * the first register spill slot and the last IBL hashtable pointer.
-     */
-    const ushort first = TLS_REG0_SLOT;
-    const ushort last = TLS_TABLE_SLOT(IBL_BRANCH_TYPE_END - 1);
-    ptr_uint_t *first_slot = (ptr_uint_t *)((byte *)ls + first);
-    ptr_uint_t *last_slot = (ptr_uint_t *)((byte *)ls + last);
-    const ptr_uint_t sentinel1 = 0xdecafbadcafef00d;
-    const ptr_uint_t sentinel2 = 0x0123456789abcdef;
-
-    *first_slot = sentinel1;
-    ASSERT((ptr_uint_t)d_r_get_tls(os_tls_offset(first)) == sentinel1);
-
-    d_r_set_tls(os_tls_offset(last), (void *)sentinel2);
-    ASSERT(*last_slot == sentinel2);
-
-    *first_slot = 0;
-    *last_slot = 0;
-}
-#endif
-
 void
 d_r_os_init(void)
 {
@@ -123,18 +94,30 @@ d_r_os_init(void)
     }
 #ifdef X86
     /* Generated code accesses local state as gs:[disp32] off the kernel's per-CPU base.
-     * TODO i#8021: Move x86-specific TLS code to an arch-specific file when AArch64
-     * support starts.
+     * TODO i#8021: Move arch-specific TLS code to arch-specific files.
      */
     tls_local_state_seg_offs = kernel_get_cpu_local_state_segment_offset();
-#else
-    ASSERT_NOT_PORTED(false);
-#endif
     /* Ensures os_tls_offset() cannot overflow. */
     ASSERT(tls_local_state_seg_offs <= INT_MAX - (int)sizeof(local_state_extended_t));
+#elif defined(AARCH64)
+    /* AArch64 has no segment addressing, so offsets are from the local-state base. */
+    tls_local_state_seg_offs = 0;
+#else
+#    error "Unsupported architecture"
+#endif
     os_state_ready = true;
-    DOCHECK(1, { check_tls_segment_mapping(); });
 }
+
+#ifdef AARCH64
+/* Returns this CPU's TLS slot at tls_offs. Callers must keep preemption disabled. */
+static void **
+local_state_slot(int tls_offs)
+{
+    ASSERT(tls_offs >= 0 &&
+           (size_t)tls_offs <= sizeof(local_state_extended_t) - sizeof(void *));
+    return (void **)((byte *)kernel_get_cpu_local_state() + tls_offs);
+}
+#endif
 
 void *
 d_r_get_tls(int tls_offs)
@@ -147,9 +130,10 @@ d_r_get_tls(int tls_offs)
                  : "r"((ptr_int_t)tls_offs)
                  : "memory");
     return value;
+#elif defined(AARCH64)
+    return *local_state_slot(tls_offs);
 #else
-    ASSERT_NOT_PORTED(false);
-    return NULL;
+#    error "Unsupported architecture"
 #endif
 }
 
@@ -162,8 +146,10 @@ d_r_set_tls(int tls_offs, void *value)
                  :
                  : "r"(value), "r"((ptr_int_t)tls_offs)
                  : "memory");
+#elif defined(AARCH64)
+    *local_state_slot(tls_offs) = value;
 #else
-    ASSERT_NOT_PORTED(false);
+#    error "Unsupported architecture"
 #endif
 }
 
@@ -219,8 +205,8 @@ os_get_app_tls_reg_offset(reg_id_t reg)
 thread_id_t
 d_r_get_thread_id(void)
 {
-    /* kernel_get_cpu_id is reentrant and fast because it just reads
-     * gs:[&per_cpu_var(cpu_number)].
+    /* kernel_get_cpu_id is reentrant and fast because it just reads the per-CPU
+     * cpu_number variable.
      * Avoid INVALID_THREAD_ID (0) which is used for unowned locks by returning CPU ID
      * plus one.
      *
@@ -315,6 +301,14 @@ create_event(void)
     return e;
 }
 
+event_t
+create_broadcast_event(void)
+{
+    event_t e = create_event();
+    e->broadcast = true;
+    return e;
+}
+
 void
 destroy_event(event_t e)
 {
@@ -391,6 +385,12 @@ get_dynamorio_dll_end(void)
     return (app_pc)kernel_get_module_text_end();
 }
 
+bool
+is_in_dynamo_dll(app_pc pc)
+{
+    return pc >= get_dynamorio_dll_start() && pc < get_dynamorio_dll_end();
+}
+
 /* The kernel port has no OS-specific module-list state, matching core/unix/module.c. */
 void
 os_modules_init(void)
@@ -402,6 +402,23 @@ void
 os_modules_exit(void)
 {
     /* Nothing. */
+}
+
+/* Matches core/unix/module.c. The kernel module does not add vmlinux or loaded kernel
+ * modules to DR's module list yet, so this currently returns NULL.
+ * TODO i#8021: Register vmlinux and kernel modules with the module list.
+ */
+app_pc
+get_module_base(app_pc pc)
+{
+    app_pc base = NULL;
+    module_area_t *ma;
+    os_get_module_info_lock();
+    ma = module_pc_lookup(pc);
+    if (ma != NULL)
+        base = ma->start;
+    os_get_module_info_unlock();
+    return base;
 }
 
 /* Native module retakeover relies on ELF PLT/GOT and ld.so hooking,
@@ -572,6 +589,25 @@ is_readable_without_exception_query_os_noblock(byte *pc, size_t size)
     return kernel_is_readable_without_fault(pc, size);
 }
 
+bool
+safe_read_ex(const void *base, size_t size, void *out_buf, size_t *bytes_read)
+{
+    STATS_INC(num_safe_reads);
+
+    size_t ret = kernel_read_without_fault(base, size, out_buf);
+    if (bytes_read != NULL) {
+        *bytes_read = ret;
+    }
+
+    return ret == size;
+}
+
+bool
+d_r_safe_read(const void *base, size_t size, void *out_buf)
+{
+    return safe_read_ex(base, size, out_buf, NULL);
+}
+
 void
 all_memory_areas_lock(void)
 {
@@ -585,7 +621,7 @@ all_memory_areas_unlock(void)
 }
 
 void
-update_all_memory_areas(app_pc start, app_pc end, uint prot, int type)
+update_all_memory_areas(app_pc start, app_pc end, uint prot, int type, bool is_shared)
 {
     /* No-op in kernel mode. */
 }
@@ -595,6 +631,51 @@ remove_from_all_memory_areas(app_pc start, app_pc end)
 {
     /* No-op in kernel mode. */
     return true;
+}
+
+/* kernel_interface.h cannot include DR headers, so it defines its own protection bits.
+ * They match DR's, so kernel_memory_region_t.prot can be used as a MEMPROT_* value.
+ */
+_Static_assert(KERNEL_MEMPROT_READ == MEMPROT_READ, "KERNEL_MEMPROT_READ mismatch");
+_Static_assert(KERNEL_MEMPROT_WRITE == MEMPROT_WRITE, "KERNEL_MEMPROT_WRITE mismatch");
+_Static_assert(KERNEL_MEMPROT_EXEC == MEMPROT_EXEC, "KERNEL_MEMPROT_EXEC mismatch");
+
+static void
+find_dynamo_library_vm_areas_callback(const kernel_memory_region_t *region, void *arg)
+{
+    int *count = (int *)arg;
+    add_dynamo_vm_area(region->base, region->base + region->size, region->prot,
+                       true /*image*/,
+                       /*is_shared=*/false _IF_DEBUG(get_dynamorio_library_path()));
+    (*count)++;
+}
+
+int
+find_dynamo_library_vm_areas(void)
+{
+    int count = 0;
+    kernel_walk_module_regions(find_dynamo_library_vm_areas_callback, &count);
+    return count;
+}
+
+static void
+find_executable_vm_areas_callback(const kernel_memory_region_t *region, void *arg)
+{
+    int *count = (int *)arg;
+    if (app_memory_allocation(
+            NULL, region->base, region->size, region->prot, false /*!image*/,
+            /*is_shared=*/false _IF_DEBUG("find_executable_vm_areas"))) {
+        (*count)++;
+    }
+}
+
+int
+find_executable_vm_areas(void)
+{
+    int count = 0;
+    kernel_walk_code_regions(find_executable_vm_areas_callback, &count);
+    STATS_ADD(num_app_code_modules, count);
+    return count;
 }
 
 int
@@ -612,6 +693,22 @@ get_timer_frequency(void)
 {
     return kernel_get_timestamp_counter_khz();
 }
+
+#ifdef AARCH64
+bool
+get_cache_line_size(DR_PARAM_OUT size_t *dcache_line_size,
+                    DR_PARAM_OUT size_t *icache_line_size)
+{
+    kernel_get_cache_line_sizes(dcache_line_size, icache_line_size);
+    return true;
+}
+
+void
+clear_icache(void *beg, void *end)
+{
+    kernel_flush_icache_range(beg, end);
+}
+#endif
 
 uint
 query_time_seconds(void)
@@ -639,9 +736,7 @@ query_time_micros(void)
 uint
 os_random_seed(void)
 {
-    uint64 cycles;
-    RDTSC_LL(cycles);
-    return (uint)cycles;
+    return kernel_get_random_u32();
 }
 
 bool
@@ -740,7 +835,7 @@ os_check_option_compatibility(void)
         changed_options = true;
     }
 
-    /* SMP takeover requires CPUs to initialize and enter DR concurrently; the
+    /* SMP takeover requires CPUs to enter DR concurrently; the
      * global single-thread-in-DR mode would serialize them.
      */
     FORCE_OPTION_VALUE(single_thread_in_DR, false);
