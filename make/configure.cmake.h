@@ -98,6 +98,7 @@
 #cmakedefine RECORD_MEMQUERY
 #cmakedefine BUILD_TESTS
 #cmakedefine AUTOMATED_TESTING
+#cmakedefine KERNEL_MODULE_SELF_CHECKS
 
 /* when packaging */
 #cmakedefine VERSION_NUMBER ${VERSION_NUMBER}

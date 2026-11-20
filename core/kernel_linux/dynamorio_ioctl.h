@@ -59,4 +59,9 @@ struct dynamorio_init_args {
 /* _IOW means user space writes the argument and the kernel reads it. */
 #define DYNAMORIO_IOCTL_INIT _IOW(DYNAMORIO_IOCTL_MAGIC, 0, struct dynamorio_init_args)
 
+/* Takes no argument. After session initialization, returns the number of failed
+ * checks, or -EOPNOTSUPP if the module was built without self-checks.
+ */
+#define DYNAMORIO_IOCTL_SELF_CHECK _IO(DYNAMORIO_IOCTL_MAGIC, 1)
+
 #endif /* _DYNAMORIO_IOCTL_H_ */

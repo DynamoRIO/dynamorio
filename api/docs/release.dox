@@ -157,6 +157,7 @@ changes:
  - Added #drvector_t.config field which contains additional configuration parameters for
    a #drvector_t. It currently contains #drvector_config_t.zero_alloc that when set to
    true sets every entry pointer of the drvector's storage to 0 using memset().
+ - Added #dr_mem_info_t.is_shared on Linux to identify shared mappings.
 
 The changes between version \DR_VERSION and 11.3.0 include the following minor
 compatibility changes:
@@ -309,11 +310,16 @@ Further non-compatibility-affecting changes include:
    by 8x. This also decreased the granularity of checking for the -trace_for_instrs
    and -exit_after_instrs flags; the old granularity can be reproduced by setting
    "-main_buf_records 4K".
+ - Added #FEATURE_LA57 for proc_has_feature() on x86, along with a new field
+   sext_flags_ecx in #features_t.
  - On Linux, shared non-executable ELF module candidates are now validated against
    their executable load segments (i#8117).
  - Raised the maximum -vm_size on AArch64 from 2GB to 64GB.  A value larger
    than 2GB removes the code cache reachability guarantees described in
    \ref sec_64bit_reach.
+ - Added -sandbox_shared option to handle JIT applications that use dual mapping.
+   -sandbox_shared is enabled by default on AArch64 but should be treated as experimental
+   on x86. It is currently only supported on Linux.
 
 **************************************************
 <hr>
@@ -699,6 +705,8 @@ Further non-compatibility-affecting changes include:
  - Added proc_get_vector_length_bytes() for AArch64. This returns the current
    vector length on all ARMv8 hardware including hardware which supports the
    Scalable Vector Extension (SVE).
+ - Added drmemtrace_boundary_events() and adjusted drmemtrace_get_output_path()
+   to better support windowed traces.
 
 **************************************************
 <hr>
