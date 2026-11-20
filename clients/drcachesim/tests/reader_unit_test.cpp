@@ -32,8 +32,8 @@
 
 #include "reader_unit_test.h"
 
-#include <cstdlib>
-#include <iostream>
+#include <assert.h>
+
 #include <vector>
 
 #include "memref.h"
@@ -52,14 +52,6 @@ using ::dynamorio::drmemtrace::test_util::make_memref;
 using ::dynamorio::drmemtrace::test_util::make_pid;
 using ::dynamorio::drmemtrace::test_util::make_thread;
 using ::dynamorio::drmemtrace::test_util::mock_reader_t;
-
-#define CHECK(cond)                                                              \
-    do {                                                                         \
-        if (!(cond)) {                                                           \
-            std::cerr << "CHECK failed at line " << __LINE__ << ": " #cond "\n"; \
-            exit(1);                                                             \
-        }                                                                        \
-    } while (0)
 
 static constexpr memref_tid_t TID = 1;
 static constexpr memref_pid_t PID = 2;
@@ -91,9 +83,9 @@ test_no_v2p_info()
     mock_reader_t reader(trace);
     reader.init();
     memref_t instr = next_non_marker(reader);
-    CHECK(instr.instr.num_pages == 0 && instr.instr.phys_rest == nullptr);
+    assert(instr.instr.num_pages == 0 && instr.instr.phys_rest == nullptr);
     memref_t data = next_non_marker(reader);
-    CHECK(data.data.num_pages == 0 && data.data.phys_rest == nullptr);
+    assert(data.data.num_pages == 0 && data.data.phys_rest == nullptr);
 }
 
 static void
@@ -132,44 +124,44 @@ test_v2p_markers()
     reader.init();
 
     memref_t instr = next_non_marker(reader);
-    CHECK(memref_num_pages(instr) == 2);
-    CHECK(instr.instr.phys0.addr == 0x9affe);
-    CHECK(instr.instr.phys0.page_size == TEST_PAGE_SIZE);
-    CHECK(memref_phys_page(instr, 1).addr == 0x13000);
-    CHECK(memref_phys_page(instr, 1).page_size == TEST_PAGE_SIZE);
+    assert(memref_num_pages(instr) == 2);
+    assert(instr.instr.phys0.addr == 0x9affe);
+    assert(instr.instr.phys0.page_size == TEST_PAGE_SIZE);
+    assert(memref_phys_page(instr, 1).addr == 0x13000);
+    assert(memref_phys_page(instr, 1).page_size == TEST_PAGE_SIZE);
 
     memref_t single = next_non_marker(reader);
-    CHECK(single.data.num_pages == 1 && single.data.phys_rest == nullptr);
-    CHECK(single.data.phys0.addr == 0x9a010);
+    assert(single.data.num_pages == 1 && single.data.phys_rest == nullptr);
+    assert(single.data.phys0.addr == 0x9a010);
 
     memref_t cross = next_non_marker(reader);
-    CHECK(memref_num_pages(cross) == 2);
-    CHECK(cross.data.phys0.addr == 0x9aff8);
-    CHECK(memref_phys_page(cross, 1).addr == 0x13000);
+    assert(memref_num_pages(cross) == 2);
+    assert(cross.data.phys0.addr == 0x9aff8);
+    assert(memref_phys_page(cross, 1).addr == 0x13000);
     // Accesses spanning the same pages share storage.
-    CHECK(cross.data.phys_rest == instr.instr.phys_rest);
+    assert(cross.data.phys_rest == instr.instr.phys_rest);
 
     memref_t unavail = next_non_marker(reader);
-    CHECK(memref_num_pages(unavail) == 2);
-    CHECK(unavail.data.phys0.addr == 0x13ff0);
-    CHECK(memref_phys_page(unavail, 1).addr == MEMREF_PHYS_ADDR_UNKNOWN);
+    assert(memref_num_pages(unavail) == 2);
+    assert(unavail.data.phys0.addr == 0x13ff0);
+    assert(memref_phys_page(unavail, 1).addr == MEMREF_PHYS_ADDR_UNKNOWN);
 
     memref_t three = next_non_marker(reader);
-    CHECK(memref_num_pages(three) == 3);
-    CHECK(three.data.phys0.addr == 0x9a800);
-    CHECK(memref_phys_page(three, 1).addr == 0x13000);
-    CHECK(memref_phys_page(three, 2).addr == MEMREF_PHYS_ADDR_UNKNOWN);
+    assert(memref_num_pages(three) == 3);
+    assert(three.data.phys0.addr == 0x9a800);
+    assert(memref_phys_page(three, 1).addr == 0x13000);
+    assert(memref_phys_page(three, 2).addr == MEMREF_PHYS_ADDR_UNKNOWN);
 
     memref_t unknown = next_non_marker(reader);
-    CHECK(memref_num_pages(unknown) == 1);
-    CHECK(unknown.data.phys0.addr == MEMREF_PHYS_ADDR_UNKNOWN);
+    assert(memref_num_pages(unknown) == 1);
+    assert(unknown.data.phys0.addr == MEMREF_PHYS_ADDR_UNKNOWN);
 
     memref_t remapped = next_non_marker(reader);
-    CHECK(memref_num_pages(remapped) == 2);
-    CHECK(memref_phys_page(remapped, 1).addr == 0x55000);
+    assert(memref_num_pages(remapped) == 2);
+    assert(memref_phys_page(remapped, 1).addr == 0x55000);
     // Earlier records are unaffected by the mapping change.
-    CHECK(remapped.data.phys_rest != cross.data.phys_rest);
-    CHECK(memref_phys_page(cross, 1).addr == 0x13000);
+    assert(remapped.data.phys_rest != cross.data.phys_rest);
+    assert(memref_phys_page(cross, 1).addr == 0x13000);
 }
 
 void
