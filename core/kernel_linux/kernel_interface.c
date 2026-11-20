@@ -786,12 +786,12 @@ copy_from_nofault_within_page(void *dst, unsigned long src, size_t size)
     /* The first and last bytes must be on the same page. */
     KERNEL_ASSERT((src & PAGE_MASK) == ((src + size - 1) & PAGE_MASK));
     /* copy_from_user_nofault rejects kernel addresses while copy_from_kernel_nofault
-     * rejects user addresses, so we split on the boundary the kernel itself uses.
-     * TASK_SIZE_MAX is page-aligned, so a range within one page never straddles the
-     * split.
+     * rejects user addresses, so pick by which side of the split the range is on.  It
+     * must not straddle the split.
      */
-    KERNEL_ASSERT((TASK_SIZE_MAX & ~PAGE_MASK) == 0);
-    return src < TASK_SIZE_MAX
+    KERNEL_ASSERT(kernel_is_user_address((const void *)src) ==
+                  kernel_is_user_address((const void *)(src + size - 1)));
+    return kernel_is_user_address((const void *)src)
         ? copy_from_user_nofault(dst, (const void __user *)src, size)
         : copy_from_kernel_nofault(dst, (const void *)src, size);
 }
