@@ -101,7 +101,7 @@ test_v2p_markers()
         make_marker(TRACE_MARKER_TYPE_PHYSICAL_ADDRESS, 0x13000),
         make_marker(TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, 0x7fff2000),
         make_marker(TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE, 0x7fff3000),
-        // Instruction straddling pages 1 and 2.
+        // Instruction spanning pages 1 and 2.
         make_instr(0x7fff1ffe, TRACE_TYPE_INSTR, 4),
         // Single-page access.
         make_memref(0x7fff1010, TRACE_TYPE_READ, 8),
@@ -141,10 +141,10 @@ test_v2p_markers()
     // Accesses spanning the same pages share storage.
     assert(cross.data.phys_rest == instr.instr.phys_rest);
 
-    memref_t unavail = next_non_marker(reader);
-    assert(memref_num_pages(unavail) == 2);
-    assert(unavail.data.phys0.addr == 0x13ff0);
-    assert(memref_phys_page(unavail, 1).addr == MEMREF_PHYS_ADDR_UNKNOWN);
+    memref_t third_unavail = next_non_marker(reader);
+    assert(memref_num_pages(third_unavail) == 2);
+    assert(third_unavail.data.phys0.addr == 0x13ff0);
+    assert(memref_phys_page(third_unavail, 1).addr == MEMREF_PHYS_ADDR_UNKNOWN);
 
     memref_t three = next_non_marker(reader);
     assert(memref_num_pages(three) == 3);
