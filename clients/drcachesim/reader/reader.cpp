@@ -132,7 +132,7 @@ reader_t::process_input_entry()
         // use to obtain the PC for subsequent data references.
         cur_ref_.data.pc = cur_pc_;
         set_phys_fields(cur_ref_.data.addr, cur_ref_.data.size, cur_ref_.data.phys0,
-                        cur_ref_.data.num_phys, cur_ref_.data.phys_rest);
+                        cur_ref_.data.num_pages, cur_ref_.data.phys_rest);
         break;
     case TRACE_TYPE_ENCODING:
         if (last_encoding_.size + input_entry_->size > MAX_ENCODING_LENGTH) {
@@ -208,7 +208,7 @@ reader_t::process_input_entry()
             next_pc_ = cur_pc_ + cur_ref_.instr.size;
             prev_instr_addr_ = input_entry_->addr;
             set_phys_fields(cur_ref_.instr.addr, cur_ref_.instr.size,
-                            cur_ref_.instr.phys0, cur_ref_.instr.num_phys,
+                            cur_ref_.instr.phys0, cur_ref_.instr.num_pages,
                             cur_ref_.instr.phys_rest);
             if (cur_ref_.instr.type != TRACE_TYPE_INSTR_NO_FETCH)
                 ++cur_instr_count_;
@@ -271,7 +271,7 @@ reader_t::process_input_entry()
         cur_ref_.instr.addr = cur_pc_;
         next_pc_ = cur_pc_ + cur_ref_.instr.size;
         set_phys_fields(cur_ref_.instr.addr, cur_ref_.instr.size, cur_ref_.instr.phys0,
-                        cur_ref_.instr.num_phys, cur_ref_.instr.phys_rest);
+                        cur_ref_.instr.num_pages, cur_ref_.instr.phys_rest);
         ++cur_instr_count_;
         // input_entry_->size stores the number of instrs in this bundle
         assert(input_entry_->size <= sizeof(input_entry_->length));
@@ -449,34 +449,34 @@ reader_t::virt_page_to_phys_page(addr_t virt_page) const
 
 void
 reader_t::set_phys_fields(addr_t vaddr, size_t size, _memref_phys_t &phys0,
-                          uint32_t &num_phys, const _memref_phys_t *&phys_rest)
+                          uint32_t &num_pages, const _memref_phys_t *&phys_rest)
 {
     phys_rest = nullptr;
     // Core-sharded inputs interleave address spaces, which one map cannot represent.
     if (v2p_map_.empty() || page_size_ == 0 || size == 0 || core_sharded_) {
-        num_phys = 0;
+        num_pages = 0;
         return;
     }
     const addr_t page_size = static_cast<addr_t>(page_size_);
     const addr_t mask = ~(page_size - 1);
     const addr_t first_page = vaddr & mask;
     const addr_t last_page = (vaddr + size - 1) & mask;
-    num_phys = static_cast<uint32_t>((last_page - first_page) / page_size + 1);
+    num_pages = static_cast<uint32_t>((last_page - first_page) / page_size + 1);
     phys0.page_size = page_size_;
     phys0.addr = virt_page_to_phys_page(first_page);
     if (phys0.addr != MEMREF_PHYS_ADDR_UNKNOWN)
         phys0.addr += vaddr - first_page;
-    if (num_phys == 1)
+    if (num_pages == 1)
         return;
-    phys_rest_scratch_.resize(num_phys - 1);
-    for (uint32_t i = 0; i < num_phys - 1; ++i) {
+    phys_rest_scratch_.resize(num_pages - 1);
+    for (uint32_t i = 0; i < num_pages - 1; ++i) {
         phys_rest_scratch_[i].addr =
             virt_page_to_phys_page(first_page + (i + 1) * page_size);
         phys_rest_scratch_[i].page_size = page_size_;
     }
     // Reuse the stored array for these pages unless the mapping has changed.
     const std::vector<_memref_phys_t> *&stored =
-        phys_rest_cache_[std::make_pair(first_page + page_size, num_phys - 1)];
+        phys_rest_cache_[std::make_pair(first_page + page_size, num_pages - 1)];
     if (stored == nullptr ||
         !std::equal(stored->begin(), stored->end(), phys_rest_scratch_.begin(),
                     [](const _memref_phys_t &a, const _memref_phys_t &b) {

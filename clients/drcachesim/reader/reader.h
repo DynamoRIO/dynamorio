@@ -246,7 +246,7 @@ private:
     // Fills the physical address fields of a data or instruction record for
     // [vaddr, vaddr + size) from the v2p markers seen so far.
     void
-    set_phys_fields(addr_t vaddr, size_t size, _memref_phys_t &phys0, uint32_t &num_phys,
+    set_phys_fields(addr_t vaddr, size_t size, _memref_phys_t &phys0, uint32_t &num_pages,
                     const _memref_phys_t *&phys_rest);
     addr_t
     virt_page_to_phys_page(addr_t virt_page) const;
