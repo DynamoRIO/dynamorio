@@ -664,6 +664,49 @@ query_memory_ex_from_os(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info)
     return true;
 }
 
+/* Like query_memory_ex_from_os(), but also fails if nothing is mapped at |pc|. */
+bool
+get_memory_info_from_os(const byte *pc, byte **base_pc, size_t *size,
+                        uint *prot /* OUT optional, returns MEMPROT_* value */)
+{
+    dr_mem_info_t info;
+    if (!query_memory_ex_from_os(pc, &info) || info.type == DR_MEMTYPE_FREE) {
+        return false;
+    }
+    if (base_pc != NULL) {
+        *base_pc = info.base_pc;
+    }
+    if (size != NULL) {
+        *size = info.size;
+    }
+    if (prot != NULL) {
+        *prot = info.prot;
+    }
+    return true;
+}
+
+/* There is no memory cache in the kernel build, so the queries below are the same as
+ * their "from_os" counterparts.
+ */
+bool
+query_memory_ex(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info)
+{
+    return query_memory_ex_from_os(pc, info);
+}
+
+bool
+query_memory_cur_base(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info)
+{
+    return query_memory_ex_from_os(pc, info);
+}
+
+bool
+get_memory_info(const byte *pc, byte **base_pc, size_t *size,
+                uint *prot /* OUT optional, returns MEMPROT_* value */)
+{
+    return get_memory_info_from_os(pc, base_pc, size, prot);
+}
+
 static void
 find_dynamo_library_vm_areas_callback(const kernel_memory_region_t *region, void *arg)
 {
