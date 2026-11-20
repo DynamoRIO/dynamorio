@@ -142,6 +142,13 @@ kernel_walk_module_regions(kernel_memory_region_callback_t callback, void *arg);
 void
 kernel_walk_code_regions(kernel_memory_region_callback_t callback, void *arg);
 
+/* Reports the page containing the kernel address |addr| in |region|.  The protection is
+ * 0 if the page is not mapped.  Returns false for a user address.  Acquires no locks and
+ * never sleeps.
+ */
+bool
+kernel_query_memory(const void *addr, kernel_memory_region_t *region);
+
 /* Returns whether the |size| bytes at |addr| can be read without faulting.  Handles both
  * kernel and user addresses.  A user address is interpreted in the current task's
  * address space.  Acquires no locks and never sleeps, so it is safe to call in any
