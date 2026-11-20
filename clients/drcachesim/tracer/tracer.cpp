@@ -688,11 +688,11 @@ instrumentation_init()
 static void
 event_post_attach()
 {
-    if (!align_attach_detach_endpoints())
-        return;
-    uint64 timestamp = instru_t::get_timestamp();
-    attached_timestamp.store(timestamp, std::memory_order_release);
-    NOTIFY(1, "Fully-attached timestamp is " UINT64_FORMAT_STRING "\n", timestamp);
+    if (align_attach_detach_endpoints()) {
+        uint64 timestamp = instru_t::get_timestamp();
+        attached_timestamp.store(timestamp, std::memory_order_release);
+        NOTIFY(1, "Fully-attached timestamp is " UINT64_FORMAT_STRING "\n", timestamp);
+    }
     if (get_initial_no_trace_for_instrs_value() != 0) {
         NOTIFY(1, "Switching to counting mode after attach\n");
         tracing_mode.store(BBDUP_MODE_COUNT, std::memory_order_release);
@@ -2522,6 +2522,10 @@ event_thread_exit(void *drcontext)
 static void
 event_exit(void)
 {
+    if (is_in_tracing_mode(tracing_mode.load(std::memory_order_acquire)) &&
+        ended_tracing_func != nullptr) {
+        ended_tracing_func(tracing_func_arg);
+    }
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         drpttracer_exit();
