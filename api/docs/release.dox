@@ -157,12 +157,6 @@ changes:
  - Added #drvector_t.config field which contains additional configuration parameters for
    a #drvector_t. It currently contains #drvector_config_t.zero_alloc that when set to
    true sets every entry pointer of the drvector's storage to 0 using memset().
- - Added the fields phys0, num_pages, and phys_rest to the data and instruction
-   structures of #dynamorio::drmemtrace::memref_t, holding the as-traced physical
-   address and size of each page touched by the access, filled in by
-   #dynamorio::drmemtrace::reader_t from the
-   #dynamorio::drmemtrace::TRACE_MARKER_TYPE_PHYSICAL_ADDRESS markers.  This
-   increases the size of #dynamorio::drmemtrace::memref_t.
 
 The changes between version \DR_VERSION and 11.3.0 include the following minor
 compatibility changes:
@@ -223,6 +217,12 @@ compatibility changes:
    Instead, a repeated string loop will start with an instruction fetch of the new type
    #dynamorio::drmemtrace::TRACE_TYPE_INSTR_REPEATED, followed by consecutive
    load and store records.
+ - Added the fields phys0, num_pages, and phys_rest to the data and instruction
+   structures of #dynamorio::drmemtrace::memref_t, holding the as-traced physical
+   address and size of each page touched by the access, filled in by
+   #dynamorio::drmemtrace::reader_t from the
+   #dynamorio::drmemtrace::TRACE_MARKER_TYPE_PHYSICAL_ADDRESS markers.
+   This increases the size of #dynamorio::drmemtrace::memref_t.
 
 Further non-compatibility-affecting changes include:
  - Changed the types of `block_size`, `total_size`, `num_blocks`, to `int64_t`
