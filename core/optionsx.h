@@ -1505,6 +1505,10 @@ OPTION_DEFAULT(uint, cache_coarse_align, 1, "alignment of coarse bb cache slots"
 
 OPTION_DEFAULT(uint, ro2sandbox_threshold, 10,
                "#write faults in a region before switching to sandboxing, 0 to disable")
+
+/* Part of the codemod-dual-mapping test loops to cross this threshold. If the default is
+ * changed the test should be updated.
+ */
 OPTION_DEFAULT(
     uint, sandbox2ro_threshold, 20,
     "#executions in a sandboxed region before switching to page prot, 0 to disable")
@@ -1530,6 +1534,14 @@ OPTION_COMMAND(
         }
     },
     "always sandbox non-text writable regions", STATIC, OP_PCACHE_GLOBAL)
+
+/* TODO: i#7664: Make -shandbox_shared work with -sandbox_writes and enable by default on
+ * x86.
+ * TODO: i#8288: Implement shared mapping for all OSes and enable -sandbox_shared.
+ */
+OPTION_COMMAND(bool, sandbox_shared, IF_AARCH64_ELSE(true, false), "sandbox_shared", {},
+               "always sandbox shared regions (currently Linux only)", STATIC,
+               OP_PCACHE_GLOBAL)
 
 /* XXX: separate for bb and trace shared caches? */
 OPTION_DEFAULT(bool, cache_shared_free_list, true,

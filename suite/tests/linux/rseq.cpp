@@ -1398,6 +1398,13 @@ rseq_thread_loop(void *arg)
          * synch to not reach here natively before DR attaches.  Decided against it.
          */
         "movl $1, %[zero]\n\t"
+        /* TODO i#5908: DR elides stores inside rseq regions, so without this non-store
+         * app instruction the loop's code cache copy has no translatable app
+         * instruction where suspend signals usually land, and detach fails to synch
+         * this thread ("Failed to synchronize with all threads").  Remove once DR
+         * can force such threads to a safe spot.
+         */
+        "nop\n\t"
         "jmp 2b\n\t"
         /* We can't end the sequence in a branch (DR can't handle it). */
         "nop\n\t"

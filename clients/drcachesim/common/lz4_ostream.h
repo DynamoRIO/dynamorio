@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -61,7 +61,7 @@ public:
         dest_buf_.reserve(LZ4F_compressBound(src_buf_.size(), nullptr));
         file_ = new std::ofstream(path);
 
-        char *base = &src_buf_.front();
+        char *base = src_buf_.data();
         setp(base, base + src_buf_.size() - 1);
 
         write_header();
@@ -92,13 +92,13 @@ private:
 
         int size = static_cast<int>(pptr() - pbase());
         pbump(-size);
-        auto ret = LZ4F_compressUpdate(lzctx_, &dest_buf_.front(), dest_buf_.capacity(),
+        auto ret = LZ4F_compressUpdate(lzctx_, dest_buf_.data(), dest_buf_.capacity(),
                                        pbase(), size, nullptr);
         if (LZ4F_isError(ret)) {
             return traits_type::eof();
         }
 
-        file_->write(&dest_buf_.front(), ret);
+        file_->write(dest_buf_.data(), ret);
         return traits_type::not_eof(extra_char);
     }
 
@@ -112,22 +112,22 @@ private:
     write_header()
     {
         auto res =
-            LZ4F_compressBegin(lzctx_, &dest_buf_.front(), dest_buf_.capacity(), nullptr);
+            LZ4F_compressBegin(lzctx_, dest_buf_.data(), dest_buf_.capacity(), nullptr);
         if (LZ4F_isError(res)) {
             return;
         }
-        file_->write(&dest_buf_.front(), res);
+        file_->write(dest_buf_.data(), res);
     }
 
     void
     write_footer()
     {
         auto res =
-            LZ4F_compressEnd(lzctx_, &dest_buf_.front(), dest_buf_.capacity(), nullptr);
+            LZ4F_compressEnd(lzctx_, dest_buf_.data(), dest_buf_.capacity(), nullptr);
         if (LZ4F_isError(res)) {
             return;
         }
-        file_->write(&dest_buf_.front(), res);
+        file_->write(dest_buf_.data(), res);
     }
 
 private:

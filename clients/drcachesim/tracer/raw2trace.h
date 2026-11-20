@@ -817,6 +817,9 @@ protected:
         pt2ir_t pt2ir;
 #endif
 
+        bool has_v2p = false;
+        virtual2physical_repeater_t v2p;
+
         // Sentinel value for to_inject_syscall.
         static constexpr int INJECT_NONE = -1;
     };
@@ -1101,6 +1104,12 @@ private:
     write_delayed_branches(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                            const trace_entry_t *end, app_pc decode_pc = nullptr,
                            app_pc target_pc = nullptr);
+
+    // Helper used by write() when outputting chunked pieces. This consolidates
+    // logic repeating v2p markers in new chunks.
+    bool
+    write_with_repeats(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
+                       const trace_entry_t *end);
 
     // Writes encoding entries for pc..pc+instr_length to buf.
     bool

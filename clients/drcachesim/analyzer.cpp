@@ -66,7 +66,7 @@
 #ifdef HAS_SNAPPY
 #    include "reader/snappy_file_reader.h"
 #endif
-#include "common/utils.h"
+#include "utils.h"
 
 #undef VPRINT
 // Make printing available in release build by not using ifdef DEBUG here.
@@ -155,6 +155,7 @@ analyzer_t::create_idle_marker()
     record.marker.type = TRACE_TYPE_MARKER;
     record.marker.marker_type = TRACE_MARKER_TYPE_CORE_IDLE;
     record.marker.tid = IDLE_THREAD_ID;
+    record.marker.pid = IDLE_PROCESS_ID;
     return record;
 }
 

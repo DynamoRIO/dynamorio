@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -240,6 +240,38 @@ drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
                           drmemtrace_exit_func_t exit_func, void *exit_func_arg);
 
 /**
+ * Function for commencement of tracing.  This is called at the start
+ * of any tracing mode, which may be delayed or may repeat depending on
+ * parameters. For multiple tracing "window" from options like -trace_for_instrs or
+ * -retrace_every_instrs, this will be called multiple times, with the window ordinal
+ * passed as "window_index". (For -split_windows, the same ordinal will appear in the
+ * subdirectory returned by drmemtrace_get_output_path()).
+ *
+ * @param[in] user_arg  The \p user_arg passed to drmemtrace_boundary_events().
+ * @param[in] window_index  The traced window ordinal.
+ */
+typedef void (*drmemtrace_started_tracing_func_t)(int64 window_index, void *user_arg);
+
+/**
+ * Function for termination of tracing.  This is called at the end
+ * of any tracing mode, which may repeat depending on parameters.
+ * drmemtrace_get_output_path() can be used to obtain the current window output
+ * subdirectory when -split_windows is set to true.
+ *
+ * @param[in] user_arg  The \p user_arg passed to drmemtrace_boundary_events().
+ */
+typedef void (*drmemtrace_ended_tracing_func_t)(void *user_arg);
+
+/**
+ * Registers callbacks to be invoked at the start and end boundaries of
+ * "windows" of tracing from options like -trace_for_instrs and -retrace_every_instrs.
+ * The "user_arg" parameter is passed to each callback.
+ */
+drmemtrace_status_t
+drmemtrace_boundary_events(drmemtrace_started_tracing_func_t started_func,
+                           drmemtrace_ended_tracing_func_t ended_func, void *user_arg);
+
+/**
  * Structure holding all the file replacement operations for passing to
  * drmemtrace_replace_file_ops_ex().
  */
@@ -279,8 +311,22 @@ drmemtrace_replace_file_ops_ex(drmemtrace_replace_file_ops_t *ops);
 
 DR_EXPORT
 /**
+ * Returns the currently-installed file operation functions.
+ * The "size" parameter must be set in "ops" before calling.
+ * If neither drmemtrace_replace_file_ops() nor drmemtrace_replace_file_ops_ex() has
+ * been called, this returns the default file functions.
+ */
+drmemtrace_status_t
+drmemtrace_get_file_ops_ex(drmemtrace_replace_file_ops_t *ops,
+                           drmemtrace_open_file_func_t *open_file_func);
+
+DR_EXPORT
+/**
  * Retrieves the full path to the output directory in -offline mode
  * where data is being written.
+ * If "windows" of tracing are active (from options like -trace_for_instrs and
+ * -retrace_every_instrs with -split_windows set to true), this will include the
+ * current window subdirectory.
  */
 drmemtrace_status_t
 drmemtrace_get_output_path(DR_PARAM_OUT const char **path);
@@ -400,6 +446,14 @@ DR_EXPORT
 drmemtrace_status_t
 drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size,
                                             DR_PARAM_OUT uint64 *timestamp);
+
+DR_EXPORT
+/**
+ * Returns the total count of bytes written out.
+ * This should only be relied upon after tracing finishes.
+ */
+uint64
+drmemtrace_get_bytes_written();
 
 } // namespace drmemtrace
 } // namespace dynamorio

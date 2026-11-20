@@ -195,13 +195,13 @@
 
 /* returns true if result value is zero */
 static inline bool
-atomic_inc_and_test(volatile int *var)
+d_r_atomic_inc_and_test(volatile int *var)
 {
     return (ATOMIC_INC(int, *(var)) == 0);
 }
 /* Returns true if result value is negative. */
 static inline bool
-atomic_dec_and_test(volatile int *var)
+d_r_atomic_dec_and_test(volatile int *var)
 {
     return (ATOMIC_DEC(int, *(var)) < 0);
 }
@@ -576,13 +576,13 @@ DEF_ATOMIC_incdec(ATOMIC_INC_int, int, "w", "add") DEF_ATOMIC_incdec(ATOMIC_INC_
             } while (0) /* wait for interrupt */
 
 static inline bool
-atomic_inc_and_test(volatile int *var)
+d_r_atomic_inc_and_test(volatile int *var)
 {
     return atomic_add_exchange_int(var, 1) == 0;
 }
 
 static inline bool
-atomic_dec_and_test(volatile int *var)
+d_r_atomic_dec_and_test(volatile int *var)
 {
     return atomic_add_exchange_int(var, -1) < 0;
 }
@@ -1050,13 +1050,13 @@ atomic_exchange_int(volatile int *var, int newval)
 #        define SPINLOCK_PAUSE() __asm__ __volatile__(".int 0x0100000F");
 
 static inline bool
-atomic_inc_and_test(volatile int *var)
+d_r_atomic_inc_and_test(volatile int *var)
 {
     return atomic_add_exchange_int(var, 1) == 0;
 }
 
 static inline bool
-atomic_dec_and_test(volatile int *var)
+d_r_atomic_dec_and_test(volatile int *var)
 {
     return atomic_add_exchange_int(var, -1) < 0;
 }
@@ -1085,7 +1085,7 @@ atomic_dec_becomes_zero(volatile int *var)
  * Returns true if the resulting value is zero, otherwise returns false
  */
 static inline bool
-atomic_inc_and_test(volatile int *var)
+d_r_atomic_inc_and_test(volatile int *var)
 {
     bool is_zero;
     ATOMIC_INC_int_nowzero(*var, is_zero);
@@ -1096,7 +1096,7 @@ atomic_inc_and_test(volatile int *var)
  * Returns true if the result is negative, otherwise returns false.
  */
 static inline bool
-atomic_dec_and_test(volatile int *var)
+d_r_atomic_dec_and_test(volatile int *var)
 {
     bool is_negative;
     ATOMIC_DEC_int_nowneg(*var, is_negative);

@@ -33,16 +33,16 @@
 #include "analysis_tool.h"
 #include "analyzer.h"
 #include "analyzer_multi.h"
-#include "common/options.h"
-#include "common/utils.h"
-#include "common/directory_iterator.h"
+#include "options.h"
+#include "utils.h"
+#include "directory_iterator.h"
 #include "noise_generator.h"
 #include "tlb_simulator.h"
 #include "tracer/raw2trace_directory.h"
 #include "tracer/raw2trace.h"
 #include "reader/file_reader.h"
 #ifdef HAS_ZLIB
-#    include "common/gzip_istream.h"
+#    include "gzip_istream.h"
 #    include "reader/compressed_file_reader.h"
 #    ifdef HAS_ZIP
 #        include "zipfile_istream.h"
@@ -50,7 +50,7 @@
 #    endif
 #endif
 #ifdef HAS_ZIP
-#    include "common/zipfile_istream.h"
+#    include "zipfile_istream.h"
 #endif
 #include "reader/ipc_reader.h"
 #include "simulator/cache_simulator_create.h"

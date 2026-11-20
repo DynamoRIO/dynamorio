@@ -28,6 +28,11 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
+# Build the user-space controller with the host compiler, outside Kbuild.
+add_executable(drkernel_ctl drkernel_ctl.c)
+set_target_properties(drkernel_ctl PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${EXECUTABLE_OUTPUT_DIRECTORY}")
+
 # Builds the DynamoRIO Linux kernel module via the kernel's own Kbuild
 # system. Kernel modules can't be compiled with CMake's normal compiler
 # invocation, so this shells out to `make` against KERNEL_DIR and
@@ -46,6 +51,7 @@ set(dynamorio_module_os_sources
   kernel_linux/dynamorio_module_main.c
   kernel_linux/kernel_interface.c
   kernel_linux/os.c
+  kernel_linux/self_checks.c
 )
 set(dynamorio_module_sources ${CORE_SRCS} ${ARCH_SRCS} ${dynamorio_module_os_sources})
 list(TRANSFORM dynamorio_module_sources PREPEND "core/")
@@ -75,6 +81,14 @@ foreach (header configure.h configure_defines.h event_strings.h)
     "${CMAKE_CURRENT_BINARY_DIR}/${header}" SYMBOLIC)
 endforeach ()
 
+if (AARCH64)
+  foreach (header IN LISTS AARCH64_CODEC_GEN_SRCS)
+    get_filename_component(header_name "${header}" NAME)
+    file(CREATE_LINK "${header}"
+      "${CMAKE_CURRENT_BINARY_DIR}/${header_name}" SYMBOLIC)
+  endforeach ()
+endif ()
+
 # Kbuild adds the generated core/kernel_linux/stubs.o, which is derived from
 # these objects.
 string(REPLACE ";" " \\\n  " dynamorio_module_objs "${dynamorio_module_objs}")
@@ -102,6 +116,10 @@ add_custom_target(dynamorio_module ALL
 KERNEL_DIR=${KERNEL_DIR}"
   VERBATIM
 )
+if (AARCH64)
+  add_dependencies(dynamorio_module gen_aarch64_codec)
+endif ()
+add_dependencies(dynamorio_module drkernel_ctl)
 
 # Standard `make clean` cannot remove Kbuild bookkeeping files.
 # Run `make clean_dynamorio_module` to invoke Kbuild's clean target.

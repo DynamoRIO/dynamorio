@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -63,21 +63,21 @@
 #include "trace_entry.h"
 #include "utils.h"
 #ifdef HAS_ZLIB
-#    include "common/gzip_istream.h"
-#    include "common/gzip_ostream.h"
-#    include "common/zlib_istream.h"
+#    include "gzip_istream.h"
+#    include "gzip_ostream.h"
+#    include "zlib_istream.h"
 #    include "compressed_file_reader.h"
 #    ifdef HAS_ZIP
-#        include "common/zipfile_ostream.h"
+#        include "zipfile_ostream.h"
 #        include "zipfile_file_reader.h"
 #    endif
 #endif
 #ifdef HAS_SNAPPY
-#    include "common/snappy_istream.h"
+#    include "snappy_istream.h"
 #endif
 #ifdef HAS_LZ4
-#    include "common/lz4_istream.h"
-#    include "common/lz4_ostream.h"
+#    include "lz4_istream.h"
+#    include "lz4_ostream.h"
 #endif
 
 namespace dynamorio {
@@ -479,6 +479,9 @@ raw2trace_directory_t::tracedir_from_rawdir(const std::string &rawdir_in)
         rawdir.compare(rawdir.size() - trace_sub.size(), trace_sub.size(), trace_sub) ==
             0)
         return window_subdir_if_present(rawdir);
+    // If it ends in "/trace" plus a window subdir, use it directly.
+    if (is_window_subdir(rawdir) && rawdir.rfind(trace_sub) != std::string::npos)
+        return rawdir;
     // If it ends in "/raw" or a window subdir, replace with "/trace".
     if ((rawdir.size() > raw_sub.size() &&
          rawdir.compare(rawdir.size() - raw_sub.size(), raw_sub.size(), raw_sub) == 0) ||

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -73,6 +73,8 @@ unit_test_tls_emit(dcontext_t *dc);
 void
 unit_test_tls_translate(dcontext_t *dc);
 #endif
+void
+unit_test_redirect_heap(void);
 
 int
 main(int argc, char **argv, char **envp)
@@ -104,6 +106,7 @@ main(int argc, char **argv, char **envp)
     unit_test_asm(dc);
     unit_test_atomic_ops();
     unit_test_jit_fragment_tree();
+    unit_test_redirect_heap();
     print_file(STDERR, "all done\n");
     standalone_exit();
     return 0;

@@ -1483,7 +1483,7 @@ math(EXPR VERSION_NUMBER_INTEGER
   "${VERSION_NUMBER_MAJOR}*100 + ${VERSION_NUMBER_MINOR}")
 
 # Every release since has had minor compat breakages: see api/docs/release.dox.
-set(OLDEST_COMPATIBLE_VERSION_DEFAULT "1100")
+set(OLDEST_COMPATIBLE_VERSION_DEFAULT "1192")
 set(OLDEST_COMPATIBLE_VERSION "" CACHE STRING
   "Oldest compatible version: leave empty for default")
 if ("${OLDEST_COMPATIBLE_VERSION}" STREQUAL "")
@@ -1699,6 +1699,8 @@ option(BUILD_CLIENTS "build client tools" ON)
 
 option(BUILD_KERNEL_MODULE "build DynamoRIO as a kernel module (experimental)" OFF)
 
+option(KERNEL_MODULE_SELF_CHECKS "enable self-checks for the DynamoRIO kernel module" OFF)
+
 if (ANDROID)
   # TODO i#1874: Android does not build drcachesim or drcpusim, which have
   # references spread throughout the docs.
@@ -1726,10 +1728,9 @@ if (BUILD_KERNEL_MODULE)
     message(FATAL_ERROR "BUILD_KERNEL_MODULE is only supported on Linux")
   endif()
 
-  # TODO i#8021: support AARCH64.
-  if (NOT X86 OR NOT X64)
+  if (NOT (AARCH64 OR (X86 AND X64)))
     message(FATAL_ERROR
-      "BUILD_KERNEL_MODULE is currently only supported on X86_64 architecture")
+      "BUILD_KERNEL_MODULE is currently only supported on X86_64 and AARCH64")
   endif()
 
   if (NOT BUILD_CORE)
@@ -1754,7 +1755,9 @@ if (BUILD_KERNEL_MODULE)
   endif()
 
   message(STATUS "DynamoRIO Linux kernel module enabled using KERNEL_DIR=${KERNEL_DIR}")
-endif()
+elseif (KERNEL_MODULE_SELF_CHECKS)
+  message(FATAL_ERROR "KERNEL_MODULE_SELF_CHECKS requires BUILD_KERNEL_MODULE")
+endif ()
 
 if (BUILD_CORE)
   add_subdirectory(core)

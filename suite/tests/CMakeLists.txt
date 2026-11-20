@@ -1622,7 +1622,14 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
     if (NOT DEFINED ${key}_postcmd)
       set(${key}_postcmd "")
     endif ()
-    add_test(${test} ${CMAKE_COMMAND}
+    if (DEFINED ${key}_sudo)
+      # We need to run cmake itself as sudo to ensure glob expansion can
+      # traverse sudo-created directories.
+      set(cmd_pfx "sudo;")
+    else ()
+      set(cmd_pfx "")
+    endif ()
+    add_test(${test} ${cmd_pfx}${CMAKE_COMMAND}
       -D precmd=${${key}_precmd}
       -D cmd=${cmd_with_at}
       -D postcmd=${${key}_postcmd}
@@ -2738,7 +2745,7 @@ if (UNIX)
   tobuild_ci(client.partial_module_map client-interface/partial_module_map.c "" "" "")
 endif ()
 if (LINUX AND X86)
-  # XXX i#1833: once i#1833 is fixed, enable code in mbr_instrumentation_segment.dll.c
+  # XXX i#1833: enable the 32-bit gs code in mbr_instrumentation_segment.c once it works.
   tobuild_ci(client.mbr_instrumentation_segment
     client-interface/mbr_instrumentation_segment.c "" "" "")
   use_DynamoRIO_extension(client.mbr_instrumentation_segment.dll drsyms)
@@ -3332,6 +3339,12 @@ if (WIN32)
   append_link_flags(client.drwrap-test.appdll
     "/export:makes_tailcall /export:tailcall_test2 /export:tailcall_tail")
 endif (WIN32)
+if (X86)
+  tobuild_ci(client.drwrap-return-boundary
+    client-interface/drwrap-return-boundary.c "" "" "")
+  use_DynamoRIO_extension(client.drwrap-return-boundary.dll drwrap)
+endif ()
+
 if (NOT ANDROID) # XXX i#1874: get working on Android
   tobuild_ci(client.drwrap-test-callconv client-interface/drwrap-test-callconv.cpp
     "" "" "")
@@ -4465,8 +4478,13 @@ if (BUILD_CLIENTS)
       if (${testname_full}_nopost)
         # No post needed.
       else ()
+        if (DEFINED ${testname_full}_subdir)
+          set(subdir ${${testname_full}_subdir})
+        else ()
+          set(subdir "")
+        endif ()
         set(${testname_full}_postcmd
-          "firstglob@${cmd_pfx}${drcachesim_path}@-indir@${dir_prefix}.*.dir${sim_atops}")
+          "firstglob@${cmd_pfx}${drcachesim_path}@-indir@${dir_prefix}.*.dir${subdir}${sim_atops}")
       endif ()
       set(${testname_full}_self_serial ON)
     endmacro()
@@ -4704,6 +4722,8 @@ if (BUILD_CLIENTS)
       "@-tool@invariant_checker" "")
     if (X86 AND X64 AND UNIX)
       torunonly_drcacheoff(windows-asm allasm_repstr
+        # These numbers are not perfectly precise: the triggers will be at the
+        # next block boundary.
         "-no_split_windows -trace_after_instrs 3 -trace_for_instrs 4 -retrace_every_instrs 4"
         "@-tool@basic_counts" "")
     endif ()
@@ -4922,10 +4942,36 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.phys_SUDO_expectbase "offline-phys")
       torunonly_drcacheoff(phys_SUDO allasm_repstr
         "-use_physical" "@${test_mode_flag}@-tool@view" "")
+
       set(tool.drcacheoff.phys_nopriv_failok ON)
       set(tool.drcacheoff.phys_nopriv_nopost ON)
       torunonly_drcacheoff(phys_nopriv allasm_x86_64
         "-use_physical" "@${test_mode_flag}@-tool@view" "")
+
+      set(tool.drcacheoff.phys_windows_SUDO_sudo ON)
+      set(tool.drcacheoff.phys_windows_SUDO_expectbase "offline-phys_windows")
+      torunonly_drcacheoff(phys_windows_SUDO allasm_repstr
+        # These numbers are not perfectly precise: the triggers will be at the
+        # next block boundary.
+        "-use_physical -trace_after_instrs 3 -trace_for_instrs 4 -retrace_every_instrs 4"
+        "@-tool@basic_counts" "")
+      # The first postcmd did window #0.  There should be at least 2 more windows.
+      set(tool.drcacheoff.phys_windows_SUDO_postcmd2
+        "firstglob@sudo@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0001@-tool@basic_counts")
+      set(tool.drcacheoff.phys_windows_SUDO_postcmd3
+        "firstglob@sudo@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-tool@basic_counts")
+
+      # Run a larger app that has VDSO code to test v2p of "generated" code.
+      set(tool.drcacheoff.phys_vdso_SUDO_sudo ON)
+      set(tool.drcacheoff.phys_vdso_SUDO_expectbase "offline-phys_vdso")
+      torunonly_drcacheoff(phys_vdso_SUDO ${ci_shared_app}
+        "-use_physical" "@${test_mode_flag}@-tool@basic_counts" "")
+
+      # Also test filtering, which uses a different pc lookup scheme.
+      set(tool.drcacheoff.phys_vdso_filter_SUDO_sudo ON)
+      set(tool.drcacheoff.phys_vdso_filter_SUDO_expectbase "offline-phys_vdso")
+      torunonly_drcacheoff(phys_vdso_filter_SUDO ${ci_shared_app}
+        "-use_physical -L0_filter" "@${test_mode_flag}@-tool@basic_counts" "")
     endif ()
 
     # The checked-in file is for x86_64 so we have to limit the test to that.
@@ -5045,6 +5091,7 @@ if (BUILD_CLIENTS)
       endif ()
 
       set(tool.drcacheoff.burst_replace_nodr ON)
+      set(tool.drcacheoff.burst_replace_subdir "/trace/window.0001")
       torunonly_drcacheoff(burst_replace tool.drcacheoff.burst_replace "" "" "")
 
       # This test has not been updated to write out encodings.bin and so it has
@@ -6143,6 +6190,9 @@ if (UNIX)
       "-vm_base 0x100000000 -no_vm_base_near_app" "")
   endif ()
 
+  if (LINUX AND X86 AND X64)
+    tobuild(linux.arch_prctl_gs linux/arch_prctl_gs.c)
+  endif ()
   tobuild(linux.infinite linux/infinite.c)
   tobuild(linux.longjmp linux/longjmp.c)
   if (NOT APPLE)
@@ -6798,6 +6848,10 @@ if (NOT ARM) # XXX i#1551: fix bugs on ARM
     tobuild(security-common.retnonexisting security-common/retnonexisting.c)
   endif ()
 endif (NOT ARM)
+
+if (LINUX AND AARCH64)
+  tobuild(security-common.codemod-dual-mapping security-common/codemod-dual-mapping.c)
+endif ()
 
 # XXX i#1551: port asm to ARM
 # XXX i#5383: selfmod tests fail to build on macOS + ARM64

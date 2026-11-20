@@ -45,6 +45,9 @@
 #    include <stdlib.h>
 #    include <unistd.h>
 #    include <time.h>
+#    ifdef LINUX
+#        include <sys/auxv.h>
+#    endif
 #endif
 
 static void
@@ -563,5 +566,10 @@ test_redirect(void)
     if (strcmp(buf, contents) != 0)
         dr_fprintf(STDERR, "libc view != DR view\n");
     close(libc_fd);
+
+    /* Test getauxval redirection. */
+    unsigned long procname = getauxval(AT_EXECFN);
+    DR_ASSERT(procname != 0);
+    DR_ASSERT(strstr((const char *)procname, "file_io") != NULL);
 #endif
 }
