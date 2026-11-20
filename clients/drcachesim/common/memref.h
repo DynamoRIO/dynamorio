@@ -139,20 +139,16 @@ struct _memref_data_t {
     size_t size;       /**< Size of data being loaded or stored. */
     addr_t pc;         /**< Program counter of instruction performing load or store. */
     /**
-     * The first page touched; its addr is the physical address of addr.
-     * Only valid if num_pages > 0.  See memref_phys_page().
+     * The first page touched by the memory access.
+     * Its addr is the physical address of addr.
      */
     struct _memref_phys_t phys0;
     /**
-     * The number of pages touched, or 0 if the trace has no virtual-to-physical
-     * information.  See memref_num_pages().
+     * The number of pages the memory access spans, or 0 if the trace has no
+     * virtual-to-physical information.
      */
     uint32_t num_pages;
-    /**
-     * The remaining num_pages - 1 pages, or nullptr if num_pages <= 1.  Owned by the
-     * #dynamorio::drmemtrace::reader_t that produced this record and valid for its
-     * lifetime.
-     */
+    /** The remaining num_pages - 1 pages, or nullptr if num_pages <= 1. */
     const struct _memref_phys_t *phys_rest;
 };
 

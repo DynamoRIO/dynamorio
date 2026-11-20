@@ -452,7 +452,6 @@ reader_t::set_phys_fields(addr_t vaddr, size_t size, _memref_phys_t &phys0,
                           uint32_t &num_pages, const _memref_phys_t *&phys_rest)
 {
     phys_rest = nullptr;
-    // Core-sharded inputs interleave address spaces, which one map cannot represent.
     if (v2p_map_.empty() || page_size_ == 0 || size == 0 || core_sharded_) {
         num_pages = 0;
         return;
@@ -474,7 +473,7 @@ reader_t::set_phys_fields(addr_t vaddr, size_t size, _memref_phys_t &phys0,
             virt_page_to_phys_page(first_page + (i + 1) * page_size);
         phys_rest_scratch_[i].page_size = page_size_;
     }
-    // Reuse the stored array for these pages unless the mapping has changed.
+    // Reuse the stored vector for these pages unless the mapping has changed.
     const std::vector<_memref_phys_t> *&stored =
         phys_rest_cache_[std::make_pair(first_page + page_size, num_pages - 1)];
     if (stored == nullptr ||

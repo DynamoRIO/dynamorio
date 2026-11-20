@@ -266,10 +266,10 @@ private:
     // Virtual-to-physical page map built from the v2p markers in the trace.
     std::unordered_map<addr_t, addr_t> v2p_map_;
     addr_t last_phys_marker_ = 0;
-    // Storage for _memref_phys_t.phys_rest.  Entries are never modified or freed, so
-    // pointers handed out in records stay valid for the reader's lifetime.  The map
-    // shares one array among all accesses spanning the same pages:
-    // key is <second virtual page, number of pages after the first>.
+    // Storage for _memref_phys_t.phys_rest. Entries are never modified or freed, so
+    // pointers handed out in records stay valid for the reader's lifetime. The map
+    // shares one array among all accesses spanning the same pages to memory usage
+    // bounded by the trace's footprint instead of growing with its length.
     std::deque<std::vector<_memref_phys_t>> phys_rest_storage_;
     std::map<std::pair<addr_t, uint32_t>, const std::vector<_memref_phys_t> *>
         phys_rest_cache_;
