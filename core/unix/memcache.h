@@ -50,11 +50,12 @@ memcache_unlock(void);
 
 /* start and end_in must be PAGE_SIZE aligned */
 void
-memcache_update(app_pc start, app_pc end_in, uint prot, int type);
+memcache_update(app_pc start, app_pc end_in, uint prot, int type, bool is_shared);
 
 /* start and end must be PAGE_SIZE aligned */
 void
-memcache_update_locked(app_pc start, app_pc end, uint prot, int type, bool exists);
+memcache_update_locked(app_pc start, app_pc end, uint prot, int type, bool exists,
+                       bool is_shared);
 
 bool
 memcache_remove(app_pc start, app_pc end);
@@ -69,11 +70,11 @@ memcache_print(file_t outf, const char *prefix);
 
 void
 memcache_handle_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
-                     bool image);
+                     bool image, bool is_shared);
 
 void
 memcache_handle_mremap(dcontext_t *dcontext, byte *base, size_t size, byte *old_base,
-                       size_t old_size, uint old_prot, uint old_type);
+                       size_t old_size, uint old_prot, uint old_type, bool is_shared);
 
 void
 memcache_handle_app_brk(byte *lowest_brk /*if known*/, byte *old_brk, byte *new_brk);

@@ -2745,7 +2745,7 @@ if (UNIX)
   tobuild_ci(client.partial_module_map client-interface/partial_module_map.c "" "" "")
 endif ()
 if (LINUX AND X86)
-  # XXX i#1833: once i#1833 is fixed, enable code in mbr_instrumentation_segment.dll.c
+  # XXX i#1833: enable the 32-bit gs code in mbr_instrumentation_segment.c once it works.
   tobuild_ci(client.mbr_instrumentation_segment
     client-interface/mbr_instrumentation_segment.c "" "" "")
   use_DynamoRIO_extension(client.mbr_instrumentation_segment.dll drsyms)
@@ -3329,6 +3329,12 @@ if (WIN32)
   append_link_flags(client.drwrap-test.appdll
     "/export:makes_tailcall /export:tailcall_test2 /export:tailcall_tail")
 endif (WIN32)
+if (X86)
+  tobuild_ci(client.drwrap-return-boundary
+    client-interface/drwrap-return-boundary.c "" "" "")
+  use_DynamoRIO_extension(client.drwrap-return-boundary.dll drwrap)
+endif ()
+
 if (NOT ANDROID) # XXX i#1874: get working on Android
   tobuild_ci(client.drwrap-test-callconv client-interface/drwrap-test-callconv.cpp
     "" "" "")
@@ -4462,8 +4468,13 @@ if (BUILD_CLIENTS)
       if (${testname_full}_nopost)
         # No post needed.
       else ()
+        if (DEFINED ${testname_full}_subdir)
+          set(subdir ${${testname_full}_subdir})
+        else ()
+          set(subdir "")
+        endif ()
         set(${testname_full}_postcmd
-          "firstglob@${cmd_pfx}${drcachesim_path}@-indir@${dir_prefix}.*.dir${sim_atops}")
+          "firstglob@${cmd_pfx}${drcachesim_path}@-indir@${dir_prefix}.*.dir${subdir}${sim_atops}")
       endif ()
       set(${testname_full}_self_serial ON)
     endmacro()
@@ -5070,6 +5081,7 @@ if (BUILD_CLIENTS)
       endif ()
 
       set(tool.drcacheoff.burst_replace_nodr ON)
+      set(tool.drcacheoff.burst_replace_subdir "/trace/window.0001")
       torunonly_drcacheoff(burst_replace tool.drcacheoff.burst_replace "" "" "")
 
       # This test has not been updated to write out encodings.bin and so it has
@@ -6168,6 +6180,9 @@ if (UNIX)
       "-vm_base 0x100000000 -no_vm_base_near_app" "")
   endif ()
 
+  if (LINUX AND X86 AND X64)
+    tobuild(linux.arch_prctl_gs linux/arch_prctl_gs.c)
+  endif ()
   tobuild(linux.infinite linux/infinite.c)
   tobuild(linux.longjmp linux/longjmp.c)
   if (NOT APPLE)
@@ -6823,6 +6838,10 @@ if (NOT ARM) # XXX i#1551: fix bugs on ARM
     tobuild(security-common.retnonexisting security-common/retnonexisting.c)
   endif ()
 endif (NOT ARM)
+
+if (LINUX AND AARCH64)
+  tobuild(security-common.codemod-dual-mapping security-common/codemod-dual-mapping.c)
+endif ()
 
 # XXX i#1551: port asm to ARM
 # XXX i#5383: selfmod tests fail to build on macOS + ARM64
