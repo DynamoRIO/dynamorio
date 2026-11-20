@@ -769,6 +769,12 @@ kernel_walk_code_regions(kernel_memory_region_callback_t callback, void *arg)
     walk_code_range(heap_end, end, callback, arg);
 }
 
+bool
+kernel_is_user_address(const void *addr)
+{
+    return (unsigned long)addr < TASK_SIZE_MAX;
+}
+
 /* Copies |size| bytes from |src| to |dst| without faulting.  The range must be non-empty
  * and must not cross a page boundary.  Returns 0 on success and a negative errno if the
  * bytes cannot be read.

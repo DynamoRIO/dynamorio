@@ -608,6 +608,12 @@ d_r_safe_read(const void *base, size_t size, void *out_buf)
     return safe_read_ex(base, size, out_buf, NULL);
 }
 
+bool
+is_user_address(byte *pc)
+{
+    return kernel_is_user_address(pc);
+}
+
 void
 all_memory_areas_lock(void)
 {

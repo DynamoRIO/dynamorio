@@ -142,6 +142,10 @@ kernel_walk_module_regions(kernel_memory_region_callback_t callback, void *arg);
 void
 kernel_walk_code_regions(kernel_memory_region_callback_t callback, void *arg);
 
+/* Returns whether |addr| is in the user address range. */
+bool
+kernel_is_user_address(const void *addr);
+
 /* Reports the page containing the kernel address |addr| in |region|.  The protection is
  * 0 if the page is not mapped.  Returns false for a user address.  Acquires no locks and
  * never sleeps.
