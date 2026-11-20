@@ -646,6 +646,24 @@ _Static_assert(KERNEL_MEMPROT_READ == MEMPROT_READ, "KERNEL_MEMPROT_READ mismatc
 _Static_assert(KERNEL_MEMPROT_WRITE == MEMPROT_WRITE, "KERNEL_MEMPROT_WRITE mismatch");
 _Static_assert(KERNEL_MEMPROT_EXEC == MEMPROT_EXEC, "KERNEL_MEMPROT_EXEC mismatch");
 
+/* Reports the page containing |pc|.  Fails for a user address. */
+bool
+query_memory_ex_from_os(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info)
+{
+    kernel_memory_region_t region;
+    info->is_shared = false;
+    if (!kernel_query_memory(pc, &region)) {
+        info->type = DR_MEMTYPE_ERROR;
+        return false;
+    }
+    info->base_pc = region.base;
+    info->size = region.size;
+    info->prot = region.prot;
+    /* XXX i#8021: Mapped memory is always reported as data, never as an image. */
+    info->type = region.prot == 0 ? DR_MEMTYPE_FREE : DR_MEMTYPE_DATA;
+    return true;
+}
+
 static void
 find_dynamo_library_vm_areas_callback(const kernel_memory_region_t *region, void *arg)
 {
