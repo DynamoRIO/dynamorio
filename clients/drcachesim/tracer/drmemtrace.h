@@ -242,7 +242,7 @@ drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
 /**
  * Function for commencement of tracing.  This is called at the start
  * of any tracing mode, which may be delayed or may repeat depending on
- * parameters. For multiple tracing "window" from options like -trace_for_instrs or
+ * parameters. For multiple tracing "windows" from options like -trace_for_instrs or
  * -retrace_every_instrs, this will be called multiple times, with the window ordinal
  * passed as "window_index". (For -split_windows, the same ordinal will appear in the
  * subdirectory returned by drmemtrace_get_output_path()).
@@ -262,6 +262,7 @@ typedef void (*drmemtrace_started_tracing_func_t)(int64 window_index, void *user
  */
 typedef void (*drmemtrace_ended_tracing_func_t)(void *user_arg);
 
+DR_EXPORT
 /**
  * Registers callbacks to be invoked at the start and end boundaries of
  * "windows" of tracing from options like -trace_for_instrs and -retrace_every_instrs.
@@ -270,6 +271,21 @@ typedef void (*drmemtrace_ended_tracing_func_t)(void *user_arg);
 drmemtrace_status_t
 drmemtrace_boundary_events(drmemtrace_started_tracing_func_t started_func,
                            drmemtrace_ended_tracing_func_t ended_func, void *user_arg);
+
+DR_EXPORT
+/**
+ * Allocates a new buffer and writes into it the current module information.  Returns
+ * a pointer to the buffer, its allocated size, and how much data it contains.  The
+ * caller must free the buffer by calling dr_global_free() on the returned buffer and
+ * allocated size.  The modules could change later in the run, so this will not be
+ * the final data for the whole run.  This is meant for use with split traced
+ * "windows" where the caller wants to directly access the module data of a
+ * just-completed window (likely from a #drmemtrace_ended_tracing_func_t callback)
+ * without waiting for the end of tracing to access the final whole-run module data
+ * file.
+ */
+drmemtrace_status_t
+drmemtrace_dump_module_info(char **buf_out, size_t *size_out, size_t *wrote_out);
 
 /**
  * Structure holding all the file replacement operations for passing to

@@ -290,6 +290,9 @@ public:
     virtual void
     bb_analysis_cleanup(void *drcontext, void *bb_field) = 0;
 
+    virtual void
+    dump_module_info(char **buf_out, size_t *size_out, size_t *wrote_out) = 0;
+
     // Utilities.
 #ifdef AARCH64
     static unsigned short
@@ -416,6 +419,9 @@ public:
     void
     bb_analysis_cleanup(void *drcontext, void *bb_field) override;
 
+    void
+    dump_module_info(char **buf_out, size_t *size_out, size_t *wrote_out) override;
+
 private:
     void
     insert_save_immed(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t base,
@@ -509,6 +515,9 @@ public:
                 bool repstr_expanded, bool memref_needs_full_info) override;
     void
     bb_analysis_cleanup(void *drcontext, void *bb_field) override;
+
+    void
+    dump_module_info(char **buf_out, size_t *size_out, size_t *wrote_out) override;
 
     static bool
     custom_module_data(void *(*load_cb)(module_data_t *module, int seg_idx),

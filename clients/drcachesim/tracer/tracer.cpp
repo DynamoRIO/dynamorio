@@ -2875,6 +2875,13 @@ drmemtrace_boundary_events(drmemtrace_started_tracing_func_t started_func,
 }
 
 drmemtrace_status_t
+drmemtrace_dump_module_info(char **buf_out, size_t *size_out, size_t *wrote_out)
+{
+    instru->dump_module_info(buf_out, size_out, wrote_out);
+    return DRMEMTRACE_SUCCESS;
+}
+
+drmemtrace_status_t
 drmemtrace_get_output_path(DR_PARAM_OUT const char **path)
 {
     if (path == NULL)
