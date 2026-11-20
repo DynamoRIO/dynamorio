@@ -621,7 +621,7 @@ all_memory_areas_unlock(void)
 }
 
 void
-update_all_memory_areas(app_pc start, app_pc end, uint prot, int type)
+update_all_memory_areas(app_pc start, app_pc end, uint prot, int type, bool is_shared)
 {
     /* No-op in kernel mode. */
 }
@@ -645,7 +645,8 @@ find_dynamo_library_vm_areas_callback(const kernel_memory_region_t *region, void
 {
     int *count = (int *)arg;
     add_dynamo_vm_area(region->base, region->base + region->size, region->prot,
-                       true /*image*/ _IF_DEBUG(get_dynamorio_library_path()));
+                       true /*image*/,
+                       /*is_shared=*/false _IF_DEBUG(get_dynamorio_library_path()));
     (*count)++;
 }
 
@@ -661,8 +662,9 @@ static void
 find_executable_vm_areas_callback(const kernel_memory_region_t *region, void *arg)
 {
     int *count = (int *)arg;
-    if (app_memory_allocation(NULL, region->base, region->size, region->prot,
-                              false /*!image*/ _IF_DEBUG("find_executable_vm_areas"))) {
+    if (app_memory_allocation(
+            NULL, region->base, region->size, region->prot, false /*!image*/,
+            /*is_shared=*/false _IF_DEBUG("find_executable_vm_areas"))) {
         (*count)++;
     }
 }

@@ -2630,8 +2630,8 @@ report_low_on_memory(which_vmm_t which, oom_source_t source,
 
 /* update statistics for committed memory, and add to vm_areas */
 static inline void
-account_for_memory(void *p, size_t size, uint prot, bool add_vm,
-                   bool image _IF_DEBUG(const char *comment))
+account_for_memory(void *p, size_t size, uint prot, bool add_vm, bool image,
+                   bool is_shared _IF_DEBUG(const char *comment))
 {
     RSTATS_ADD_PEAK(memory_capacity, size);
 
@@ -2644,7 +2644,8 @@ account_for_memory(void *p, size_t size, uint prot, bool add_vm,
     }
 
     if (add_vm) {
-        add_dynamo_vm_area(p, ((app_pc)p) + size, prot, image _IF_DEBUG(comment));
+        add_dynamo_vm_area(p, ((app_pc)p) + size, prot, image,
+                           is_shared _IF_DEBUG(comment));
     } else {
         /* due to circular dependencies bet vmareas and global heap we do not call
          * add_dynamo_vm_area here, instead we indicate that something has changed
@@ -2792,7 +2793,8 @@ get_real_memory(size_t size, uint prot, bool add_vm,
                                      "emergency free.");
     }
 
-    account_for_memory(p, size, prot, add_vm, false _IF_DEBUG(comment));
+    account_for_memory(p, size, prot, add_vm, false,
+                       /*is_shared=*/false _IF_DEBUG(comment));
     dynamo_vm_areas_unlock();
 
     return p;
@@ -2952,7 +2954,8 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot, bool
      * add guard pages in by assuming one page on each side of every heap unit
      * if dynamo_options.guard_pages
      */
-    account_for_memory((void *)p, reserve_size, prot, add_vm, false _IF_DEBUG(comment));
+    account_for_memory((void *)p, reserve_size, prot, add_vm, false,
+                       /*is_shared=*/false _IF_DEBUG(comment));
     dynamo_vm_areas_unlock();
 
     STATS_ADD_PEAK(reserved_memory_capacity, reserve_size);
@@ -3163,8 +3166,8 @@ heap_mmap_reserve_post_stack(dcontext_t *dcontext, size_t reserve_size,
         STATS_INC(mmap_no_share_stack_region);
         return heap_mmap_reserve(reserve_size, commit_size, prot, which);
     }
-    account_for_memory(p, reserve_size, prot, true /*add now*/,
-                       false _IF_DEBUG("heap_mmap_reserve_post_stack"));
+    account_for_memory(p, reserve_size, prot, true /*add now*/, false,
+                       /*is_shared=*/false _IF_DEBUG("heap_mmap_reserve_post_stack"));
     dynamo_vm_areas_unlock();
     /* We rely on this for freeing in absence of dcontext */
     ASSERT((ptr_uint_t)p - GUARD_PAGE_ADJUSTMENT / 2 !=
@@ -3363,9 +3366,9 @@ d_r_map_file(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr, ui
     view = os_map_file(f, size, offs, addr, prot, map_flags);
     if (view != NULL) {
         STATS_ADD_PEAK(file_map_capacity, *size);
-        account_for_memory((void *)view, *size, prot, true /*add now*/,
-                           true /*image*/
-                           _IF_DEBUG("map_file"));
+        account_for_memory(
+            (void *)view, *size, prot, true /*add now*/, true /*image*/, /*is_shared=*/
+            !TESTANY(MAP_FILE_COPY_ON_WRITE, map_flags) _IF_DEBUG("map_file"));
     }
     dynamo_vm_areas_unlock();
     return view;
@@ -3474,12 +3477,13 @@ heap_vmareas_synch_units(void)
              * needs to change.
              */
             update_all_memory_areas((app_pc)u, end_align, MEMPROT_READ | MEMPROT_WRITE,
-                                    DR_MEMTYPE_DATA); /* unit */
+                                    DR_MEMTYPE_DATA, /*is_shared=*/false); /* unit */
             if (offs != 0) {
                 /* guard pages */
                 update_all_memory_areas((app_pc)u - offs, (app_pc)u, MEMPROT_NONE,
-                                        DR_MEMTYPE_DATA);
-                update_all_memory_areas(end_align, end, MEMPROT_NONE, DR_MEMTYPE_DATA);
+                                        DR_MEMTYPE_DATA, /*is_shared=*/false);
+                update_all_memory_areas(end_align, end, MEMPROT_NONE, DR_MEMTYPE_DATA,
+                                        /*is_shared=*/false);
             }
             if (next_may_die) {
                 STATS_INC(num_vmareas_resize_synch);
@@ -3506,11 +3510,13 @@ heap_vmareas_synch_units(void)
             u->in_vmarea_list = true;
             add_dynamo_heap_vm_area(start, end, true, false _IF_DEBUG("dead heap unit"));
             update_all_memory_areas((app_pc)u, end_align, MEMPROT_READ | MEMPROT_WRITE,
-                                    DR_MEMTYPE_DATA); /* unit */
+                                    DR_MEMTYPE_DATA, /*is_shared=*/false); /* unit */
             if (offs != 0) {
                 /* guard pages */
-                update_all_memory_areas(start, (app_pc)u, MEMPROT_NONE, DR_MEMTYPE_DATA);
-                update_all_memory_areas(end_align, end, MEMPROT_NONE, DR_MEMTYPE_DATA);
+                update_all_memory_areas(start, (app_pc)u, MEMPROT_NONE, DR_MEMTYPE_DATA,
+                                        /*is_shared=*/false);
+                update_all_memory_areas(end_align, end, MEMPROT_NONE, DR_MEMTYPE_DATA,
+                                        /*is_shared=*/false);
             }
             /* case 4196 if next was put back on live list for
              * dynamo_areas.buf vector, then next will no longer be a
