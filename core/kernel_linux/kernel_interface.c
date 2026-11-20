@@ -271,6 +271,10 @@ check_module_mem_types(void)
  */
 #    define KERNEL_CODE_WALK_START __START_KERNEL_map
 #    define KERNEL_CODE_WALK_END MODULES_END
+/* The kernel half of the address space: the canonical addresses with the top bit set.
+ * __VIRTUAL_MASK_SHIFT follows the paging mode in use, like TASK_SIZE_MAX.
+ */
+#    define KERNEL_ADDRESS_SPACE_START (-(1UL << __VIRTUAL_MASK_SHIFT))
 
 static unsigned long
 query_kernel_page(unsigned long addr, unsigned int *prot)
@@ -311,6 +315,8 @@ query_kernel_page(unsigned long addr, unsigned int *prot)
  */
 #    define KERNEL_CODE_WALK_START MODULES_VADDR
 #    define KERNEL_CODE_WALK_END VMALLOC_END
+/* The kernel half of the address space: the addresses translated through TTBR1. */
+#    define KERNEL_ADDRESS_SPACE_START PAGE_OFFSET
 
 /* Also works for PMD/PUD block entries, which use the same bit positions. */
 static unsigned int
@@ -773,6 +779,34 @@ bool
 kernel_is_user_address(const void *addr)
 {
     return (unsigned long)addr < TASK_SIZE_MAX;
+}
+
+/* XXX i#8021: This reports a single page rather than the maximal region with the same
+ * protection.  Like kernel_walk_code_regions(), it takes no page table locks, so a
+ * concurrent mapping or protection change may yield a stale result.
+ */
+bool
+kernel_query_memory(const void *addr, kernel_memory_region_t *region)
+{
+    if (kernel_is_user_address(addr)) {
+        return false;
+    }
+
+    const unsigned long address = (unsigned long)addr;
+    unsigned int prot = 0;
+    /* Nothing can be mapped in the non-canonical gap between the user and kernel halves.
+     * It must not reach the page table lookup, which only uses the address bits that
+     * index the tables and so would find the kernel mapping that shares those bits.
+     */
+    if (address >= KERNEL_ADDRESS_SPACE_START) {
+        query_kernel_page(address, &prot);
+    }
+    *region = (kernel_memory_region_t) {
+        .base = (unsigned char *)ALIGN_BACKWARD(address, PAGE_SIZE),
+        .size = PAGE_SIZE,
+        .prot = prot,
+    };
+    return true;
 }
 
 /* Copies |size| bytes from |src| to |dst| without faulting.  The range must be non-empty
