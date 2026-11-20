@@ -108,10 +108,11 @@ jobs:
 
       - name: Build DynamoRIO kernel module and controller against running kernel
         run: |
-          cmake -B build -DBUILD_KERNEL_MODULE=ON -DDEBUG=${{ matrix.debug }}
+          cmake -B build -DBUILD_KERNEL_MODULE=ON -DKERNEL_MODULE_SELF_CHECKS=ON \
+            -DDEBUG=${{ matrix.debug }}
           cmake --build build --parallel $(nproc) --target dynamorio_module
 
-      - name: Load module, initialize session, and unload
+      - name: Load module, initialize session, run self-checks, and unload
         run: |
           MODULE=build/core/kernel_linux/dynamorio_module.ko
           CONTROLLER=build/bin64/drkernel_ctl
@@ -140,6 +141,9 @@ jobs:
             sudo "$CONTROLLER" init
           fi
           sudo dmesg | grep -F "dynamorio_module: Session initialized"
+
+          sudo "$CONTROLLER" self-check
+          sudo dmesg | grep -F "All self-checks passed"
 
           echo "Removing dynamorio_module"
           sudo rmmod dynamorio_module

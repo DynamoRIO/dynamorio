@@ -51,6 +51,7 @@ set(dynamorio_module_os_sources
   kernel_linux/dynamorio_module_main.c
   kernel_linux/kernel_interface.c
   kernel_linux/os.c
+  kernel_linux/self_checks.c
 )
 set(dynamorio_module_sources ${CORE_SRCS} ${ARCH_SRCS} ${dynamorio_module_os_sources})
 list(TRANSFORM dynamorio_module_sources PREPEND "core/")
