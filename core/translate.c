@@ -169,7 +169,7 @@ instr_is_seg_ref_load(dcontext_t *dcontext, instr_t *inst)
 static inline bool
 instr_is_rseq_mangling(dcontext_t *dcontext, instr_t *inst)
 {
-#    ifdef LINUX
+#    if defined(LINUX) && !defined(LINUX_KERNEL)
     /* This won't fault but we don't want it marked as unsupported. */
     if (!instr_is_our_mangling(inst))
         return false;

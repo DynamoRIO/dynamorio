@@ -748,6 +748,13 @@ print_vm_area(vm_area_vector_t *v, vm_area_t *area, file_t outf, const char *pre
     }
 #ifdef DEBUG
     print_file(outf, " %s", area->comment);
+
+#    if defined(LINUX) && !defined(LINUX_KERNEL)
+    const bool is_rseq_areas = v == d_r_rseq_areas;
+#    else
+    const bool is_rseq_areas = false;
+#    endif
+
     DOLOG(1, LOG_VMAREAS, {
         IF_NO_MEMQUERY(extern vm_area_vector_t * all_memory_areas;)
         extern vm_area_vector_t *fcache_unit_areas;   /* fcache.c */
@@ -757,7 +764,7 @@ print_vm_area(vm_area_vector_t *v, vm_area_t *area, file_t outf, const char *pre
             IF_NO_MEMQUERY(v == all_memory_areas ? NULL :)
             /* i#1649: avoid rank order for dynamo_areas and for other vectors. */
             ((v == dynamo_areas || v == fcache_unit_areas || v == loaded_module_areas ||
-              v == modlist_areas IF_LINUX(|| v == d_r_rseq_areas))
+              v == modlist_areas || is_rseq_areas)
                  ? NULL
                  : get_module_base(area->start));
         if (modbase != NULL &&
