@@ -2422,7 +2422,10 @@ presys_FreeVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
     /* ref case 3536, 545, 4046 */
     if (!d_r_safe_read(pbase, sizeof(base), &base) || base == NULL ||
         !d_r_safe_read(psize, sizeof(size), &size) ||
-        !(type == MEM_RELEASE || type == MEM_DECOMMIT)) {
+        !(type == MEM_RELEASE || type == MEM_DECOMMIT ||
+          type == (MEM_RELEASE | MEM_PRESERVE_PLACEHOLDER) ||
+          type == (MEM_RELEASE | MEM_COALESCE_PLACEHOLDERS)) ||
+        (type == (MEM_RELEASE | MEM_PRESERVE_PLACEHOLDER) && size == 0)) {
         /* we expect the system call to fail */
         DODEBUG(dcontext->expect_last_syscall_to_fail = true;);
         return;
@@ -2433,6 +2436,24 @@ presys_FreeVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
                   type == MEM_DECOMMIT ? "MEM_DECOMMIT" : "MEM_RELEASE", base, size);
         return;
     }
+
+    if (type == (MEM_RELEASE | MEM_COALESCE_PLACEHOLDERS)) {
+        /* Only merges adjacent placeholders, which hold no memory: the kernel
+         * fails the call if anything else is in the range.
+         */
+        LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 1,
+            "syscall: NtFreeVirtualMemory MEM_COALESCE_PLACEHOLDERS base=" PFX
+            " size=" PIFX "\n",
+            base, size);
+        return;
+    }
+    /* MEM_RELEASE | MEM_PRESERVE_PLACEHOLDER (VirtualAlloc2's placeholders, used
+     * by JITs such as V8 to reuse their code space) releases exactly
+     * [base, base+size), back to a placeholder, so it is handled as a
+     * MEM_DECOMMIT of that range is: the memory is gone either way.  If we
+     * ignore it the vm areas and the fragments in them stay, and new code
+     * later placed there runs as the stale fragments.
+     */
 
     if ((type == MEM_DECOMMIT && size == 0) || (type == MEM_RELEASE)) {
         app_pc real_base;
