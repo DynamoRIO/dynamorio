@@ -791,7 +791,7 @@ else (UNIX)
     set(LD_FLAGS "${LD_FLAGS} /machine:I386")
   endif (X64)
   set(dynamorio_link_flags
-    "${LD_FLAGS} ${ntimp_flags} ${dynamorio_link_flags} /dll /incremental:no")
+    "${LD_FLAGS} \"${ntimp_flags}\" ${dynamorio_link_flags} /dll /incremental:no")
   set(dynamorio_link_flags
     "${dynamorio_link_flags} ${NOLIBC_DLL_ENTRY} ${FORWARD_TO_NTDLL}")
   # cmake does /out, /implib, and /pdb for us, but we do want map file
