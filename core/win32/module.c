@@ -399,7 +399,7 @@ remove_module_info_vector(module_info_vector_t *v, app_pc start, app_pc end)
     d_r_mutex_lock(&v->lock);
     /* linear search, we don't have a find_predecessor on module_info_t's to get i */
     for (i = 0; i < v->length; i++) {
-        if (start == v->buf[i].start && end == v->buf[i].end) {
+        if (start == v->buf[i].start && end >= v->buf[i].end) {
             exports_table = v->buf[i].exports_table;
             exports_size = v->buf[i].exports_size;
             break;
