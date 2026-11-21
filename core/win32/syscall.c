@@ -834,7 +834,7 @@ intercept_native_syscall(int SYSnum)
      *                      else we have big problems!  we could detect
      *                      by stacking up info on native cbs, if nobody ever
      *                      did an int 2b natively...not worth it for now)
-     * 2) NtContinue
+     * 2) NtContinue and NtContinueEx
      * 3) NtCreateThread
      *     Ref case 5295 - Sygate hooks this nt wrapper differently then the
      *     others (@ 2nd instruction).  We only need to hook CreateThread
@@ -848,6 +848,7 @@ intercept_native_syscall(int SYSnum)
      * the target could be in DR!
      */
     if (SYSnum == SYS_CallbackReturn || SYSnum == SYS_Continue ||
+        SYSnum == SYS_ContinueEx ||
         (!DYNAMO_OPTION(native_exec_hook_create_thread) && SYSnum == SYS_CreateThread) ||
         SYSnum == SYS_WriteVirtualMemory)
         return false;
@@ -3033,7 +3034,13 @@ pre_system_call(dcontext_t *dcontext)
     dcontext->sys_param3 = sys_param(dcontext, param_base, 3);
 #endif
 
-    if (sysnum == syscalls[SYS_Continue]) {
+    if (sysnum == syscalls[SYS_Continue] ||
+        /* i#XXXX: NtContinueEx, which longjmp and KiUserApcDispatcher use on recent
+         * Windows, takes the same CONTEXT.  Its second argument points at a continue
+         * argument holding the TestAlert flag among others; like NtContinue's flag,
+         * it is left to the kernel.
+         */
+        sysnum == syscalls[SYS_ContinueEx]) {
         CONTEXT *cxt = (CONTEXT *)sys_param(dcontext, param_base, 0);
         /* XXX : we are going to read and write to cxt, which may be unsafe */
         int flag = (int)sys_param(dcontext, param_base, 1);
