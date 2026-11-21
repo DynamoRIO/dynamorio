@@ -595,7 +595,8 @@ class Field(str, Enum):
                         '': 'OPSZ_0', 'lb': 'OPSZ_1', 'lh': 'OPSZ_2', 'lw': 'OPSZ_4',
                         'ld': 'OPSZ_8', 'lbu': 'OPSZ_1', 'lhu': 'OPSZ_2', 'lwu': 'OPSZ_4',
                         'sb': 'OPSZ_1', 'sh': 'OPSZ_2', 'sw': 'OPSZ_4', 'sd': 'OPSZ_8',
-                        'flw': 'OPSZ_4', 'fld': 'OPSZ_8', 'fsw': 'OPSZ_4', 'fsd': 'OPSZ_8',
+                        'flh': 'OPSZ_2', 'fsh': 'OPSZ_2', 'flw': 'OPSZ_4', 'fld': 'OPSZ_8',
+                        'fsw': 'OPSZ_4', 'fsd': 'OPSZ_8',
                         'flq': 'OPSZ_16', 'fsq': 'OPSZ_16', 'lr.w': 'OPSZ_4', 'lr.d': 'OPSZ_8',
                         'amoswap.w': 'OPSZ_4', 'amoadd.w': 'OPSZ_4', 'amoxor.w': 'OPSZ_4',
                         'amoand.w': 'OPSZ_4', 'amoor.w': 'OPSZ_4', 'amomin.w': 'OPSZ_4',
@@ -616,7 +617,8 @@ class Field(str, Enum):
                         '': 'OPSZ_0', 'lb': 'OPSZ_1', 'lh': 'OPSZ_2', 'lw': 'OPSZ_4',
                         'ld': 'OPSZ_8', 'lbu': 'OPSZ_1', 'lhu': 'OPSZ_2', 'lwu': 'OPSZ_4',
                         'sb': 'OPSZ_1', 'sh': 'OPSZ_2', 'sw': 'OPSZ_4', 'sd': 'OPSZ_8',
-                        'flw': 'OPSZ_4', 'fld': 'OPSZ_8', 'fsw': 'OPSZ_4', 'fsd': 'OPSZ_8',
+                        'flh': 'OPSZ_2', 'fsh': 'OPSZ_2', 'flw': 'OPSZ_4', 'fld': 'OPSZ_8',
+                        'fsw': 'OPSZ_4', 'fsd': 'OPSZ_8',
                         'flq': 'OPSZ_16', 'fsq': 'OPSZ_16', 'sc.w': 'OPSZ_4', 'sc.d': 'OPSZ_8'
                     },
                     'imm(rs1)',
@@ -810,6 +812,15 @@ class Field(str, Enum):
            '',
            'The third input vector register (inst[11:7]).'
            )
+    ZIMM6 = (74,
+             'zimm6',
+             False,
+             False,
+             True,
+             'OPSZ_6b',
+             '',
+             'The 6-bit shift amount in vror.vi (inst[26] + inst[19:15]).'
+             )
 
     def __str__(self) -> str:
         return self.name.lower().replace("fp", "(fp)")

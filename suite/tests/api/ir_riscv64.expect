@@ -332,4 +332,31 @@ th.sync.s
 th.sync.i
 th.sync.is
 test_decode_xtheadsync complete
+flh    (a1)[2byte] -> ft0
+fsh    ft1 -> +2047(t6)[2byte]
+fcvt.s.h 0x0 ft0 -> ft0
+fcvt.h.s 0x0 ft0 -> ft0
+fcvt.d.h 0x0 ft0 -> ft0
+fcvt.h.d 0x0 ft0 -> ft0
+fmv.x.h ft11 -> zero
+fmv.h.x a0 -> ft0
+test_decode_zfhmin complete
+vandn.vv v1 v2 0x0 -> v0
+vandn.vx a1 v2 0x0 -> v0
+vbrev8.v v2 0x0 -> v0
+vrev8.v v2 0x0 -> v0
+vbrev.v v2 0x0 -> v0
+vclz.v v2 0x0 -> v0
+vctz.v v2 0x0 -> v0
+vcpop.v v2 0x0 -> v0
+vrol.vv v1 v2 0x0 -> v0
+vrol.vx a1 v2 0x0 -> v0
+vror.vv v1 v2 0x0 -> v0
+vror.vx a1 v2 0x0 -> v0
+vror.vi 63 v2 0x0 -> v0
+vror.vi 5 v2 0x0 -> v0
+vwsll.vv v1 v2 0x0 -> v0
+vwsll.vx a1 v2 0x0 -> v0
+vwsll.vi 0x1f v2 0x0 -> v0
+test_decode_zvbb complete
 All tests complete

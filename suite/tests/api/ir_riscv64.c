@@ -1663,6 +1663,126 @@ test_decode_xtheadsync(void *dc)
 }
 
 static void
+test_decode_zfhmin(void *dc)
+{
+    instr_t *instr;
+    instr = INSTR_CREATE_flh(dc, opnd_create_reg(DR_REG_F0),
+                             opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_2));
+    test_instr_encoding(dc, OP_flh, instr);
+    instr = INSTR_CREATE_fsh(
+        dc, opnd_create_base_disp(DR_REG_X31, DR_REG_NULL, 0, (1 << 11) - 1, OPSZ_2),
+        opnd_create_reg(DR_REG_F1));
+    test_instr_encoding(dc, OP_fsh, instr);
+    instr = INSTR_CREATE_fcvt_s_h(dc, opnd_create_reg(DR_REG_F0),
+                                  opnd_create_immed_int(0b000, OPSZ_3b),
+                                  opnd_create_reg(DR_REG_F0));
+    test_instr_encoding(dc, OP_fcvt_s_h, instr);
+    instr = INSTR_CREATE_fcvt_h_s(dc, opnd_create_reg(DR_REG_F0),
+                                  opnd_create_immed_int(0b000, OPSZ_3b),
+                                  opnd_create_reg(DR_REG_F0));
+    test_instr_encoding(dc, OP_fcvt_h_s, instr);
+    /* The D<->H conversions below require the D extension on top of Zfhmin. */
+    instr = INSTR_CREATE_fcvt_d_h(dc, opnd_create_reg(DR_REG_F0),
+                                  opnd_create_immed_int(0b000, OPSZ_3b),
+                                  opnd_create_reg(DR_REG_F0));
+    test_instr_encoding(dc, OP_fcvt_d_h, instr);
+    instr = INSTR_CREATE_fcvt_h_d(dc, opnd_create_reg(DR_REG_F0),
+                                  opnd_create_immed_int(0b000, OPSZ_3b),
+                                  opnd_create_reg(DR_REG_F0));
+    test_instr_encoding(dc, OP_fcvt_h_d, instr);
+    instr =
+        INSTR_CREATE_fmv_x_h(dc, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_F31));
+    test_instr_encoding(dc, OP_fmv_x_h, instr);
+    instr =
+        INSTR_CREATE_fmv_h_x(dc, opnd_create_reg(DR_REG_F0), opnd_create_reg(DR_REG_A0));
+    test_instr_encoding(dc, OP_fmv_h_x, instr);
+}
+
+static void
+test_decode_zvbb(void *dc)
+{
+    instr_t *instr;
+
+    /* vandn.vv / vandn.vx: vd = vs1 & ~vs2 (scalar rs1 for .vx). */
+    instr = INSTR_CREATE_vandn_vv(
+        dc, opnd_create_reg(DR_REG_VR0), opnd_create_reg(DR_REG_VR1),
+        opnd_create_reg(DR_REG_VR2), opnd_create_immed_int(0, OPSZ_1b));
+    test_instr_encoding(dc, OP_vandn_vv, instr);
+    instr = INSTR_CREATE_vandn_vx(dc, opnd_create_reg(DR_REG_VR0),
+                                  opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_VR2),
+                                  opnd_create_immed_int(0, OPSZ_1b));
+    test_instr_encoding(dc, OP_vandn_vx, instr);
+
+    /* Unary operations; the opcode is selected by the fixed vs1 field. */
+    instr = INSTR_CREATE_vbrev8_v(dc, opnd_create_reg(DR_REG_VR0),
+                                  opnd_create_reg(DR_REG_VR2),
+                                  opnd_create_immed_int(0, OPSZ_1b));
+    test_instr_encoding(dc, OP_vbrev8_v, instr);
+    instr =
+        INSTR_CREATE_vrev8_v(dc, opnd_create_reg(DR_REG_VR0), opnd_create_reg(DR_REG_VR2),
+                             opnd_create_immed_int(0, OPSZ_1b));
+    test_instr_encoding(dc, OP_vrev8_v, instr);
+    instr =
+        INSTR_CREATE_vbrev_v(dc, opnd_create_reg(DR_REG_VR0), opnd_create_reg(DR_REG_VR2),
+                             opnd_create_immed_int(0, OPSZ_1b));
+    test_instr_encoding(dc, OP_vbrev_v, instr);
+    instr =
+        INSTR_CREATE_vclz_v(dc, opnd_create_reg(DR_REG_VR0), opnd_create_reg(DR_REG_VR2),
+                            opnd_create_immed_int(0, OPSZ_1b));
+    test_instr_encoding(dc, OP_vclz_v, instr);
+    instr =
+        INSTR_CREATE_vctz_v(dc, opnd_create_reg(DR_REG_VR0), opnd_create_reg(DR_REG_VR2),
+                            opnd_create_immed_int(0, OPSZ_1b));
+    test_instr_encoding(dc, OP_vctz_v, instr);
+    instr =
+        INSTR_CREATE_vcpop_v(dc, opnd_create_reg(DR_REG_VR0), opnd_create_reg(DR_REG_VR2),
+                             opnd_create_immed_int(0, OPSZ_1b));
+    test_instr_encoding(dc, OP_vcpop_v, instr);
+
+    /* Rotates. */
+    instr = INSTR_CREATE_vrol_vv(dc, opnd_create_reg(DR_REG_VR0),
+                                 opnd_create_reg(DR_REG_VR1), opnd_create_reg(DR_REG_VR2),
+                                 opnd_create_immed_int(0, OPSZ_1b));
+    test_instr_encoding(dc, OP_vrol_vv, instr);
+    instr = INSTR_CREATE_vrol_vx(dc, opnd_create_reg(DR_REG_VR0),
+                                 opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_VR2),
+                                 opnd_create_immed_int(0, OPSZ_1b));
+    test_instr_encoding(dc, OP_vrol_vx, instr);
+    instr = INSTR_CREATE_vror_vv(dc, opnd_create_reg(DR_REG_VR0),
+                                 opnd_create_reg(DR_REG_VR1), opnd_create_reg(DR_REG_VR2),
+                                 opnd_create_immed_int(0, OPSZ_1b));
+    test_instr_encoding(dc, OP_vror_vv, instr);
+    instr = INSTR_CREATE_vror_vx(dc, opnd_create_reg(DR_REG_VR0),
+                                 opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_VR2),
+                                 opnd_create_immed_int(0, OPSZ_1b));
+    test_instr_encoding(dc, OP_vror_vx, instr);
+    /* vror.vi carries the only 6-bit vector immediate: zimm6[5] sits in bit
+     * 26 and zimm6[4:0] in the rs1 slot.  Exercise both halves. */
+    instr = INSTR_CREATE_vror_vi(
+        dc, opnd_create_reg(DR_REG_VR0), opnd_create_immed_int(63, OPSZ_6b),
+        opnd_create_reg(DR_REG_VR2), opnd_create_immed_int(0, OPSZ_1b));
+    test_instr_encoding(dc, OP_vror_vi, instr);
+    instr = INSTR_CREATE_vror_vi(
+        dc, opnd_create_reg(DR_REG_VR0), opnd_create_immed_int(5, OPSZ_6b),
+        opnd_create_reg(DR_REG_VR2), opnd_create_immed_int(0, OPSZ_1b));
+    test_instr_encoding(dc, OP_vror_vi, instr);
+
+    /* Widening shifts. */
+    instr = INSTR_CREATE_vwsll_vv(
+        dc, opnd_create_reg(DR_REG_VR0), opnd_create_reg(DR_REG_VR1),
+        opnd_create_reg(DR_REG_VR2), opnd_create_immed_int(0, OPSZ_1b));
+    test_instr_encoding(dc, OP_vwsll_vv, instr);
+    instr = INSTR_CREATE_vwsll_vx(dc, opnd_create_reg(DR_REG_VR0),
+                                  opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_VR2),
+                                  opnd_create_immed_int(0, OPSZ_1b));
+    test_instr_encoding(dc, OP_vwsll_vx, instr);
+    instr = INSTR_CREATE_vwsll_vi(
+        dc, opnd_create_reg(DR_REG_VR0), opnd_create_immed_int(31, OPSZ_5b),
+        opnd_create_reg(DR_REG_VR2), opnd_create_immed_int(0, OPSZ_1b));
+    test_instr_encoding(dc, OP_vwsll_vi, instr);
+}
+
+static void
 test_isa_features(void *dc)
 {
     /* TODO i#7842: Until instr_get_isa_feature() and instr_get_isa_feature_name() are
@@ -1759,6 +1879,12 @@ main(int argc, char *argv[])
 
     test_decode_xtheadsync(dcontext);
     print("test_decode_xtheadsync complete\n");
+
+    test_decode_zfhmin(dcontext);
+    print("test_decode_zfhmin complete\n");
+
+    test_decode_zvbb(dcontext);
+    print("test_decode_zvbb complete\n");
 
     print("All tests complete\n");
     return 0;

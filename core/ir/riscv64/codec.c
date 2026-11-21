@@ -1353,6 +1353,24 @@ decode_simm5_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig
     return true;
 }
 
+/* Decode the zimm6 immediate field in the vror.vi instruction (Zvbb):
+ * |31    27| 26 | 25 |24 20|19   15|14 12|11 7|6      0|
+ * | funct6 |z5 | vm | vs2 | z4..z0 | ... | vd | opcode |
+ *           ^---^         ^-------^
+ * The 6-bit shift amount is non-contiguous: zimm6[5] reuses bit 26 (normally
+ * part of funct6, which is only 5 bits wide for vror.vi) and zimm6[4:0] sits
+ * in the rs1 slot.
+ */
+static bool
+decode_zimm6_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                  int idx, instr_t *out)
+{
+    uint32_t imm = (GET_FIELD(inst, 26, 26) << 5) | GET_FIELD(inst, 19, 15);
+    opnd_t opnd = opnd_create_immed_uint(imm, op_sz);
+    instr_set_src(out, idx, opnd);
+    return true;
+}
+
 /* Array of operand decode functions indexed by riscv64_fld_t.
  *
  * NOTE: After benchmarking, perhaps this could be placed in the same section as
@@ -1431,6 +1449,7 @@ opnd_dec_func_t opnd_decoders[] = {
     [RISCV64_FLD_VS1] = decode_vs1_opnd,
     [RISCV64_FLD_VS2] = decode_vs2_opnd,
     [RISCV64_FLD_VS3] = decode_vs3_opnd,
+    [RISCV64_FLD_ZIMM6] = decode_zimm6_opnd,
     [RISCV64_FLD_I_S_RS1_DISP] = decode_v_s_rs1_disp_opnd,
 };
 
@@ -2842,6 +2861,21 @@ encode_simm5_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_
     return true;
 }
 
+/* Encode the zimm6 immediate field in the vror.vi instruction (Zvbb):
+ * |31    27| 26 | 25 |24 20|19   15|14 12|11 7|6      0|
+ * | funct6 |z5 | vm | vs2 | z4..z0 | ... | vd | opcode |
+ *           ^---^         ^-------^
+ * See decode_zimm6_opnd() for the non-contiguous bit layout.
+ */
+static bool
+encode_zimm6_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
+{
+    opnd_t opnd = instr_get_src(instr, idx);
+    int32_t imm = opnd_get_immed_int(opnd);
+    *out |= SET_FIELD(BIT(imm, 5), 26, 26) | SET_FIELD(imm, 19, 15);
+    return true;
+}
+
 /* Array of operand encode functions indexed by riscv64_fld_t. */
 opnd_enc_func_t opnd_encoders[] = {
     [RISCV64_FLD_NONE] = encode_none_opnd,
@@ -2916,6 +2950,7 @@ opnd_enc_func_t opnd_encoders[] = {
     [RISCV64_FLD_VS1] = encode_vs1_opnd,
     [RISCV64_FLD_VS2] = encode_vs2_opnd,
     [RISCV64_FLD_VS3] = encode_vs3_opnd,
+    [RISCV64_FLD_ZIMM6] = encode_zimm6_opnd,
     [RISCV64_FLD_I_S_RS1_DISP] = encode_implicit_opnd,
 };
 

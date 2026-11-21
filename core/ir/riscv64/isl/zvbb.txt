@@ -1,0 +1,29 @@
+# Zvbb (Vector Basic Bit-manipulation)
+# Version 1.0
+# https://github.com/riscv/riscv-isa-manual (Vector Crypto chapter)
+#
+
+vandn.vv       | r | vm vs2 vs1 vd   | 000001...........000.....1010111
+vandn.vx       | r | vm vs2 rs1 vd   | 000001...........100.....1010111
+vbrev8.v       | r | vm vs2 vd       | 010010......01000010.....1010111
+vrev8.v        | r | vm vs2 vd       | 010010......01001010.....1010111
+vbrev.v        | r | vm vs2 vd       | 010010......01010010.....1010111
+vclz.v         | r | vm vs2 vd       | 010010......01100010.....1010111
+vctz.v         | r | vm vs2 vd       | 010010......01101010.....1010111
+vcpop.v        | r | vm vs2 vd       | 010010......01110010.....1010111
+vrol.vv        | r | vm vs2 vs1 vd   | 010101...........000.....1010111
+vrol.vx        | r | vm vs2 rs1 vd   | 010101...........100.....1010111
+vror.vv        | r | vm vs2 vs1 vd   | 010100...........000.....1010111
+vror.vx        | r | vm vs2 rs1 vd   | 010100...........100.....1010111
+
+# vror.vi (OPIVI, funct3=011) is the only vector instruction whose immediate
+# is 6 bits wide: only bits 31..27 of funct6 are fixed and zimm[5] reuses
+# bit 26, while the vm bit 25 keeps its masking role.  zimm[4:0] lives in
+# the rs1 slot as usual.  The zimm6 field below decodes the two slices.
+vror.vi        | r | vm vs2 zimm6 vd | 01010............011.....1010111
+
+# Widening Shift Left Logical: funct6=110101, OPMVV (000), OPIVX (100) and
+# OPIVI (011, 5-bit zimm like vsll.vi).
+vwsll.vv       | r | vm vs2 vs1 vd   | 110101...........000.....1010111
+vwsll.vx       | r | vm vs2 rs1 vd   | 110101...........100.....1010111
+vwsll.vi       | r | vm vs2 simm5 vd | 110101...........011.....1010111
