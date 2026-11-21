@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -92,6 +93,10 @@ namespace drmemtrace {
 
 #ifdef HAS_ZIP
 #    define TRACE_SUFFIX_ZIP "trace.zip"
+#endif
+
+#ifdef HAS_ZSTD
+#    define TRACE_SUFFIX_ZSTD "trace.zst"
 #endif
 
 #ifdef HAS_ZLIB

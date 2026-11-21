@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2017-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -79,6 +80,9 @@
 #    include "lz4_istream.h"
 #    include "lz4_ostream.h"
 #endif
+#ifdef HAS_ZSTD
+#    include "zstd_ostream.h"
+#endif
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -146,6 +150,10 @@ raw2trace_directory_t::trace_suffix()
     } else if (compress_type_ == "lz4") {
 #ifdef HAS_LZ4
         return TRACE_SUFFIX_LZ4;
+#endif
+    } else if (compress_type_ == "zstd") {
+#ifdef HAS_ZSTD
+        return TRACE_SUFFIX_ZSTD;
 #endif
     }
     return TRACE_SUFFIX;
@@ -284,6 +292,10 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
     } else if (compress_type_ == "lz4") {
 #ifdef HAS_LZ4
         ofile = new lz4_ostream_t(path);
+#endif
+    } else if (compress_type_ == "zstd") {
+#ifdef HAS_ZSTD
+        ofile = new zstd_ostream_t(path);
 #endif
     }
     if (!ofile) {
@@ -511,6 +523,11 @@ raw2trace_directory_t::initialize(const std::string &indir, const std::string &o
     indir_ = indir;
     outdir_ = outdir;
     compress_type_ = compress;
+#ifndef HAS_ZSTD
+    // Fail rather than silently writing uncompressed files.
+    if (compress_type_ == "zstd")
+        return "Compression type zstd is not supported in this build";
+#endif
 #ifdef WINDOWS
     // Canonicalize.
     std::replace(indir_.begin(), indir_.end(), ALT_DIRSEP[0], DIRSEP[0]);

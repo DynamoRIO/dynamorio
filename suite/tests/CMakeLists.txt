@@ -4555,6 +4555,11 @@ if (BUILD_CLIENTS)
         "-raw_compress lz4 -raw_compress_level 3" "" "")
       set(tool.drcacheoff.raw-lz4-level-pos_expectbase "offline-simple")
     endif ()
+    # Sanity test for zstd compression of the final trace files.
+    if (ZSTD_FOUND)
+      torunonly_drcacheoff(trace-zstd ${ci_shared_app} "" "@-compress@zstd" "")
+      set(tool.drcacheoff.trace-zstd_expectbase "offline-simple")
+    endif ()
 
     # Test that malloc & co. are not invoked.
     # We disable the lz4 default as both lz4 and snappy call

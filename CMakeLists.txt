@@ -1967,7 +1967,7 @@ function (mac_add_inc_and_lib header lib)
   endif ()
 endfunction ()
 
-# zlib, snappy, and lz4 are used for some clients/ and tests.
+# zlib, snappy, lz4, and zstd are used for some clients/ and tests.
 # TODO i#5767: Install an explicit zlib package on our Windows GA CI images
 # (this find_package finds a strawberry perl zlib which causes 32-bit build
 # and 64-bit private loader issues).
@@ -2022,6 +2022,33 @@ int main(void) {
       message(STATUS "liblz4 lacks a usable LZ4F_CustomMem: "
         "-raw_compress lz4 stays unsafe for static clients (needs lz4 >= 1.9.4 "
         "built with -DLZ4F_PUBLISH_STATIC_FUNCTIONS, or a static liblz4)")
+    endif ()
+  endif ()
+  find_library(libzstd zstd)
+  if (libzstd)
+    message(STATUS "Found libzstd: ${libzstd}")
+    if (APPLE)
+      mac_add_inc_and_lib(zstd.h libzstd.a)
+    endif ()
+    # Check for the zstd >= 1.4.0 streaming API that we use.
+    include(CheckCSourceCompiles)
+    set(_zstd_save_required_libraries ${CMAKE_REQUIRED_LIBRARIES})
+    set(CMAKE_REQUIRED_LIBRARIES ${libzstd})
+    check_c_source_compiles("
+#include <zstd.h>
+int main(void) {
+  ZSTD_CCtx *cctx = ZSTD_createCCtx();
+  ZSTD_CCtx_setParameter(cctx, ZSTD_c_checksumFlag, 1);
+  ZSTD_freeCCtx(cctx);
+  return 0;
+}
+" HAVE_ZSTD_STREAM_API)
+    set(CMAKE_REQUIRED_LIBRARIES ${_zstd_save_required_libraries})
+    unset(_zstd_save_required_libraries)
+    if (HAVE_ZSTD_STREAM_API)
+      set(ZSTD_FOUND ON)
+    else ()
+      message(STATUS "libzstd lacks zstd.h or the zstd >= 1.4.0 API: not using zstd")
     endif ()
   endif ()
   find_library(libxxhash xxhash)

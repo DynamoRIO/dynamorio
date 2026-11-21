@@ -90,7 +90,7 @@ jobs:
         sudo ./llvm.sh 21
         sudo apt update
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
-          liblz4-dev g++-multilib libunwind-dev clang-format-21
+          liblz4-dev libzstd-dev g++-multilib libunwind-dev clang-format-21
         echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
 
     - name: Check if format checks are disabled
@@ -133,7 +133,7 @@ jobs:
         sudo ./llvm.sh 21
         sudo apt update
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
-          liblz4-dev g++-multilib libunwind-dev clang-format-21
+          liblz4-dev libzstd-dev g++-multilib libunwind-dev clang-format-21
         sudo add-apt-repository 'deb [arch=i386] http://us.archive.ubuntu.com/ubuntu jammy main'
         apt download libunwind8:i386 libunwind-dev:i386 liblzma5:i386 \
           zlib1g:i386 zlib1g-dev:i386
@@ -201,7 +201,7 @@ jobs:
         sudo chroot . sbin/apk add \
           alpine-base binutils bash cmake doxygen file g++ git libunwind-dev \
           lz4-dev lz4-static linux-headers make musl-dev musl-libintl perl \
-          patch xz-dev zlib-dev zlib-static
+          patch xz-dev zlib-dev zlib-static zstd-dev zstd-static
 
     # XXX: Using actions/are-format-checks-disabled here results in EACCES:
     # permission denied,

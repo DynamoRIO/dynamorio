@@ -320,6 +320,8 @@ Further non-compatibility-affecting changes include:
  - Added -sandbox_shared option to handle JIT applications that use dual mapping.
    -sandbox_shared is enabled by default on AArch64 but should be treated as experimental
    on x86. It is currently only supported on Linux.
+ - Added "zstd" to the drmemtrace -compress option for the final offline trace
+   files, when built with libzstd.
 
 **************************************************
 <hr>
