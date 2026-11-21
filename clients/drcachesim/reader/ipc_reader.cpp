@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -109,6 +109,9 @@ ipc_reader_t::read_next_entry()
             cur_buf_->type = TRACE_TYPE_FOOTER;
             cur_buf_->size = 0;
             cur_buf_->addr = 0;
+            // Make sure reader_t::operator++ calling back here will enter the
+            // if() above and hit the at_eof_ (i#3320).
+            end_buf_ = buf_ + 1;
             at_eof_ = true;
             return cur_buf_;
         }
