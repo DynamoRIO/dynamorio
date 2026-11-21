@@ -117,6 +117,19 @@ tid_from_memref_tid(memref_tid_t tid)
     return tid & ((1ULL << MEMREF_ID_WORKLOAD_SHIFT) - 1);
 }
 
+/** The physical location of one page touched by a data access or instruction fetch. */
+struct _memref_phys_t {
+    /**
+     * The physical address of the first byte touched in this page, or
+     * #MEMREF_PHYS_ADDR_UNKNOWN if the trace has no translation for the page.
+     */
+    addr_t addr;
+    uint64_t page_size; /**< The size of the page. */
+};
+
+/** The value of _memref_phys_t.addr when a page's translation is not available. */
+static constexpr addr_t MEMREF_PHYS_ADDR_UNKNOWN = ~static_cast<addr_t>(0);
+
 /** A trace entry representing a data load, store, or prefetch. */
 struct _memref_data_t {
     trace_type_t type; /**< #TRACE_TYPE_READ, #TRACE_TYPE_WRITE, or type_is_prefetch(). */
@@ -125,6 +138,18 @@ struct _memref_data_t {
     addr_t addr;       /**< Address of data being loaded or stored. */
     size_t size;       /**< Size of data being loaded or stored. */
     addr_t pc;         /**< Program counter of instruction performing load or store. */
+    /**
+     * The first page touched by the memory access.
+     * Its addr is the physical address of addr.
+     */
+    struct _memref_phys_t phys0;
+    /**
+     * The number of pages the memory access spans, or 0 if the trace has no
+     * virtual-to-physical information.
+     */
+    uint32_t num_pages;
+    /** The remaining num_pages - 1 pages, or nullptr if num_pages <= 1. */
+    const struct _memref_phys_t *phys_rest;
 };
 
 /** A trace entry representing an instruction fetch. */
@@ -155,6 +180,12 @@ struct _memref_instr_t {
      * present in trace version #TRACE_ENTRY_VERSION_BRANCH_INFO and higher.
      */
     addr_t indirect_branch_target;
+    /** The first page of the instruction; its addr is the physical address of addr. */
+    struct _memref_phys_t phys0;
+    /** The number of pages the instruction spans, or 0 if not translated. */
+    uint32_t num_pages;
+    /** The remaining num_pages - 1 pages, or nullptr if num_pages <= 1. */
+    const struct _memref_phys_t *phys_rest;
 };
 
 /** A trace entry representing a software-requested explicit cache flush. */
@@ -244,6 +275,33 @@ memref_has_pc(const memref_t &memref, uint64_t &pc)
         return true;
     }
     return false;
+}
+
+/**
+ * Returns the number of pages touched by a data access or instruction fetch, or 0 for
+ * any other record or if the trace has no virtual-to-physical information.
+ */
+static inline uint32_t
+memref_num_pages(const memref_t &memref)
+{
+    if (is_any_instr_type(memref.instr.type))
+        return memref.instr.num_pages;
+    if (memref.data.type == TRACE_TYPE_READ || memref.data.type == TRACE_TYPE_WRITE ||
+        type_is_prefetch(memref.data.type))
+        return memref.data.num_pages;
+    return 0;
+}
+
+/**
+ * Returns the i-th page touched by a data access or instruction fetch, where
+ * i < memref_num_pages(memref).
+ */
+static inline const _memref_phys_t &
+memref_phys_page(const memref_t &memref, uint32_t i)
+{
+    if (is_any_instr_type(memref.instr.type))
+        return i == 0 ? memref.instr.phys0 : memref.instr.phys_rest[i - 1];
+    return i == 0 ? memref.data.phys0 : memref.data.phys_rest[i - 1];
 }
 
 static_assert(sizeof(memref_t) == MEMREF_T_SIZE_BYTES,

@@ -39,6 +39,7 @@
 
 #include <assert.h>
 #include "config_reader_unit_test.h"
+#include "reader_unit_test.h"
 #include "v2p_reader_unit_test.h"
 #include "tlb_simulator_unit_test.h"
 #include "cache_replacement_policy_unit_test.h"
@@ -1369,6 +1370,7 @@ test_main(int argc, const char *argv[])
     unit_test_inclusion_policy();
     unit_test_replacement_policy();
     unit_test_v2p_reader(std::string(argv[1]));
+    unit_test_reader();
     unit_test_tlb_simulator(std::string(argv[1]));
     unit_test_cache_associativity();
     unit_test_cache_size();
