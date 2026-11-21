@@ -271,6 +271,10 @@ check_module_mem_types(void)
  */
 #    define KERNEL_CODE_WALK_START __START_KERNEL_map
 #    define KERNEL_CODE_WALK_END MODULES_END
+/* The kernel half of the address space: the canonical addresses with the top bit set.
+ * __VIRTUAL_MASK_SHIFT follows the paging mode in use, like TASK_SIZE_MAX.
+ */
+#    define KERNEL_ADDRESS_SPACE_START (-(1UL << __VIRTUAL_MASK_SHIFT))
 
 static unsigned long
 query_kernel_page(unsigned long addr, unsigned int *prot)
@@ -311,6 +315,8 @@ query_kernel_page(unsigned long addr, unsigned int *prot)
  */
 #    define KERNEL_CODE_WALK_START MODULES_VADDR
 #    define KERNEL_CODE_WALK_END VMALLOC_END
+/* The kernel half of the address space: the addresses translated through TTBR1. */
+#    define KERNEL_ADDRESS_SPACE_START PAGE_OFFSET
 
 /* Also works for PMD/PUD block entries, which use the same bit positions. */
 static unsigned int
@@ -769,6 +775,40 @@ kernel_walk_code_regions(kernel_memory_region_callback_t callback, void *arg)
     walk_code_range(heap_end, end, callback, arg);
 }
 
+bool
+kernel_is_user_address(const void *addr)
+{
+    return (unsigned long)addr < TASK_SIZE_MAX;
+}
+
+/* XXX i#8021: This reports a single page rather than the maximal region with the same
+ * protection.  Like kernel_walk_code_regions(), it takes no page table locks, so a
+ * concurrent mapping or protection change may yield a stale result.
+ */
+bool
+kernel_query_memory(const void *addr, kernel_memory_region_t *region)
+{
+    if (kernel_is_user_address(addr)) {
+        return false;
+    }
+
+    const unsigned long address = (unsigned long)addr;
+    unsigned int prot = 0;
+    /* Nothing can be mapped in the non-canonical gap between the user and kernel halves.
+     * It must not reach the page table lookup, which only uses the address bits that
+     * index the tables and so would find the kernel mapping that shares those bits.
+     */
+    if (address >= KERNEL_ADDRESS_SPACE_START) {
+        query_kernel_page(address, &prot);
+    }
+    *region = (kernel_memory_region_t) {
+        .base = (unsigned char *)ALIGN_BACKWARD(address, PAGE_SIZE),
+        .size = PAGE_SIZE,
+        .prot = prot,
+    };
+    return true;
+}
+
 /* Copies |size| bytes from |src| to |dst| without faulting.  The range must be non-empty
  * and must not cross a page boundary.  Returns 0 on success and a negative errno if the
  * bytes cannot be read.
@@ -780,12 +820,12 @@ copy_from_nofault_within_page(void *dst, unsigned long src, size_t size)
     /* The first and last bytes must be on the same page. */
     KERNEL_ASSERT((src & PAGE_MASK) == ((src + size - 1) & PAGE_MASK));
     /* copy_from_user_nofault rejects kernel addresses while copy_from_kernel_nofault
-     * rejects user addresses, so we split on the boundary the kernel itself uses.
-     * TASK_SIZE_MAX is page-aligned, so a range within one page never straddles the
-     * split.
+     * rejects user addresses, so pick by which side of the split the range is on.  It
+     * must not straddle the split.
      */
-    KERNEL_ASSERT((TASK_SIZE_MAX & ~PAGE_MASK) == 0);
-    return src < TASK_SIZE_MAX
+    KERNEL_ASSERT(kernel_is_user_address((const void *)src) ==
+                  kernel_is_user_address((const void *)(src + size - 1)));
+    return kernel_is_user_address((const void *)src)
         ? copy_from_user_nofault(dst, (const void __user *)src, size)
         : copy_from_kernel_nofault(dst, (const void *)src, size);
 }

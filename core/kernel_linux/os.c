@@ -608,6 +608,12 @@ d_r_safe_read(const void *base, size_t size, void *out_buf)
     return safe_read_ex(base, size, out_buf, NULL);
 }
 
+bool
+is_user_address(byte *pc)
+{
+    return kernel_is_user_address(pc);
+}
+
 void
 all_memory_areas_lock(void)
 {
@@ -639,6 +645,67 @@ remove_from_all_memory_areas(app_pc start, app_pc end)
 _Static_assert(KERNEL_MEMPROT_READ == MEMPROT_READ, "KERNEL_MEMPROT_READ mismatch");
 _Static_assert(KERNEL_MEMPROT_WRITE == MEMPROT_WRITE, "KERNEL_MEMPROT_WRITE mismatch");
 _Static_assert(KERNEL_MEMPROT_EXEC == MEMPROT_EXEC, "KERNEL_MEMPROT_EXEC mismatch");
+
+/* Reports the page containing |pc|.  Fails for a user address. */
+bool
+query_memory_ex_from_os(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info)
+{
+    kernel_memory_region_t region;
+    info->is_shared = false;
+    if (!kernel_query_memory(pc, &region)) {
+        info->type = DR_MEMTYPE_ERROR;
+        return false;
+    }
+    info->base_pc = region.base;
+    info->size = region.size;
+    info->prot = region.prot;
+    /* XXX i#8021: Mapped memory is always reported as data, never as an image. */
+    info->type = region.prot == 0 ? DR_MEMTYPE_FREE : DR_MEMTYPE_DATA;
+    return true;
+}
+
+/* Like query_memory_ex_from_os(), but also fails if nothing is mapped at |pc|. */
+bool
+get_memory_info_from_os(const byte *pc, byte **base_pc, size_t *size,
+                        uint *prot /* OUT optional, returns MEMPROT_* value */)
+{
+    dr_mem_info_t info;
+    if (!query_memory_ex_from_os(pc, &info) || info.type == DR_MEMTYPE_FREE) {
+        return false;
+    }
+    if (base_pc != NULL) {
+        *base_pc = info.base_pc;
+    }
+    if (size != NULL) {
+        *size = info.size;
+    }
+    if (prot != NULL) {
+        *prot = info.prot;
+    }
+    return true;
+}
+
+/* There is no memory cache in the kernel build, so the queries below are the same as
+ * their "from_os" counterparts.
+ */
+bool
+query_memory_ex(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info)
+{
+    return query_memory_ex_from_os(pc, info);
+}
+
+bool
+query_memory_cur_base(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info)
+{
+    return query_memory_ex_from_os(pc, info);
+}
+
+bool
+get_memory_info(const byte *pc, byte **base_pc, size_t *size,
+                uint *prot /* OUT optional, returns MEMPROT_* value */)
+{
+    return get_memory_info_from_os(pc, base_pc, size, prot);
+}
 
 static void
 find_dynamo_library_vm_areas_callback(const kernel_memory_region_t *region, void *arg)
