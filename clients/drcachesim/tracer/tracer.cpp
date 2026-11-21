@@ -688,11 +688,11 @@ instrumentation_init()
 static void
 event_post_attach()
 {
-    if (!align_attach_detach_endpoints())
-        return;
-    uint64 timestamp = instru_t::get_timestamp();
-    attached_timestamp.store(timestamp, std::memory_order_release);
-    NOTIFY(1, "Fully-attached timestamp is " UINT64_FORMAT_STRING "\n", timestamp);
+    if (align_attach_detach_endpoints()) {
+        uint64 timestamp = instru_t::get_timestamp();
+        attached_timestamp.store(timestamp, std::memory_order_release);
+        NOTIFY(1, "Fully-attached timestamp is " UINT64_FORMAT_STRING "\n", timestamp);
+    }
     if (get_initial_no_trace_for_instrs_value() != 0) {
         NOTIFY(1, "Switching to counting mode after attach\n");
         tracing_mode.store(BBDUP_MODE_COUNT, std::memory_order_release);
@@ -2522,6 +2522,10 @@ event_thread_exit(void *drcontext)
 static void
 event_exit(void)
 {
+    if (is_in_tracing_mode(tracing_mode.load(std::memory_order_acquire)) &&
+        ended_tracing_func != nullptr) {
+        ended_tracing_func(tracing_func_arg);
+    }
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         drpttracer_exit();
@@ -2773,14 +2777,16 @@ drmemtrace_replace_file_ops(drmemtrace_open_file_func_t open_file_func,
                             drmemtrace_close_file_func_t close_file_func,
                             drmemtrace_create_dir_func_t create_dir_func)
 {
-    /* We don't check op_offline b/c option parsing may not have happened yet. */
+    /* Be careful checking options as option parsing may not have happened yet
+     * (checking instru != nullptr as below is one solution).
+     */
     if (open_file_func != NULL)
         file_ops_func.open_file = open_file_func;
     if (read_file_func != NULL)
         file_ops_func.read_file = read_file_func;
     if (write_file_func != NULL) {
         file_ops_func.write_file = write_file_func;
-        if (instru != nullptr) {
+        if (instru != nullptr && op_offline.get_value()) {
             reinterpret_cast<offline_instru_t *>(instru)->set_write_file_func(
                 file_ops_func.write_file);
         }
@@ -2807,7 +2813,7 @@ drmemtrace_replace_file_ops_ex(drmemtrace_replace_file_ops_t *ops)
         file_ops_func.read_file = ops->read_file_func;
     if (ops->write_file_func != nullptr) {
         file_ops_func.write_file = ops->write_file_func;
-        if (instru != nullptr) {
+        if (instru != nullptr && op_offline.get_value()) {
             reinterpret_cast<offline_instru_t *>(instru)->set_write_file_func(
                 file_ops_func.write_file);
         }
@@ -2865,6 +2871,13 @@ drmemtrace_boundary_events(drmemtrace_started_tracing_func_t started_func,
     started_tracing_func = started_func;
     ended_tracing_func = ended_func;
     tracing_func_arg = user_arg;
+    return DRMEMTRACE_SUCCESS;
+}
+
+drmemtrace_status_t
+drmemtrace_dump_module_info(char **buf_out, size_t *size_out, size_t *wrote_out)
+{
+    instru->dump_module_info(buf_out, size_out, wrote_out);
     return DRMEMTRACE_SUCCESS;
 }
 

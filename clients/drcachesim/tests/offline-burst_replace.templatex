@@ -7,11 +7,9 @@ create dir .*
 open file .*
 open file .*
 open file .*
-pre-DR start.*
-window_start for .*/raw/window.0000
 open file .*
 0: writing [0-9]+ bytes .*
-restore the write file function
+restore the write file function.*
 Hit tracing window #0 limit: disabling tracing.
 window_end for .*/raw/window.0000
 close file .*
@@ -22,11 +20,8 @@ open file .*
 Hit tracing window #1 limit: disabling tracing.
 window_end for .*/raw/window.0001
 .*
-pre-DR detach
+pre-DR detach.*
 window_end for .*
-close file .*
-close file .*
-close file .*
 close file .*
 all done
 Cache simulation results:

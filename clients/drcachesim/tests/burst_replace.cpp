@@ -210,6 +210,21 @@ window_end(void *user_data)
     drmemtrace_status_t mem_res = drmemtrace_get_output_path(&raw_dir);
     assert(mem_res == DRMEMTRACE_SUCCESS);
     dr_fprintf(STDERR, "%s for path %s\n", __FUNCTION__, raw_dir);
+
+    // Test a mid-run module info dump.
+    char *buf = nullptr;
+    size_t size = 0, wrote = 0;
+    mem_res = drmemtrace_dump_module_info(&buf, &size, &wrote);
+    assert(mem_res == DRMEMTRACE_SUCCESS);
+    assert(buf != nullptr);
+    assert(wrote > 0);
+    assert(size >= wrote);
+    // We at least do a sanity check to ensure our executable is in there.
+    // Add a nul char; clobber the end if it's full (executable should be
+    // early in buffer).
+    buf[wrote == size ? wrote - 1 : wrote] = '\0';
+    assert(strstr(buf, "burst_replace") != nullptr);
+    dr_global_free(buf, size);
 }
 
 static void
@@ -280,7 +295,9 @@ test_main(int argc, const char *argv[])
                    // Enable windows to test bounds callbacks.
                    // We expect over 100K instrs, so these cadences should give us
                    // at least 4 windows.
-                   "-trace_for_instrs 25K -retrace_every_instrs 25K'"))
+                   "-trace_for_instrs 25K -retrace_every_instrs 25K "
+                   // Ensure the window events are called even w/o align_endpoints.
+                   "-no_align_endpoints'"))
         std::cerr << "failed to set env var!\n";
 
     std::cerr << "replace all file functions\n";
