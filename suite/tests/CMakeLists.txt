@@ -2983,6 +2983,12 @@ if (NOT ANDROID) # XXX i#1874: get working on Android
   target_link_libraries(client.null_instrument client.null_instrument.appdll)
   # We want rpath on Linux so we can load the appdll.
   set_target_properties(client.null_instrument PROPERTIES SKIP_BUILD_RPATH OFF)
+  if (WIN32 AND X86 AND TARGET empty)
+    # Returning from a native DLL with a client loaded requires private thread state.
+    torunonly_ci(client.native-return-state client.null_instrument empty
+      client-interface/null_instrument.c ""
+      "-no_early_inject -native_exec_list client.null_instrument.appdll.dll" "")
+  endif ()
 endif ()
 
 if (NOT ARM) # XXX i#1551: fix bugs on ARM
