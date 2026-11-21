@@ -67,6 +67,10 @@
 #define WINDOWS_VERSION_XP 51
 #define WINDOWS_VERSION_2000 50
 #define WINDOWS_VERSION_NT 40
+
+/* Windows build numbers (from get_os_version_ex()) */
+#define WINDOWS_BUILD_11_24H2 22631 /* Windows 11 24H2 introduces CFG extensions */
+
 int
 get_os_version(void);
 void
