@@ -3001,6 +3001,14 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
         if (DYNAMO_OPTION(sleep_between_takeovers))
             os_thread_sleep(1);
     } while (found_threads && attempts < max_takeover_attempts);
+#ifdef PTRACE_TAKEOVER_SUPPORTED
+    if (DYNAMO_OPTION(attach_unmask_suspend_signal)) {
+        /* Functions and data structures named *pre_unmask* manage the
+         * preservation of signal masks across ptrace assisted attach.
+         */
+        os_clear_pre_unmask_sigmasks();
+    }
+#endif
     os_process_under_dynamorio_complete(dcontext);
 
     instrument_post_attach_event();
