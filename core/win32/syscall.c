@@ -2405,6 +2405,28 @@ presys_AllocateVirtualMemoryEx(dcontext_t *dcontext, reg_t *param_base)
     ASSERT_CURIOSITY("unimplemented pre handler for NtAllocateVirtualMemoryEx");
 }
 
+/* Returns false for NtFreeVirtualMemory arguments the kernel always refuses.
+ * True does not mean the call will succeed.
+ */
+static bool
+is_valid_free_virtual_memory(uint type, app_pc base, size_t size)
+{
+    if (base == NULL)
+        return false;
+    switch (type) {
+    case MEM_RELEASE:
+    case MEM_DECOMMIT: return true;
+    case MEM_RELEASE | MEM_PRESERVE_PLACEHOLDER:
+    case MEM_RELEASE | MEM_COALESCE_PLACEHOLDERS:
+        /* Unlike the types above, these are refused rather than rounded out to
+         * pages when base or size is not page-aligned, as well as when size is 0.
+         */
+        return size != 0 && ALIGNED(base, PAGE_SIZE) && ALIGNED(size, PAGE_SIZE) &&
+            !POINTER_OVERFLOW_ON_ADD(base, size);
+    default: return false;
+    }
+}
+
 /* NtFreeVirtualMemory */
 static void
 presys_FreeVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
@@ -2420,12 +2442,9 @@ presys_FreeVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
     /* check for common argument problems, apps tend to screw this call
      * up a lot (who cares about a memory leak, esp. at process exit) */
     /* ref case 3536, 545, 4046 */
-    if (!d_r_safe_read(pbase, sizeof(base), &base) || base == NULL ||
+    if (!d_r_safe_read(pbase, sizeof(base), &base) ||
         !d_r_safe_read(psize, sizeof(size), &size) ||
-        !(type == MEM_RELEASE || type == MEM_DECOMMIT ||
-          type == (MEM_RELEASE | MEM_PRESERVE_PLACEHOLDER) ||
-          type == (MEM_RELEASE | MEM_COALESCE_PLACEHOLDERS)) ||
-        (type == (MEM_RELEASE | MEM_PRESERVE_PLACEHOLDER) && size == 0)) {
+        !is_valid_free_virtual_memory(type, base, size)) {
         /* we expect the system call to fail */
         DODEBUG(dcontext->expect_last_syscall_to_fail = true;);
         return;
@@ -2447,13 +2466,31 @@ presys_FreeVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
             base, size);
         return;
     }
-    /* MEM_RELEASE | MEM_PRESERVE_PLACEHOLDER (VirtualAlloc2's placeholders, used
-     * by JITs such as V8 to reuse their code space) releases exactly
-     * [base, base+size), back to a placeholder, so it is handled as a
-     * MEM_DECOMMIT of that range is: the memory is gone either way.  If we
-     * ignore it the vm areas and the fragments in them stay, and new code
-     * later placed there runs as the stale fragments.
-     */
+    if (type == (MEM_RELEASE | MEM_PRESERVE_PLACEHOLDER)) {
+        /* VirtualAlloc2's placeholders, used by JITs such as V8 to reuse their
+         * code space: this releases exactly [base, base+size), back to a
+         * placeholder, so it is handled as a MEM_DECOMMIT of that range is: the
+         * memory is gone either way.  If we ignore it the vm areas and the
+         * fragments in them stay, and new code later placed there runs as the
+         * stale fragments.
+         *
+         * The range must lie within one allocation, or the kernel refuses it.
+         * It can also refuse a range we cannot tell apart here (memory that was
+         * not allocated in place of a placeholder, a mapped view, a placeholder
+         * not being split); we then only flush a range that is still there.
+         */
+        app_pc alloc_base;
+        size_t alloc_size = get_allocation_size(base, &alloc_base);
+        if (alloc_base == NULL ||
+            (ptr_uint_t)(base + size) > (ptr_uint_t)(alloc_base + alloc_size)) {
+            LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 1,
+                "syscall: NtFreeVirtualMemory MEM_PRESERVE_PLACEHOLDER base=" PFX
+                " size=" PIFX " not within one allocation\n",
+                base, size);
+            DODEBUG(dcontext->expect_last_syscall_to_fail = true;);
+            return;
+        }
+    }
 
     if ((type == MEM_DECOMMIT && size == 0) || (type == MEM_RELEASE)) {
         app_pc real_base;
