@@ -622,12 +622,10 @@ syscalls_init()
         app_pc wrapper;
         ASSERT(ntdllh != NULL);
         for (i = 0; i < SYS_MAX; i++) {
-            /* i#XXXX: NtContinueEx is newer than our newest table, so on an unknown
-             * version we look for its wrapper rather than trusting the table.
+            /* Entries our tables lack are looked up too: a system call newer than our
+             * newest table, such as NtContinueEx (i#8262), has a wrapper only where
+             * it exists.
              */
-            if (syscalls[i] == SYSCALL_NOT_PRESENT && /* presumably matches known ver */
-                !(i == SYS_ContinueEx && syscalls == windows_unknown_syscalls))
-                continue;
             wrapper = (app_pc)d_r_get_proc_address(ntdllh, syscall_names[i]);
             if (wrapper != NULL && !ALLOW_HOOKER(wrapper)) {
                 syscalls[i] = *((int *)((wrapper) + SYSNUM_OFFS));

@@ -3035,7 +3035,7 @@ pre_system_call(dcontext_t *dcontext)
 #endif
 
     if (sysnum == syscalls[SYS_Continue] ||
-        /* i#XXXX: NtContinueEx, which longjmp and KiUserApcDispatcher use on recent
+        /* i#8262: NtContinueEx, which longjmp and KiUserApcDispatcher use on recent
          * Windows, takes the same CONTEXT.  Its second argument points at a continue
          * argument holding the TestAlert flag among others; like NtContinue's flag,
          * it is left to the kernel.
