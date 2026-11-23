@@ -141,6 +141,9 @@ clean-files += $(dr_asm_targets)
 # calls BUG(), so if an unported function is reached during runtime it would
 # fail loudly with a kernel oops.
 #
+# XXX i#8021: An undefined variable gets a function stub too, so reading it
+# silently yields the stub's machine code instead of hitting BUG().
+#
 # When Module.symvers is absent (e.g. an unbuilt kernel tree prepared with
 # `make modules_prepare`), kernel exports can't be told apart from missing
 # symbols, so stubs.c is left empty and modpost's unresolved symbol errors are
