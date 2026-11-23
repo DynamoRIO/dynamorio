@@ -418,11 +418,24 @@ cur_trace_vmlist(dcontext_t *dcontext)
     return md->trace_vmlist;
 }
 
+/* Frees the vmlist of each block in the trace.  Their entries are on the
+ * frags lists of the blocks' vm areas, where a flush unlinks them, so they
+ * must not outlive md->trace_vmlist, which a flush checks to squash the trace.
+ */
+static void
+free_trace_blk_vmlists(dcontext_t *dcontext, monitor_data_t *md)
+{
+    uint i;
+    for (i = 0; i < md->num_blks; i++) {
+        vm_area_destroy_list(dcontext, md->blk_info[i].vmlist);
+        md->blk_info[i].vmlist = NULL;
+    }
+}
+
 static void
 reset_trace_state(dcontext_t *dcontext, bool grab_link_lock)
 {
     monitor_data_t *md = (monitor_data_t *)dcontext->monitor_field;
-    uint i;
     /* reset the trace buffer */
     instrlist_init(&(md->trace));
     if (instrlist_first(&md->unmangled_ilist) != NULL)
@@ -433,10 +446,7 @@ reset_trace_state(dcontext_t *dcontext, bool grab_link_lock)
     md->unmangled_bb_ilist = NULL;
     md->trace_buf_top = 0;
     ASSERT(md->trace_vmlist == NULL);
-    for (i = 0; i < md->num_blks; i++) {
-        vm_area_destroy_list(dcontext, md->blk_info[i].vmlist);
-        md->blk_info[i].vmlist = NULL;
-    }
+    free_trace_blk_vmlists(dcontext, md);
     md->num_blks = 0;
 
     /* If shared BBs are being used to build a shared trace, we may have
@@ -1505,6 +1515,13 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
      */
     md->trace_vmlist = NULL;
     md->trace_tag = NULL;
+    /* With the trace no longer being built, a flush will not squash it, so the
+     * blocks' vmlists (present when the blocks were passed to a client) must go
+     * now too: else a flush while we are nolinking below unlinks and frees their
+     * entries as stale ones, and reset_trace_state() then frees them again.
+     * remove_trace_components needs only md->blk_info[].info.
+     */
+    free_trace_blk_vmlists(dcontext, md);
 
     /* these calls to fragment_remove_shared_no_flush may become
      * nolinking, meaning we need to hold no locks here, and that when
