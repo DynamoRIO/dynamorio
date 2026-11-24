@@ -1,6 +1,5 @@
 /* **********************************************************
  * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
- * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -50,7 +49,7 @@
 #include "drmgr.h"
 #include "drvector.h"
 #include "options.h"
-#include "hashtable.h"
+#include "drhashtable.h"
 #include "droption.h"
 #include "drsyms.h"
 #include "drwrap.h"

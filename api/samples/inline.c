@@ -1,6 +1,5 @@
 /* **********************************************************
  * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
- * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,7 +39,7 @@
 
 #include "dr_api.h"
 #include "drmgr.h"
-#include "hashtable.h"
+#include "drhashtable.h"
 #include <string.h> /* memset */
 
 #define VERBOSE 1

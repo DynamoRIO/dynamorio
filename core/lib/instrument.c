@@ -8219,8 +8219,9 @@ dr_is_detaching(void)
 
 DR_API
 void *
-dr_hashtable_create(void *drcontext, uint bits, uint load_factor_percent, bool synch,
-                    void (*free_payload_func)(void * /*drcontext*/, void *))
+dr_openaddress_hashtable_create(void *drcontext, uint bits, uint load_factor_percent,
+                                bool synch,
+                                void (*free_payload_func)(void * /*drcontext*/, void *))
 {
     uint flags = HASHTABLE_PERSISTENT;
     if (synch)
@@ -8234,35 +8235,35 @@ dr_hashtable_create(void *drcontext, uint bits, uint load_factor_percent, bool s
 
 DR_API
 void
-dr_hashtable_destroy(void *drcontext, void *htable)
+dr_openaddress_hashtable_destroy(void *drcontext, void *htable)
 {
     generic_hash_destroy((dcontext_t *)drcontext, (generic_table_t *)htable);
 }
 
 DR_API
 void
-dr_hashtable_clear(void *drcontext, void *htable)
+dr_openaddress_hashtable_clear(void *drcontext, void *htable)
 {
     generic_hash_clear((dcontext_t *)drcontext, (generic_table_t *)htable);
 }
 
 DR_API
 void *
-dr_hashtable_lookup(void *drcontext, void *htable, ptr_uint_t key)
+dr_openaddress_hashtable_lookup(void *drcontext, void *htable, ptr_uint_t key)
 {
     return generic_hash_lookup((dcontext_t *)drcontext, (generic_table_t *)htable, key);
 }
 
 DR_API
 void
-dr_hashtable_add(void *drcontext, void *htable, ptr_uint_t key, void *payload)
+dr_openaddress_hashtable_add(void *drcontext, void *htable, ptr_uint_t key, void *payload)
 {
     generic_hash_add((dcontext_t *)drcontext, (generic_table_t *)htable, key, payload);
 }
 
 DR_API
 bool
-dr_hashtable_remove(void *drcontext, void *htable, ptr_uint_t key)
+dr_openaddress_hashtable_remove(void *drcontext, void *htable, ptr_uint_t key)
 {
     return generic_hash_remove((dcontext_t *)drcontext, (generic_table_t *)htable, key);
 }

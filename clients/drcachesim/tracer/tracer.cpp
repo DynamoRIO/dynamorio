@@ -1,6 +1,5 @@
 /* ******************************************************************************
  * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
- * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -63,7 +62,7 @@
 #include "drwrap.h"
 #include "drx.h"
 #include "func_trace.h"
-#include "hashtable.h"
+#include "drhashtable.h"
 #include "instr_counter.h"
 #include "instru.h"
 #include "named_pipe.h"

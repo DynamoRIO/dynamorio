@@ -1,6 +1,5 @@
 /* **********************************************************
  * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
- * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1329,7 +1328,7 @@ hashwrap_free(void *ptr, size_t size)
 static void
 hashwrap_assert_fail(const char *msg)
 {
-    /* The reported file+line won't be the hashtable.c source but we
+    /* The reported file+line won't be the drhashtable.c source but we
      * don't want the complexity of snprintf, and msg should identify
      * the source
      */

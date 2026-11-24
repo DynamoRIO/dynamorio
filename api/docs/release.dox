@@ -157,10 +157,17 @@ changes:
  - Added #drvector_t.config field which contains additional configuration parameters for
    a #drvector_t. It currently contains #drvector_config_t.zero_alloc that when set to
    true sets every entry pointer of the drvector's storage to 0 using memset().
- - Renamed all drcontainers hashtable functions from \p hashtable_* to
+ - Renamed the drcontainers hashtable header from \p hashtable.h to
+   \p drhashtable.h and all drcontainers hashtable functions from \p hashtable_* to
    \p drhashtable_* (e.g., drhashtable_init(), drhashtable_lookup(),
-   drhashtable_remove()) to avoid global symbol conflicts when statically
-   linking with other libraries.
+   drhashtable_remove()) to avoid header and global symbol conflicts when
+   statically linking with other libraries.
+ - Renamed the core open-address hashtable API from \p dr_hashtable_* to
+   \p dr_openaddress_hashtable_* (dr_openaddress_hashtable_create(),
+   dr_openaddress_hashtable_destroy(), dr_openaddress_hashtable_clear(),
+   dr_openaddress_hashtable_lookup(), dr_openaddress_hashtable_add(),
+   dr_openaddress_hashtable_remove()) to distinguish it from drcontainers
+   \p drhashtable_*.
 
 The changes between version \DR_VERSION and 11.3.0 include the following minor
 compatibility changes:

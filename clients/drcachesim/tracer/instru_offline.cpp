@@ -1,6 +1,5 @@
 /* **********************************************************
  * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
- * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -52,7 +51,7 @@
 #include "trace_entry.h"
 #include "utils.h"
 #include "instru.h"
-#include "hashtable.h"
+#include "drhashtable.h"
 
 namespace dynamorio {
 namespace drmemtrace {

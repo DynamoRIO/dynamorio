@@ -1,6 +1,5 @@
 /* **********************************************************
  * Copyright (c) 2014-2024 Google, Inc.  All rights reserved.
- * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,7 +38,7 @@
 #include "drsyms.h"
 #include "drsyms_private.h"
 #include "drsyms_obj.h"
-#include "hashtable.h"
+#include "drhashtable.h"
 
 #include "dwarf.h"
 #include "libdwarf.h"

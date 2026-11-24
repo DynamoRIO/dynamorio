@@ -1,6 +1,5 @@
 /* **********************************************************
  * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
- * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -46,7 +45,7 @@
 #include "dr_api.h"
 #include "drsyms.h"
 #include "drsyms_private.h"
-#include "hashtable.h"
+#include "drhashtable.h"
 
 /* Guards our internal state and libdwarf's modifications of mod->dbg.
  * We use a recursive lock to allow queries to be called from enumerate callbacks.

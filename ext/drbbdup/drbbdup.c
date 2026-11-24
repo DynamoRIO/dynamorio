@@ -1,6 +1,5 @@
 /* **********************************************************
  * Copyright (c) 2013-2026 Google, Inc.   All rights reserved.
- * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,7 +33,7 @@
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drreg.h"
-#include "hashtable.h"
+#include "drhashtable.h"
 #include "drbbdup.h"
 #include <string.h>
 #include <stdint.h>

@@ -1,6 +1,5 @@
 /* **********************************************************
  * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
- * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -66,7 +65,7 @@
 #include "archive_ostream.h"
 #include "dr_api.h"
 #include "drmemtrace.h"
-#include "hashtable.h"
+#include "drhashtable.h"
 #include "instru.h"
 #include "raw2trace_shared.h"
 #include "reader.h"

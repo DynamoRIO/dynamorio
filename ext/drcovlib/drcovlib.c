@@ -54,7 +54,7 @@
 #include "drmgr.h"
 #include "drx.h"
 #include "drcovlib.h"
-#include "hashtable.h"
+#include "drhashtable.h"
 #include "drtable.h"
 #include "modules.h"
 #include "drcovlib_private.h"

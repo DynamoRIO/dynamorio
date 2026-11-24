@@ -1,6 +1,5 @@
 /* **********************************************************
  * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
- * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -38,7 +37,7 @@
 #    define _CRT_SECURE_NO_DEPRECATE 1
 #endif
 #include "dr_api.h"
-#include "hashtable.h"
+#include "drhashtable.h"
 #include "containers_private.h"
 #ifdef UNIX
 #    include <string.h>
@@ -94,7 +93,7 @@ static void (*assert_fail_func)(const char *);
 /* If no assert func is registered we just abort since we don't know
  * how to log or print (could msgbox on windows I suppose).
  * If an assert func is registered, we don't want the complexity of
- * sprintf so we give up on providing the file+line for hashtable.c but
+ * sprintf so we give up on providing the file+line for drhashtable.c but
  * the msg should identify the source.
  */
 #ifdef WINDOWS
@@ -178,7 +177,7 @@ hash_key(hashtable_t *table, void *key)
     } else {
         /* HASH_INTPTR, or fallback for HASH_CUSTOM in release build */
         ASSERT(table->hashtype == HASH_INTPTR,
-               "hashtable.c hash_key internal error: invalid hash type");
+               "drhashtable.c hash_key internal error: invalid hash type");
         hash = (uint)(ptr_uint_t)key;
     }
     return HASH_FUNC_BITS(hash, table->table_bits);
@@ -196,7 +195,7 @@ keys_equal(hashtable_t *table, void *key1, void *key2)
     else {
         /* HASH_INTPTR, or fallback for HASH_CUSTOM in release build */
         ASSERT(table->hashtype == HASH_INTPTR,
-               "hashtable.c keys_equal internal error: invalid hash type");
+               "drhashtable.c keys_equal internal error: invalid hash type");
         return key1 == key2;
     }
 }

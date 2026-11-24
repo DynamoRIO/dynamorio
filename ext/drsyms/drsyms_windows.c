@@ -1,6 +1,5 @@
 /* **********************************************************
  * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
- * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -75,7 +74,7 @@
 #include <stddef.h> /* offsetof */
 
 /* We use the Container Extension's hashtable */
-#include "hashtable.h"
+#include "drhashtable.h"
 
 #include "drsyms.h"
 #include "wininc/dia2.h" /* for BasicType and SymTagEnum */

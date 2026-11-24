@@ -1,6 +1,5 @@
 /* **********************************************************
  * Copyright (c) 2010-2026 Google, Inc.   All rights reserved.
- * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,7 +37,7 @@
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drmgr_priv.h"
-#include "hashtable.h"
+#include "drhashtable.h"
 #include "dr_project_wide_defines.h"
 #ifdef UNIX
 #    include <string.h>

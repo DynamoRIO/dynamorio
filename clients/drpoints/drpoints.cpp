@@ -1,6 +1,5 @@
 /* **********************************************************
  * Copyright (c) 2025-2026 Google, Inc.  All rights reserved.
- * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -58,7 +57,7 @@
 #include "drreg.h"
 #include "drvector.h"
 #include "drx.h"
-#include "hashtable.h"
+#include "drhashtable.h"
 #include "../common/utils.h"
 
 #include <cinttypes>

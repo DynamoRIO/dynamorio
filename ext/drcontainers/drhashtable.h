@@ -1,6 +1,5 @@
 /* **********************************************************
  * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
- * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,11 +33,11 @@
 
 /* Containers DynamoRIO Extension: Hashtable */
 
-#ifndef _HASHTABLE_H_
-#define _HASHTABLE_H_
+#ifndef _DRHASHTABLE_H_
+#define _DRHASHTABLE_H_
 
 /**
- * @file hashtable.h
+ * @file drhashtable.h
  * @brief Header for DynamoRIO Hashtable Extension
  */
 
@@ -157,7 +156,7 @@ drhashtable_init(hashtable_t *table, uint num_bits, hash_type_t hashtype, bool s
  *   For HASH_CUSTOM, a callback must be provided.
  *
  * This hashtable uses closed addressing.
- * For an open-address hashtable, consider dr_hashtable_create().
+ * For an open-address hashtable, consider dr_openaddress_hashtable_create().
  */
 void
 drhashtable_init_ex(hashtable_t *table, uint num_bits, hash_type_t hashtype, bool str_dup,
@@ -387,4 +386,4 @@ drhashtable_resurrect(void *drcontext, byte **map /*INOUT*/, hashtable_t *table,
 }
 #endif
 
-#endif /* _HASHTABLE_H_ */
+#endif /* _DRHASHTABLE_H_ */

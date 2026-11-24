@@ -1,6 +1,5 @@
 /* **********************************************************
  * Copyright (c) 2014-2026 Google, Inc.  All rights reserved.
- * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -52,7 +51,7 @@
 #include "drreg.h"
 #include "drbbdup.h"
 #include "drx.h"
-#include "hashtable.h"
+#include "drhashtable.h"
 
 /* Start counting once a bb has been executed at least 1000 times. */
 #define HIT_THRESHOLD 1000

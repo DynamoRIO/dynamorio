@@ -41,7 +41,7 @@ set(DynamoRIO_USE_LIBC OFF)
 # library of container utilities in C that use DR API for memory allocation
 # and synchronization
 set(srcs
-  hashtable.c
+  drhashtable.c
   drvector.c
   drtable.c
   # add more here
@@ -54,6 +54,6 @@ configure_extension(drcontainers_drstatic ON ON)
 
 # documentation is put into main DR docs/ dir
 
-install_ext_header(hashtable.h)
+install_ext_header(drhashtable.h)
 install_ext_header(drvector.h)
 install_ext_header(drtable.h)

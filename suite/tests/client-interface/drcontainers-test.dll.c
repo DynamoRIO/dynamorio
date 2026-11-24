@@ -1,6 +1,5 @@
 /* **********************************************************
  * Copyright (c) 2013-2022 Google, Inc.  All rights reserved.
- * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,7 +35,7 @@
 #include "dr_api.h"
 #include "client_tools.h"
 #include "drvector.h"
-#include "hashtable.h"
+#include "drhashtable.h"
 #include "stdint.h"
 
 typedef struct _accumulators_t {
@@ -288,20 +287,24 @@ free_payload_func(void *drcontext, void *payload)
 }
 
 static void
-test_dr_hashtable(void)
+test_dr_openaddress_hashtable(void)
 {
     void *dcxt = dr_get_current_drcontext();
-    void *table = dr_hashtable_create(dcxt, 8, 50, /*synch=*/false, free_payload_func);
-    CHECK(dr_hashtable_lookup(dcxt, table, KEY) == NULL, "table should be empty");
-    dr_hashtable_add(dcxt, table, KEY, PAYLOAD);
-    CHECK(dr_hashtable_lookup(dcxt, table, KEY) == PAYLOAD, "should find if just-added");
-    CHECK(dr_hashtable_remove(dcxt, table, KEY), "should find if just-added");
+    void *table =
+        dr_openaddress_hashtable_create(dcxt, 8, 50, /*synch=*/false, free_payload_func);
+    CHECK(dr_openaddress_hashtable_lookup(dcxt, table, KEY) == NULL,
+          "table should be empty");
+    dr_openaddress_hashtable_add(dcxt, table, KEY, PAYLOAD);
+    CHECK(dr_openaddress_hashtable_lookup(dcxt, table, KEY) == PAYLOAD,
+          "should find if just-added");
+    CHECK(dr_openaddress_hashtable_remove(dcxt, table, KEY), "should find if just-added");
     CHECK(free_func_called, "free_payload_func sanity check");
-    CHECK(dr_hashtable_lookup(dcxt, table, KEY) == NULL, "just removed");
-    dr_hashtable_add(dcxt, table, KEY, PAYLOAD);
-    dr_hashtable_clear(dcxt, table);
-    CHECK(dr_hashtable_lookup(dcxt, table, KEY) == NULL, "table should be empty");
-    dr_hashtable_destroy(dcxt, table);
+    CHECK(dr_openaddress_hashtable_lookup(dcxt, table, KEY) == NULL, "just removed");
+    dr_openaddress_hashtable_add(dcxt, table, KEY, PAYLOAD);
+    dr_openaddress_hashtable_clear(dcxt, table);
+    CHECK(dr_openaddress_hashtable_lookup(dcxt, table, KEY) == NULL,
+          "table should be empty");
+    dr_openaddress_hashtable_destroy(dcxt, table);
 }
 
 DR_EXPORT void
@@ -311,7 +314,7 @@ dr_init(client_id_t id)
     test_hashtable_apply_all();
     test_hashtable_apply_all_user_data();
     test_hashtable_apply_all_key_payload_pairs_user_data();
-    test_dr_hashtable();
+    test_dr_openaddress_hashtable();
 
     /* XXX: test other data structures */
 }

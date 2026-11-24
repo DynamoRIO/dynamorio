@@ -1,6 +1,5 @@
 /* **********************************************************
  * Copyright (c) 2013-2026 Google, Inc.   All rights reserved.
- * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,7 +34,7 @@
 
 #include "dr_api.h"
 #include "drx.h"
-#include "hashtable.h"
+#include "drhashtable.h"
 #include "dr_project_wide_defines.h"
 #include <stddef.h> /* for offsetof */
 #include <string.h>
