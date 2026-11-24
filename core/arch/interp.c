@@ -3551,9 +3551,9 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 break;
             }
 #endif
-            /* i#107, opcode mov_seg will be set in decode_cti, as will the opcode of
-             * a push or pop of fs or gs (i#1833), so instr_opcode_valid(bb->instr) is
-             * true, and terminates the loop.
+            /* For i#107 and i#1833, decode_cti() sets the opcode of a mov_seg and of a
+             * push or pop of fs or gs, so instr_opcode_valid(bb->instr) is true and
+             * terminates the loop.
              */
         } while (!instr_opcode_valid(bb->instr) && total_instrs <= cur_max_bb_instrs);
 

@@ -143,6 +143,9 @@ new_tls_selector(void *base)
      */
     desc.entry_number = 7;
     desc.base_addr = (unsigned long)base;
+    /* The maximum limit, in units of 4K (the descriptor granularity, whatever the
+     * page size), as the C library uses: the whole address space.
+     */
     desc.limit = 0xfffff;
     desc.seg_32bit = 1;
     desc.limit_in_pages = 1;

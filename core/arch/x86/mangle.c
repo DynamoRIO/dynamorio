@@ -2977,7 +2977,7 @@ mangle_push_pop_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     slot_size = opnd_size_in_bytes(opnd_get_size(stack_slot));
     STATS_INC(app_mov_seg_mangled);
     if (is_pop) {
-        /* pop seg => lea slot_size(xsp) => xsp */
+        /* Turn "pop seg" into "lea slot_size(xsp) => xsp". */
         app_pc xl8 = get_app_instr_xl8(instr);
         instr_reuse(dcontext, instr);
         instr_set_opcode(instr, OP_lea);
@@ -2988,7 +2988,7 @@ mangle_push_pop_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         instr_set_translation(instr, xl8);
         /* With no spills and just a single instr, no reason to set as our_mangling. */
     } else {
-        /* push seg => movzx the app's selector into a register and push that */
+        /* Turn "push seg" into a push of the app's selector, zero-extended into xax. */
         reg_id_t push_reg;
         switch (slot_size) {
         case 2: push_reg = REG_AX; break;
