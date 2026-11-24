@@ -788,6 +788,8 @@ kernel_is_user_address(const void *addr)
 bool
 kernel_query_memory(const void *addr, kernel_memory_region_t *region)
 {
+    KERNEL_ASSERT(region != NULL);
+
     if (kernel_is_user_address(addr)) {
         return false;
     }
