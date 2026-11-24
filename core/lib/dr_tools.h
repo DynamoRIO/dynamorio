@@ -2740,9 +2740,9 @@ DR_API
  * Destroys a hashtable created by dr_openaddress_hashtable_create().
  *
  * @param[in] drcontext  Must be the same context passed to
- *   dr_openaddress_hashtable_create().
+ *                       dr_openaddress_hashtable_create().
  * @param[in] htable     A pointer to the table itself, returned by
- *   dr_openaddress_hashtable_create().
+ *                       dr_openaddress_hashtable_create().
  */
 void
 dr_openaddress_hashtable_destroy(void *drcontext, void *htable);
@@ -2752,9 +2752,9 @@ DR_API
  * Removes all entries in a hashtable created by dr_openaddress_hashtable_create().
  *
  * @param[in] drcontext  Must be the same context passed to
- *   dr_openaddress_hashtable_create().
+ *                       dr_openaddress_hashtable_create().
  * @param[in] htable     A pointer to the table itself, returned by
- *   dr_openaddress_hashtable_create().
+ *                       dr_openaddress_hashtable_create().
  */
 void
 dr_openaddress_hashtable_clear(void *drcontext, void *htable);
@@ -2764,9 +2764,9 @@ DR_API
  * Queries whether an entry for the given key exists.
  *
  * @param[in] drcontext  Must be the same context passed to
- *   dr_openaddress_hashtable_create().
+ *                       dr_openaddress_hashtable_create().
  * @param[in] htable     A pointer to the table itself, returned by
- *   dr_openaddress_hashtable_create().
+ *                       dr_openaddress_hashtable_create().
  * @param[in] key        The key to query.
  *
  * @return the payload value for the key that was passed to
@@ -2780,9 +2780,9 @@ DR_API
  * Adds a new entry to the hashtable.
  *
  * @param[in] drcontext  Must be the same context passed to
- *   dr_openaddress_hashtable_create().
+ *                       dr_openaddress_hashtable_create().
  * @param[in] htable     A pointer to the table itself, returned by
- *   dr_openaddress_hashtable_create().
+ *                       dr_openaddress_hashtable_create().
  * @param[in] key        The key to add.
  * @param[in] payload    The payload to add.
  */
@@ -2795,9 +2795,9 @@ DR_API
  * Removes an entry for the given key.
  *
  * @param[in] drcontext  Must be the same context passed to
- *   dr_openaddress_hashtable_create().
+ *                       dr_openaddress_hashtable_create().
  * @param[in] htable     A pointer to the table itself, returned by
- *   dr_openaddress_hashtable_create().
+ *                       dr_openaddress_hashtable_create().
  * @param[in] key        The key to remove.
  *
  * @return whether the key was found.
