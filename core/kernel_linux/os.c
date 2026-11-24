@@ -888,6 +888,8 @@ os_check_option_compatibility(void)
      */
     IF_X86(FORCE_OPTION_VALUE(mangle_app_seg, false));
     FORCE_OPTION_VALUE(private_loader, false);
+    /* -early_inject requires -private_loader and would turn it back on. */
+    FORCE_OPTION_VALUE(early_inject, false);
 
 #undef FORCE_OPTION_VALUE
 
