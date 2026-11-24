@@ -843,21 +843,17 @@ os_check_option_compatibility(void)
      */
     FORCE_OPTION_VALUE(single_thread_in_DR, false);
 
-    /* The kernel interrupt path only supports CPU-private fragments. Shared-fragment
-     * unlinking and state-reconstruction races have not been addressed.
-     * XXX i#8116: This is a temporary restriction. We want CPU-shared fragments in the
-     * future, which requires revisiting interrupt patching, unlink/relink coordination
-     * across CPUs, and TLS bootstrapping at kernel entry points.
+    /* Fragments are always shared across CPUs. A task interrupted or preempted in the
+     * code cache can resume on another CPU, where a pointer into a CPU-private cache
+     * would be invalid.
+     * XXX i#8116: Shared-fragment unlinking and state reconstruction on the interrupt
+     * path, unlink/relink coordination across CPUs, and TLS bootstrapping at kernel
+     * entry points have not been addressed.
      */
-    FORCE_OPTION_VALUE(shared_bbs, false);
-
-    /* Coarse units require shared BBs and would otherwise re-enable them during
-     * recursive compatibility checking.
-     */
-    FORCE_OPTION_VALUE(coarse_units, false);
-
-    /* Shared traces have the same unsupported interrupt-handling races. */
-    FORCE_OPTION_VALUE(shared_traces, false);
+    FORCE_OPTION_VALUE(shared_bbs, true);
+    /* Disabling traces, which is the default on AArch64, turns -shared_traces off. */
+    if (!DYNAMO_OPTION(disable_traces))
+        FORCE_OPTION_VALUE(shared_traces, true);
 
     /* Full state reconstruction from a PC in a separate direct-exit stub remains
      * unsupported, so keep exit stubs with their owning fragments.
@@ -884,6 +880,14 @@ os_check_option_compatibility(void)
     FORCE_OPTION_VALUE(unsafe_ignore_eflags_trace, false);
     FORCE_OPTION_VALUE(unsafe_ignore_eflags_prefix, false);
     FORCE_OPTION_VALUE(unsafe_ignore_eflags_ibl, false);
+
+    /* Kernel code must run with its TLS accesses unchanged. On x86 DR's TLS is a
+     * kernel per-CPU variable, so kernel code and DR share the segment on purpose.
+     * There is no private loader, and -private_loader would also rewrite accesses
+     * to the user thread register on AArch64.
+     */
+    IF_X86(FORCE_OPTION_VALUE(mangle_app_seg, false));
+    FORCE_OPTION_VALUE(private_loader, false);
 
 #undef FORCE_OPTION_VALUE
 
