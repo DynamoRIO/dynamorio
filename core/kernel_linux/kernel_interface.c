@@ -316,7 +316,7 @@ query_kernel_page(unsigned long addr, unsigned int *prot)
 #    define KERNEL_CODE_WALK_START MODULES_VADDR
 #    define KERNEL_CODE_WALK_END VMALLOC_END
 /* The kernel half of the address space: the addresses translated through TTBR1. */
-#    define KERNEL_ADDRESS_SPACE_START PAGE_OFFSET
+#    define KERNEL_ADDRESS_SPACE_START _PAGE_OFFSET(vabits_actual)
 
 /* Also works for PMD/PUD block entries, which use the same bit positions. */
 static unsigned int
