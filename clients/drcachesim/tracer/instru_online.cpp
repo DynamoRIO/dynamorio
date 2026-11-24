@@ -556,5 +556,14 @@ online_instru_t::bb_analysis_cleanup(void *drcontext, void *bb_field)
     // Nothing to do.
 }
 
+void
+online_instru_t::dump_module_info(char **buf_out, size_t *size_out, size_t *wrote_out)
+{
+    // Nothing to copy.
+    *buf_out = nullptr;
+    *size_out = 0;
+    *wrote_out = 0;
+}
+
 } // namespace drmemtrace
 } // namespace dynamorio

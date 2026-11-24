@@ -84,11 +84,13 @@ jobs:
             -DDEBUG=${{ matrix.debug }}
           cmake --build build --parallel $(nproc) --target dynamorio_module
 
-  x86-64-insmod:
-    runs-on: ubuntu-24.04
+  insmod:
+    name: insmod (${{ matrix.runner }}, debug=${{ matrix.debug }})
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
         debug: ['ON', 'OFF']
     steps:
       - name: Checkout repository
@@ -106,15 +108,21 @@ jobs:
 
       - name: Build DynamoRIO kernel module and controller against running kernel
         run: |
-          cmake -B build -DBUILD_KERNEL_MODULE=ON -DDEBUG=${{ matrix.debug }}
+          cmake -B build -DBUILD_KERNEL_MODULE=ON -DKERNEL_MODULE_SELF_CHECKS=ON \
+            -DDEBUG=${{ matrix.debug }}
           cmake --build build --parallel $(nproc) --target dynamorio_module
 
-      - name: Load module, initialize session, and unload
+      - name: Load module, initialize session, run self-checks, and unload
         run: |
           MODULE=build/core/kernel_linux/dynamorio_module.ko
           CONTROLLER=build/bin64/drkernel_ctl
           # Session initialization must give every online CPU a DR thread.
           NUM_CPUS=$(getconf _NPROCESSORS_ONLN)
+
+          # Record the page table layout to help identify which walk paths this
+          # run exercised (e.g., AArch64 runtime-folded p4d/pud levels).
+          grep -E 'CONFIG_(ARM64_VA_BITS|ARM64_[0-9]+K_PAGES|PGTABLE_LEVELS)=' \
+            "/boot/config-$(uname -r)" || true
 
           # Start from a clean log so the checks below can't match stale
           # messages from a previous boot or run.
@@ -133,6 +141,9 @@ jobs:
             sudo "$CONTROLLER" init
           fi
           sudo dmesg | grep -F "dynamorio_module: Session initialized"
+
+          sudo "$CONTROLLER" self-check
+          sudo dmesg | grep -F "All self-checks passed"
 
           echo "Removing dynamorio_module"
           sudo rmmod dynamorio_module

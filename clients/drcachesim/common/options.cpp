@@ -494,11 +494,14 @@ droption_t<int> op_raw_compress_level(
 
 droption_t<std::string> op_trace_compress(
     DROPTION_SCOPE_FRONTEND, "compress", DEFAULT_TRACE_COMPRESSION_TYPE,
-    "Trace compression: \"zip\",\"gzip\",\"zlib\",\"lz4\",\"none\"",
+    "Trace compression: \"zip\",\"gzip\",\"zlib\",\"lz4\",\"zstd\",\"none\"",
     "Specifies the compression type to use for trace files: \"zip\", "
-    "\"gzip\", \"zlib\", \"lz4\", or \"none\". "
+    "\"gzip\", \"zlib\", \"lz4\", \"zstd\", or \"none\". "
     "In most cases where fast skipping by instruction count is not needed "
     "lz4 compression generally improves performance and is recommended. "
+    "Like lz4, zstd does not support fast skipping; it is similarly fast and "
+    "usually produces much smaller files than lz4, as it finds repeated data "
+    "farther apart in the trace. "
     "When it comes to storage types, the impact on overhead varies: "
     "for SSDs, zip and gzip often increase overhead and should only be chosen "
     "if space is limited.");

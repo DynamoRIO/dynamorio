@@ -149,6 +149,11 @@ if (liblz4)
   endif ()
 endif ()
 
+if (ZSTD_FOUND)
+  add_definitions(-DHAS_ZSTD)
+  set(zstd_reader reader/zstd_file_reader.cpp)
+endif ()
+
 if (BUILD_DRMEMTRACE_WITH_DR_SYSCALL)
   add_definitions(-DBUILD_DRMEMTRACE_WITH_DR_SYSCALL)
 endif ()
@@ -273,6 +278,9 @@ endif ()
 if (liblz4)
   target_link_libraries(drmemtrace_raw2trace lz4)
 endif ()
+if (ZSTD_FOUND)
+  target_link_libraries(drmemtrace_raw2trace zstd)
+endif ()
 
 if (BUILD_PT_POST_PROCESSOR)
   add_definitions(-DBUILD_PT_POST_PROCESSOR)
@@ -309,6 +317,7 @@ set(drcachesim_srcs
   ${zip_reader}
   ${snappy_reader}
   ${lz4_reader}
+  ${zstd_reader}
   reader/ipc_reader.cpp
   tracer/instru.cpp
   tracer/instru_online.cpp
@@ -377,6 +386,7 @@ add_exported_library(drmemtrace_analyzer STATIC
   ${zip_reader}
   ${snappy_reader}
   ${lz4_reader}
+  ${zstd_reader}
   )
 target_link_libraries(drmemtrace_analyzer directory_iterator drmemtrace_mutex_dbg_owned)
 if (libsnappy)
@@ -384,6 +394,9 @@ if (libsnappy)
 endif ()
 if (liblz4)
   target_link_libraries(drmemtrace_analyzer lz4)
+endif ()
+if (ZSTD_FOUND)
+  target_link_libraries(drmemtrace_analyzer zstd)
 endif ()
 
 link_with_pthread(drmemtrace_analyzer)

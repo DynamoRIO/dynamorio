@@ -87,7 +87,7 @@ jobs:
         sudo apt-get update
         apt download libunwind8:riscv64 libunwind-dev:riscv64 liblzma5:riscv64 \
           zlib1g:riscv64 zlib1g-dev:riscv64 libsnappy1v5:riscv64 libsnappy-dev:riscv64 \
-          liblz4-1:riscv64 liblz4-dev:riscv64
+          liblz4-1:riscv64 liblz4-dev:riscv64 libzstd1:riscv64 libzstd-dev:riscv64
         mkdir ../extract
         for i in *.deb; do dpkg-deb -x $i ../extract; done
         for i in include lib; do sudo rsync -av ../extract/usr/${i}/riscv64-linux-gnu/ /usr/riscv64-linux-gnu/${i}/; done

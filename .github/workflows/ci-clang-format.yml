@@ -80,7 +80,7 @@ jobs:
         sudo ./llvm.sh 21
         sudo apt update
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
-          liblz4-dev clang-format-21 libunwind-dev
+          liblz4-dev libzstd-dev clang-format-21 libunwind-dev
 
     - name: Check if format checks are disabled
       id: are_format_checks_disabled

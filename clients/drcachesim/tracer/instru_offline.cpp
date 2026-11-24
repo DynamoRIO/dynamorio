@@ -136,6 +136,27 @@ offline_instru_t::offline_instru_t(
                         /*hash_key_func=*/nullptr, /*cmp_key_func=*/nullptr);
 }
 
+void
+offline_instru_t::dump_module_info(char **buf_out, size_t *size_out, size_t *wrote_out)
+{
+    drcovlib_status_t res;
+    size_t size = 8192;
+    char *buf;
+    size_t wrote;
+    do {
+        buf = (char *)dr_global_alloc(size);
+        res = drmodtrack_dump_buf(buf, size, &wrote);
+        if (res == DRCOVLIB_SUCCESS) {
+            *buf_out = buf;
+            *size_out = size;
+            *wrote_out = wrote;
+            return;
+        }
+        dr_global_free(buf, size);
+        size *= 2;
+    } while (res == DRCOVLIB_ERROR_BUF_TOO_SMALL);
+}
+
 offline_instru_t::~offline_instru_t()
 {
     if (standalone_)
@@ -151,23 +172,16 @@ offline_instru_t::~offline_instru_t()
     log_(1, "Wrote " UINT64_FORMAT_STRING " bytes to encoding file\n",
          encoding_bytes_written_);
 
-    drcovlib_status_t res;
-    size_t size = 8192;
-    char *buf;
-    size_t wrote;
-    do {
-        buf = (char *)dr_global_alloc(size);
-        res = drmodtrack_dump_buf(buf, size, &wrote);
-        if (res == DRCOVLIB_SUCCESS) {
-            if (modfile_ != INVALID_FILE) {
-                ssize_t written = write_file_func_(modfile_, buf, wrote - 1 /*no null*/);
-                DR_ASSERT(written == (ssize_t)wrote - 1);
-            }
-        }
-        dr_global_free(buf, size);
-        size *= 2;
-    } while (res == DRCOVLIB_ERROR_BUF_TOO_SMALL);
-    res = drmodtrack_exit();
+    char *buf = nullptr;
+    size_t size = 0, wrote = 0;
+    dump_module_info(&buf, &size, &wrote);
+    if (modfile_ != INVALID_FILE) {
+        ssize_t written = write_file_func_(modfile_, buf, wrote - 1 /*no null*/);
+        DR_ASSERT(written == (ssize_t)wrote - 1);
+    }
+    dr_global_free(buf, size);
+
+    drcovlib_status_t res = drmodtrack_exit();
     DR_ASSERT(res == DRCOVLIB_SUCCESS);
     drmgr_exit();
 }

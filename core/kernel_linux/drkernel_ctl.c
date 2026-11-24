@@ -48,6 +48,7 @@ print_usage(FILE *stream)
             "Commands:\n"
             "  init [OPTIONS_STRING]   Initialize a kernel tracing session.\n"
             "                          Pass all options as one quoted argument.\n"
+            "  self-check              Run self-checks on an initialized session.\n"
             "Example:\n"
             "  drkernel_ctl init \"-loglevel 2\"\n");
 }
@@ -81,11 +82,33 @@ cmd_init(int argc, const char *argv[])
     return EXIT_SUCCESS;
 }
 
+static int
+cmd_self_check(int argc, const char *argv[])
+{
+    if (argc != 1) {
+        print_usage(stderr);
+        return EXIT_FAILURE;
+    }
+
+    int fd = open_device();
+    int res = ioctl(fd, DYNAMORIO_IOCTL_SELF_CHECK, 0);
+    if (res < 0) {
+        err(EXIT_FAILURE, "self-check");
+    }
+    close(fd);
+    if (res > 0) {
+        warnx("%d self-check(s) failed", res);
+        return EXIT_FAILURE;
+    }
+    return EXIT_SUCCESS;
+}
+
 static const struct {
     const char *name;
     int (*fn)(int argc, const char *argv[]);
 } commands[] = {
     { "init", cmd_init },
+    { "self-check", cmd_self_check },
 };
 
 int

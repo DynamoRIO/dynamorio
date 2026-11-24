@@ -74,7 +74,7 @@ jobs:
       # XXX: We should install doxygen too but it's a different version and
       # hits issues about incompatible options in the Doxyfile.
       run: |
-        brew install nasm zlib snappy lz4
+        brew install nasm zlib snappy lz4 zstd
 
     - name: Check if format checks are disabled
       id: are_format_checks_disabled
