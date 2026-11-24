@@ -3698,7 +3698,10 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             }
         }
 #else
-#    if defined(X86) && defined(LINUX)
+        /* i#8021: The kernel build runs without -mangle_app_seg on purpose. DR's TLS is a
+         * kernel per-CPU variable, so kernel code uses DR's segment all the time.
+         */
+#    if defined(X86) && defined(LINUX) && !defined(LINUX_KERNEL)
         if (instr_get_prefix_flag(bb->instr,
                                   (SEG_TLS == SEG_GS) ? PREFIX_SEG_GS : PREFIX_SEG_FS)
             /* __errno_location is interpreted when global, though it's hidden in TOT */
