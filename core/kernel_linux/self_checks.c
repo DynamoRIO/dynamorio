@@ -147,54 +147,62 @@ check_kernel_image_reachable_from_vmcode(void)
 #    endif
 }
 
-/* Verifies that a memory query reports the page and protection of mapped kernel memory,
- * reports an unmapped kernel address as free, and fails for a user address.
+/* For non-user addresses, query_memory_ex() describes mapped and free pages.
+ * get_memory_info() succeeds only for mapped pages.  Both reject user addresses.
  */
 static self_check_result_t
 check_memory_query(void)
 {
+    /* Module data is readable and writable.  Both queries describe the same page. */
     static int data;
-    byte *data_addr = (byte *)&data;
+    byte *data_addr = (byte *)&data + 1; /* Exercise rounding down to the page base. */
+    dr_mem_info_t info;
     byte *base = NULL;
     size_t size = 0;
     uint prot = 0;
-    dr_mem_info_t info;
-
-    /* This module's data is readable and writable. */
+    CHECK(!is_user_address(data_addr));
     CHECK(query_memory_ex(data_addr, &info));
-    CHECK(info.type == DR_MEMTYPE_DATA);
+    CHECK(info.type == DR_MEMTYPE_DATA && !info.is_shared);
     CHECK(info.base_pc == (byte *)ALIGN_BACKWARD(data_addr, PAGE_SIZE));
     CHECK(info.size == PAGE_SIZE);
-    CHECK(info.prot == (MEMPROT_READ | MEMPROT_WRITE));
+    CHECK(TESTALL(MEMPROT_READ | MEMPROT_WRITE, info.prot));
     CHECK(get_memory_info(data_addr, &base, &size, &prot));
     CHECK(base == info.base_pc && size == info.size && prot == info.prot);
-    CHECK(!is_user_address(data_addr));
 
-    /* This module's code is readable and executable. */
-    CHECK(get_memory_info((byte *)check_memory_query, NULL, NULL, &prot));
-    CHECK(prot == (MEMPROT_READ | MEMPROT_EXEC));
+    /* Module code is readable and executable.  All wrapper outputs are optional. */
+    byte *code_addr = (byte *)check_memory_query;
+    CHECK(!is_user_address(code_addr));
+    CHECK(query_memory_ex(code_addr, &info));
+    CHECK(info.type == DR_MEMTYPE_DATA);
+    CHECK(info.base_pc == (byte *)ALIGN_BACKWARD(code_addr, PAGE_SIZE));
+    CHECK(info.size == PAGE_SIZE);
+    CHECK(TESTALL(MEMPROT_READ | MEMPROT_EXEC, info.prot));
+    CHECK(get_memory_info(code_addr, NULL, NULL, NULL));
 
-    /* The last page of the address space is in the kernel range and is never mapped. */
+    /* The last kernel page is unmapped. */
     byte *last_page = (byte *)ALIGN_BACKWARD(PTR_UINT_MINUS_1, PAGE_SIZE);
+    CHECK(!is_user_address(last_page));
     CHECK(query_memory_ex(last_page, &info));
-    CHECK(info.type == DR_MEMTYPE_FREE && info.prot == 0);
+    CHECK(info.type == DR_MEMTYPE_FREE && info.prot == MEMPROT_NONE);
     CHECK(info.base_pc == last_page && info.size == PAGE_SIZE);
     CHECK(!get_memory_info(last_page, NULL, NULL, NULL));
 
-    /* Clearing the top bit of a kernel address gives an address between the user and
-     * kernel ranges.  Nothing is mapped there, even though it has the same page table
-     * indices as the mapped kernel address.
+    /* Clearing the top bit moves data_addr into the gap but preserves its page table
+     * indices.  The query must report that address as free.
      */
     byte *gap_addr = (byte *)((ptr_uint_t)data_addr & ~((ptr_uint_t)1 << 63));
     CHECK(!is_user_address(gap_addr));
     CHECK(query_memory_ex(gap_addr, &info));
-    CHECK(info.type == DR_MEMTYPE_FREE && info.prot == 0);
+    CHECK(info.type == DR_MEMTYPE_FREE && info.prot == MEMPROT_NONE);
+    CHECK(info.base_pc == (byte *)ALIGN_BACKWARD(gap_addr, PAGE_SIZE));
+    CHECK(info.size == PAGE_SIZE);
     CHECK(!get_memory_info(gap_addr, NULL, NULL, NULL));
 
-    /* Address 0 is in the user range, which the query does not support. */
+    /* Address zero belongs to user space. */
     CHECK(is_user_address(NULL));
     CHECK(!query_memory_ex(NULL, &info) && info.type == DR_MEMTYPE_ERROR);
     CHECK(!get_memory_info(NULL, NULL, NULL, NULL));
+
     return SELF_CHECK_PASS;
 }
 
