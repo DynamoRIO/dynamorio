@@ -71,6 +71,7 @@ typedef struct _maps_iter_t {
     char *comment_buffer;
     app_pc query_addr;
     bool use_ioctl;
+    bool first_iteration;
 } maps_iter_t;
 
 /* lock to guard reads from /proc/self/maps in get_memory_info_from_os(). */
@@ -176,6 +177,7 @@ memquery_iterator_start(memquery_iter_t *iter, app_pc start, bool may_alloc)
     mi->bufread = 0;
     mi->use_ioctl = ioctl_supports_procmap_query;
     mi->query_addr = start;
+    mi->first_iteration = true;
     iter->comment = mi->comment_buffer;
 
     iter->may_alloc = may_alloc;
@@ -205,6 +207,7 @@ static bool
 memquery_iterator_next_using_read(memquery_iter_t *iter)
 {
     maps_iter_t *mi = (maps_iter_t *)&iter->internal;
+    mi->first_iteration = false;
     char perm[16];
     char *line;
     int len;
@@ -283,7 +286,15 @@ memquery_iterator_next_using_ioctl(memquery_iter_t *iter)
     struct procmap_query query = { 0 };
     ptr_int_t res;
     query.size = sizeof(query);
-    query.query_flags = PROCMAP_QUERY_COVERING_OR_NEXT_VMA;
+    /* The behaviour we want for an unmapped query_addr is different depending on whether
+     * this is the first iteration or not.
+     * The memquery_iterator interface says the iterator should start at the region
+     * covering the hint address, or an earlier address so for the first iteration we need
+     * to detect if the address in unmapped and start again at the beginning of memory if
+     * it is. For all subsequent iterations we need to skip over unmapped addresses to the
+     * next mapping.
+     */
+    query.query_flags = mi->first_iteration ? 0 : PROCMAP_QUERY_COVERING_OR_NEXT_VMA;
     query.query_addr = (ptr_uint_t)mi->query_addr;
     query.vma_name_size = BUFSIZE;
     query.vma_name_addr = (ptr_uint_t)mi->comment_buffer;
@@ -294,8 +305,18 @@ memquery_iterator_next_using_ioctl(memquery_iter_t *iter)
 
     if (res != 0) {
         if (res == -ENOENT) {
-            /* No entry for this address. We have reached the end of the iterator. */
-            return false;
+            /* No entry for this address. */
+            if (mi->first_iteration) {
+                /* The query hint address is unmapped. Start again at the beginning of
+                 * memory to find the first mapping.
+                 */
+                mi->first_iteration = false;
+                mi->query_addr = 0;
+                return memquery_iterator_next_using_ioctl(iter);
+            } else {
+                /* We have reached the end of the iterator. */
+                return false;
+            }
         }
 
         if (res == -ENOTTY) {
@@ -328,6 +349,7 @@ memquery_iterator_next_using_ioctl(memquery_iter_t *iter)
         }
         return false;
     }
+    mi->first_iteration = false;
 
     iter->vm_start = (app_pc)(ptr_uint_t)query.vma_start;
     iter->vm_end = (app_pc)(ptr_uint_t)query.vma_end;
@@ -448,18 +470,7 @@ memquery_from_os(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info,
     bool found = false;
     ASSERT(info != NULL);
     memquery_iterator_start(&iter, (app_pc)pc, false /*won't alloc*/);
-    maps_iter_t *mi = (maps_iter_t *)&iter.internal;
-    bool have_next = memquery_iterator_next(&iter);
-    if (mi->use_ioctl && (!have_next || pc < iter.vm_start)) {
-        /* The ioctl has no predecessor query.  For an unmapped address, walk
-         * from zero to find the exact start of the free region as well as its
-         * end.  Mapped addresses need only the single lookup above.
-         */
-        mi->query_addr = NULL;
-        iter.vm_start = NULL;
-        have_next = memquery_iterator_next(&iter);
-    }
-    while (have_next) {
+    while (memquery_iterator_next(&iter)) {
         if (pc >= iter.vm_start && pc < iter.vm_end) {
             info->base_pc = iter.vm_start;
             info->size = (iter.vm_end - iter.vm_start);
@@ -490,7 +501,6 @@ memquery_from_os(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info,
             break;
         }
         last_end = iter.vm_end;
-        have_next = memquery_iterator_next(&iter);
     }
     memquery_iterator_stop(&iter);
     if (!found) {
