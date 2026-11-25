@@ -273,6 +273,18 @@ os_thread_init_finalize(dcontext_t *dcontext, void *os_data)
     /* No-op in kernel mode: there are no signals to inherit, unlike core/unix/os.c. */
 }
 
+void
+os_thread_under_dynamo(dcontext_t *dcontext)
+{
+    /* No-op in kernel mode. */
+}
+
+void
+os_thread_not_under_dynamo(dcontext_t *dcontext, bool restore_sigblocked)
+{
+    /* No-op in kernel mode. */
+}
+
 bool
 is_thread_terminated(dcontext_t *dcontext)
 {
@@ -346,6 +358,12 @@ app_pc
 get_application_end(void)
 {
     return (app_pc)kernel_get_image_end();
+}
+
+app_pc
+get_image_entry(void)
+{
+    return NULL;
 }
 
 char *
@@ -422,6 +440,12 @@ get_module_base(app_pc pc)
         base = ma->start;
     os_get_module_info_unlock();
     return base;
+}
+
+void
+os_check_new_app_module(dcontext_t *dcontext, app_pc pc)
+{
+    /* No-op in kernel mode. */
 }
 
 /* Native module retakeover relies on ELF PLT/GOT and ld.so hooking,
@@ -994,6 +1018,12 @@ report_diagnostics(DR_PARAM_IN const char *message, DR_PARAM_IN const char *name
 
 void
 diagnost_exit(void)
+{
+    /* No-op in kernel mode. */
+}
+
+void
+dr_setjmp_sigmask(dr_jmp_buf_t *buf)
 {
     /* No-op in kernel mode. */
 }
