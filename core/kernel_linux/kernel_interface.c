@@ -61,6 +61,7 @@
 #include <linux/preempt.h>
 #include <linux/random.h>
 #include <linux/smp.h>
+#include <linux/sort.h>
 #include <linux/stdarg.h>
 #include <linux/string.h>
 #include <linux/uaccess.h>
@@ -943,6 +944,12 @@ unsigned int
 kernel_get_random_u32(void)
 {
     return get_random_u32();
+}
+
+void
+kernel_sort(void *base, size_t num, size_t size, int (*cmp)(const void *a, const void *b))
+{
+    sort(base, num, size, cmp, NULL);
 }
 
 void

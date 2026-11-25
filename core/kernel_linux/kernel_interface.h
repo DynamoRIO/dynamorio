@@ -186,6 +186,11 @@ kernel_query_time_nanos(void);
 unsigned int
 kernel_get_random_u32(void);
 
+/* Sorts |num| elements of |size| bytes starting at |base| using the kernel's sort(). */
+void
+kernel_sort(void *base, size_t num, size_t size,
+            int (*cmp)(const void *a, const void *b));
+
 __attribute__((format(__printf__, 1, 2))) void
 kernel_printk(const char *fmt, ...);
 
