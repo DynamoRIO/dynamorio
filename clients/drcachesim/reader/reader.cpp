@@ -456,6 +456,11 @@ reader_t::set_phys_fields(addr_t vaddr, size_t size, _memref_phys_t &phys0,
         num_pages = 0;
         return;
     }
+    // We split the access at the trace's base page size, the unit in which the tracer
+    // records translations. The reader has no huge page information, so an access that
+    // crosses a base page boundary inside a huge page gets one entry per base page.
+    // Their physical addresses are still correct, as a huge page is physically
+    // contiguous, only page_size and num_pages differ from the huge page view.
     const addr_t page_size = static_cast<addr_t>(page_size_);
     const addr_t mask = ~(page_size - 1);
     const addr_t first_page = vaddr & mask;
@@ -473,7 +478,9 @@ reader_t::set_phys_fields(addr_t vaddr, size_t size, _memref_phys_t &phys0,
             virt_page_to_phys_page(first_page + (i + 1) * page_size);
         phys_rest_scratch_[i].page_size = page_size_;
     }
-    // Reuse the stored vector for these pages unless the mapping has changed.
+    // Share the stored vector for these pages unless the mapping has changed. Stored
+    // vectors are never freed, as records may still point to them, so sharing bounds
+    // memory by the pages touched rather than by the number of page-crossing accesses.
     const std::vector<_memref_phys_t> *&stored =
         phys_rest_cache_[std::make_pair(first_page + page_size, num_pages - 1)];
     if (stored == nullptr ||

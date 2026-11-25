@@ -35,6 +35,7 @@
 #ifndef _MEMREF_H_
 #define _MEMREF_H_
 
+#include <assert.h>
 #include <stdint.h>
 #include <stddef.h> // for size_t
 #include "trace_entry.h"
@@ -124,7 +125,11 @@ struct _memref_phys_t {
      * #MEMREF_PHYS_ADDR_UNKNOWN if the trace has no translation for the page.
      */
     addr_t addr;
-    uint64_t page_size; /**< The size of the page. */
+    /**
+     * The size of the page. Pages are aligned to their size, so the page occupies
+     * the physical range starting at (addr & ~(page_size - 1)).
+     */
+    uint64_t page_size;
 };
 
 /** The value of _memref_phys_t.addr when a page's translation is not available. */
@@ -145,7 +150,10 @@ struct _memref_data_t {
     struct _memref_phys_t phys0;
     /**
      * The number of pages the memory access spans, or 0 if the trace has no
-     * virtual-to-physical information.
+     * virtual-to-physical information.  Pages are counted at the granularity of
+     * their page_size, which is the trace's #TRACE_MARKER_TYPE_PAGE_SIZE (the unit
+     * in which virtual-to-physical translations are recorded) unless the actual
+     * page size, such as for a huge page, is known.
      */
     uint32_t num_pages;
     /** The remaining num_pages - 1 pages, or nullptr if num_pages <= 1. */
@@ -299,6 +307,7 @@ memref_num_pages(const memref_t &memref)
 static inline const _memref_phys_t &
 memref_phys_page(const memref_t &memref, uint32_t i)
 {
+    assert(i < memref_num_pages(memref));
     if (is_any_instr_type(memref.instr.type))
         return i == 0 ? memref.instr.phys0 : memref.instr.phys_rest[i - 1];
     return i == 0 ? memref.data.phys0 : memref.data.phys_rest[i - 1];

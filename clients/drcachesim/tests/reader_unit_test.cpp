@@ -61,8 +61,10 @@ static constexpr addr_t TEST_PAGE_SIZE = 0x1000;
 static memref_t
 next_non_marker(mock_reader_t &reader)
 {
+    const mock_reader_t end;
     do {
         ++reader;
+        assert(reader != end);
     } while ((*reader).marker.type == TRACE_TYPE_MARKER);
     return *reader;
 }
@@ -83,8 +85,10 @@ test_no_v2p_info()
     mock_reader_t reader(trace);
     reader.init();
     memref_t instr = next_non_marker(reader);
+    assert(instr.instr.type == TRACE_TYPE_INSTR);
     assert(instr.instr.num_pages == 0 && instr.instr.phys_rest == nullptr);
     memref_t data = next_non_marker(reader);
+    assert(data.data.type == TRACE_TYPE_READ);
     assert(data.data.num_pages == 0 && data.data.phys_rest == nullptr);
 }
 
@@ -101,8 +105,9 @@ test_v2p_markers()
         make_marker(TRACE_MARKER_TYPE_PHYSICAL_ADDRESS, 0x13000),
         make_marker(TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, 0x7fff2000),
         make_marker(TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE, 0x7fff3000),
-        // Instruction spanning pages 1 and 2.
-        make_instr(0x7fff1ffe, TRACE_TYPE_INSTR, 4),
+        // Instruction spanning pages 1 and 2. We use an unaligned 3-byte instruction
+        // (as can happen on x86).
+        make_instr(0x7fff1fff, TRACE_TYPE_INSTR, 3),
         // Single-page access.
         make_memref(0x7fff1010, TRACE_TYPE_READ, 8),
         // Access spanning pages 1 and 2.
@@ -125,14 +130,17 @@ test_v2p_markers()
 
     memref_t instr = next_non_marker(reader);
     assert(memref_num_pages(instr) == 2);
-    assert(instr.instr.phys0.addr == 0x9affe);
+    assert(instr.instr.phys0.addr == 0x9afff);
     assert(instr.instr.phys0.page_size == TEST_PAGE_SIZE);
+    assert(memref_phys_page(instr, 0).addr == instr.instr.phys0.addr);
+    assert(memref_phys_page(instr, 0).page_size == instr.instr.phys0.page_size);
     assert(memref_phys_page(instr, 1).addr == 0x13000);
     assert(memref_phys_page(instr, 1).page_size == TEST_PAGE_SIZE);
 
     memref_t single = next_non_marker(reader);
     assert(single.data.num_pages == 1 && single.data.phys_rest == nullptr);
     assert(single.data.phys0.addr == 0x9a010);
+    assert(single.data.phys0.page_size == TEST_PAGE_SIZE);
 
     memref_t cross = next_non_marker(reader);
     assert(memref_num_pages(cross) == 2);
