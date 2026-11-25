@@ -19,8 +19,7 @@
 #ifndef PROCMAP_QUERY
 /* PROCMAP_QUERY was added in Linux 6.11. We want to be still be able to compile on
  * systems with older kernels so we define the interface here if it is not available.
- * This code is all derived from the Linux header include/uapi/linux/fs.h which is
- * licensed "GPL-2.0 WITH Linux-syscall-note".
+ * This code is all derived from the Linux header include/uapi/linux/fs.h.
  */
 #    define PROCMAP_QUERY _IOWR('f', 17, struct procmap_query)
 
