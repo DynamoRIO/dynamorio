@@ -222,9 +222,7 @@ cmp_uint(const void *a, const void *b)
 static self_check_result_t
 check_run_under_dr(void)
 {
-    enum {
-        count = 64
-    };
+    enum { count = 64 };
     uint native_array[count];
     uint under_dr_array[count];
 
