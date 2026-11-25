@@ -33,15 +33,15 @@
 
 #include "tools.h"
 
-#ifdef WINDOWS
-/* test client thread transparency wrt DllMain (PR 210591) */
-
-int __declspec(dllexport)
+EXPORT int
 import_me(int x)
 {
     print("in import %d\n", x);
     return 2 * x;
 }
+
+#ifdef WINDOWS
+/* test client thread transparency wrt DllMain (PR 210591) */
 
 BOOL APIENTRY
 DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
@@ -54,7 +54,4 @@ DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
     }
     return TRUE;
 }
-
-#else
-/* just empty: could add complexity to CMakeLists.txt to not build */
 #endif /* WINDOWS */

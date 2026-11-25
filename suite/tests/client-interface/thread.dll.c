@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -82,6 +82,10 @@ static uint tls_offs;
 static void *child_alive;
 static void *child_continue;
 static void *child_dead;
+#ifdef UNIX
+static void *init_thread_continue;
+static void *init_thread_dead;
+#endif
 static bool nops_matched;
 
 static int client_thread_count;
@@ -143,6 +147,26 @@ thread_func(void *arg)
     dr_fprintf(STDERR, "client thread is dying\n");
     dr_event_signal(child_dead);
 }
+
+#ifdef UNIX
+static void
+init_thread_func(void *arg)
+{
+    ASSERT(arg == THREAD_ARG);
+    dr_event_wait(init_thread_continue);
+    dr_fprintf(STDERR, "init client thread is dying\n");
+    dr_event_signal(init_thread_dead);
+}
+
+static void __attribute__((destructor))
+client_fini(void)
+{
+    /* Runs after post-exit sideline thread synchronization completes, ensuring
+     * the test fails if DynamoRIO hangs waiting on a crashed client thread.
+     */
+    dr_fprintf(STDERR, "client library finished\n");
+}
+#endif
 
 static void
 at_instruction(uint opc, app_pc tag)
@@ -243,6 +267,10 @@ exit_event(void)
     dr_fprintf(STDERR, "process is exiting\n");
     dr_event_signal(child_continue);
     dr_event_wait(child_dead);
+    dr_event_signal(init_thread_continue);
+    dr_event_wait(init_thread_dead);
+    dr_event_destroy(init_thread_continue);
+    dr_event_destroy(init_thread_dead);
 #endif
     /* DR should have terminated the client thread for us */
     dr_event_destroy(child_alive);
@@ -370,4 +398,14 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         dr_mutex_destroy(lock2);
         dr_fprintf(STDERR, "...passed\n");
     }
+
+#ifdef UNIX
+    /* Test i#8308: create a client thread during initialization (before C-library
+     * TLS is initialized) that exits normally after a shared code-cache flush.
+     */
+    init_thread_continue = dr_event_create();
+    init_thread_dead = dr_event_create();
+    success = dr_create_client_thread(init_thread_func, THREAD_ARG);
+    ASSERT(success);
+#endif
 }

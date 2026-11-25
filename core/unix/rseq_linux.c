@@ -260,6 +260,11 @@ rseq_get_tls_ptr_offset(void)
 static void
 rseq_clear_tls_ptr(dcontext_t *dcontext)
 {
+    /* Client threads do not execute in the code cache or set up rseq, and may
+     * have a NULL app TLS base if created during initialization (i#8308).
+     */
+    if (IS_CLIENT_THREAD(dcontext))
+        return;
     ASSERT(rseq_tls_offset != 0);
     byte *base = get_app_segment_base(LIB_SEG_TLS);
     struct rseq *app_rseq = (struct rseq *)(base + rseq_tls_offset);

@@ -19,6 +19,8 @@ event_timer fired
 #ifdef WINDOWS
 thread.appdll.dll process detach
 i#1489 last-thread test
+#else
+in import 0
 #endif
 thank you for testing the client interface
 #ifdef X64
@@ -35,4 +37,6 @@ TLS slot 3 is 0xbadcab45
 #ifdef UNIX
 process is exiting
 client thread is dying
+init client thread is dying
+client library finished
 #endif
