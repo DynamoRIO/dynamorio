@@ -236,6 +236,18 @@ check_run_under_dr(void)
         CHECK(native_array[i - 1] <= native_array[i]);
     }
 
+    CHECK(!dr_app_running_under_dynamorio());
+    dr_app_start();
+    bool under_dr = dr_app_running_under_dynamorio();
+    kernel_sort(under_dr_array, count, sizeof(under_dr_array[0]), cmp_uint);
+    dr_app_stop();
+    CHECK(!dr_app_running_under_dynamorio());
+    CHECK(under_dr);
+
+    for (size_t i = 0; i < count; i++) {
+        CHECK(under_dr_array[i] == native_array[i]);
+    }
+
     return SELF_CHECK_PASS;
 }
 
