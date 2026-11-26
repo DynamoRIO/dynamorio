@@ -81,8 +81,9 @@ kernel_get_timestamp_counter_khz(void);
 void
 kernel_get_cache_line_sizes(size_t *dcache_line_size, size_t *icache_line_size);
 
-/* Makes instructions written to [start, end) visible to instruction fetch on all
- * online CPUs. Must be called with IRQs enabled.
+/* Cleans the D-cache and invalidates the I-cache to the Point of Unification for
+ * [start, end), making written instructions visible to instruction fetch on this CPU.
+ * Safe to call with IRQs disabled.
  */
 void
 kernel_flush_icache_range(void *start, void *end);
@@ -185,6 +186,17 @@ kernel_query_time_nanos(void);
 /* Returns a random value from the kernel's CRNG. */
 unsigned int
 kernel_get_random_u32(void);
+
+/* Sorts |num| elements of |size| bytes starting at |base| using the kernel's sort(). */
+void
+kernel_sort(void *base, size_t num, size_t size,
+            int (*cmp)(const void *a, const void *b));
+
+unsigned long
+kernel_irq_save(void);
+
+void
+kernel_irq_restore(unsigned long flags);
 
 __attribute__((format(__printf__, 1, 2))) void
 kernel_printk(const char *fmt, ...);

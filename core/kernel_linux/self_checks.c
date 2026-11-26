@@ -37,6 +37,7 @@
 
 #include "globals.h"
 #include "dr_interface.h"
+#include "kernel_interface.h"
 
 #ifdef KERNEL_MODULE_SELF_CHECKS
 
@@ -206,11 +207,58 @@ check_memory_query(void)
     return SELF_CHECK_PASS;
 }
 
+static int
+cmp_uint(const void *a, const void *b)
+{
+    uint lhs = *(const uint *)a;
+    uint rhs = *(const uint *)b;
+    return (lhs > rhs) - (lhs < rhs);
+}
+
+/* Verifies that code executes under DR between dr_app_start() and dr_app_stop() and
+ * produces the same result as native execution.  Uses the kernel's sort() so that
+ * vmlinux code (outside is_in_dynamo_dll()) and indirect comparator calls are exercised.
+ */
+static self_check_result_t
+check_run_under_dr(void)
+{
+    enum { count = 64 };
+    uint native_array[count];
+    uint under_dr_array[count];
+
+    for (size_t i = 0; i < count; i++) {
+        native_array[i] = kernel_get_random_u32();
+    }
+    memcpy(under_dr_array, native_array, sizeof(native_array));
+
+    kernel_sort(native_array, count, sizeof(native_array[0]), cmp_uint);
+    for (size_t i = 1; i < count; i++) {
+        CHECK(native_array[i - 1] <= native_array[i]);
+    }
+
+    CHECK(!dr_app_running_under_dynamorio());
+    unsigned long flags = kernel_irq_save();
+    dr_app_start();
+    bool under_dr = dr_app_running_under_dynamorio();
+    kernel_sort(under_dr_array, count, sizeof(under_dr_array[0]), cmp_uint);
+    dr_app_stop();
+    kernel_irq_restore(flags);
+    CHECK(!dr_app_running_under_dynamorio());
+    CHECK(under_dr);
+
+    for (size_t i = 0; i < count; i++) {
+        CHECK(under_dr_array[i] == native_array[i]);
+    }
+
+    return SELF_CHECK_PASS;
+}
+
 static const self_check_t self_checks[] = {
     { "tls_segment_mapping", check_tls_segment_mapping },
     { "safe_read", check_safe_read },
     { "kernel_image_reachable_from_vmcode", check_kernel_image_reachable_from_vmcode },
     { "memory_query", check_memory_query },
+    { "run_under_dr", check_run_under_dr },
 };
 
 int

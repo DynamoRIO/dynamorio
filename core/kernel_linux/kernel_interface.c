@@ -44,11 +44,12 @@
 #    include <asm/tsc.h> /* For tsc_khz. */
 #elif defined(CONFIG_ARM64)
 #    include <asm/arch_timer.h> /* For arch_timer_get_cntfrq(). */
-#    include <asm/cacheflush.h> /* For flush_icache_range(). */
+#    include <asm/cacheflush.h> /* For caches_clean_inval_pou(). */
 #    include <asm/cpufeature.h> /* For read_sanitised_ftr_reg(). */
 #endif
 #include <linux/cpu.h>
 #include <linux/cpumask.h>
+#include <linux/irqflags.h>
 #include <linux/kprobes.h>
 #include <linux/ktime.h>
 #include <linux/limits.h>
@@ -61,6 +62,7 @@
 #include <linux/preempt.h>
 #include <linux/random.h>
 #include <linux/smp.h>
+#include <linux/sort.h>
 #include <linux/stdarg.h>
 #include <linux/string.h>
 #include <linux/uaccess.h>
@@ -597,9 +599,13 @@ kernel_get_cache_line_sizes(size_t *dcache_line_size, size_t *icache_line_size)
 void
 kernel_flush_icache_range(void *start, void *end)
 {
-    /* flush_icache_range() IPIs all online CPUs, which requires IRQs to be enabled. */
-    KERNEL_ASSERT(!irqs_disabled());
-    flush_icache_range((unsigned long)start, (unsigned long)end);
+    /* Use caches_clean_inval_pou() directly rather than flush_icache_range():
+     * flush_icache_range() also calls kick_all_cpus_sync(), which IPIs all online CPUs
+     * and cannot be called with IRQs disabled.
+     * TODO i#8021: Ensure cross-CPU context synchronization (ISB on other CPUs) for
+     * concurrent hot-patching once multi-CPU execution is enabled.
+     */
+    caches_clean_inval_pou((unsigned long)start, (unsigned long)end);
 }
 #endif
 
@@ -943,6 +949,26 @@ unsigned int
 kernel_get_random_u32(void)
 {
     return get_random_u32();
+}
+
+void
+kernel_sort(void *base, size_t num, size_t size, int (*cmp)(const void *a, const void *b))
+{
+    sort(base, num, size, cmp, NULL);
+}
+
+unsigned long
+kernel_irq_save(void)
+{
+    unsigned long flags;
+    local_irq_save(flags);
+    return flags;
+}
+
+void
+kernel_irq_restore(unsigned long flags)
+{
+    local_irq_restore(flags);
 }
 
 void

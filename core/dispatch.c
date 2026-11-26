@@ -604,7 +604,7 @@ handle_special_tag(dcontext_t *dcontext)
             dcontext->go_native ? "Requested to go native"
                                 : "Found DynamoRIO stopping point",
             d_r_get_thread_id(), dcontext->next_tag);
-#ifdef DR_APP_EXPORTS
+#if defined(DR_APP_EXPORTS) && !defined(LINUX_KERNEL)
         if (dcontext->next_tag == (app_pc)dr_app_stop)
             send_all_other_threads_native();
 #endif
@@ -830,7 +830,9 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
     if (wherewasi == DR_WHERE_APP) { /* first entrance */
 #ifdef LINUX_KERNEL
         ASSERT(dcontext->last_exit == get_starting_linkstub() ||
-               IS_KERNEL_ENTRY_LINKSTUB(dcontext->last_exit));
+               /* The start/stop API will set this linkstub. */
+               IF_APP_EXPORTS(dcontext->last_exit == get_native_exec_linkstub() ||)
+                   IS_KERNEL_ENTRY_LINKSTUB(dcontext->last_exit));
 #else
         if (dcontext->last_exit == get_syscall_linkstub()) {
             /* i#813: the app hit our post-sysenter hook while native.
