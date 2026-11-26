@@ -223,7 +223,9 @@ compatibility changes:
    address and size of each page touched by the access, filled in by
    #dynamorio::drmemtrace::reader_t from the
    #dynamorio::drmemtrace::TRACE_MARKER_TYPE_PHYSICAL_ADDRESS markers.
-   This increases the size of #dynamorio::drmemtrace::memref_t.
+   This increases the size of #dynamorio::drmemtrace::memref_t. Since phys_rest
+   is only valid until the reader produces the next record, users can use
+   dynamorio::drmemtrace::memref_deep_copy() to keep a record longer.
 
 Further non-compatibility-affecting changes include:
  - Changed the types of `block_size`, `total_size`, `num_blocks`, to `int64_t`

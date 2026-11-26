@@ -37,7 +37,6 @@
 #include <stdint.h>
 #include <string.h>
 
-#include <algorithm>
 #include <queue>
 #include <unordered_map>
 #include <unordered_set>
@@ -478,20 +477,7 @@ reader_t::set_phys_fields(addr_t vaddr, size_t size, _memref_phys_t &phys0,
             virt_page_to_phys_page(first_page + (i + 1) * page_size);
         phys_rest_scratch_[i].page_size = page_size_;
     }
-    // Share the stored vector for these pages unless the mapping has changed. Stored
-    // vectors are never freed, as records may still point to them, so sharing bounds
-    // memory by the pages touched rather than by the number of page-crossing accesses.
-    const std::vector<_memref_phys_t> *&stored =
-        phys_rest_cache_[std::make_pair(first_page + page_size, num_pages - 1)];
-    if (stored == nullptr ||
-        !std::equal(stored->begin(), stored->end(), phys_rest_scratch_.begin(),
-                    [](const _memref_phys_t &a, const _memref_phys_t &b) {
-                        return a.addr == b.addr && a.page_size == b.page_size;
-                    })) {
-        phys_rest_storage_.push_back(phys_rest_scratch_);
-        stored = &phys_rest_storage_.back();
-    }
-    phys_rest = stored->data();
+    phys_rest = phys_rest_scratch_.data();
 }
 
 bool

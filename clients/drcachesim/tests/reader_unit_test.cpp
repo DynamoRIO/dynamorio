@@ -146,8 +146,10 @@ test_v2p_markers()
     assert(memref_num_pages(cross) == 2);
     assert(cross.data.phys0.addr == 0x9aff8);
     assert(memref_phys_page(cross, 1).addr == 0x13000);
-    // Accesses spanning the same pages share storage.
-    assert(cross.data.phys_rest == instr.instr.phys_rest);
+    // Keep a deep copy to check that it survives the reader moving on.
+    std::vector<_memref_phys_t> cross_storage;
+    const memref_t cross_copy = memref_deep_copy(cross, cross_storage);
+    assert(cross_copy.data.phys_rest == cross_storage.data());
 
     memref_t third_unavail = next_non_marker(reader);
     assert(memref_num_pages(third_unavail) == 2);
@@ -167,9 +169,11 @@ test_v2p_markers()
     memref_t remapped = next_non_marker(reader);
     assert(memref_num_pages(remapped) == 2);
     assert(memref_phys_page(remapped, 1).addr == 0x55000);
-    // Earlier records are unaffected by the mapping change.
-    assert(remapped.data.phys_rest != cross.data.phys_rest);
-    assert(memref_phys_page(cross, 1).addr == 0x13000);
+    // The deep copy still holds the translation from when it was read.
+    assert(memref_num_pages(cross_copy) == 2);
+    assert(memref_phys_page(cross_copy, 0).addr == 0x9aff8);
+    assert(memref_phys_page(cross_copy, 1).addr == 0x13000);
+    assert(memref_phys_page(cross_copy, 1).page_size == TEST_PAGE_SIZE);
 }
 
 void

@@ -41,13 +41,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <deque>
 #include <iterator>
-#include <map>
 #include <queue>
 #include <unordered_map>
 #include <unordered_set>
-#include <utility>
 #include <vector>
 
 // For exporting we avoid "../common" and rely on -I.
@@ -266,13 +263,8 @@ private:
     // Virtual-to-physical page map built from the v2p markers in the trace.
     std::unordered_map<addr_t, addr_t> v2p_map_;
     addr_t last_phys_marker_ = 0;
-    // Storage for _memref_phys_t.phys_rest. Entries are never modified or freed, so
-    // pointers handed out in records stay valid for the reader's lifetime. The map
-    // shares one array among all accesses spanning the same pages to memory usage
-    // bounded by the trace's footprint instead of growing with its length.
-    std::deque<std::vector<_memref_phys_t>> phys_rest_storage_;
-    std::map<std::pair<addr_t, uint32_t>, const std::vector<_memref_phys_t> *>
-        phys_rest_cache_;
+    // Storage for _memref_phys_t.phys_rest of the current record, overwritten by the
+    // next page-crossing record.
     std::vector<_memref_phys_t> phys_rest_scratch_;
 };
 

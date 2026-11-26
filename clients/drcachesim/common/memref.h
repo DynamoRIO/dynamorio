@@ -38,6 +38,7 @@
 #include <assert.h>
 #include <stdint.h>
 #include <stddef.h> // for size_t
+#include <vector>
 #include "trace_entry.h"
 
 /**
@@ -156,7 +157,11 @@ struct _memref_data_t {
      * page size, such as for a huge page, is known.
      */
     uint32_t num_pages;
-    /** The remaining num_pages - 1 pages, or nullptr if num_pages <= 1. */
+    /**
+     * The remaining num_pages - 1 pages, or nullptr if num_pages <= 1. Owned by the
+     * #dynamorio::drmemtrace::reader_t that produced this record and only valid until
+     * it produces the next record. Use memref_deep_copy() to keep them valid for longer.
+     */
     const struct _memref_phys_t *phys_rest;
 };
 
@@ -192,7 +197,11 @@ struct _memref_instr_t {
     struct _memref_phys_t phys0;
     /** The number of pages the instruction spans, or 0 if not translated. */
     uint32_t num_pages;
-    /** The remaining num_pages - 1 pages, or nullptr if num_pages <= 1. */
+    /**
+     * The remaining num_pages - 1 pages, or nullptr if num_pages <= 1. Owned by the
+     * #dynamorio::drmemtrace::reader_t that produced this record and only valid until
+     * it produces the next record. Use memref_deep_copy() to keep them valid for longer.
+     */
     const struct _memref_phys_t *phys_rest;
 };
 
@@ -311,6 +320,30 @@ memref_phys_page(const memref_t &memref, uint32_t i)
     if (is_any_instr_type(memref.instr.type))
         return i == 0 ? memref.instr.phys0 : memref.instr.phys_rest[i - 1];
     return i == 0 ? memref.data.phys0 : memref.data.phys_rest[i - 1];
+}
+
+/**
+ * Returns a copy of \p memref that stays valid after the reader produces the next
+ * record. phys_rest is copied into \p storage, which the returned copy points to.
+ * The copy is valid as long as \p storage is not modified or destroyed, so use a
+ * separate \p storage for each copy kept.
+ */
+static inline memref_t
+memref_deep_copy(const memref_t &memref, std::vector<_memref_phys_t> &storage)
+{
+    memref_t copy = memref;
+    const uint32_t num_pages = memref_num_pages(memref);
+    if (num_pages <= 1)
+        return copy;
+    const bool is_instr = is_any_instr_type(memref.instr.type);
+    const _memref_phys_t *rest =
+        is_instr ? memref.instr.phys_rest : memref.data.phys_rest;
+    storage.assign(rest, rest + num_pages - 1);
+    if (is_instr)
+        copy.instr.phys_rest = storage.data();
+    else
+        copy.data.phys_rest = storage.data();
+    return copy;
 }
 
 static_assert(sizeof(memref_t) == MEMREF_T_SIZE_BYTES,
