@@ -2286,7 +2286,7 @@ mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 #ifdef AARCH64
             if (reg_get_size(opnd_get_reg(src)) == OPSZ_4) {
                 /* 32-bit mov zeroes the upper 32-bits.
-                 * str xzr -> [stolen_reg_slot + 4]
+                 * str wzr -> [stolen_reg_slot + 4]
                  */
                 instr_remove_srcs(dcontext, instr, 1, instr_num_srcs(instr));
                 instr_set_opcode(instr, OP_str);
