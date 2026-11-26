@@ -451,6 +451,8 @@ reader_t::set_phys_fields(addr_t vaddr, size_t size, _memref_phys_t &phys0,
                           uint32_t &num_pages, const _memref_phys_t *&phys_rest)
 {
     phys_rest = nullptr;
+    // TODO i#8290: Support core-sharded traces. Their inputs can interleave threads
+    // of different processes, so v2p_map_ would need to be tracked per pid.
     if (v2p_map_.empty() || page_size_ == 0 || size == 0 || core_sharded_) {
         num_pages = 0;
         return;
