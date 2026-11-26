@@ -237,10 +237,12 @@ check_run_under_dr(void)
     }
 
     CHECK(!dr_app_running_under_dynamorio());
+    unsigned long flags = kernel_irq_save();
     dr_app_start();
     bool under_dr = dr_app_running_under_dynamorio();
     kernel_sort(under_dr_array, count, sizeof(under_dr_array[0]), cmp_uint);
     dr_app_stop();
+    kernel_irq_restore(flags);
     CHECK(!dr_app_running_under_dynamorio());
     CHECK(under_dr);
 

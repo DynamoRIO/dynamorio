@@ -191,6 +191,12 @@ void
 kernel_sort(void *base, size_t num, size_t size,
             int (*cmp)(const void *a, const void *b));
 
+unsigned long
+kernel_irq_save(void);
+
+void
+kernel_irq_restore(unsigned long flags);
+
 __attribute__((format(__printf__, 1, 2))) void
 kernel_printk(const char *fmt, ...);
 

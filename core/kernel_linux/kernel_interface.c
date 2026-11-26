@@ -49,6 +49,7 @@
 #endif
 #include <linux/cpu.h>
 #include <linux/cpumask.h>
+#include <linux/irqflags.h>
 #include <linux/kprobes.h>
 #include <linux/ktime.h>
 #include <linux/limits.h>
@@ -950,6 +951,20 @@ void
 kernel_sort(void *base, size_t num, size_t size, int (*cmp)(const void *a, const void *b))
 {
     sort(base, num, size, cmp, NULL);
+}
+
+unsigned long
+kernel_irq_save(void)
+{
+    unsigned long flags;
+    local_irq_save(flags);
+    return flags;
+}
+
+void
+kernel_irq_restore(unsigned long flags)
+{
+    local_irq_restore(flags);
 }
 
 void
