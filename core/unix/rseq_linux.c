@@ -257,6 +257,10 @@ rseq_get_tls_ptr_offset(void)
     return rseq_tls_offset + offsetof(struct rseq, rseq_cs);
 }
 
+/* Unlike native execution (where struct rseq_cs is static and the kernel clears
+ * rseq_cs lazily), DR heap-allocates struct rseq_cs and frees it when its
+ * fragment is deleted, so we must clear any lingering pointer first.
+ */
 static void
 rseq_clear_tls_ptr(dcontext_t *dcontext)
 {
@@ -267,6 +271,7 @@ rseq_clear_tls_ptr(dcontext_t *dcontext)
         return;
     ASSERT(rseq_tls_offset != 0);
     byte *base = get_app_segment_base(LIB_SEG_TLS);
+    ASSERT(base != NULL);
     struct rseq *app_rseq = (struct rseq *)(base + rseq_tls_offset);
     /* We're directly writing this in the cache, so we do not bother with safe_read
      * or safe_write here either.  We already cannot handle rseq adversarial cases.
