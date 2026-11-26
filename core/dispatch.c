@@ -830,7 +830,9 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
     if (wherewasi == DR_WHERE_APP) { /* first entrance */
 #ifdef LINUX_KERNEL
         ASSERT(dcontext->last_exit == get_starting_linkstub() ||
-               IS_KERNEL_ENTRY_LINKSTUB(dcontext->last_exit));
+               /* The start/stop API will set this linkstub. */
+               IF_APP_EXPORTS(dcontext->last_exit == get_native_exec_linkstub() ||)
+                   IS_KERNEL_ENTRY_LINKSTUB(dcontext->last_exit));
 #else
         if (dcontext->last_exit == get_syscall_linkstub()) {
             /* i#813: the app hit our post-sysenter hook while native.
