@@ -103,10 +103,14 @@ dynamo_start(priv_mcontext_t *mc)
         ASSERT(dr_api_entry);
     }
 
+#ifdef LINUX_KERNEL
+    dynamo_thread_under_dynamo(dcontext);
+#else
     /* Signal other threads for take over.
      * This routine now calls dynamo_thread_under_dynamo() for this thread as well.
      */
     dynamorio_take_over_threads(dcontext);
+#endif
 
     /* Set return address */
     mc->pc = canonicalize_pc_target(dcontext, mc->pc);

@@ -604,7 +604,7 @@ handle_special_tag(dcontext_t *dcontext)
             dcontext->go_native ? "Requested to go native"
                                 : "Found DynamoRIO stopping point",
             d_r_get_thread_id(), dcontext->next_tag);
-#ifdef DR_APP_EXPORTS
+#if defined(DR_APP_EXPORTS) && !defined(LINUX_KERNEL)
         if (dcontext->next_tag == (app_pc)dr_app_stop)
             send_all_other_threads_native();
 #endif
