@@ -80,9 +80,10 @@ memquery_init(void);
 void
 memquery_exit(void);
 
-/* The passed-in "start" parameter is a performance hint to start
- * iteration at the region containing that address.  However, the
- * iterator may start before that point.
+/* The passed-in "start" parameter is a performance hint to start iteration at the region
+ * containing that address.  However, the iterator may start before that point. If "start"
+ * is unmapped and there is no mapping before "start" the iterator will start at the first
+ * mapping above "start".
  *
  * Pass true for may_alloc, unless the caller is in a fragile situation (e.g.,
  * a signal handler) where we shouldn't allocate heap.
