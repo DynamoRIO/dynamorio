@@ -243,8 +243,8 @@ private:
     // Fills the physical address fields of a data or instruction record for
     // [vaddr, vaddr + size) from the v2p markers seen so far.
     void
-    set_phys_fields(addr_t vaddr, size_t size, _memref_phys_t &phys0, uint32_t &num_pages,
-                    const _memref_phys_t *&phys_rest);
+    set_phys_fields(addr_t vaddr, size_t size, _memref_phys_t &phys0,
+                    uint32_t &num_translations, const _memref_phys_t *&phys_rest);
     addr_t
     virt_page_to_phys_page(addr_t virt_page) const;
 
@@ -263,6 +263,9 @@ private:
     // Virtual-to-physical page map built from the v2p markers in the trace.
     std::unordered_map<addr_t, addr_t> v2p_map_;
     addr_t last_phys_marker_ = 0;
+    // Whether last_phys_marker_ holds a physical address marker not yet paired with
+    // its virtual address marker.
+    bool has_last_phys_marker_ = false;
     // Storage for _memref_phys_t.phys_rest of the current record, overwritten by the
     // next page-crossing record.
     std::vector<_memref_phys_t> phys_rest_scratch_;

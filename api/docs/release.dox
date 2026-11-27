@@ -218,10 +218,10 @@ compatibility changes:
    Instead, a repeated string loop will start with an instruction fetch of the new type
    #dynamorio::drmemtrace::TRACE_TYPE_INSTR_REPEATED, followed by consecutive
    load and store records.
- - Added the fields phys0, num_pages, and phys_rest to the data and instruction
+ - Added the fields phys0, num_translations, and phys_rest to the data and instruction
    structures of #dynamorio::drmemtrace::memref_t, holding the as-traced physical
-   address and size of each page touched by the access, filled in by
-   #dynamorio::drmemtrace::reader_t from the
+   address and size of each virtual-to-physical translation touched by the access,
+   filled in by #dynamorio::drmemtrace::reader_t from the
    #dynamorio::drmemtrace::TRACE_MARKER_TYPE_PHYSICAL_ADDRESS markers.
    This increases the size of #dynamorio::drmemtrace::memref_t. Since phys_rest
    is only valid until the reader produces the next record, users can use
