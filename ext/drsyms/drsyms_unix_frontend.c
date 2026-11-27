@@ -45,7 +45,7 @@
 #include "dr_api.h"
 #include "drsyms.h"
 #include "drsyms_private.h"
-#include "hashtable.h"
+#include "drhashtable.h"
 
 /* Guards our internal state and libdwarf's modifications of mod->dbg.
  * We use a recursive lock to allow queries to be called from enumerate callbacks.
@@ -71,11 +71,11 @@ static int shmid;
 static void *
 lookup_or_load(const char *modpath)
 {
-    void *mod = hashtable_lookup(&modtable, (void *)modpath);
+    void *mod = drhashtable_lookup(&modtable, (void *)modpath);
     if (mod == NULL) {
         mod = drsym_unix_load(modpath);
         if (mod != NULL) {
-            hashtable_add(&modtable, (void *)modpath, mod);
+            drhashtable_add(&modtable, (void *)modpath, mod);
         }
     }
     return mod;
@@ -205,9 +205,9 @@ drsym_init(int shmid_in)
          * memory specified by shmid
          */
     } else {
-        hashtable_init_ex(&modtable, MODTABLE_HASH_BITS, HASH_STRING, true /*strdup*/,
-                          false /*!synch: using symbol_lock*/, drsym_unix_unload, NULL,
-                          NULL);
+        drhashtable_init_ex(&modtable, MODTABLE_HASH_BITS, HASH_STRING, true /*strdup*/,
+                            false /*!synch: using symbol_lock*/, drsym_unix_unload, NULL,
+                            NULL);
     }
     return DRSYM_SUCCESS;
 }
@@ -228,7 +228,7 @@ drsym_exit(void)
     if (IS_SIDELINE) {
         /* TODO NYI i#446 */
     }
-    hashtable_delete(&modtable);
+    drhashtable_delete(&modtable);
     dr_recurlock_destroy(symbol_lock);
     return res;
 }
@@ -364,7 +364,7 @@ drsym_free_resources(const char *modpath)
             return DRSYM_ERROR_RECURSIVE;
 
         dr_recurlock_lock(symbol_lock);
-        found = hashtable_remove(&modtable, (void *)modpath);
+        found = drhashtable_remove(&modtable, (void *)modpath);
         dr_recurlock_unlock(symbol_lock);
 
         return (found ? DRSYM_SUCCESS : DRSYM_ERROR);

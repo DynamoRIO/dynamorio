@@ -314,10 +314,10 @@ syscall_lookup(drsys_sysnum_t num, bool resolve_secondary)
      */
     dr_recurlock_lock(systable_lock);
     if (resolve_secondary) {
-        res = (syscall_info_t *)hashtable_lookup(&secondary_systable, (void *)&num);
+        res = (syscall_info_t *)drhashtable_lookup(&secondary_systable, (void *)&num);
     }
     if (res == NULL) {
-        res = (syscall_info_t *)hashtable_lookup(&systable, (void *)&num);
+        res = (syscall_info_t *)drhashtable_lookup(&systable, (void *)&num);
     }
     dr_recurlock_unlock(systable_lock);
     return res;
@@ -2039,7 +2039,7 @@ static bool
 drsys_event_filter_syscall(void *drcontext, int sysnum)
 {
     return (filter_all ||
-            (hashtable_lookup(&filtered_table, (void *)(ptr_int_t)sysnum) != NULL));
+            (drhashtable_lookup(&filtered_table, (void *)(ptr_int_t)sysnum) != NULL));
 }
 
 DR_EXPORT
@@ -2047,8 +2047,8 @@ drmf_status_t
 drsys_filter_syscall(drsys_sysnum_t sysnum)
 {
     /* DR only gives us the primary number, so we over-filter */
-    hashtable_add(&filtered_table, (void *)(ptr_uint_t)sysnum.number,
-                  (void *)(ptr_uint_t)sysnum.number);
+    drhashtable_add(&filtered_table, (void *)(ptr_uint_t)sysnum.number,
+                    (void *)(ptr_uint_t)sysnum.number);
     return DRMF_SUCCESS;
 }
 
@@ -2252,8 +2252,8 @@ drsys_init(client_id_t client_id, drsys_options_t *ops)
                                          &pri_postsys_last);
 
     drmgr_register_filter_syscall_event(drsys_event_filter_syscall);
-    hashtable_init(&filtered_table, FILTERED_TABLE_HASH_BITS, HASH_INTPTR,
-                   false /*!strdup*/);
+    drhashtable_init(&filtered_table, FILTERED_TABLE_HASH_BITS, HASH_INTPTR,
+                     false /*!strdup*/);
 
     if (!drmgr_register_bb_instrumentation_event(drsys_event_bb_analysis,
                                                  drsys_event_bb_insert, &pri_bb)) {
@@ -2284,7 +2284,7 @@ drsys_exit(void)
         driver_exit();
 #endif
 
-    hashtable_delete(&filtered_table);
+    drhashtable_delete(&filtered_table);
 
     drsyscall_os_exit();
 

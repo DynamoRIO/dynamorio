@@ -475,7 +475,7 @@ name2num_entry_add(void *drcontext, const char *name, drsys_sysnum_t num, bool d
     LOG(drcontext, SYSCALL_VERBOSE + 1,
         "name2num: adding %s => " SYSNUM_FMT "." SYSNUM_FMT "\n", e->name, num.number,
         num.secondary);
-    ok = hashtable_add(&name2num_table, (void *)e->name, (void *)e);
+    ok = drhashtable_add(&name2num_table, (void *)e->name, (void *)e);
     if (!ok) {
         /* With auto-generated files on a new OS, we may have had a shift from
          * NtUserCallOneParam.FOO to NtUserFoo (this has happened before:
@@ -632,7 +632,7 @@ bool
 os_syscall_get_num(const char *name, drsys_sysnum_t *num DR_PARAM_OUT)
 {
     name2num_entry_t *e =
-        (name2num_entry_t *)hashtable_lookup(&name2num_table, (void *)name);
+        (name2num_entry_t *)drhashtable_lookup(&name2num_table, (void *)name);
     ASSERT(num != NULL, "invalid param");
     if (e != NULL) {
         *num = e->num;
@@ -716,14 +716,14 @@ add_syscall_entry(void *drcontext, const module_data_t *info, syscall_info_t *sy
     if (is_secondary) {
         dr_recurlock_lock(systable_lock);
         IF_DEBUG(ok =)
-        hashtable_add(&secondary_systable, (void *)&syslist->num, (void *)syslist);
+        drhashtable_add(&secondary_systable, (void *)&syslist->num, (void *)syslist);
     } else {
         result = get_primary_syscall_num(drcontext, info, syslist, optional_prefix);
         if (!result)
             return false;
         dr_recurlock_lock(systable_lock);
         IF_DEBUG(ok =)
-        hashtable_add(&systable, (void *)&syslist->num, (void *)syslist);
+        drhashtable_add(&systable, (void *)&syslist->num, (void *)syslist);
     }
     dr_recurlock_unlock(systable_lock);
     LOG(drcontext, (info != NULL && info->start == ntdll_base) ? 2 : SYSCALL_VERBOSE,
@@ -901,8 +901,9 @@ drsyscall_os_init(void *drcontext)
     /* Set up hashtable for name2num translation at init time.
      * Case-insensitive primarily for NtUserCallOneParam.*.
      */
-    hashtable_init_ex(&name2num_table, NAME2NUM_TABLE_HASH_BITS, HASH_STRING_NOCASE,
-                      false /*!strdup*/, true /*synch*/, name2num_entry_free, NULL, NULL);
+    drhashtable_init_ex(&name2num_table, NAME2NUM_TABLE_HASH_BITS, HASH_STRING_NOCASE,
+                        false /*!strdup*/, true /*synch*/, name2num_entry_free, NULL,
+                        NULL);
     if (sysnums != NULL && drsys_ops.skip_internal_tables)
         sysnums = NULL;
     if (sysnums != NULL) {
@@ -959,11 +960,12 @@ drsyscall_os_init(void *drcontext)
         }
     }
 
-    hashtable_init_ex(&systable, SYSTABLE_HASH_BITS, HASH_INTPTR, false /*!strdup*/,
-                      false /*!synch*/, NULL, sysnum_hash, sysnum_cmp);
+    drhashtable_init_ex(&systable, SYSTABLE_HASH_BITS, HASH_INTPTR, false /*!strdup*/,
+                        false /*!synch*/, NULL, sysnum_hash, sysnum_cmp);
     /* i#1549: We init additional table for syscalls with secondary components */
-    hashtable_init_ex(&secondary_systable, SECONDARY_SYSTABLE_HASH_BITS, HASH_INTPTR,
-                      false /*!strdup*/, false /*!synch*/, NULL, sysnum_hash, sysnum_cmp);
+    drhashtable_init_ex(&secondary_systable, SECONDARY_SYSTABLE_HASH_BITS, HASH_INTPTR,
+                        false /*!strdup*/, false /*!synch*/, NULL, sysnum_hash,
+                        sysnum_cmp);
 
     /* Add all entries at process init time, to support drsys_name_to_syscall()
      * for secondary win32k.sys and drsys_number_to_syscall() in dr_init.
@@ -1019,9 +1021,9 @@ drsyscall_os_init(void *drcontext)
 void
 drsyscall_os_exit(void)
 {
-    hashtable_delete(&systable);
-    hashtable_delete(&secondary_systable);
-    hashtable_delete(&name2num_table);
+    drhashtable_delete(&systable);
+    drhashtable_delete(&secondary_systable);
+    drhashtable_delete(&name2num_table);
     drsyscall_wingdi_exit();
 }
 

@@ -2731,66 +2731,78 @@ DR_API
  * @return a pointer to the heap-allocated table.
  */
 void *
-dr_hashtable_create(void *drcontext, uint bits, uint load_factor_percent, bool synch,
-                    void (*free_payload_func)(void * /*drcontext*/, void *));
+dr_openaddress_hashtable_create(void *drcontext, uint bits, uint load_factor_percent,
+                                bool synch,
+                                void (*free_payload_func)(void * /*drcontext*/, void *));
 
 DR_API
 /**
- * Destroys a hashtable created by dr_hashtable_create().
+ * Destroys a hashtable created by dr_openaddress_hashtable_create().
  *
- * @param[in] drcontext  Must be the same context passed to dr_hashtable_create().
- * @param[in] htable     A pointer to the table itself, returned by dr_hashtable_create().
+ * @param[in] drcontext  Must be the same context passed to
+ *                       dr_openaddress_hashtable_create().
+ * @param[in] htable     A pointer to the table itself, returned by
+ *                       dr_openaddress_hashtable_create().
  */
 void
-dr_hashtable_destroy(void *drcontext, void *htable);
+dr_openaddress_hashtable_destroy(void *drcontext, void *htable);
 
 DR_API
 /**
- * Removes all entries in a hashtable created by dr_hashtable_create().
+ * Removes all entries in a hashtable created by dr_openaddress_hashtable_create().
  *
- * @param[in] drcontext  Must be the same context passed to dr_hashtable_create().
- * @param[in] htable     A pointer to the table itself, returned by dr_hashtable_create().
+ * @param[in] drcontext  Must be the same context passed to
+ *                       dr_openaddress_hashtable_create().
+ * @param[in] htable     A pointer to the table itself, returned by
+ *                       dr_openaddress_hashtable_create().
  */
 void
-dr_hashtable_clear(void *drcontext, void *htable);
+dr_openaddress_hashtable_clear(void *drcontext, void *htable);
 
 DR_API
 /**
  * Queries whether an entry for the given key exists.
  *
- * @param[in] drcontext  Must be the same context passed to dr_hashtable_create().
- * @param[in] htable     A pointer to the table itself, returned by dr_hashtable_create().
+ * @param[in] drcontext  Must be the same context passed to
+ *                       dr_openaddress_hashtable_create().
+ * @param[in] htable     A pointer to the table itself, returned by
+ *                       dr_openaddress_hashtable_create().
  * @param[in] key        The key to query.
  *
- * @return the payload value for the key that was passed to dr_hashtable_add(),
- * or NULL if no such key is found.
+ * @return the payload value for the key that was passed to
+ * dr_openaddress_hashtable_add(), or NULL if no such key is found.
  */
 void *
-dr_hashtable_lookup(void *drcontext, void *htable, ptr_uint_t key);
+dr_openaddress_hashtable_lookup(void *drcontext, void *htable, ptr_uint_t key);
 
 DR_API
 /**
  * Adds a new entry to the hashtable.
  *
- * @param[in] drcontext  Must be the same context passed to dr_hashtable_create().
- * @param[in] htable     A pointer to the table itself, returned by dr_hashtable_create().
+ * @param[in] drcontext  Must be the same context passed to
+ *                       dr_openaddress_hashtable_create().
+ * @param[in] htable     A pointer to the table itself, returned by
+ *                       dr_openaddress_hashtable_create().
  * @param[in] key        The key to add.
  * @param[in] payload    The payload to add.
  */
 void
-dr_hashtable_add(void *drcontext, void *htable, ptr_uint_t key, void *payload);
+dr_openaddress_hashtable_add(void *drcontext, void *htable, ptr_uint_t key,
+                             void *payload);
 
 DR_API
 /**
  * Removes an entry for the given key.
  *
- * @param[in] drcontext  Must be the same context passed to dr_hashtable_create().
- * @param[in] htable     A pointer to the table itself, returned by dr_hashtable_create().
+ * @param[in] drcontext  Must be the same context passed to
+ *                       dr_openaddress_hashtable_create().
+ * @param[in] htable     A pointer to the table itself, returned by
+ *                       dr_openaddress_hashtable_create().
  * @param[in] key        The key to remove.
  *
  * @return whether the key was found.
  */
 bool
-dr_hashtable_remove(void *drcontext, void *htable, ptr_uint_t key);
+dr_openaddress_hashtable_remove(void *drcontext, void *htable, ptr_uint_t key);
 
 #endif /* _DR_TOOLS_H_ */

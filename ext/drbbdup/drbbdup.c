@@ -33,7 +33,7 @@
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drreg.h"
-#include "hashtable.h"
+#include "drhashtable.h"
 #include "drbbdup.h"
 #include <string.h>
 #include <stdint.h>
@@ -545,11 +545,11 @@ drbbdup_do_duplication(hashtable_t *manager_table, void *drcontext, void *tag,
                        instrlist_t *bb, bool for_trace, bool translating)
 {
     drbbdup_manager_t *manager =
-        (drbbdup_manager_t *)hashtable_lookup(manager_table, tag);
+        (drbbdup_manager_t *)drhashtable_lookup(manager_table, tag);
 
     if (!is_dup_expected(manager, for_trace, translating)) {
         /* Remove existing invalid book-keeping data. */
-        hashtable_remove(manager_table, tag);
+        drhashtable_remove(manager_table, tag);
         manager = NULL;
     }
 
@@ -559,7 +559,7 @@ drbbdup_do_duplication(hashtable_t *manager_table, void *drcontext, void *tag,
     if (manager == NULL) {
         manager = drbbdup_create_manager(drcontext, tag, bb);
         ASSERT(manager != NULL, "created manager cannot be NULL");
-        hashtable_add(manager_table, tag, manager);
+        drhashtable_add(manager_table, tag, manager);
 
         if (opts.is_stat_enabled) {
             dr_mutex_lock(stat_mutex);
@@ -901,7 +901,7 @@ drbbdup_do_analysis(void *drcontext, drbbdup_per_thread *pt, hashtable_t *manage
     instr_t *first = instrlist_first(bb);
 
     drbbdup_manager_t *manager =
-        (drbbdup_manager_t *)hashtable_lookup(manager_table, tag);
+        (drbbdup_manager_t *)drhashtable_lookup(manager_table, tag);
     ASSERT(manager != NULL || opts.non_default_case_limit == 0,
            "manager cannot be NULL unless dups are globally disabled");
 
@@ -1683,7 +1683,7 @@ drbbdup_do_linking(void *drcontext, drbbdup_per_thread *pt, hashtable_t *manager
 {
 
     drbbdup_manager_t *manager =
-        (drbbdup_manager_t *)hashtable_lookup(manager_table, tag);
+        (drbbdup_manager_t *)drhashtable_lookup(manager_table, tag);
     ASSERT(manager != NULL || opts.non_default_case_limit == 0,
            "manager cannot be NULL unless dups are globally disabled");
 
@@ -1819,7 +1819,7 @@ drbbdup_manage_new_case(void *drcontext, hashtable_t *manager_table,
     bool do_flush = false;
 
     drbbdup_manager_t *manager =
-        (drbbdup_manager_t *)hashtable_lookup(manager_table, tag);
+        (drbbdup_manager_t *)drhashtable_lookup(manager_table, tag);
     ASSERT(manager != NULL, "manager cannot be NULL");
     ASSERT(manager->enable_dup, "duplication should be enabled");
     ASSERT(new_encoding != manager->default_case.encoding,
@@ -2084,8 +2084,8 @@ drbbdup_thread_init(void *drcontext)
         /* Initialise hash table that keeps track of defined cases per
          * basic block (for thread-private DR caches only).
          */
-        hashtable_init_ex(&pt->manager_table, HASH_BIT_TABLE, HASH_INTPTR, false, false,
-                          drbbdup_destroy_manager, NULL, NULL);
+        drhashtable_init_ex(&pt->manager_table, HASH_BIT_TABLE, HASH_INTPTR, false, false,
+                            drbbdup_destroy_manager, NULL, NULL);
     }
 
     pt->case_index = 0;
@@ -2122,7 +2122,7 @@ drbbdup_thread_exit(void *drcontext)
     ASSERT(pt != NULL, "thread-local storage should not be NULL");
 
     if (is_thread_private)
-        hashtable_delete(&pt->manager_table);
+        drhashtable_delete(&pt->manager_table);
 
     if (pt->case_analysis_data != NULL) {
         dr_custom_free(drcontext, DR_ALLOC_THREAD_PRIVATE, pt->case_analysis_data,
@@ -2412,8 +2412,8 @@ drbbdup_init(drbbdup_options_t *ops_in)
         /* Initialise hash table that keeps track of defined cases per
          * basic block.
          */
-        hashtable_init_ex(&global_manager_table, HASH_BIT_TABLE, HASH_INTPTR, false,
-                          false, drbbdup_destroy_manager, NULL, NULL);
+        drhashtable_init_ex(&global_manager_table, HASH_BIT_TABLE, HASH_INTPTR, false,
+                            false, drbbdup_destroy_manager, NULL, NULL);
 
         rw_lock = dr_rwlock_create();
         if (rw_lock == NULL)
@@ -2458,7 +2458,7 @@ drbbdup_exit(void)
             return DRBBDUP_ERROR;
 
         if (!is_thread_private) {
-            hashtable_delete(&global_manager_table);
+            drhashtable_delete(&global_manager_table);
             dr_rwlock_destroy(rw_lock);
         }
 

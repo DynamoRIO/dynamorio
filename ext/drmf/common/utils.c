@@ -437,7 +437,7 @@ hashtable_delete_with_stats(hashtable_t *table, const char *name)
     /* XXX: add collision data: though would want those stats mid-run
      * for tables that have entries freed during exit before here
      */
-    hashtable_delete(table);
+    drhashtable_delete(table);
 }
 
 #ifdef STATISTICS
@@ -1328,7 +1328,7 @@ hashwrap_free(void *ptr, size_t size)
 static void
 hashwrap_assert_fail(const char *msg)
 {
-    /* The reported file+line won't be the hashtable.c source but we
+    /* The reported file+line won't be the drhashtable.c source but we
      * don't want the complexity of snprintf, and msg should identify
      * the source
      */
@@ -1345,7 +1345,7 @@ hashwrap_assert_fail(const char *msg)
 void
 utils_early_init(void)
 {
-    hashtable_global_config(hashwrap_alloc, hashwrap_free, hashwrap_assert_fail);
+    drhashtable_global_config(hashwrap_alloc, hashwrap_free, hashwrap_assert_fail);
 }
 
 void

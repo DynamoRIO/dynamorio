@@ -38,7 +38,7 @@
 #include "drsyms.h"
 #include "drsyms_private.h"
 #include "drsyms_obj.h"
-#include "hashtable.h"
+#include "drhashtable.h"
 
 #include "dwarf.h"
 #include "libdwarf.h"
@@ -303,8 +303,8 @@ drsym_macho_sort_symbols(macho_info_t *mod)
     uint hash_bits = 1;
     for (i = mod->num_syms; i > 1; i >>= 1)
         hash_bits++;
-    hashtable_init_ex(&dup_table, hash_bits, HASH_STRING, false /*!strdup*/,
-                      false /*!synch*/, NULL, NULL, NULL);
+    drhashtable_init_ex(&dup_table, hash_bits, HASH_STRING, false /*!strdup*/,
+                        false /*!synch*/, NULL, NULL, NULL);
     /* We throw out all symbols with zero value, but we don't bother
      * to do two passes or a realloc to save memory.
      */
@@ -332,12 +332,12 @@ drsym_macho_sort_symbols(macho_info_t *mod)
          * We could probably rule out by checking the type or sthg
          * but this will do as well.
          */
-        if (name[0] != '\0' && hashtable_lookup(&dup_table, (void *)name) == NULL) {
-            hashtable_add(&dup_table, (void *)name, (void *)name);
+        if (name[0] != '\0' && drhashtable_lookup(&dup_table, (void *)name) == NULL) {
+            drhashtable_add(&dup_table, (void *)name, (void *)name);
             mod->sorted_syms[mod->sorted_count++] = sym;
         }
     }
-    hashtable_delete(&dup_table);
+    drhashtable_delete(&dup_table);
     /* XXX: using libc qsort.  libelftoolchain is already using libc, and
      * qsort is in-place and self-contained, so it should be fine.
      */

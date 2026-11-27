@@ -36,7 +36,7 @@
 
 #include "dr_api.h"
 #include "drx.h"
-#include "hashtable.h"
+#include "drhashtable.h"
 #include "dr_project_wide_defines.h"
 #include "scatter_gather_shared.h"
 #include <stddef.h> /* for offsetof */

@@ -34,7 +34,7 @@
 
 #include "dr_api.h"
 #include "drx.h"
-#include "hashtable.h"
+#include "drhashtable.h"
 #include "dr_project_wide_defines.h"
 #include <stddef.h> /* for offsetof */
 #include <string.h>
@@ -938,7 +938,7 @@ soft_kills_handle_close(void *drcontext, job_info_t *jinfo, HANDLE job, int exit
         soft_kills_handle_job_termination(drcontext, job, exit_code);
     }
     if (remove)
-        hashtable_remove(&job_table, (void *)job);
+        drhashtable_remove(&job_table, (void *)job);
 }
 
 static bool
@@ -996,15 +996,15 @@ soft_kills_pre_SetInformationJobObject(void *drcontext, cls_soft_t *cls)
                        dr_get_process_id());
             }
             /* Track the handle so we can notify the client on close or exit */
-            hashtable_lock(&job_table);
+            drhashtable_lock(&job_table);
             /* See if already there (in case app called Set 2x) */
-            if (hashtable_lookup(&job_table, (void *)job) == NULL) {
+            if (drhashtable_lookup(&job_table, (void *)job) == NULL) {
                 jinfo = (job_info_t *)dr_global_alloc(sizeof(*jinfo));
                 jinfo->ref_count = 1;
-                isnew = hashtable_add(&job_table, (void *)job, (void *)jinfo);
+                isnew = drhashtable_add(&job_table, (void *)job, (void *)jinfo);
                 ASSERT(isnew, "missed an NtClose");
             }
-            hashtable_unlock(&job_table);
+            drhashtable_unlock(&job_table);
         }
     }
     return true;
@@ -1033,9 +1033,10 @@ soft_kills_pre_DuplicateObject(void *drcontext, cls_soft_t *cls)
         cls->dup_src = (HANDLE)dr_syscall_get_param(drcontext, 1);
         cls->dup_dst = (HANDLE *)dr_syscall_get_param(drcontext, 3);
         cls->dup_options = (ULONG)dr_syscall_get_param(drcontext, 6);
-        hashtable_lock(&job_table);
+        drhashtable_lock(&job_table);
         /* We have to save jinfo b/c dup_src will be gone */
-        cls->dup_jinfo = (job_info_t *)hashtable_lookup(&job_table, (void *)cls->dup_src);
+        cls->dup_jinfo =
+            (job_info_t *)drhashtable_lookup(&job_table, (void *)cls->dup_src);
         if (cls->dup_jinfo != NULL) {
             if (TESTANY(DUPLICATE_CLOSE_SOURCE, cls->dup_options)) {
                 /* "This occurs regardless of any error status returned"
@@ -1054,7 +1055,7 @@ soft_kills_pre_DuplicateObject(void *drcontext, cls_soft_t *cls)
                     soft_kills_handle_close(drcontext, cls->dup_jinfo, cls->dup_src, 0,
                                             true /*remove*/);
                 } else {
-                    hashtable_remove(&job_table, (void *)cls->dup_src);
+                    drhashtable_remove(&job_table, (void *)cls->dup_src);
                     /* Adjust refcount after removing to avoid freeing prematurely.
                      * The refcount may be sitting at 0, but no other thread should
                      * be able to affect it as there is no hashtable entry.
@@ -1064,7 +1065,7 @@ soft_kills_pre_DuplicateObject(void *drcontext, cls_soft_t *cls)
                 }
             }
         }
-        hashtable_unlock(&job_table);
+        drhashtable_unlock(&job_table);
     }
     return true;
 }
@@ -1084,15 +1085,15 @@ soft_kills_post_DuplicateObject(void *drcontext)
     /* At this point we have a successful intra-process duplication.  If
      * DUPLICATE_CLOSE_SOURCE, we already removed from the table in pre.
      */
-    hashtable_lock(&job_table);
+    drhashtable_lock(&job_table);
     if (cls->dup_dst != NULL &&
         dr_safe_read(cls->dup_dst, sizeof(dup_dst), &dup_dst, NULL)) {
         NOTIFY(1, "--drx-- job 0x%x duplicated as 0x%x in pid %d\n", cls->dup_src,
                dup_dst, dr_get_process_id());
         cls->dup_jinfo->ref_count++;
-        hashtable_add(&job_table, (void *)dup_dst, (void *)cls->dup_jinfo);
+        drhashtable_add(&job_table, (void *)dup_dst, (void *)cls->dup_jinfo);
     }
-    hashtable_unlock(&job_table);
+    drhashtable_unlock(&job_table);
 }
 
 /* Returns whether to execute the system call */
@@ -1146,15 +1147,15 @@ soft_kills_pre_syscall(void *drcontext, int sysnum)
         /* If a job object, act on it, and remove from our table */
         HANDLE handle = (HANDLE)dr_syscall_get_param(drcontext, 0);
         job_info_t *jinfo;
-        hashtable_lock(&job_table);
-        jinfo = (job_info_t *)hashtable_lookup(&job_table, (void *)handle);
+        drhashtable_lock(&job_table);
+        jinfo = (job_info_t *)drhashtable_lookup(&job_table, (void *)handle);
         if (jinfo != NULL) {
             NOTIFY(1, "--drx-- explicit close of job 0x%x in pid %d\n", handle,
                    dr_get_process_id());
             /* The exit code is set to 0 by the kernel for this case */
             soft_kills_handle_close(drcontext, jinfo, handle, 0, true /*remove*/);
         }
-        hashtable_unlock(&job_table);
+        drhashtable_unlock(&job_table);
     } else if (sysnum == sysnum_DuplicateObject) {
         return soft_kills_pre_DuplicateObject(drcontext, cls);
     }
@@ -1236,8 +1237,8 @@ soft_kills_init(void)
     cb_lock = dr_mutex_create();
 
 #ifdef WINDOWS
-    hashtable_init_ex(&job_table, JOB_TABLE_HASH_BITS, HASH_INTPTR, false /*!strdup*/,
-                      false /*!synch*/, soft_kills_free_job_info, NULL, NULL);
+    drhashtable_init_ex(&job_table, JOB_TABLE_HASH_BITS, HASH_INTPTR, false /*!strdup*/,
+                        false /*!synch*/, soft_kills_free_job_info, NULL, NULL);
 
     sysnum_TerminateProcess =
         soft_kills_get_sysnum("NtTerminateProcess", SYS_NUM_PARAMS_TerminateProcess,
@@ -1317,7 +1318,7 @@ soft_kills_exit(void)
     int exit_code;
     if (!get_app_exit_code(&exit_code))
         exit_code = 0;
-    hashtable_lock(&job_table);
+    drhashtable_lock(&job_table);
     for (i = 0; i < HASHTABLE_SIZE(job_table.table_bits); i++) {
         hash_entry_t *he;
         for (he = job_table.table[i]; he != NULL; he = he->next) {
@@ -1329,9 +1330,9 @@ soft_kills_exit(void)
                                     false /*do not remove*/);
         }
     }
-    hashtable_unlock(&job_table);
+    drhashtable_unlock(&job_table);
 
-    hashtable_delete(&job_table);
+    drhashtable_delete(&job_table);
 
     drmgr_unregister_cls_field(soft_kills_context_init, soft_kills_context_exit,
                                cls_idx_soft);

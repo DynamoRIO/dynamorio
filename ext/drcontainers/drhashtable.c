@@ -37,7 +37,7 @@
 #    define _CRT_SECURE_NO_DEPRECATE 1
 #endif
 #include "dr_api.h"
-#include "hashtable.h"
+#include "drhashtable.h"
 #include "containers_private.h"
 #ifdef UNIX
 #    include <string.h>
@@ -93,7 +93,7 @@ static void (*assert_fail_func)(const char *);
 /* If no assert func is registered we just abort since we don't know
  * how to log or print (could msgbox on windows I suppose).
  * If an assert func is registered, we don't want the complexity of
- * sprintf so we give up on providing the file+line for hashtable.c but
+ * sprintf so we give up on providing the file+line for drhashtable.c but
  * the msg should identify the source.
  */
 #ifdef WINDOWS
@@ -122,8 +122,8 @@ static void (*assert_fail_func)(const char *);
 
 /* To support use in other libraries we allow parametrization */
 void
-hashtable_global_config(void *(*alloc_fptr)(size_t), void (*free_fptr)(void *, size_t),
-                        void (*assert_fail_fptr)(const char *))
+drhashtable_global_config(void *(*alloc_fptr)(size_t), void (*free_fptr)(void *, size_t),
+                          void (*assert_fail_fptr)(const char *))
 {
     alloc_func = alloc_fptr;
     free_func = free_fptr;
@@ -177,7 +177,7 @@ hash_key(hashtable_t *table, void *key)
     } else {
         /* HASH_INTPTR, or fallback for HASH_CUSTOM in release build */
         ASSERT(table->hashtype == HASH_INTPTR,
-               "hashtable.c hash_key internal error: invalid hash type");
+               "drhashtable.c hash_key internal error: invalid hash type");
         hash = (uint)(ptr_uint_t)key;
     }
     return HASH_FUNC_BITS(hash, table->table_bits);
@@ -195,15 +195,15 @@ keys_equal(hashtable_t *table, void *key1, void *key2)
     else {
         /* HASH_INTPTR, or fallback for HASH_CUSTOM in release build */
         ASSERT(table->hashtype == HASH_INTPTR,
-               "hashtable.c keys_equal internal error: invalid hash type");
+               "drhashtable.c keys_equal internal error: invalid hash type");
         return key1 == key2;
     }
 }
 
 void
-hashtable_init_ex(hashtable_t *table, uint num_bits, hash_type_t hashtype, bool str_dup,
-                  bool synch, void (*free_payload_func)(void *),
-                  uint (*hash_key_func)(void *), bool (*cmp_key_func)(void *, void *))
+drhashtable_init_ex(hashtable_t *table, uint num_bits, hash_type_t hashtype, bool str_dup,
+                    bool synch, void (*free_payload_func)(void *),
+                    uint (*hash_key_func)(void *), bool (*cmp_key_func)(void *, void *))
 {
     hash_entry_t **alloc = (hash_entry_t **)hash_alloc((size_t)HASHTABLE_SIZE(num_bits) *
                                                        sizeof(hash_entry_t *));
@@ -212,7 +212,7 @@ hashtable_init_ex(hashtable_t *table, uint num_bits, hash_type_t hashtype, bool 
     table->hashtype = hashtype;
     table->str_dup = str_dup;
     ASSERT(!str_dup || hashtype == HASH_STRING || hashtype == HASH_STRING_NOCASE,
-           "hashtable_init_ex internal error: invalid hashtable type");
+           "drhashtable_init_ex internal error: invalid hashtable type");
     table->lock = dr_mutex_create();
     table->table_bits = num_bits;
     table->synch = synch;
@@ -221,7 +221,7 @@ hashtable_init_ex(hashtable_t *table, uint num_bits, hash_type_t hashtype, bool 
     table->cmp_key_func = cmp_key_func;
     ASSERT(table->hashtype != HASH_CUSTOM ||
                (table->hash_key_func != NULL && table->cmp_key_func != NULL),
-           "hashtable_init_ex missing cmp/hash key func");
+           "drhashtable_init_ex missing cmp/hash key func");
     table->entries = 0;
     table->config.size = sizeof(table->config);
     table->config.resizable = true;
@@ -230,13 +230,13 @@ hashtable_init_ex(hashtable_t *table, uint num_bits, hash_type_t hashtype, bool 
 }
 
 void
-hashtable_init(hashtable_t *table, uint num_bits, hash_type_t hashtype, bool str_dup)
+drhashtable_init(hashtable_t *table, uint num_bits, hash_type_t hashtype, bool str_dup)
 {
-    hashtable_init_ex(table, num_bits, hashtype, str_dup, true, NULL, NULL, NULL);
+    drhashtable_init_ex(table, num_bits, hashtype, str_dup, true, NULL, NULL, NULL);
 }
 
 void
-hashtable_configure(hashtable_t *table, hashtable_config_t *config)
+drhashtable_configure(hashtable_t *table, hashtable_config_t *config)
 {
     ASSERT(table != NULL && config != NULL, "invalid params");
     /* Ignoring size of field: shouldn't be in between */
@@ -249,19 +249,19 @@ hashtable_configure(hashtable_t *table, hashtable_config_t *config)
 }
 
 void
-hashtable_lock(hashtable_t *table)
+drhashtable_lock(hashtable_t *table)
 {
     dr_mutex_lock(table->lock);
 }
 
 void
-hashtable_unlock(hashtable_t *table)
+drhashtable_unlock(hashtable_t *table)
 {
     dr_mutex_unlock(table->lock);
 }
 
 bool
-hashtable_lock_self_owns(hashtable_t *table)
+drhashtable_lock_self_owns(hashtable_t *table)
 {
     return dr_mutex_self_owns(table->lock);
 }
@@ -269,7 +269,7 @@ hashtable_lock_self_owns(hashtable_t *table)
 /* Lookup an entry by key and return a pointer to the corresponding entry
  * Returns NULL if no such entry exists */
 void *
-hashtable_lookup(hashtable_t *table, void *key)
+drhashtable_lookup(hashtable_t *table, void *key)
 {
     void *res = NULL;
     hash_entry_t *e;
@@ -290,7 +290,7 @@ hashtable_lookup(hashtable_t *table, void *key)
 
 /* caller must hold lock */
 static bool
-hashtable_check_for_resize(hashtable_t *table)
+drhashtable_check_for_resize(hashtable_t *table)
 {
     size_t capacity = (size_t)HASHTABLE_SIZE(table->table_bits);
     if (table->config.resizable &&
@@ -324,10 +324,10 @@ hashtable_check_for_resize(hashtable_t *table)
 }
 
 bool
-hashtable_add(hashtable_t *table, void *key, void *payload)
+drhashtable_add(hashtable_t *table, void *key, void *payload)
 {
     /* if payload is null can't tell from lookup miss */
-    ASSERT(payload != NULL, "hashtable_add internal error");
+    ASSERT(payload != NULL, "drhashtable_add internal error");
     if (table->synch) {
         dr_mutex_lock(table->lock);
     }
@@ -352,17 +352,17 @@ hashtable_add(hashtable_t *table, void *key, void *payload)
     e->next = table->table[hindex];
     table->table[hindex] = e;
     table->entries++;
-    hashtable_check_for_resize(table);
+    drhashtable_check_for_resize(table);
     if (table->synch)
         dr_mutex_unlock(table->lock);
     return true;
 }
 
 void *
-hashtable_add_replace(hashtable_t *table, void *key, void *payload)
+drhashtable_add_replace(hashtable_t *table, void *key, void *payload)
 {
     /* if payload is null can't tell from lookup miss */
-    ASSERT(payload != NULL, "hashtable_add_replace internal error");
+    ASSERT(payload != NULL, "drhashtable_add_replace internal error");
     if (table->synch) {
         dr_mutex_lock(table->lock);
     }
@@ -398,7 +398,7 @@ hashtable_add_replace(hashtable_t *table, void *key, void *payload)
         new_e->next = table->table[hindex];
         table->table[hindex] = new_e;
         table->entries++;
-        hashtable_check_for_resize(table);
+        drhashtable_check_for_resize(table);
     }
     if (table->synch)
         dr_mutex_unlock(table->lock);
@@ -406,7 +406,7 @@ hashtable_add_replace(hashtable_t *table, void *key, void *payload)
 }
 
 bool
-hashtable_remove(hashtable_t *table, void *key)
+drhashtable_remove(hashtable_t *table, void *key)
 {
     bool res = false;
     hash_entry_t *e, *prev_e;
@@ -438,13 +438,13 @@ hashtable_remove(hashtable_t *table, void *key)
 }
 
 bool
-hashtable_remove_range(hashtable_t *table, void *start, void *end)
+drhashtable_remove_range(hashtable_t *table, void *start, void *end)
 {
     bool res = false;
     uint i;
     hash_entry_t *e, *prev_e, *next_e;
     if (table->synch)
-        hashtable_lock(table);
+        drhashtable_lock(table);
     for (i = 0; i < HASHTABLE_SIZE(table->table_bits); i++) {
         for (e = table->table[i], prev_e = NULL; e != NULL; e = next_e) {
             next_e = e->next;
@@ -467,12 +467,12 @@ hashtable_remove_range(hashtable_t *table, void *start, void *end)
         }
     }
     if (table->synch)
-        hashtable_unlock(table);
+        drhashtable_unlock(table);
     return res;
 }
 
 void
-hashtable_apply_to_all_payloads(hashtable_t *table, void (*apply_func)(void *payload))
+drhashtable_apply_to_all_payloads(hashtable_t *table, void (*apply_func)(void *payload))
 {
     DR_ASSERT_MSG(apply_func != NULL, "The apply_func ptr cannot be NULL.");
     uint i;
@@ -487,10 +487,10 @@ hashtable_apply_to_all_payloads(hashtable_t *table, void (*apply_func)(void *pay
 }
 
 void
-hashtable_apply_to_all_payloads_user_data(hashtable_t *table,
-                                          void (*apply_func)(void *payload,
-                                                             void *user_data),
-                                          void *user_data)
+drhashtable_apply_to_all_payloads_user_data(hashtable_t *table,
+                                            void (*apply_func)(void *payload,
+                                                               void *user_data),
+                                            void *user_data)
 {
     DR_ASSERT_MSG(apply_func != NULL, "The apply_func ptr cannot be NULL.");
     uint i;
@@ -505,7 +505,7 @@ hashtable_apply_to_all_payloads_user_data(hashtable_t *table,
 }
 
 void
-hashtable_apply_to_all_key_payload_pairs_user_data(
+drhashtable_apply_to_all_key_payload_pairs_user_data(
     hashtable_t *table, void (*apply_func)(void *key, void *payload, void *user_data),
     void *user_data)
 {
@@ -518,7 +518,7 @@ hashtable_apply_to_all_key_payload_pairs_user_data(
 }
 
 static void
-hashtable_clear_internal(hashtable_t *table)
+drhashtable_clear_internal(hashtable_t *table)
 {
     uint i;
     for (i = 0; i < HASHTABLE_SIZE(table->table_bits); i++) {
@@ -540,21 +540,21 @@ hashtable_clear_internal(hashtable_t *table)
 }
 
 void
-hashtable_clear(hashtable_t *table)
+drhashtable_clear(hashtable_t *table)
 {
     if (table->synch)
         dr_mutex_lock(table->lock);
-    hashtable_clear_internal(table);
+    drhashtable_clear_internal(table);
     if (table->synch)
         dr_mutex_unlock(table->lock);
 }
 
 void
-hashtable_delete(hashtable_t *table)
+drhashtable_delete(hashtable_t *table)
 {
     if (table->synch)
         dr_mutex_lock(table->lock);
-    hashtable_clear_internal(table);
+    drhashtable_clear_internal(table);
     hash_free(table->table,
               (size_t)HASHTABLE_SIZE(table->table_bits) * sizeof(hash_entry_t *));
     table->table = NULL;
@@ -578,7 +578,7 @@ hashtable_delete(hashtable_t *table)
  * entries (key followed by payload) collapsed into an array.
  *
  * Note that we assume the caller is synchronizing across the call to
- * hashtable_persist_size() and hashtable_persist().  If these
+ * drhashtable_persist_size() and drhashtable_persist().  If these
  * are called using DR's persistence interface, DR guarantees
  * synchronization.
  *
@@ -603,8 +603,8 @@ hash_write_file(file_t fd, void *ptr, size_t sz)
 }
 
 size_t
-hashtable_persist_size(void *drcontext, hashtable_t *table, size_t entry_size,
-                       void *perscxt, hasthable_persist_flags_t flags)
+drhashtable_persist_size(void *drcontext, hashtable_t *table, size_t entry_size,
+                         void *perscxt, hasthable_persist_flags_t flags)
 {
     uint count = 0;
     if (table->hashtype == HASH_INTPTR &&
@@ -630,10 +630,10 @@ hashtable_persist_size(void *drcontext, hashtable_t *table, size_t entry_size,
         }
     } else
         count = table->entries;
-    /* we could have an OUT count param that user must pass to hashtable_persist,
+    /* we could have an OUT count param that user must pass to drhashtable_persist,
      * but that's actually a pain for the user when persisting multiple tables,
-     * and usage should always call hashtable_persist() right after calling
-     * hashtable_persist_size().
+     * and usage should always call drhashtable_persist() right after calling
+     * drhashtable_persist_size().
      */
     table->persist_count = count;
     return sizeof(count) +
@@ -642,8 +642,8 @@ hashtable_persist_size(void *drcontext, hashtable_t *table, size_t entry_size,
 }
 
 bool
-hashtable_persist(void *drcontext, hashtable_t *table, size_t entry_size, file_t fd,
-                  void *perscxt, hasthable_persist_flags_t flags)
+drhashtable_persist(void *drcontext, hashtable_t *table, size_t entry_size, file_t fd,
+                    void *perscxt, hasthable_persist_flags_t flags)
 {
     uint i;
     ptr_uint_t start = 0;
@@ -692,9 +692,9 @@ hashtable_persist(void *drcontext, hashtable_t *table, size_t entry_size, file_t
  * freeing and can avoid freeing a payload in the mmap.
  */
 bool
-hashtable_resurrect(void *drcontext, byte **map DR_PARAM_INOUT, hashtable_t *table,
-                    size_t entry_size, void *perscxt, hasthable_persist_flags_t flags,
-                    bool (*process_payload)(void *key, void *payload, ptr_int_t shift))
+drhashtable_resurrect(void *drcontext, byte **map DR_PARAM_INOUT, hashtable_t *table,
+                      size_t entry_size, void *perscxt, hasthable_persist_flags_t flags,
+                      bool (*process_payload)(void *key, void *payload, ptr_int_t shift))
 {
     uint i;
     ptr_uint_t stored_start = 0;
@@ -731,7 +731,7 @@ hashtable_resurrect(void *drcontext, byte **map DR_PARAM_INOUT, hashtable_t *tab
         if (process_payload != NULL) {
             if (!process_payload(key, toadd, shift_amt))
                 return false;
-        } else if (!hashtable_add(table, key, toadd))
+        } else if (!drhashtable_add(table, key, toadd))
             return false;
     }
     return true;

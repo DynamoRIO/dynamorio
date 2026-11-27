@@ -51,7 +51,7 @@
 #include "drreg.h"
 #include "drbbdup.h"
 #include "drx.h"
-#include "hashtable.h"
+#include "drhashtable.h"
 
 /* Start counting once a bb has been executed at least 1000 times. */
 #define HIT_THRESHOLD 1000
@@ -90,7 +90,7 @@ event_exit(void)
 #endif /* SHOW_RESULTS */
 
     /* Delete hit count table. */
-    hashtable_delete(&hit_count_table);
+    drhashtable_delete(&hit_count_table);
 
     dr_raw_tls_cfree(tls_raw_offset, 1);
     drbbdup_exit();
@@ -105,14 +105,14 @@ set_up_bb_dups(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
 {
     /* Init hit count. */
     app_pc bb_pc = instr_get_app_pc(instrlist_first_app(bb));
-    hashtable_lock(&hit_count_table);
-    if (hashtable_lookup(&hit_count_table, bb_pc) == NULL) {
+    drhashtable_lock(&hit_count_table);
+    if (drhashtable_lookup(&hit_count_table, bb_pc) == NULL) {
         /* If hit count is not mapped to this bb, then add a new count to the table. */
         uint *hit_count = dr_global_alloc(sizeof(uint));
         *hit_count = HIT_THRESHOLD;
-        hashtable_add(&hit_count_table, bb_pc, hit_count);
+        drhashtable_add(&hit_count_table, bb_pc, hit_count);
     }
-    hashtable_unlock(&hit_count_table);
+    drhashtable_unlock(&hit_count_table);
 
     /* Enable duplication for all basic blocks. */
     *enable_dups = true;
@@ -149,11 +149,11 @@ static void
 encode(app_pc bb_pc)
 {
     bool is_hot;
-    hashtable_lock(&hit_count_table);
-    uint *hit_count = hashtable_lookup(&hit_count_table, bb_pc);
+    drhashtable_lock(&hit_count_table);
+    uint *hit_count = drhashtable_lookup(&hit_count_table, bb_pc);
     DR_ASSERT_MSG(hit_count != NULL, "hit count must be present");
     is_hot = *hit_count == 0;
-    hashtable_unlock(&hit_count_table);
+    drhashtable_unlock(&hit_count_table);
 
     byte *base = dr_get_dr_segment_base(tls_raw_reg);
     uintptr_t *runtime_case = (uintptr_t *)(base + tls_raw_offset);
@@ -175,12 +175,12 @@ register_hit(app_pc bb_pc)
     /* Decrement the hit count. Once it reaches zero,
      * basic block is considered as hot.
      */
-    hashtable_lock(&hit_count_table);
-    uint *hit_count = hashtable_lookup(&hit_count_table, bb_pc);
+    drhashtable_lock(&hit_count_table);
+    uint *hit_count = drhashtable_lookup(&hit_count_table, bb_pc);
     DR_ASSERT_MSG(hit_count != NULL, "hit count must be present");
     DR_ASSERT_MSG(hit_count > 0, "bb cannot be hot");
     (*hit_count)--;
-    hashtable_unlock(&hit_count_table);
+    drhashtable_unlock(&hit_count_table);
 }
 
 static void
@@ -241,9 +241,9 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     /* register events */
     drmgr_register_exit_event(event_exit);
 
-    hashtable_init_ex(&hit_count_table, HASH_BITS, HASH_INTPTR, false /*!strdup*/,
-                      false /*synchronization is external*/, destroy_hit_count, NULL,
-                      NULL);
+    drhashtable_init_ex(&hit_count_table, HASH_BITS, HASH_INTPTR, false /*!strdup*/,
+                        false /*synchronization is external*/, destroy_hit_count, NULL,
+                        NULL);
 
     /* Initialise an addressable TLS slot to contain the runtime case encoding. */
     if (!dr_raw_tls_calloc(&tls_raw_reg, &tls_raw_offset, 1 /* num of slots */, 0))

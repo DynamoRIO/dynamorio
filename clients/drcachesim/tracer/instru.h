@@ -49,7 +49,7 @@
 #include "drvector.h"
 #include "raw2trace_shared.h"
 #include "trace_entry.h"
-#include "hashtable.h"
+#include "drhashtable.h"
 
 namespace dynamorio {
 namespace drmemtrace {

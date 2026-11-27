@@ -114,27 +114,28 @@ drmf_status_t
 drsyscall_os_init(void *drcontext)
 {
     uint i;
-    hashtable_init_ex(&systable, SYSTABLE_HASH_BITS, HASH_INTPTR, false /*!strdup*/,
-                      false /*!synch*/, NULL, sysnum_hash, sysnum_cmp);
+    drhashtable_init_ex(&systable, SYSTABLE_HASH_BITS, HASH_INTPTR, false /*!strdup*/,
+                        false /*!synch*/, NULL, sysnum_hash, sysnum_cmp);
 
-    hashtable_init_ex(&secondary_systable, SECONDARY_SYSTABLE_HASH_BITS, HASH_INTPTR,
-                      false /*!strdup*/, false /*!synch*/, NULL, sysnum_hash, sysnum_cmp);
+    drhashtable_init_ex(&secondary_systable, SECONDARY_SYSTABLE_HASH_BITS, HASH_INTPTR,
+                        false /*!strdup*/, false /*!synch*/, NULL, sysnum_hash,
+                        sysnum_cmp);
 
-    hashtable_init(&name2num_table, NAME2NUM_TABLE_HASH_BITS, HASH_STRING,
-                   false /*!strdup*/);
+    drhashtable_init(&name2num_table, NAME2NUM_TABLE_HASH_BITS, HASH_STRING,
+                     false /*!strdup*/);
 
     dr_recurlock_lock(systable_lock);
     for (i = 0; i < count_syscall_info; i++) {
         syscall_info[i].num.number = UNPACK_NATIVE(syscall_info[i].num.number);
         if (syscall_info[i].num.number != -1) {
             IF_DEBUG(bool ok =)
-            hashtable_add(&systable, (void *)&syscall_info[i].num,
-                          (void *)&syscall_info[i]);
+            drhashtable_add(&systable, (void *)&syscall_info[i].num,
+                            (void *)&syscall_info[i]);
             ASSERT(ok, "no dups");
 
             IF_DEBUG(ok =)
-            hashtable_add(&name2num_table, (void *)syscall_info[i].name,
-                          (void *)&syscall_info[i].num);
+            drhashtable_add(&name2num_table, (void *)syscall_info[i].name,
+                            (void *)&syscall_info[i].num);
             ASSERT(ok || strcmp(syscall_info[i].name, "ni_syscall") == 0, "no dups");
         }
     }
@@ -145,10 +146,10 @@ drsyscall_os_init(void *drcontext)
         syscall_info_t *info = &syscall_ioctl_info[i];
         info->num.number = UNPACK_NATIVE(info->num.number);
         IF_DEBUG(bool ok =)
-        hashtable_add(&secondary_systable, (void *)&info->num, (void *)info);
+        drhashtable_add(&secondary_systable, (void *)&info->num, (void *)info);
         ASSERT(ok, "no dups");
         IF_DEBUG(ok =)
-        hashtable_add(&name2num_table, (void *)info->name, (void *)&info->num);
+        drhashtable_add(&name2num_table, (void *)info->name, (void *)&info->num);
         ASSERT(ok, "no dups");
     }
     dr_recurlock_unlock(systable_lock);
@@ -158,9 +159,9 @@ drsyscall_os_init(void *drcontext)
 void
 drsyscall_os_exit(void)
 {
-    hashtable_delete(&systable);
-    hashtable_delete(&secondary_systable);
-    hashtable_delete(&name2num_table);
+    drhashtable_delete(&systable);
+    drhashtable_delete(&secondary_systable);
+    drhashtable_delete(&name2num_table);
 }
 
 void
@@ -182,7 +183,7 @@ bool
 os_syscall_get_num(const char *name, drsys_sysnum_t *num_out DR_PARAM_OUT)
 {
     drsys_sysnum_t *num =
-        (drsys_sysnum_t *)hashtable_lookup(&name2num_table, (void *)name);
+        (drsys_sysnum_t *)drhashtable_lookup(&name2num_table, (void *)name);
     if (num != NULL) {
         *num_out = *num;
         return true;

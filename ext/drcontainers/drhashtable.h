@@ -33,11 +33,11 @@
 
 /* Containers DynamoRIO Extension: Hashtable */
 
-#ifndef _HASHTABLE_H_
-#define _HASHTABLE_H_
+#ifndef _DRHASHTABLE_H_
+#define _DRHASHTABLE_H_
 
 /**
- * @file hashtable.h
+ * @file drhashtable.h
  * @brief Header for DynamoRIO Hashtable Extension
  */
 
@@ -61,7 +61,7 @@ typedef enum {
     HASH_STRING_NOCASE, /**< A case-insensitive string */
     /**
      * A custom key.  Hash and compare operations must be provided
-     * in hashtable_init_ex().  The hash operation can return a full
+     * in drhashtable_init_ex().  The hash operation can return a full
      * uint, as its result will be truncated via a mod of the
      * hash key bit size.  This allows for resizing the table
      * without changing the hash operation.
@@ -82,7 +82,7 @@ typedef struct _hashtable_config_t {
     uint resize_threshold; /**< Resize the table at this % full */
     /**
      * Called whenever an entry is removed, with the key passed in.  If "str_dup" is set
-     * to true in hashtable_init() or hashtable_init_ex(), this field is ignored.
+     * to true in drhashtable_init() or drhashtable_init_ex(), this field is ignored.
      */
     void (*free_key_func)(void *);
 } hashtable_config_t;
@@ -114,19 +114,19 @@ stri_eq(const char *s1, const char *s2);
 
 /**
  * The hashtable has parametrized heap and assert routines for flexibility.
- * This routine must be called BEFORE any other hashtable_ routine; else,
+ * This routine must be called BEFORE any other drhashtable_ routine; else,
  * the defaults will be used.
  */
 void
-hashtable_global_config(void *(*alloc_func)(size_t), void (*free_func)(void *, size_t),
-                        void (*assert_fail_func)(const char *));
+drhashtable_global_config(void *(*alloc_func)(size_t), void (*free_func)(void *, size_t),
+                          void (*assert_fail_func)(const char *));
 
 /**
  * Initializes a hashtable with the given size, hash type, and whether to
  * duplicate string keys.  All operations are synchronized by default.
  */
 void
-hashtable_init(hashtable_t *table, uint num_bits, hash_type_t hashtype, bool str_dup);
+drhashtable_init(hashtable_t *table, uint num_bits, hash_type_t hashtype, bool str_dup);
 
 /**
  * Initializes a hashtable with the given parameters.
@@ -140,7 +140,7 @@ hashtable_init(hashtable_t *table, uint num_bits, hash_type_t hashtype, bool str
  * @param[in]  str_dup   Whether to duplicate string keys.
  * @param[in]  synch     Whether to synchronize each operation.
  *   Even when \p synch is false, the hashtable's lock is initialized and can
- *   be used via hashtable_lock() and hashtable_unlock(), allowing the caller
+ *   be used via drhashtable_lock() and drhashtable_unlock(), allowing the caller
  *   to extend synchronization beyond just the operation in question, to
  *   include accessing a looked-up payload, e.g.
  * @param[in]  free_payload_func   A callback for freeing each payload.
@@ -156,27 +156,27 @@ hashtable_init(hashtable_t *table, uint num_bits, hash_type_t hashtype, bool str
  *   For HASH_CUSTOM, a callback must be provided.
  *
  * This hashtable uses closed addressing.
- * For an open-address hashtable, consider dr_hashtable_create().
+ * For an open-address hashtable, consider dr_openaddress_hashtable_create().
  */
 void
-hashtable_init_ex(hashtable_t *table, uint num_bits, hash_type_t hashtype, bool str_dup,
-                  bool synch, void (*free_payload_func)(void *),
-                  uint (*hash_key_func)(void *), bool (*cmp_key_func)(void *, void *));
+drhashtable_init_ex(hashtable_t *table, uint num_bits, hash_type_t hashtype, bool str_dup,
+                    bool synch, void (*free_payload_func)(void *),
+                    uint (*hash_key_func)(void *), bool (*cmp_key_func)(void *, void *));
 
 /** Configures optional parameters of hashtable operation. */
 void
-hashtable_configure(hashtable_t *table, hashtable_config_t *config);
+drhashtable_configure(hashtable_t *table, hashtable_config_t *config);
 
 /** Returns the payload for the given key, or NULL if the key is not found */
 void *
-hashtable_lookup(hashtable_t *table, void *key);
+drhashtable_lookup(hashtable_t *table, void *key);
 
 /**
  * Adds a new entry.  Returns false if an entry for \p key already exists.
  * \note Never use NULL as a payload as that is used for a lookup failure.
  */
 bool
-hashtable_add(hashtable_t *table, void *key, void *payload);
+drhashtable_add(hashtable_t *table, void *key, void *payload);
 
 /**
  * Adds a new entry, replacing an existing entry if any.
@@ -184,7 +184,7 @@ hashtable_add(hashtable_t *table, void *key, void *payload);
  * \note Never use NULL as a payload as that is used for a lookup failure.
  */
 void *
-hashtable_add_replace(hashtable_t *table, void *key, void *payload);
+drhashtable_add_replace(hashtable_t *table, void *key, void *payload);
 
 /**
  * Removes the entry for key.  If free_payload_func was specified calls it
@@ -192,7 +192,7 @@ hashtable_add_replace(hashtable_t *table, void *key, void *payload);
  * exists.
  */
 bool
-hashtable_remove(hashtable_t *table, void *key);
+drhashtable_remove(hashtable_t *table, void *key);
 
 /**
  * Removes all entries with key in [start..end).  If free_payload_func
@@ -200,7 +200,7 @@ hashtable_remove(hashtable_t *table, void *key);
  * false if no such entry exists.
  */
 bool
-hashtable_remove_range(hashtable_t *table, void *start, void *end);
+drhashtable_remove_range(hashtable_t *table, void *start, void *end);
 
 /**
  * Calls the \p apply_func for each payload.
@@ -210,11 +210,11 @@ hashtable_remove_range(hashtable_t *table, void *start, void *end);
  * hashtable being iterated.
  */
 void
-hashtable_apply_to_all_payloads(hashtable_t *table, void (*apply_func)(void *payload));
+drhashtable_apply_to_all_payloads(hashtable_t *table, void (*apply_func)(void *payload));
 
 /**
  * Calls the \p apply_func for each payload with user data.
- * Similar to hashtable_apply_to_all_payloads().
+ * Similar to drhashtable_apply_to_all_payloads().
  * @param table The hashtable to apply the function.
  * @param apply_func A pointer to a function that is called for all payloads
  * stored in the map. It also takes user data as a parameter. The function is not allowed
@@ -222,14 +222,14 @@ hashtable_apply_to_all_payloads(hashtable_t *table, void (*apply_func)(void *pay
  * @param user_data User data that is available when iterating through payloads.
  */
 void
-hashtable_apply_to_all_payloads_user_data(hashtable_t *table,
-                                          void (*apply_func)(void *payload,
-                                                             void *user_data),
-                                          void *user_data);
+drhashtable_apply_to_all_payloads_user_data(hashtable_t *table,
+                                            void (*apply_func)(void *payload,
+                                                               void *user_data),
+                                            void *user_data);
 
 /**
  * Calls the \p apply_func for each key-payload pair with user data.
- * Similar to hashtable_apply_to_all_payloads_user_data().
+ * Similar to drhashtable_apply_to_all_payloads_user_data().
  * @param table The hashtable to apply the function.
  * @param apply_func A pointer to a function that is called for all key-payload pairs
  * stored in the map. It also takes user data as a parameter. The function is not allowed
@@ -237,7 +237,7 @@ hashtable_apply_to_all_payloads_user_data(hashtable_t *table,
  * @param user_data User data that is available when iterating through payloads.
  */
 void
-hashtable_apply_to_all_key_payload_pairs_user_data(
+drhashtable_apply_to_all_key_payload_pairs_user_data(
     hashtable_t *table, void (*apply_func)(void *key, void *payload, void *user_data),
     void *user_data);
 
@@ -246,7 +246,7 @@ hashtable_apply_to_all_key_payload_pairs_user_data(
  * calls it for each payload.
  */
 void
-hashtable_clear(hashtable_t *table);
+drhashtable_clear(hashtable_t *table);
 
 /**
  * Destroys all storage for the table, including all entries and the
@@ -254,15 +254,15 @@ hashtable_clear(hashtable_t *table);
  * payload.
  */
 void
-hashtable_delete(hashtable_t *table);
+drhashtable_delete(hashtable_t *table);
 
 /** Acquires the hashtable lock. */
 void
-hashtable_lock(hashtable_t *table);
+drhashtable_lock(hashtable_t *table);
 
 /** Releases the hashtable lock. */
 void
-hashtable_unlock(hashtable_t *table);
+drhashtable_unlock(hashtable_t *table);
 
 /**
  * Returns true iff the hashtable lock is owned by the calling thread.
@@ -270,44 +270,44 @@ hashtable_unlock(hashtable_t *table);
  * In release builds it always returns true.
  */
 bool
-hashtable_lock_self_owns(hashtable_t *table);
+drhashtable_lock_self_owns(hashtable_t *table);
 
 /* DR_API EXPORT BEGIN */
 /** Flags to control hashtable persistence */
 typedef enum {
     /**
-     * Valid for hashtable_persist() and hashtable_resurrect() and the
+     * Valid for drhashtable_persist() and drhashtable_resurrect() and the
      * same value must be passed to both.  Treats payloads as pointers
      * to allocated memory.  By default payloads are treated as
      * inlined values if this flag is not set.
      */
     DR_HASHPERS_PAYLOAD_IS_POINTER = 0x0001,
     /**
-     * Valid for hashtable_resurrect().  Only applies if
+     * Valid for drhashtable_resurrect().  Only applies if
      * DR_HASHPERS_KEY_IS_POINTER.  Performs a shallow clone of the
      * payload upon resurrection.  If this flag is not set, the
      * payloads will remain pointing into the mapped file.
      */
     DR_HASHPERS_CLONE_PAYLOAD = 0x0002,
     /**
-     * Valid for hashtable_persist_size(), hashtable_persist(), and
-     * hashtable_resurrect(), and the same value must be passed to all.
+     * Valid for drhashtable_persist_size(), drhashtable_persist(), and
+     * drhashtable_resurrect(), and the same value must be passed to all.
      * Only applies if keys are of type HASH_INTPTR.  Adjusts each key by
      * the difference in the persist-time start address of the persisted
      * code region and the resurrected start address.  The value of this
-     * flag must match across all three calls hashtable_persist_size(),
-     * hashtable_persist(), and hashtable_resurrect().
+     * flag must match across all three calls drhashtable_persist_size(),
+     * drhashtable_persist(), and drhashtable_resurrect().
      */
     DR_HASHPERS_REBASE_KEY = 0x0004,
     /**
-     * Valid for hashtable_persist_size() and hashtable_persist() and
+     * Valid for drhashtable_persist_size() and drhashtable_persist() and
      * the same value must be passed to both.  Only applies if keys
      * are of type HASH_INTPTR.  Only persists entries whose key is
      * in the address range being persisted.
      */
     DR_HASHPERS_ONLY_IN_RANGE = 0x0008,
     /**
-     * Valid for hashtable_persist_size() and hashtable_persist() and
+     * Valid for drhashtable_persist_size() and drhashtable_persist() and
      * the same value must be passed to both.  Only applies if keys
      * are of type HASH_INTPTR.  Only persists entries for which
      * dr_fragment_persistable() returns true.
@@ -321,7 +321,7 @@ typedef enum {
  * shallow copy) for loading into a live table later.
  *
  * These routines assume that the caller is synchronizing across the
- * call to hashtable_persist_size() and hashtable_persist().  If these
+ * call to drhashtable_persist_size() and drhashtable_persist().  If these
  * are called using DR's persistence interface, DR guarantees
  * synchronization.
  *
@@ -332,20 +332,20 @@ typedef enum {
  * @param[in] flags       Controls various aspects of the persistence
  */
 size_t
-hashtable_persist_size(void *drcontext, hashtable_t *table, size_t entry_size,
-                       void *perscxt, hasthable_persist_flags_t flags);
+drhashtable_persist_size(void *drcontext, hashtable_t *table, size_t entry_size,
+                         void *perscxt, hasthable_persist_flags_t flags);
 
 /**
  * For use persisting a table of single-alloc entries (i.e., via a
  * shallow copy) for loading into a live table later.
  *
  * These routines assume that the caller is synchronizing across the
- * call to hashtable_persist_size() and hashtable_persist().  If these
+ * call to drhashtable_persist_size() and drhashtable_persist().  If these
  * are called using DR's persistence interface, DR guarantees
  * synchronization.
  *
- * hashtable_persist_size() must be called immediately prior to
- * calling hashtable_persist().
+ * drhashtable_persist_size() must be called immediately prior to
+ * calling drhashtable_persist().
  *
  * @param[in] drcontext   The opaque DR context
  * @param[in] table       The table to persist
@@ -355,8 +355,8 @@ hashtable_persist_size(void *drcontext, hashtable_t *table, size_t entry_size,
  * @param[in] flags       Controls various aspects of the persistence
  */
 bool
-hashtable_persist(void *drcontext, hashtable_t *table, size_t entry_size, file_t fd,
-                  void *perscxt, hasthable_persist_flags_t flags);
+drhashtable_persist(void *drcontext, hashtable_t *table, size_t entry_size, file_t fd,
+                    void *perscxt, hasthable_persist_flags_t flags);
 
 /**
  * For use persisting a table of single-alloc entries (i.e., via a
@@ -366,19 +366,19 @@ hashtable_persist(void *drcontext, hashtable_t *table, size_t entry_size, file_t
  *
  * @param[in] drcontext   The opaque DR context
  * @param[in] map         The mapped-in persisted file, pointing at the
- *   data written by hashtable_persist()
+ *   data written by drhashtable_persist()
  * @param[in] table       The live table to add to
  * @param[in] entry_size  The size of each table entry payload
  * @param[in] perscxt     The opaque persistence context from DR's persist events
  * @param[in] flags       Controls various aspects of the persistence
  * @param[in] process_payload  If non-NULL, calls process_payload instead of
- *   hashtable_add.  process_payload can then adjust the paylod and if
- *   it wishes invoke hashtable_add.
+ *   drhashtable_add.  process_payload can then adjust the paylod and if
+ *   it wishes invoke drhashtable_add.
  */
 bool
-hashtable_resurrect(void *drcontext, byte **map /*INOUT*/, hashtable_t *table,
-                    size_t entry_size, void *perscxt, hasthable_persist_flags_t flags,
-                    bool (*process_payload)(void *key, void *payload, ptr_int_t shift));
+drhashtable_resurrect(void *drcontext, byte **map /*INOUT*/, hashtable_t *table,
+                      size_t entry_size, void *perscxt, hasthable_persist_flags_t flags,
+                      bool (*process_payload)(void *key, void *payload, ptr_int_t shift));
 
 /**@}*/ /* end doxygen group */
 
@@ -386,4 +386,4 @@ hashtable_resurrect(void *drcontext, byte **map /*INOUT*/, hashtable_t *table,
 }
 #endif
 
-#endif /* _HASHTABLE_H_ */
+#endif /* _DRHASHTABLE_H_ */

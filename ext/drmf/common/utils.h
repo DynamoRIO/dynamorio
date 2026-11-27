@@ -40,7 +40,7 @@ extern "C" {
 #    endif
 #endif
 
-#include "hashtable.h"
+#include "drhashtable.h"
 #include "dr_config.h" /* for DR_MAX_OPTIONS_LENGTH */
 #include "dr_tools.h"
 #include "drmgr.h"

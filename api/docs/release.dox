@@ -158,6 +158,13 @@ changes:
    a #drvector_t. It currently contains #drvector_config_t.zero_alloc that when set to
    true sets every entry pointer of the drvector's storage to 0 using memset().
  - Added #dr_mem_info_t.is_shared on Linux to identify shared mappings.
+ - Renamed the drcontainers hashtable header from \p hashtable.h to
+   \p drhashtable.h and all drcontainers hashtable functions from \p hashtable_* to
+   \p drhashtable_* to avoid header and global symbol conflicts when statically linking
+   with other libraries.
+ - Renamed the core open-address hashtable API from \p dr_hashtable_* to
+   \p dr_openaddress_hashtable_* to distinguish it from drcontainers
+   \p drhashtable_*.
 
 The changes between version \DR_VERSION and 11.3.0 include the following minor
 compatibility changes:
@@ -281,8 +288,9 @@ Further non-compatibility-affecting changes include:
    PC in the trace, which is from the next instruction or the next
    #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT marker, whichever comes
    first.
- - Added a new #hashtable_t iterator hashtable_apply_to_all_key_payload_pairs_user_data()
-   that exposes the key of every element in the table.
+ - Added a new #hashtable_t iterator
+   drhashtable_apply_to_all_key_payload_pairs_user_data() that exposes the key of
+   every element in the table.
  - Added a new DynamoRIO client "DrPoints" in clients/drpoints to compute the Basic Block
    Vectors of a program given a user-defined instruction interval.
  - Added a new drmemtrace option -exit_after_instrs which applies to all

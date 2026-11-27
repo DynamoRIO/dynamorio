@@ -104,7 +104,7 @@ physaddr_t::~physaddr_t()
                num_hit_cache_, num_hit_table_, num_miss_);
     }
     if (v2p_ != nullptr)
-        dr_hashtable_destroy(drcontext_, v2p_);
+        dr_openaddress_hashtable_destroy(drcontext_, v2p_);
 #endif
 }
 
@@ -162,8 +162,8 @@ physaddr_t::init()
     // We record the context so we can pass the same one in our destructor, which
     // might be called from a different thread.
     drcontext_ = dr_get_current_drcontext();
-    v2p_ = dr_hashtable_create(drcontext_, V2P_INITIAL_BITS, 20,
-                               /*synch=*/false, nullptr);
+    v2p_ = dr_openaddress_hashtable_create(drcontext_, V2P_INITIAL_BITS, 20,
+                                           /*synch=*/false, nullptr);
 
     // We avoid std::ostringstream to avoid malloc use for static linking.
     constexpr int MAX_PAGEMAP_FNAME = 64;
@@ -189,7 +189,7 @@ physaddr_t::clear_cache(void *drcontext)
 {
 #ifdef LINUX
     memset(last_vpage_, static_cast<char>(PAGE_INVALID), sizeof(last_vpage_));
-    dr_hashtable_clear(drcontext, v2p_);
+    dr_openaddress_hashtable_clear(drcontext, v2p_);
 #endif
 }
 
@@ -228,7 +228,7 @@ physaddr_t::virtual2physical(void *drcontext, addr_t virt, DR_PARAM_OUT addr_t *
         }
         // XXX i#1703: add (debug-build-only) internal stats here and
         // on cache_t::request() fastpath.
-        void *lookup = dr_hashtable_lookup(drcontext, v2p_, vpage);
+        void *lookup = dr_openaddress_hashtable_lookup(drcontext, v2p_, vpage);
         if (lookup != nullptr) {
             addr_t ppage = reinterpret_cast<addr_t>(lookup);
             // Restore a 0 payload.
@@ -277,8 +277,9 @@ physaddr_t::virtual2physical(void *drcontext, addr_t virt, DR_PARAM_OUT addr_t *
     // Despite the kernel handing out a 0 PFN for unprivileged reads, 0 is a valid
     // possible PFN.
     // Store 0 as a sentinel since 0 means no entry.
-    dr_hashtable_add(drcontext, v2p_, vpage,
-                     reinterpret_cast<void *>(ppage == 0 ? ZERO_ADDR_PAYLOAD : ppage));
+    dr_openaddress_hashtable_add(
+        drcontext, v2p_, vpage,
+        reinterpret_cast<void *>(ppage == 0 ? ZERO_ADDR_PAYLOAD : ppage));
     *phys = ppage + page_offs(virt);
     last_ppage_[cache_idx_] = ppage;
     last_vpage_[cache_idx_] = vpage;

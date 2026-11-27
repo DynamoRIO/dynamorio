@@ -42,7 +42,7 @@
 #include <atomic>
 
 #include "dr_api.h"
-#include "hashtable.h"
+#include "drhashtable.h"
 #include "trace_entry.h"
 #include "utils.h"
 
