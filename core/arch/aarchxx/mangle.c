@@ -4479,16 +4479,16 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist, bool s2ro, uint flag
     insert_mov_immed_ptrsz(dcontext, (ptr_int_t)start_pc, opnd_create_reg(app_ptr_reg),
                            ilist, instr, NULL, NULL);
 
-    const bool loop_needed = app_size > AARCH64_INSTR_SIZE * 3;
+    ASSERT(app_size % AARCH64_INSTR_SIZE == 0);
+
+    const ptr_uint_t num_iterations = app_size / (AARCH64_INSTR_SIZE * 2);
+    const bool loop_needed = num_iterations > 1;
 
     if (loop_needed) {
-        const ptr_uint_t num_iterations = app_size / (AARCH64_INSTR_SIZE * 2);
         insert_mov_immed_ptrsz(dcontext, num_iterations,
                                opnd_create_reg(loop_counter_reg), ilist, instr, NULL,
                                NULL);
     }
-
-    ASSERT(app_size % AARCH64_INSTR_SIZE == 0);
 
     if (app_size > AARCH64_INSTR_SIZE) {
         instr_t *loop = NULL;
