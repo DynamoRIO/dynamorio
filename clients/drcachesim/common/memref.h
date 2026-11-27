@@ -35,6 +35,7 @@
 #ifndef _MEMREF_H_
 #define _MEMREF_H_
 
+#include <assert.h>
 #include <stdint.h>
 #include <stddef.h> // for size_t
 #include "trace_entry.h"
@@ -117,6 +118,25 @@ tid_from_memref_tid(memref_tid_t tid)
     return tid & ((1ULL << MEMREF_ID_WORKLOAD_SHIFT) - 1);
 }
 
+/**
+ * The physical location of one virtual-to-physical translation touched by a data
+ * access or instruction fetch.
+ */
+struct _memref_phys_t {
+    /**
+     * The physical address of the first byte touched in this translation, or
+     * #MEMREF_PHYS_ADDR_UNKNOWN if the trace has no translation for it.
+     */
+    addr_t addr;
+    /**
+     * The size of the aligned region covered by this translation.
+     */
+    uint64_t translation_size;
+};
+
+/** The value of _memref_phys_t.addr when a translation is not available. */
+static constexpr addr_t MEMREF_PHYS_ADDR_UNKNOWN = ~static_cast<addr_t>(0);
+
 /** A trace entry representing a data load, store, or prefetch. */
 struct _memref_data_t {
     trace_type_t type; /**< #TRACE_TYPE_READ, #TRACE_TYPE_WRITE, or type_is_prefetch(). */
@@ -125,6 +145,24 @@ struct _memref_data_t {
     addr_t addr;       /**< Address of data being loaded or stored. */
     size_t size;       /**< Size of data being loaded or stored. */
     addr_t pc;         /**< Program counter of instruction performing load or store. */
+    /**
+     * The first translation touched by the memory access.
+     * Its addr is the physical address of addr.
+     */
+    struct _memref_phys_t phys0;
+    /**
+     * The number of translations the memory access spans, or 0 if the trace has no
+     * virtual-to-physical information. Translations are counted at the granularity
+     * of their translation_size.
+     */
+    uint32_t num_translations;
+    /**
+     * The remaining num_translations - 1 translations, or nullptr if
+     * num_translations <= 1. Owned by the #dynamorio::drmemtrace::reader_t that
+     * produced this record and only valid until it produces the next record. Use
+     * memref_deep_copy() to keep records valid for longer and avoid assignment copies.
+     */
+    const struct _memref_phys_t *phys_rest;
 };
 
 /** A trace entry representing an instruction fetch. */
@@ -155,6 +193,20 @@ struct _memref_instr_t {
      * present in trace version #TRACE_ENTRY_VERSION_BRANCH_INFO and higher.
      */
     addr_t indirect_branch_target;
+    /**
+     * The first translation touched by the instruction; its addr is the physical
+     * address of addr.
+     */
+    struct _memref_phys_t phys0;
+    /** The number of translations the instruction spans, or 0 if not translated. */
+    uint32_t num_translations;
+    /**
+     * The remaining num_translations - 1 translations, or nullptr if
+     * num_translations <= 1. Owned by the #dynamorio::drmemtrace::reader_t that
+     * produced this record and only valid until it produces the next record. Use
+     * memref_deep_copy() to keep records valid for longer and avoid assignment copies.
+     */
+    const struct _memref_phys_t *phys_rest;
 };
 
 /** A trace entry representing a software-requested explicit cache flush. */
@@ -214,6 +266,13 @@ constexpr int MEMREF_T_SIZE_BYTES = sizeof(_memref_instr_t);
  * Note that #memref_t is **not** initialized by default.  The _raw_bytes array
  * is added to the union as its first member to make sure a #memref_t object
  * can be fully initialized if desired, for example `memref_t memref = {};`.
+ *
+ * A #memref_t is not fully self-contained: the phys_rest field of the data and
+ * instruction structures points to storage owned by the
+ * #dynamorio::drmemtrace::reader_t that produced the record, which is only valid
+ * until the reader produces the next record. A plain copy of a #memref_t therefore
+ * shares that storage, so any copy kept beyond the next record should be made with
+ * memref_deep_copy(), which copies phys_rest into storage provided by the caller.
  */
 typedef union _memref_t {
     // The C standard allows us to reference the type field of any of these, and the
@@ -244,6 +303,89 @@ memref_has_pc(const memref_t &memref, uint64_t &pc)
         return true;
     }
     return false;
+}
+
+/**
+ * Returns the number of translations touched by a data access or instruction fetch,
+ * or 0 for any other record or if the trace has no virtual-to-physical information.
+ */
+static inline uint32_t
+memref_num_translations(const memref_t &memref)
+{
+    if (is_any_instr_type(memref.instr.type))
+        return memref.instr.num_translations;
+    if (memref.data.type == TRACE_TYPE_READ || memref.data.type == TRACE_TYPE_WRITE ||
+        type_is_prefetch(memref.data.type))
+        return memref.data.num_translations;
+    return 0;
+}
+
+/**
+ * Returns the i-th translation touched by a data access or instruction fetch, where
+ * i < memref_num_translations(memref).
+ */
+static inline const _memref_phys_t &
+memref_phys(const memref_t &memref, uint32_t i)
+{
+    assert(i < memref_num_translations(memref));
+    const bool is_instr = is_any_instr_type(memref.instr.type);
+    if (i == 0)
+        return is_instr ? memref.instr.phys0 : memref.data.phys0;
+    const _memref_phys_t *rest =
+        is_instr ? memref.instr.phys_rest : memref.data.phys_rest;
+    assert(rest != nullptr);
+    return rest[i - 1];
+}
+
+/**
+ * Copies \p src into \p dst such that \p dst stays valid after the reader produces
+ * the next record. Fields of \p src that point to storage owned by the reader are
+ * deep-copied into storage that the caller provides through the same fields of
+ * \p dst, set before the call in the union member matching the type of \p src (e.g.,
+ * dst.instr for an instruction fetch and dst.data for a data access). Start from a
+ * zero-initialized \p dst (`memref_t dst = {};`) so that any such field the caller
+ * does not set is nullptr. These fields are:
+ *  - phys_rest: either nullptr, or writable storage with room for at least
+ *    memref_num_translations(\p src) - 1 entries, into which the entries of \p src's
+ *    phys_rest are copied. It must not be \p src's own phys_rest. If nullptr (or if
+ *    \p src is itself a copy made without phys_rest storage), the entries are not
+ *    copied and \p dst's phys_rest is nullptr, but \p dst keeps the real
+ *    num_translations, so only the first translation can be accessed through
+ *    memref_phys().
+ *
+ * \p dst is valid for as long as the storage provided by the caller is.
+ */
+static inline void
+memref_deep_copy(const memref_t &src, memref_t &dst)
+{
+    const bool is_instr = is_any_instr_type(src.instr.type);
+    const uint32_t num_translations = memref_num_translations(src);
+    // Save phys_rest of dst before overwriting it with src.
+    _memref_phys_t *dst_phys_rest = nullptr;
+    const _memref_phys_t *src_phys_rest = nullptr;
+    if (num_translations > 1) {
+        src_phys_rest = is_instr ? src.instr.phys_rest : src.data.phys_rest;
+        dst_phys_rest = const_cast<_memref_phys_t *>(is_instr ? dst.instr.phys_rest
+                                                              : dst.data.phys_rest);
+        // The caller's storage must not be src's own phys_rest, as happens if dst
+        // was assigned from src or is src itself.
+        assert(dst_phys_rest == nullptr || dst_phys_rest != src_phys_rest);
+        // src may itself be a deep copy made without phys_rest storage, in which
+        // case there is nothing to copy.
+        if (src_phys_rest == nullptr)
+            dst_phys_rest = nullptr;
+    }
+    dst = src;
+    if (num_translations <= 1)
+        return;
+    if (dst_phys_rest != nullptr) {
+        for (uint32_t i = 0; i < num_translations - 1; ++i)
+            dst_phys_rest[i] = src_phys_rest[i];
+    }
+    if (is_instr)
+        dst.instr.phys_rest = dst_phys_rest;
+    else
+        dst.data.phys_rest = dst_phys_rest;
 }
 
 static_assert(sizeof(memref_t) == MEMREF_T_SIZE_BYTES,

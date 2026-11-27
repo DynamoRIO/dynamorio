@@ -130,6 +130,8 @@ reader_t::process_input_entry()
         // The trace stream always has the instr fetch first, which we
         // use to obtain the PC for subsequent data references.
         cur_ref_.data.pc = cur_pc_;
+        set_phys_fields(cur_ref_.data.addr, cur_ref_.data.size, cur_ref_.data.phys0,
+                        cur_ref_.data.num_translations, cur_ref_.data.phys_rest);
         break;
     case TRACE_TYPE_ENCODING:
         if (last_encoding_.size + input_entry_->size > MAX_ENCODING_LENGTH) {
@@ -204,6 +206,9 @@ reader_t::process_input_entry()
             cur_ref_.instr.addr = cur_pc_;
             next_pc_ = cur_pc_ + cur_ref_.instr.size;
             prev_instr_addr_ = input_entry_->addr;
+            set_phys_fields(cur_ref_.instr.addr, cur_ref_.instr.size,
+                            cur_ref_.instr.phys0, cur_ref_.instr.num_translations,
+                            cur_ref_.instr.phys_rest);
             if (cur_ref_.instr.type != TRACE_TYPE_INSTR_NO_FETCH)
                 ++cur_instr_count_;
             // Look for encoding bits that belong to this instr.
@@ -264,6 +269,8 @@ reader_t::process_input_entry()
         cur_pc_ = next_pc_;
         cur_ref_.instr.addr = cur_pc_;
         next_pc_ = cur_pc_ + cur_ref_.instr.size;
+        set_phys_fields(cur_ref_.instr.addr, cur_ref_.instr.size, cur_ref_.instr.phys0,
+                        cur_ref_.instr.num_translations, cur_ref_.instr.phys_rest);
         ++cur_instr_count_;
         // input_entry_->size stores the number of instrs in this bundle
         assert(input_entry_->size <= sizeof(input_entry_->length));
@@ -375,6 +382,31 @@ reader_t::process_input_entry()
             chunk_instr_count_ = cur_ref_.marker.marker_value;
         else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_FOOTER)
             skip_chunk_header_.insert(cur_tid_);
+        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS) {
+            last_phys_marker_ = cur_ref_.marker.marker_value;
+            has_last_phys_marker_ = true;
+        } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_VIRTUAL_ADDRESS) {
+            // The TRACE_MARKER_TYPE_PHYSICAL_ADDRESS marker precedes its paired
+            // TRACE_MARKER_TYPE_VIRTUAL_ADDRESS marker.
+            // A TRACE_MARKER_TYPE_VIRTUAL_ADDRESS marker without a preceeding
+            // TRACE_MARKER_TYPE_PHYSICAL_ADDRESS indicates a malformed trace.
+            if (!has_last_phys_marker_) {
+                ERRMSG("Virtual address marker 0x%zx without a preceding physical "
+                       "address marker\n",
+                       static_cast<size_t>(cur_ref_.marker.marker_value));
+                assert(false);
+                at_eof_ = true; // bail
+            } else if (page_size_ > 0) {
+                const addr_t mask = ~static_cast<addr_t>(page_size_ - 1);
+                v2p_map_[cur_ref_.marker.marker_value & mask] = last_phys_marker_ & mask;
+            }
+            has_last_phys_marker_ = false;
+        } else if (cur_ref_.marker.marker_type ==
+                       TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE &&
+                   page_size_ > 0) {
+            const addr_t mask = ~static_cast<addr_t>(page_size_ - 1);
+            v2p_map_[cur_ref_.marker.marker_value & mask] = MEMREF_PHYS_ADDR_UNKNOWN;
+        }
         break;
     case TRACE_TYPE_HEADER:
         // We support complete traces being packaged in archives and then read
@@ -417,6 +449,53 @@ reader_t::process_input_entry()
         kernel_tracker_.update(cur_ref_);
     }
     return have_memref;
+}
+
+addr_t
+reader_t::virt_page_to_phys_page(addr_t virt_page) const
+{
+    const auto it = v2p_map_.find(virt_page);
+    return it == v2p_map_.end() ? MEMREF_PHYS_ADDR_UNKNOWN : it->second;
+}
+
+void
+reader_t::set_phys_fields(addr_t vaddr, size_t size, _memref_phys_t &phys0,
+                          uint32_t &num_translations, const _memref_phys_t *&phys_rest)
+{
+    // XXX i#8290: phys_rest is only valid until the next record. It could instead stay
+    // valid for the reader's lifetime by keeping never-freed arrays in a std::deque,
+    // shared among accesses spanning the same pages via a map.
+    phys_rest = nullptr;
+    // TODO i#8290: Support core-sharded traces. Their inputs can interleave threads
+    // of different processes, so v2p_map_ would need to be tracked per pid.
+    if (v2p_map_.empty() || page_size_ == 0 || size == 0 || core_sharded_) {
+        num_translations = 0;
+        return;
+    }
+    // We split the access at the trace's base page size, the unit in which the tracer
+    // records translations. The reader has no huge page information, so an access that
+    // crosses a base page boundary inside a huge page gets one entry per base page.
+    // Their physical addresses are still correct, as a huge page is physically
+    // contiguous, only translation_size and num_translations differ from the huge page
+    // view.
+    const addr_t page_size = static_cast<addr_t>(page_size_);
+    const addr_t mask = ~(page_size - 1);
+    const addr_t first_page = vaddr & mask;
+    const addr_t last_page = (vaddr + size - 1) & mask;
+    num_translations = static_cast<uint32_t>((last_page - first_page) / page_size + 1);
+    phys0.translation_size = page_size_;
+    phys0.addr = virt_page_to_phys_page(first_page);
+    if (phys0.addr != MEMREF_PHYS_ADDR_UNKNOWN)
+        phys0.addr += vaddr - first_page;
+    if (num_translations == 1)
+        return;
+    phys_rest_scratch_.resize(num_translations - 1);
+    for (uint32_t i = 0; i < num_translations - 1; ++i) {
+        phys_rest_scratch_[i].addr =
+            virt_page_to_phys_page(first_page + (i + 1) * page_size);
+        phys_rest_scratch_[i].translation_size = page_size_;
+    }
+    phys_rest = phys_rest_scratch_.data();
 }
 
 bool
