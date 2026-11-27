@@ -2334,7 +2334,7 @@ mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 } else {
                     /* Zero the upper bits by turning it into a stp where the second
                      * register is wzr.
-                     * stp  src, wzr, -> [stolen_reg_slot]
+                     * stp  src32, wzr, -> [stolen_reg_slot]
                      */
                     if (instr_num_srcs(instr) > 2) {
                         instr_remove_srcs(dcontext, instr, 2, instr_num_srcs(instr));
