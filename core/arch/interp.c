@@ -1593,8 +1593,12 @@ bb_process_fs_ref(dcontext_t *dcontext, build_bb_t *bb)
  * Then whenever before entering code cache, we check if that's the bb
  * has mov_seg. If yes, we will update the information we maintained
  * about the app's fs/gs.
+ * A pop of fs or gs is an update handled the same way, except that it becomes an
+ * update of the stack pointer rather than a nop (i#1833).
  */
-/* check if the basic block building should continue on a mov_seg instr. */
+/* Checks if the basic block building should continue on a mov_seg instr or a pop of
+ * fs or gs.
+ */
 static bool
 bb_process_mov_seg(dcontext_t *dcontext, build_bb_t *bb)
 {
@@ -1603,22 +1607,29 @@ bb_process_mov_seg(dcontext_t *dcontext, build_bb_t *bb)
     if (!INTERNAL_OPTION(mangle_app_seg))
         return true; /* continue bb */
 
-    /* if it is a read, we only need mangle the instruction. */
-    ASSERT(instr_num_srcs(bb->instr) == 1);
-    if (opnd_is_reg(instr_get_src(bb->instr, 0)) &&
-        reg_is_segment(opnd_get_reg(instr_get_src(bb->instr, 0))))
-        return true; /* continue bb */
+    if (instr_get_opcode(bb->instr) == OP_pop) {
+        /* A pop of fs or gs is an update. */
+        seg = instr_push_pop_seg(bb->instr);
+    } else {
+        /* If it is a read, we only need to mangle the instruction. */
+        ASSERT(instr_num_srcs(bb->instr) == 1);
+        if (opnd_is_reg(instr_get_src(bb->instr, 0)) &&
+            reg_is_segment(opnd_get_reg(instr_get_src(bb->instr, 0))))
+            return true; /* continue bb */
 
-    /* it is an update, we need set to be the first instr of bb */
-    ASSERT(instr_num_dsts(bb->instr) == 1);
-    ASSERT(opnd_is_reg(instr_get_dst(bb->instr, 0)));
-    seg = opnd_get_reg(instr_get_dst(bb->instr, 0));
+        /* It is an update, which needs to be the first instr of the bb. */
+        ASSERT(instr_num_dsts(bb->instr) == 1);
+        ASSERT(opnd_is_reg(instr_get_dst(bb->instr, 0)));
+        seg = opnd_get_reg(instr_get_dst(bb->instr, 0));
+    }
     ASSERT(reg_is_segment(seg));
     /* we only need handle fs/gs */
     if (seg != SEG_GS && seg != SEG_FS)
         return true; /* continue bb */
-    /* if no private loader, we only need mangle the non-tls seg */
-    if (seg == IF_X64_ELSE(SEG_FS, SEG_FS) && !INTERNAL_OPTION(private_loader))
+    /* If there is no private loader, we only need to mangle the non-lib-tls seg, as
+     * mangle_mov_seg() and mangle_push_pop_seg() do.
+     */
+    if (seg == LIB_SEG_TLS && !INTERNAL_OPTION(private_loader))
         return true; /* continue bb */
 
     if (bb->instr_start == bb->start_pc) {
@@ -3540,8 +3551,9 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 break;
             }
 #endif
-            /* i#107, opcode mov_seg will be set in decode_cti,
-             * so instr_opcode_valid(bb->instr) is true, and terminates the loop.
+            /* For i#107 and i#1833, decode_cti() sets the opcode of a mov_seg and of a
+             * push or pop of fs or gs, so instr_opcode_valid(bb->instr) is true and
+             * terminates the loop.
              */
         } while (!instr_opcode_valid(bb->instr) && total_instrs <= cur_max_bb_instrs);
 
@@ -3936,7 +3948,10 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         }
 #endif
 #if defined(UNIX) && !defined(DGC_DIAGNOSTICS) && defined(X86)
-        else if (instr_get_opcode(bb->instr) == OP_mov_seg) {
+        else if (instr_get_opcode(bb->instr) == OP_mov_seg ||
+                 (INTERNAL_OPTION(mangle_app_seg) &&
+                  instr_get_opcode(bb->instr) == OP_pop &&
+                  instr_push_pop_seg(bb->instr) != REG_NULL)) {
             if (!bb_process_mov_seg(dcontext, bb))
                 break;
         }

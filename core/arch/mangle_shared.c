@@ -2004,6 +2004,8 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags DR_PARAM_INOUT,
             mangle_seg_ref(dcontext, ilist, instr, next_instr);
             if (instr_get_opcode(instr) == OP_mov_seg)
                 mangle_mov_seg(dcontext, ilist, instr, next_instr);
+            else if (instr_push_pop_seg(instr) != REG_NULL)
+                mangle_push_pop_seg(dcontext, ilist, instr, next_instr);
         }
 #endif
 

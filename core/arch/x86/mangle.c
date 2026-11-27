@@ -2935,6 +2935,83 @@ mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     }
 }
 
+reg_id_t
+instr_push_pop_seg(instr_t *instr)
+{
+    opnd_t opnd;
+    reg_id_t seg;
+    if (instr_get_opcode(instr) == OP_push)
+        opnd = instr_get_src(instr, 0);
+    else if (instr_get_opcode(instr) == OP_pop)
+        opnd = instr_get_dst(instr, 0);
+    else
+        return REG_NULL;
+    if (!opnd_is_reg(opnd))
+        return REG_NULL;
+    seg = opnd_get_reg(opnd);
+    if (seg != SEG_FS && seg != SEG_GS)
+        return REG_NULL;
+    return seg;
+}
+
+/* We virtualize the push and pop of fs and gs like OP_mov_seg.  A pop starts its own bb
+ * (see bb_process_mov_seg()) and only updates the stack pointer here: os_handle_mov_seg()
+ * records the selector it pops when we enter that bb.  A push pushes the app's selector
+ * rather than ours, zero-extended: for a 32-bit operand size the processor may instead
+ * write only the low 16 bits, but zero-extension is also permitted.
+ */
+void
+mangle_push_pop_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                    instr_t *next_instr)
+{
+    reg_id_t seg = instr_push_pop_seg(instr);
+    bool is_pop = instr_get_opcode(instr) == OP_pop;
+    opnd_t stack_slot;
+    uint slot_size;
+    if (seg == REG_NULL)
+        return;
+    if (seg == LIB_SEG_TLS && !INTERNAL_OPTION(private_loader))
+        return;
+    stack_slot = is_pop ? instr_get_src(instr, 1) : instr_get_dst(instr, 1);
+    ASSERT(opnd_is_base_disp(stack_slot));
+    slot_size = opnd_size_in_bytes(opnd_get_size(stack_slot));
+    STATS_INC(app_mov_seg_mangled);
+    if (is_pop) {
+        /* Turn "pop seg" into "lea slot_size(xsp) => xsp". */
+        app_pc xl8 = get_app_instr_xl8(instr);
+        instr_reuse(dcontext, instr);
+        instr_set_opcode(instr, OP_lea);
+        instr_set_num_opnds(dcontext, instr, 1, 1);
+        instr_set_dst(instr, 0, opnd_create_reg(REG_XSP));
+        instr_set_src(instr, 0,
+                      opnd_create_base_disp(REG_XSP, REG_NULL, 0, slot_size, OPSZ_lea));
+        instr_set_translation(instr, xl8);
+        /* With no spills and just a single instr, no reason to set as our_mangling. */
+    } else {
+        /* Turn "push seg" into a push of the app's selector, zero-extended into xax. */
+        reg_id_t push_reg;
+        switch (slot_size) {
+        case 2: push_reg = REG_AX; break;
+        case 4: push_reg = REG_EAX; break;
+        default:
+            ASSERT(IF_X64_ELSE(slot_size == 8, false));
+            push_reg = REG_XAX;
+            break;
+        }
+        PRE(ilist, instr, instr_create_save_to_tls(dcontext, REG_XAX, tls_slots[0]));
+        PRE(ilist, instr,
+            INSTR_CREATE_movzx(
+                dcontext, opnd_create_reg(REG_EAX),
+                opnd_create_sized_tls_slot(os_tls_offset(os_get_app_tls_reg_offset(seg)),
+                                           OPSZ_2)));
+        instr_set_src(instr, 0, opnd_create_reg(push_reg));
+        PRE(ilist, next_instr,
+            instr_create_restore_from_tls(dcontext, REG_XAX, tls_slots[0]));
+        /* To handle xl8 for the spill/restore we need the app instr to be marked. */
+        instr_set_our_mangling(instr, true);
+    }
+}
+
 /* mangle the instruction that reference memory via segment register */
 void
 mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,

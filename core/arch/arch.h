@@ -740,6 +740,15 @@ mangle_annotation_helper(dcontext_t *dcontext, instr_t *label, instrlist_t *ilis
 void
 mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                instr_t *next_instr);
+/* Returns the segment register, fs or gs, that the push or pop "instr" pushes or pops,
+ * or REG_NULL.
+ */
+reg_id_t
+instr_push_pop_seg(instr_t *instr);
+/* Mangles the push or pop of the fs or gs segment register "instr". */
+void
+mangle_push_pop_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                    instr_t *next_instr);
 void
 mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 instr_t *next_instr, uint *flags DR_PARAM_OUT);

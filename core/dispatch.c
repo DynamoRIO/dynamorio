@@ -466,9 +466,10 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
      * routines that need it and wrap just those.
      */
     ASSERT(
-        get_libc_errno() == dcontext->libc_errno ||
-        /* w/ private loader, our errno is disjoint from app's */
-        INTERNAL_OPTION(private_loader) ||
+        /* With the private loader, our errno is disjoint from the app's.  Test this
+         * first: the app's errno location is unknown if its lib TLS segment has no base.
+         */
+        INTERNAL_OPTION(private_loader) || get_libc_errno() == dcontext->libc_errno ||
         /* only when pthreads is loaded does libc switch to a per-thread
          * errno, so our raw thread tests end up using the same errno
          * for each thread!
