@@ -1867,6 +1867,7 @@ pick_scratch_reg(dcontext_t *dcontext, instr_t *instr, reg_id_t do_not_pick_a,
     if (should_restore != NULL)
         *should_restore = true;
 
+    /* Try to reuse the last used scratch reg/slot so we can optimise spills/restores. */
     if (find_prior_scratch_reg_restore(dcontext, instr, &reg, NULL) != NULL &&
         reg != REG_NULL && !instr_uses_reg(instr, reg) &&
         !reg_overlap(reg, do_not_pick_a) && !reg_overlap(reg, do_not_pick_b) &&
