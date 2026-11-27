@@ -154,6 +154,81 @@ cause_sigsegv(void)
     return val;
 }
 
+#ifdef AARCH64
+/* The stolen register mangling can optimise some move instructions into a direct load
+ * from/store to TLS. Test these instructions work correctly.
+ */
+static bool
+test_optimised_moves(void)
+{
+#    define CHECK_INSTR(instr, readback, expected)                                \
+        do {                                                                      \
+            uint64_t result;                                                      \
+            __asm__ __volatile__("movn x28, #0\n\t" instr "\n\t" readback         \
+                                 : [result] "=r"(result)                          \
+                                 : [input] "r"(input)                             \
+                                 : "x28");                                        \
+            if (result != (expected)) {                                           \
+                print("ERROR: Incorrect stolen register result for %s\n", instr); \
+                return false;                                                     \
+            }                                                                     \
+        } while (0)
+
+    const uint64_t input = 0x123456789abcdef0ULL;
+    const uint64_t input32 = input & 0xffffffff;
+
+    /* Move x28 to result register without using a mov instruction to avoid using
+     * optimised instructions for the readback.
+     */
+#    define READBACK_FROM_X28 "add %x[result], x28, #0"
+
+    /* "mov" is an alias of other instructions (mostly "orr" for scalar instructions).
+     * We use the underlying instruction so we can be explicit about which encodings to
+     * use and so we can try operands in different positions.
+     */
+
+    /* mov x28, input */
+    CHECK_INSTR("orr x28, xzr, %[input]", READBACK_FROM_X28, input);
+    CHECK_INSTR("orr x28, %[input], xzr", READBACK_FROM_X28, input);
+
+    /* mov w28, input */
+    CHECK_INSTR("orr w28, wzr, %w[input]", READBACK_FROM_X28, input32);
+    CHECK_INSTR("orr w28, %w[input], wzr", READBACK_FROM_X28, input32);
+
+    /* mov result, x28 */
+    CHECK_INSTR("orr %[result], xzr, x28", "", UINT64_MAX);
+    CHECK_INSTR("orr %[result], x28, xzr", "", UINT64_MAX);
+
+    /* mov result, w28 */
+    CHECK_INSTR("orr %w[result], wzr, w28", "", UINT32_MAX);
+    CHECK_INSTR("orr %w[result], w28, wzr", "", UINT32_MAX);
+
+    /* mov x28, x28 */
+    CHECK_INSTR("orr x28, xzr, x28", READBACK_FROM_X28, UINT64_MAX);
+    CHECK_INSTR("orr x28, x28, xzr", READBACK_FROM_X28, UINT64_MAX);
+
+    /* mov w28, w28 */
+    CHECK_INSTR("orr w28, wzr, w28", READBACK_FROM_X28, UINT32_MAX);
+    CHECK_INSTR("orr w28, w28, wzr", READBACK_FROM_X28, UINT32_MAX);
+
+    /* mov x28, #0 */
+    CHECK_INSTR("orr x28, xzr, xzr", READBACK_FROM_X28, 0);
+    CHECK_INSTR("movz x28, #0", READBACK_FROM_X28, 0);
+
+    /* mov w28, #0 */
+    CHECK_INSTR("orr w28, wzr, wzr", READBACK_FROM_X28, 0);
+    CHECK_INSTR("movz w28, #0", READBACK_FROM_X28, 0);
+
+    /* Make sure the optimiser only detects reg -> reg moves with a zero shift. */
+    CHECK_INSTR("orr x28, xzr, %[input], lsl #1", READBACK_FROM_X28, input << 1);
+    CHECK_INSTR("orr w28, wzr, %w[input], lsl #1", READBACK_FROM_X28,
+                (input << 1) & 0xffffffff);
+
+#    undef CHECK_INSTR
+    return true;
+}
+#endif
+
 THREAD_FUNC_RETURN_TYPE
 thread_func(void *arg)
 {
@@ -195,6 +270,10 @@ thread_func(void *arg)
 int
 main(int argc, char **argv)
 {
+#ifdef AARCH64
+    if (!test_optimised_moves())
+        return 1;
+#endif
     intercept_signal(SIGSEGV, signal_handler, false);
 
     /* First, raise SIGSEGV and continue at the same context. */
