@@ -2282,10 +2282,19 @@ mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                instr_num_dsts(instr) == 1);
         ASSERT(opnd_is_reg(instr_get_dst(instr, 0)));
         /* mov stolen_reg -> stolen_reg */
-        if (opnd_same(src, dst)) {
+        if (opnd_same(src, dst) IF_AARCH64(&&opnd_is_reg_pointer_sized(src))) {
+            return;
+        }
+        /* This optimization changes the original instr, so it is only applied
+         * if instr_to_be_removed is false.
+         */
+        if (!instr_to_be_removed) {
+            opnd = opnd_create_tls_slot(os_tls_offset(TLS_REG_STOLEN_SLOT));
 #ifdef AARCH64
-            if (reg_get_size(opnd_get_reg(src)) == OPSZ_4) {
-                /* 32-bit mov zeroes the upper 32-bits.
+            if (opnd_same(src, dst) && reg_get_size(opnd_get_reg(src)) == OPSZ_4) {
+                /* mov stolen_reg32 -> stolen_reg32
+                 *
+                 * 32-bit mov zeroes the upper 32-bits.
                  * str wzr -> [stolen_reg_slot + 4]
                  */
                 instr_remove_srcs(dcontext, instr, 1, instr_num_srcs(instr));
@@ -2294,18 +2303,12 @@ mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 instr_set_dst(instr, 0,
                               opnd_create_sized_tls_slot(
                                   os_tls_offset(TLS_REG_STOLEN_SLOT) + 4, OPSZ_4));
-            }
+                return;
+            } else
 #endif
-            return;
-        }
-        /* this optimization changes the original instr, so it is only applied
-         * if instr_to_be_removed is false
-         */
-        if (!instr_to_be_removed) {
-            opnd = opnd_create_tls_slot(os_tls_offset(TLS_REG_STOLEN_SLOT));
-            if (opnd_get_reg(src) ==
-                dr_reg_stolen IF_AARCH64(
-                    || opnd_get_reg(src) == reg_64_to_32(dr_reg_stolen))) {
+                if (opnd_get_reg(src) ==
+                    dr_reg_stolen IF_AARCH64(
+                        || opnd_get_reg(src) == reg_64_to_32(dr_reg_stolen))) {
                 /* mov stolen_reg -> rx, convert to a ldr */
 #ifdef AARCH64
                 opnd_set_size(&opnd, opnd_get_size(src));
