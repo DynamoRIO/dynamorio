@@ -2929,8 +2929,11 @@ endif (X86 OR AARCH64 OR RISCV64)
 if (X86 OR AARCH64) # XXX i#1551: port asm to ARM
   tobuild_ci(client.strace client-interface/strace.c "" "" "")
   use_DynamoRIO_extension(client.strace.dll drmgr)
-  tobuild_ci(client.thread client-interface/thread.c "-paramx -paramy" "" "")
   tobuild_appdll(client.thread client-interface/thread.c)
+  get_target_path_for_execution(thread_appdll_path
+    client.thread.appdll "${location_suffix}")
+  tobuild_ci(client.thread client-interface/thread.c "-paramx -paramy" ""
+    "${thread_appdll_path}")
 endif (X86 OR AARCH64)
 # XXX: PR 199115 to re-enable fragdel, get some more of the UNIX tests working
 #tobuild_ci(client.fragdel client-interface/fragdel.c "" "" "")

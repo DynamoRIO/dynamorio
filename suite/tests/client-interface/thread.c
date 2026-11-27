@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -55,6 +55,8 @@ am_I_last_thread(void)
         return last;
     return FALSE;
 }
+#else
+#    include <dlfcn.h>
 #endif
 
 int
@@ -113,6 +115,21 @@ main(int argc, const char *argv[])
     NOP;
     NOP;
     NOP;
+    /* Test i#8308: load, execute, and unload a shared library so cached blocks are
+     * flushed before the init-time client thread exits.
+     */
+    assert(argc >= 2);
+    void *lib = dlopen(argv[1], RTLD_NOW);
+    if (lib == NULL) {
+        print("error loading library %s: %s\n", argv[1], dlerror());
+    } else {
+        int (*fn)(int) = (int (*)(int))dlsym(lib, "import_me");
+        if (fn == NULL)
+            print("error looking up symbol: %s\n", dlerror());
+        else
+            fn(0);
+        dlclose(lib);
+    }
 #endif
     print("thank you for testing the client interface\n");
 }
