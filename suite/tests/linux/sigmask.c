@@ -52,7 +52,10 @@
 
 static void *child_ready;
 static void *child_exit;
+static void *initial_sigalrm_sent;
 static volatile bool should_exit;
+static volatile int alarm_handler_runs_init_thread;
+static volatile int alarm_handler_runs_helper_thread;
 static pthread_t unblocked_thread;
 
 #define MAGIC_VALUE 0xdeadbeef
@@ -92,90 +95,19 @@ thread_routine(void *arg)
     while (true) {
         sigsuspend(&set);
     }
+    print("ERROR: unexpected return in thread_routine\n");
     return NULL;
 }
 
 static void
-alarm_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
+run_reroute_test(void)
 {
-    if (pthread_self() == unblocked_thread) {
-        if (sig != SIGALRM)
-            print("Unexpected signal %d\n", sig);
-#ifdef LINUX
-        /* We take advantage of DR's lack of transparency where its reroute uses tkill
-         * but the original was process-wide so we can detect a rerouted signal.
-         * Without the logic in DR to not reroute a signal when blocked due to
-         * being inside a handler, this code is triggered and the print fails the
-         * test. Unfortunately we have no simple way of checking this on Mac.
-         */
-        if (siginfo->si_code == SI_TKILL)
-            print("signal from tkill (rerouted?) not expected\n");
-#endif
-    } else {
-        if (sig == SIGALRM && !should_exit) {
-            signal_cond_var(child_ready);
-            /* Sit in the handler with SIGALRM blocked. */
-            wait_cond_var(child_exit);
-        }
-    }
-}
-
-static void *
-test_alarm_signals(void *arg)
-{
-    /* Test alarm signals not being rerouted from handlers. */
-    pthread_t init_thread = (pthread_t)arg;
-    unblocked_thread = pthread_self();
-    /* We must unblock SIGALRM in the helper thread because it inherited the
-     * blocked mask from the main thread, and we need it unblocked here so that
-     * process-wide SIGALRM signals (from setitimer) can be delivered to this
-     * thread to verify they are not incorrectly rerouted by DR.
-     */
-    sigset_t unblock_set;
-    sigemptyset(&unblock_set);
-    sigaddset(&unblock_set, SIGALRM);
-    pthread_sigmask(SIG_UNBLOCK, &unblock_set, NULL);
-    intercept_signal(SIGALRM, alarm_handler, false);
-
-    /* Get init thread inside its handler. */
-    pthread_kill(init_thread, SIGALRM);
-    wait_cond_var(child_ready);
-    reset_cond_var(child_ready);
-
-    print("init thread now inside handler: setting up itimer\n");
-    struct itimerval t;
-    t.it_interval.tv_sec = 0;
-    t.it_interval.tv_usec = 10000;
-    t.it_value.tv_sec = 0;
-    t.it_value.tv_usec = 10000;
-    int res = setitimer(ITIMER_REAL, &t, NULL);
-    if (res != 0)
-        perror("setitimer failed");
-    /* Let a bunch of real-time signals arrive. */
-    for (int i = 0; i < 10; i++)
-        thread_sleep(25);
-    /* Turn off the itimer. */
-    memset(&t, 0, sizeof(t));
-    res = setitimer(ITIMER_REAL, &t, NULL);
-    if (res != 0)
-        perror("setitimer failed");
-
-    /* Exit. */
-    print("done with itimer; exiting\n");
-    should_exit = true;
-    signal_cond_var(child_exit);
-
-    return NULL;
-}
-
-int
-main(int argc, char **argv)
-{
+    print("in run_reroute_test\n");
     pthread_t thread;
     void *retval;
 
-    child_ready = create_cond_var();
-    child_exit = create_cond_var();
+    reset_cond_var(child_ready);
+    reset_cond_var(child_exit);
 
     if (pthread_create(&thread, NULL, thread_routine, NULL) != 0) {
         perror("failed to create thread");
@@ -223,15 +155,117 @@ main(int argc, char **argv)
     pthread_kill(thread, SIGUSR2);
     if (pthread_join(thread, &retval) != 0)
         perror("failed to join thread");
+}
 
-    /* Test alarm signal rerouting.  Since process-wide signals are overwhelmingly
-     * delivered to the initial thread (I can't get them to go anywhere else!), we
-     * need this thread to be the one sitting in a SIGALRM handler while we test whether
-     * signals are rerouted from there.  We create a thread to put us in the handler
-     * and drive the test.
-     * It would be nice to have a guarantee that the signal will come here but
-     * that doesn't seem possible.
+static void
+alarm_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+    if (pthread_self() == unblocked_thread) {
+        if (sig != SIGALRM)
+            print("Unexpected signal %d\n", sig);
+#ifdef LINUX
+        /* We take advantage of DR's lack of transparency where its reroute uses tkill
+         * but the original was process-wide so we can detect a rerouted signal.
+         * Without the logic in DR to not reroute a signal when blocked due to
+         * being inside a handler, this code is triggered and the print fails the
+         * test. Unfortunately we have no simple way of checking this on Mac.
+         */
+        if (siginfo->si_code == SI_TKILL)
+            print("signal from tkill (rerouted?) not expected\n");
+#endif
+        ++alarm_handler_runs_helper_thread;
+    } else {
+        if (sig == SIGALRM && !should_exit) {
+            ++alarm_handler_runs_init_thread;
+            signal_cond_var(child_ready);
+            /* Sit in the handler with SIGALRM blocked. */
+            wait_cond_var(child_exit);
+        }
+    }
+}
+
+static void *
+test_alarm_signals(void *arg)
+{
+    /* Test alarm signals not being rerouted from handlers. */
+    pthread_t init_thread = (pthread_t)arg;
+    unblocked_thread = pthread_self();
+    /* We must unblock SIGALRM in the helper thread because it inherited the
+     * blocked mask from the main thread, and we need it unblocked here so that
+     * process-wide SIGALRM signals (from setitimer) can be delivered to this
+     * thread to verify they are not incorrectly rerouted by DR.
      */
+    sigset_t unblock_set;
+    sigemptyset(&unblock_set);
+    sigaddset(&unblock_set, SIGALRM);
+    pthread_sigmask(SIG_UNBLOCK, &unblock_set, NULL);
+    intercept_signal(SIGALRM, alarm_handler, false);
+
+    /* Get init thread inside its handler. */
+    pthread_kill(init_thread, SIGALRM);
+    signal_cond_var(initial_sigalrm_sent);
+
+    /* We must wait for the main thread to successfully enter its handler
+     * (signaling child_ready) before we start the itimer. If the main thread
+     * never receives the above SIGALRM and hangs in sigsuspend, we will block
+     * here and never start the itimer.
+     */
+    wait_cond_var(child_ready);
+    reset_cond_var(child_ready);
+
+    print("init thread now inside handler: setting up itimer\n");
+    struct itimerval t;
+    t.it_interval.tv_sec = 0;
+    t.it_interval.tv_usec = 10000;
+    t.it_value.tv_sec = 0;
+    t.it_value.tv_usec = 10000;
+    int res = setitimer(ITIMER_REAL, &t, NULL);
+    if (res != 0)
+        perror("setitimer failed");
+    /* Let a bunch of real-time signals arrive. */
+    for (int i = 0; i < 10; i++)
+        thread_sleep(25);
+    /* Turn off the itimer. */
+    memset(&t, 0, sizeof(t));
+    res = setitimer(ITIMER_REAL, &t, NULL);
+    if (res != 0)
+        perror("setitimer failed");
+
+    /* Exit. */
+    print("done with itimer; exiting\n");
+    should_exit = true;
+    signal_cond_var(child_exit);
+
+#ifdef DISABLED_ISSUE_2311
+    /* TODO i#2311: PR #5482 disabled rerouting of alarm signals while already
+     * in the app signal handler. This was done to avoid problems on large
+     * apps where rerouting sent them to other threads instead of dropping
+     * if many accumulated. The following check fails when run under DR
+     * but passes otherwise.
+     */
+    if (alarm_handler_runs_helper_thread == 0) {
+        print("ERROR: helper thread did not receive any itimer signals\n");
+    }
+#endif
+
+    return NULL;
+}
+
+static void
+run_alarm_test(bool ensure_pending_sig)
+{
+    print("in run_alarm_test with ensure_pending_sig=%d\n", ensure_pending_sig);
+
+    pthread_t thread;
+    void *retval;
+    sigset_t set;
+
+    alarm_handler_runs_helper_thread = 0;
+    alarm_handler_runs_init_thread = 0;
+    should_exit = false;
+    reset_cond_var(child_ready);
+    reset_cond_var(child_exit);
+    reset_cond_var(initial_sigalrm_sent);
 
     /* We block SIGALRM here to avoid a race condition where the helper thread
      * sends SIGALRM via pthread_kill before this main thread actually enters
@@ -248,22 +282,69 @@ main(int argc, char **argv)
         perror("failed to create thread");
         exit(1);
     }
+
+    if (ensure_pending_sig) {
+        /* Ensure that the SIGALRM is already pending before this thread enters
+         * sigsuspend below. This verifies the case where an eligible signal is
+         * already pending for delivery to the app when the app enters the
+         * sigsuspend, in which case DR should skip the sigsuspend.
+         */
+        wait_cond_var(initial_sigalrm_sent);
+    } else {
+        /* In native runs, the SIGALRM will be delivered to the app after this
+         * thread unblocks it at the sigsuspend. But in runs under DR, since
+         * SIGALRM is not blocked, it may be delivered to DR and queued up as
+         * pending before this thread enters sigsuspend (same as the
+         * ensure_pending_sig case above).
+         * This is a best effort verification for the case where DR indeed enters
+         * the sigsuspend and gets released by the kernel at the SIGALRM.
+         */
+    }
+
     sigemptyset(&set);
+    int runs_before = alarm_handler_runs_init_thread;
     bool did_sigsuspend = false;
     while (!should_exit) {
         did_sigsuspend = true;
         /* We expect just one signal but best practice is to always loop. */
         sigsuspend(&set);
     }
-    if (pthread_join(thread, &retval) != 0)
-        perror("failed to join thread");
 
-    destroy_cond_var(child_ready);
-    destroy_cond_var(child_exit);
-
+    if (alarm_handler_runs_init_thread <= runs_before) {
+        print("ERROR: SIGALRM handler did not run in main thread!\n");
+    }
     if (!did_sigsuspend) {
         print("ERROR: app did not execute the sigsuspend\n");
     }
+
+    if (pthread_join(thread, &retval) != 0)
+        perror("failed to join thread");
+}
+
+int
+main(int argc, char **argv)
+{
+    child_ready = create_cond_var();
+    child_exit = create_cond_var();
+    initial_sigalrm_sent = create_cond_var();
+
+    run_reroute_test();
+
+    /* Test alarm signal rerouting.
+     * This is the case where the signal may or may not be already sent when we
+     * block at the sigsuspend.
+     */
+    run_alarm_test(/*ensure_pending_sig=*/false);
+
+    /* Test the case where the signal is guaranteed to be recorded as pending in the
+     * kernel before sigsuspend blocks.
+     */
+    run_alarm_test(/*ensure_pending_sig=*/true);
+
+    destroy_cond_var(child_ready);
+    destroy_cond_var(child_exit);
+    destroy_cond_var(initial_sigalrm_sent);
+
     print("all done\n");
 
     return 0;
