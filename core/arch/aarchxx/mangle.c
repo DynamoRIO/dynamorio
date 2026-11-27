@@ -953,7 +953,7 @@ insert_save_to_tls_if_necessary(dcontext_t *dcontext, instrlist_t *ilist, instr_
         ASSERT(instr_is_DR_reg_spill_or_restore(dcontext, prev, &tls, &spill, &prior_reg,
                                                 NULL) &&
                tls && !spill && prior_reg == reg);
-        /* remove the redundant restore-spill pair */
+        /* Remove the now-redundant restore. */
         instrlist_remove(ilist, prev);
         instr_destroy(dcontext, prev);
         STATS_INC(non_mbr_respill_avoided);
