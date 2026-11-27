@@ -323,24 +323,12 @@ for (my $i = 0; $i <= $#lines; ++$i) {
             %ignore_failures_64 = (
                 'code_api|api.symtest' => 1, # i#1472
                 # i#7529: New failures on GA Server22.
-                'code_api|client.annotation-detection' => 1, # i#7529
-                'code_api|client.annotation-detection-opt' => 1, # i#7529
                 'code_api|client.annotation-detection.bb-truncate-1' => 1, # i#7529
                 'code_api|client.annotation-detection.bb-truncate-2' => 1, # i#7529
-                'code_api|client.annotation-detection.full-decode' => 1, # i#7529
-                'code_api|client.annotation-detection.full-decode.tiny-bb' => 1, # i#7529
-                'code_api|client.drwrap-test' => 1, # i#7529
-                'code_api|client.execfault' => 1, # i#7529
-                'code_api|client.float_vmbase' => 1, # i#7529
-                'code_api|client.winxfer' => 1, # i#7529
-                'code_api|float_vmbase' => 1, # i#7529
-                'code_api|low4GB' => 1, # i#7529
-                'code_api|security-common.selfmod' => 1, # i#7529
                 'code_api|tool.drcacheoff.basic_counts' => 1, # i#7529
                 'code_api|tool.drcacheoff.gencode' => 1, # i#7529
                 'code_api|tool.drcacheoff.gencode_filtered' => 1, # i#7529
                 'code_api|tool.drcpusim.simple' => 1, # i#7529
-                'code_api|win32.winapc' => 1, # i#7529
                 # i#5195: These are failing on GA Server19.
                 'code_api|client.drsyms-test' => 1, # i#5195
                 'code_api|client.drsyms-testgcc' => 1, # i#5195

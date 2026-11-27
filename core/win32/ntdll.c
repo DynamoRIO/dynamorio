@@ -622,8 +622,10 @@ syscalls_init()
         app_pc wrapper;
         ASSERT(ntdllh != NULL);
         for (i = 0; i < SYS_MAX; i++) {
-            if (syscalls[i] == SYSCALL_NOT_PRESENT) /* presumably matches known ver */
-                continue;
+            /* Entries our tables lack are looked up too: a system call newer than our
+             * newest table, such as NtContinueEx (i#8262), has a wrapper only where
+             * it exists.
+             */
             wrapper = (app_pc)d_r_get_proc_address(ntdllh, syscall_names[i]);
             if (wrapper != NULL && !ALLOW_HOOKER(wrapper)) {
                 syscalls[i] = *((int *)((wrapper) + SYSNUM_OFFS));
