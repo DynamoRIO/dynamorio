@@ -2194,7 +2194,6 @@ is_mov_register(instr_t *instr, DR_PARAM_OUT opnd_t *src_out,
         /* Check for one of:
          * orr  dst, src, xzr
          * orr  dst, xzr, src, lsl #0
-         * orr  dst, src, #0
          */
         const bool src0_is_zero =
             (opnd_is_reg(src0) &&
@@ -2203,8 +2202,7 @@ is_mov_register(instr_t *instr, DR_PARAM_OUT opnd_t *src_out,
         opnd_t src1 = instr_get_src(instr, 1);
         const bool src1_is_zero =
             (opnd_is_reg(src1) &&
-             (opnd_get_reg(src1) == DR_REG_XZR || opnd_get_reg(src1) == DR_REG_WZR)) ||
-            (opnd_is_immed_int(src1) && opnd_get_immed_int(src1) == 0);
+             (opnd_get_reg(src1) == DR_REG_XZR || opnd_get_reg(src1) == DR_REG_WZR));
 
         const bool src1_is_unshifted =
             instr_num_srcs(instr) < 4 || opnd_get_immed_int(instr_get_src(instr, 3)) == 0;
